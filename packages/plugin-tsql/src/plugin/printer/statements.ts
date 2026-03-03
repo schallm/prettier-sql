@@ -1,0 +1,884 @@
+import type { Doc } from 'prettier';
+import { builders } from 'prettier/doc';
+import type { SqlNode } from '../parser/types.js';
+import type { Options } from './utils.js';
+import { keyword, getDensity, hardline, join, indent, group, line } from './utils.js';
+import { prop, propArr, propStr, propBool } from './helpers.js';
+import {
+    printExpression,
+    printBoolExpr,
+    printTableRef,
+    printOrderByClause,
+    printQueryExpression,
+} from './expressions.js';
+
+const { softline, lineSuffix } = builders;
+
+/** Print a node via the expression dispatcher (no path needed for inner nodes) */
+function printNode(node: SqlNode, opts: Options): Doc {
+    return printExpression(node, opts, (n) => printNode(n, opts));
+}
+
+/**
+ * Append a trailing comment to a doc.
+ * Line comments (--) stay on the same line via lineSuffix.
+ * Block comments go on their own line(s) after the doc.
+ */
+function appendTrailingComment(doc: Doc, comment: string | undefined): Doc {
+    if (!comment) return doc;
+    if (comment.startsWith('--')) return [doc, lineSuffix([' ', comment])];
+    return [doc, ...comment.split('\n').flatMap((c): Doc[] => [hardline, c])];
+}
+
+/**
+ * Print a statement together with any leading comments (above it) and
+ * trailing comment (after it).  Used for both top-level and inner statements.
+ */
+function printStatementWithComments(s: SqlNode, opts: Options): Doc {
+    const stmtDoc = printStatement(s, opts);
+    const withTrailing = appendTrailingComment(stmtDoc, s.trailingComment);
+    if (s.leadingComments?.length) {
+        return [
+            ...s.leadingComments.flatMap((c): Doc[] => [c, hardline]),
+            withTrailing,
+        ] as Doc;
+    }
+    return withTrailing;
+}
+
+function printBool(node: SqlNode, opts: Options): Doc {
+    return printBoolExpr(node, opts, (n) => printNode(n, opts));
+}
+
+// Walk to the rightmost non-BooleanBinary leaf (mirrors the one in expressions.ts).
+function rightmostBoolLeaf(node: SqlNode | null | undefined): SqlNode | null {
+    if (!node) return null;
+    if (node.type === 'BooleanBinary') return rightmostBoolLeaf(prop(node, 'right'));
+    return node;
+}
+
+// Append any trailing comment that lives on the rightmost predicate leaf.
+// This catches: (a) single-predicate WHERE with a comment below it, and
+// (b) a comment after the last active predicate in a multi-predicate WHERE.
+function printBoolDoc(where: SqlNode, opts: Options): Doc {
+    const base = printBool(where, opts);
+    const trailing = rightmostBoolLeaf(where)?.trailingComment;
+    if (!trailing) return base;
+    return [base, ...trailing.split('\n').flatMap((c): Doc[] => [hardline, c])];
+}
+
+function printTable(node: SqlNode, opts: Options): Doc {
+    return printTableRef(node, opts, (n) => printNode(n, opts));
+}
+
+// ---------------------------------------------------------------------------
+// Script / Batch
+// ---------------------------------------------------------------------------
+
+// Statement types that must be the only statement in their batch.
+const BATCH_ISOLATING = new Set([
+    'CreateViewStatement', 'AlterViewStatement', 'CreateOrAlterViewStatement',
+    'CreateProcedureStatement', 'CreateFunctionStatement',
+]);
+
+export function printScript(node: SqlNode, opts: Options): Doc {
+    const batches = propArr(node, 'batches');
+    if (batches.length === 0) return '';
+
+    const go = keyword('go', opts);
+
+    // When the input already used GO, emit it between batches.
+    // Also emit it after batches that contain an isolating statement.
+    const parts: Doc[] = [];
+    for (let i = 0; i < batches.length; i++) {
+        if (i > 0) parts.push(hardline, hardline);
+        parts.push(printBatch(batches[i]!, opts));
+        const stmts = propArr(batches[i]!, 'statements');
+        const needsGo = batches.length > 1
+            || stmts.some(s => BATCH_ISOLATING.has(s.type));
+        if (needsGo) parts.push(hardline, go);
+    }
+    return parts;
+}
+
+function printBatch(node: SqlNode, opts: Options): Doc {
+    const stmts = propArr(node, 'statements');
+    if (stmts.length === 0) return '';
+    return join([hardline, hardline], stmts.map((s) => printStatementWithComments(s, opts)));
+}
+
+// ---------------------------------------------------------------------------
+// Statement dispatcher
+// ---------------------------------------------------------------------------
+
+export function printStatement(node: SqlNode, opts: Options): Doc {
+    switch (node.type) {
+        case 'SelectStatement':         return printSelect(node, opts);
+        case 'InsertStatement':         return printInsert(node, opts);
+        case 'UpdateStatement':         return printUpdate(node, opts);
+        case 'DeleteStatement':         return printDelete(node, opts);
+        case 'CreateTableStatement':    return printCreateTable(node, opts);
+        case 'AlterTableStatement':     return printAlterTable(node, opts);
+        case 'CreateIndexStatement':    return printCreateIndex(node, opts);
+        case 'CreateProcedureStatement': return printCreateProcedure(node, opts);
+        case 'CreateFunctionStatement': return printCreateFunction(node, opts);
+        case 'CreateViewStatement':
+        case 'AlterViewStatement':
+        case 'CreateOrAlterViewStatement': return printCreateView(node, opts);
+        case 'BeginEndBlock': {
+            const stmts = propArr(node, 'statements');
+            return join([hardline, hardline], stmts.map((s) => printStatementWithComments(s, opts)));
+        }
+        case 'BeginTransactionStatement': return printBeginTransaction(node, opts);
+        case 'CommitTransactionStatement': return printCommitTransaction(node, opts);
+        case 'RollbackTransactionStatement': return printRollbackTransaction(node, opts);
+        case 'DeclareVariableStatement':    return printDeclareVariable(node, opts);
+        case 'DeclareTableVariableStatement': return printDeclareTableVariable(node, opts);
+        case 'SetVariableStatement':        return printSetVariable(node, opts);
+        case 'SetRowCountStatement':        return printSetRowCount(node, opts);
+        case 'PrintStatement':              return printPrint(node, opts);
+        case 'ReturnStatement':             return printReturn(node, opts);
+        case 'IfStatement':                 return printIf(node, opts);
+        case 'WhileStatement':              return printWhile(node, opts);
+        case 'ExecuteStatement':            return printExecute(node, opts);
+        default:
+            return node.text ?? `/* unhandled statement: ${node.type} */`;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SELECT
+// ---------------------------------------------------------------------------
+
+/** Shorthand: print a query expression node using the local printFn. */
+function qexpr(node: SqlNode, opts: Options): Doc {
+    return printQueryExpression(node, opts, (n) => printNode(n, opts));
+}
+
+function printCtes(node: SqlNode, opts: Options): Doc[] {
+    const ctes = propArr(node, 'ctes');
+    if (ctes.length === 0) return [];
+
+    const cteDocs = ctes.map((cte, i) => {
+        const name = propStr(cte, 'name') ?? 'cte';
+        const cols = cte.props?.['columns'] as string[] | undefined;
+        const query = prop(cte, 'query');
+
+        const colsPart: Doc = cols?.length
+            ? [' (', join(', ', cols), ')']
+            : '';
+
+        return [
+            i === 0 ? keyword('WITH', opts) + ' ' : '    ',
+            name,
+            colsPart,
+            ' ',
+            keyword('AS', opts),
+            ' (',
+            indent([hardline, query ? qexpr(query, opts) : '']),
+            hardline,
+            ')',
+        ] as Doc;
+    });
+
+    return [join([',', hardline], cteDocs), hardline];
+}
+
+export function printSelect(node: SqlNode, opts: Options): Doc {
+    const ctesDocs = printCtes(node, opts);
+    const queryExpr = prop(node, 'queryExpression');
+    const orderBy = prop(node, 'orderBy');
+    const optimizerHints = node.props?.['optimizerHints'] as string[] | undefined;
+
+    const parts: Doc[] = [
+        ...ctesDocs,
+        queryExpr ? qexpr(queryExpr, opts) : '',
+    ];
+
+    if (orderBy) {
+        parts.push(hardline, printOrderByClause(orderBy, opts, (n) => printNode(n, opts)));
+    }
+
+    if (optimizerHints?.length) {
+        parts.push(hardline, keyword('OPTION', opts), ' (', join(', ', optimizerHints.map(h => keyword(h, opts))), ')');
+    }
+
+    parts.push(';');
+    return group(parts);
+}
+
+// ---------------------------------------------------------------------------
+// INSERT
+// ---------------------------------------------------------------------------
+
+export function printInsert(node: SqlNode, opts: Options): Doc {
+    const ctesDocs = printCtes(node, opts);
+    const target = prop(node, 'target');
+    const columns = propArr(node, 'columns');
+    const source = prop(node, 'source');
+
+    const colsPart: Doc = columns.length
+        ? [
+            ' (',
+            indent([softline, join([',', line], columns.map((c) => printNode(c, opts)))]),
+            softline,
+            ')',
+          ]
+        : '';
+
+    const targetDoc = target ? printTable(target, opts) : '';
+
+    const sourcePart: Doc = source?.type === 'ValuesSource'
+        ? printValuesSource(source, opts)
+        : source
+        ? [hardline, qexpr(source, opts)]
+        : '';
+
+    return group([
+        ...ctesDocs,
+        keyword('INSERT INTO', opts),
+        ' ',
+        targetDoc,
+        colsPart,
+        sourcePart,
+        ';',
+    ]);
+}
+
+function printValuesSource(node: SqlNode, opts: Options): Doc {
+    const rows = node.props?.['rows'];
+    if (!Array.isArray(rows)) return [hardline, keyword('VALUES', opts), ' ()'];
+
+    const rowDocs = rows.map((row) => {
+        const rowNode = row as SqlNode;
+        const vals = propArr(rowNode, 'values').map((v) => printNode(v, opts));
+        const rowDoc = group(['(', indent([softline, join([',', line], vals)]), softline, ')']);
+        return rowNode.trailingComment
+            ? [rowDoc, lineSuffix([' ', rowNode.trailingComment])]
+            : rowDoc;
+    });
+
+    return [
+        hardline,
+        keyword('VALUES', opts),
+        indent([hardline, join([',', hardline], rowDocs)]),
+    ];
+}
+
+// ---------------------------------------------------------------------------
+// UPDATE
+// ---------------------------------------------------------------------------
+
+export function printUpdate(node: SqlNode, opts: Options): Doc {
+    const ctesDocs = printCtes(node, opts);
+    const density = getDensity(opts);
+    const target = prop(node, 'target');
+    const setClauses = propArr(node, 'set');
+    const from = prop(node, 'from');
+    const where = prop(node, 'where');
+
+    const setParts = setClauses.map((sc) => {
+        const col = prop(sc, 'column');
+        const val = prop(sc, 'value');
+        const op = propStr(sc, 'operator') ?? 'Equals';
+        const opStr = op === 'Equals' ? '=' : op === 'AddEquals' ? '+=' : op === 'SubtractEquals' ? '-=' : op;
+        return [col ? printNode(col, opts) : '', ' ', opStr, ' ', val ? printNode(val, opts) : ''] as Doc;
+    });
+
+    const parts: Doc[] = [
+        ...ctesDocs,
+        keyword('UPDATE', opts),
+        ' ',
+        target ? printTable(target, opts) : '',
+        hardline,
+        keyword('SET', opts),
+        density !== 'spacious' && setParts.length === 1
+            ? [' ', setParts[0]!]
+            : indent([hardline, join([',', hardline], setParts)]),
+    ];
+
+    if (from) {
+        const tableRefs = propArr(from, 'tableReferences');
+        parts.push(
+            hardline,
+            keyword('FROM', opts),
+            indent([hardline, join([',', hardline], tableRefs.map((tr) => printTable(tr, opts)))])
+        );
+    }
+
+    if (where) {
+        const inline = density !== 'spacious' && where.type !== 'BooleanBinary';
+        if (inline) {
+            parts.push(hardline, keyword('WHERE', opts), ' ', printBoolDoc(where, opts));
+        } else {
+            parts.push(hardline, keyword('WHERE', opts), indent([hardline, printBoolDoc(where, opts)]));
+        }
+    }
+
+    parts.push(';');
+    return group(parts);
+}
+
+// ---------------------------------------------------------------------------
+// DELETE
+// ---------------------------------------------------------------------------
+
+export function printDelete(node: SqlNode, opts: Options): Doc {
+    const ctesDocs = printCtes(node, opts);
+    const density = getDensity(opts);
+    const target = prop(node, 'target');
+    const from = prop(node, 'from');
+    const where = prop(node, 'where');
+
+    const parts: Doc[] = [
+        ...ctesDocs,
+        keyword('DELETE FROM', opts),
+        ' ',
+        target ? printTable(target, opts) : '',
+    ];
+
+    if (from) {
+        const tableRefs = propArr(from, 'tableReferences');
+        parts.push(
+            hardline,
+            keyword('FROM', opts),
+            indent([hardline, join([',', hardline], tableRefs.map((tr) => printTable(tr, opts)))])
+        );
+    }
+
+    if (where) {
+        const inline = density !== 'spacious' && where.type !== 'BooleanBinary';
+        if (inline) {
+            parts.push(hardline, keyword('WHERE', opts), ' ', printBoolDoc(where, opts));
+        } else {
+            parts.push(hardline, keyword('WHERE', opts), indent([hardline, printBoolDoc(where, opts)]));
+        }
+    }
+
+    parts.push(';');
+    return group(parts);
+}
+
+// ---------------------------------------------------------------------------
+// CREATE TABLE
+// ---------------------------------------------------------------------------
+
+export function printCreateTable(node: SqlNode, opts: Options): Doc {
+    const name = prop(node, 'name');
+    const columns = propArr(node, 'columns');
+    const constraints = propArr(node, 'constraints');
+
+    const nameParts: string[] = [];
+    if (name) {
+        const schema = propStr(name, 'schema');
+        const nm = propStr(name, 'name');
+        if (schema) nameParts.push(schema);
+        if (nm) nameParts.push(nm);
+    }
+
+    const colDocs = columns.map((col) => printColumnDef(col, opts));
+    const conDocs = constraints.map((c) => printConstraintDef(c, opts));
+    const allDefs = [...colDocs, ...conDocs];
+
+    return group([
+        keyword('CREATE TABLE', opts),
+        ' ',
+        nameParts.join('.'),
+        ' (',
+        indent([hardline, join([',', hardline], allDefs)]),
+        hardline,
+        ');',
+    ]);
+}
+
+function printColumnDef(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? 'col';
+    const dataType = propStr(node, 'dataType') ?? 'INT';
+    const params = node.props?.['dataTypeParams'];
+    const isNullable = node.props?.['nullable'];
+    const isIdentity = propBool(node, 'identity');
+    const identitySeed = propStr(node, 'identitySeed');
+    const identityIncrement = propStr(node, 'identityIncrement');
+    const defaultValue = prop(node, 'defaultValue');
+
+    const typeStr: Doc = Array.isArray(params) && params.length > 0
+        ? [keyword(dataType, opts), `(${(params as string[]).join(', ')})`]
+        : keyword(dataType, opts);
+
+    const parts: Doc[] = [name, ' ', typeStr];
+
+    if (isIdentity) {
+        const seed = identitySeed ?? '1';
+        const inc = identityIncrement ?? '1';
+        parts.push(' ', keyword('IDENTITY', opts), `(${seed}, ${inc})`);
+    }
+
+    if (defaultValue) {
+        parts.push(' ', keyword('DEFAULT', opts), ' ', printNode(defaultValue, opts));
+    }
+
+    if (isNullable === false) {
+        parts.push(' ', keyword('NOT NULL', opts));
+    } else if (isNullable === true) {
+        parts.push(' ', keyword('NULL', opts));
+    }
+
+    return parts;
+}
+
+function printConstraintDef(node: SqlNode, opts: Options): Doc {
+    const constraintName = propStr(node, 'constraintName');
+    const namePrefix: Doc = constraintName
+        ? [keyword('CONSTRAINT', opts), ' ', constraintName, ' ']
+        : '';
+
+    switch (node.type) {
+        case 'UniqueConstraint': {
+            const isPK = propBool(node, 'isPrimaryKey');
+            const cols = node.props?.['columns'];
+            const colList = Array.isArray(cols) ? (cols as string[]).join(', ') : '';
+            const kw = isPK ? keyword('PRIMARY KEY', opts) : keyword('UNIQUE', opts);
+            return [namePrefix, kw, ' (', colList, ')'];
+        }
+        case 'CheckConstraint': {
+            const expr = prop(node, 'expression');
+            return [namePrefix, keyword('CHECK', opts), ' (', expr ? printBool(expr, opts) : '', ')'];
+        }
+        case 'ForeignKeyConstraint': {
+            const cols = node.props?.['columns'];
+            const refTable = prop(node, 'refTable');
+            const refCols = node.props?.['refColumns'];
+            const colList = Array.isArray(cols) ? (cols as string[]).join(', ') : '';
+            const refColList = Array.isArray(refCols) ? (refCols as string[]).join(', ') : '';
+            const refName = refTable ? [propStr(refTable, 'schema'), propStr(refTable, 'name')].filter(Boolean).join('.') : '';
+            return [namePrefix, keyword('FOREIGN KEY', opts), ' (', colList, ') ',
+                keyword('REFERENCES', opts), ' ', refName, ' (', refColList, ')'];
+        }
+        default:
+            return node.text ?? `/* constraint: ${node.type} */`;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ALTER TABLE
+// ---------------------------------------------------------------------------
+
+export function printAlterTable(node: SqlNode, opts: Options): Doc {
+    const name = prop(node, 'name');
+    const alterType = propStr(node, 'alterType') ?? '';
+
+    const nameParts: string[] = [];
+    if (name) {
+        const schema = propStr(name, 'schema');
+        const nm = propStr(name, 'name');
+        if (schema) nameParts.push(schema);
+        if (nm) nameParts.push(nm);
+    }
+
+    if (alterType === 'AlterTableAddTableElementStatement') {
+        const columns = propArr(node, 'columns');
+        const constraints = propArr(node, 'constraints');
+        const defs = [
+            ...columns.map((c) => printColumnDef(c, opts)),
+            ...constraints.map((c) => printConstraintDef(c, opts)),
+        ];
+        return group([
+            keyword('ALTER TABLE', opts), ' ', nameParts.join('.'),
+            hardline,
+            keyword('ADD', opts),
+            indent([hardline, join([',', hardline], defs)]),
+            ';',
+        ]);
+    }
+
+    if (alterType === 'AlterTableDropTableElementStatement') {
+        const elements = node.props?.['elements'];
+        const elemList = Array.isArray(elements) ? (elements as string[]).join(', ') : '';
+        return group([
+            keyword('ALTER TABLE', opts), ' ', nameParts.join('.'),
+            hardline,
+            keyword('DROP COLUMN', opts), ' ', elemList,
+            ';',
+        ]);
+    }
+
+    return [keyword('ALTER TABLE', opts), ' ', nameParts.join('.'), ' /* ', alterType, ' */;'];
+}
+
+// ---------------------------------------------------------------------------
+// CREATE INDEX
+// ---------------------------------------------------------------------------
+
+export function printCreateIndex(node: SqlNode, opts: Options): Doc {
+    const indexName = propStr(node, 'indexName') ?? 'idx';
+    const isUnique = propBool(node, 'unique');
+    const isClustered = propBool(node, 'clustered');
+    const table = prop(node, 'table');
+    const columns = propArr(node, 'columns');
+    const includeColumns = node.props?.['includeColumns'];
+
+    const tableNameParts: string[] = [];
+    if (table) {
+        const schema = propStr(table, 'schema');
+        const nm = propStr(table, 'name');
+        if (schema) tableNameParts.push(schema);
+        if (nm) tableNameParts.push(nm);
+    }
+
+    const colDocs = columns.map((c) => {
+        const name = propStr(c, 'name') ?? c.text ?? '';
+        const sort = propStr(c, 'sortOrder') ?? 'Ascending';
+        return sort === 'Descending'
+            ? [name, ' ', keyword('DESC', opts)] as Doc
+            : [name, ' ', keyword('ASC', opts)] as Doc;
+    });
+
+    const uniqueKw = isUnique ? keyword('UNIQUE ', opts) : '';
+    const clusteredKw = isClustered ? keyword('CLUSTERED ', opts) : keyword('NONCLUSTERED ', opts);
+
+    const parts: Doc[] = [
+        keyword('CREATE ', opts), uniqueKw, clusteredKw,
+        keyword('INDEX', opts), ' ', indexName,
+        hardline,
+        keyword('ON', opts), ' ', tableNameParts.join('.'),
+        ' (', indent([softline, join([',', line], colDocs)]), softline, ')',
+    ];
+
+    if (Array.isArray(includeColumns) && includeColumns.length > 0) {
+        const incCols = (includeColumns as string[]).join(', ');
+        parts.push(hardline, keyword('INCLUDE', opts), ' (', incCols, ')');
+    }
+
+    parts.push(';');
+    return group(parts);
+}
+
+// ---------------------------------------------------------------------------
+// CREATE PROCEDURE
+// ---------------------------------------------------------------------------
+
+export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
+    const name = prop(node, 'name');
+    const parameters = propArr(node, 'parameters');
+    const body = propArr(node, 'body');
+
+    const nameParts: string[] = [];
+    if (name) {
+        const schema = propStr(name, 'schema');
+        const nm = propStr(name, 'name');
+        if (schema) nameParts.push(schema);
+        if (nm) nameParts.push(nm);
+    }
+
+    const paramDocs = parameters.map((p) => {
+        const pName = propStr(p, 'name') ?? '@p';
+        const dt = propStr(p, 'dataType') ?? 'INT';
+        const isOutput = propBool(p, 'output');
+        const isReadonly = propBool(p, 'readonly');
+        const defaultVal = prop(p, 'defaultValue');
+        const parts: Doc[] = [pName, ' ', keyword(dt, opts)];
+        if (defaultVal) parts.push(' = ', printNode(defaultVal, opts));
+        if (isOutput) parts.push(' ', keyword('OUTPUT', opts));
+        if (isReadonly) parts.push(' ', keyword('READONLY', opts));
+        return parts as Doc;
+    });
+
+    const bodyDocs = body.map((s) => printStatementWithComments(s, opts));
+
+    const preBody: Doc = node.preBodyComments?.length
+        ? (node.preBodyComments as string[]).flatMap((c): Doc[] => [hardline, c])
+        : '';
+    const postParam: Doc = node.postParamComments?.length
+        ? (node.postParamComments as string[]).flatMap((c): Doc[] => [hardline, c])
+        : '';
+
+    return group([
+        keyword('CREATE PROCEDURE', opts), ' ', nameParts.join('.'),
+        preBody,
+        parameters.length > 0
+            ? indent([hardline, join([',', hardline], paramDocs)])
+            : '',
+        postParam,
+        hardline,
+        keyword('AS', opts),
+        hardline,
+        keyword('BEGIN', opts),
+        indent([hardline, join([hardline, hardline], bodyDocs)]),
+        hardline,
+        keyword('END', opts),
+        ';',
+    ]);
+}
+
+// ---------------------------------------------------------------------------
+// Transactions
+// ---------------------------------------------------------------------------
+
+function printTransaction(kw: string, node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name');
+    return [keyword(kw, opts), ...(name ? [' ', name] : []), ';'];
+}
+
+function printBeginTransaction(node: SqlNode, opts: Options): Doc {
+    return printTransaction('BEGIN TRANSACTION', node, opts);
+}
+
+function printCommitTransaction(node: SqlNode, opts: Options): Doc {
+    return printTransaction('COMMIT TRANSACTION', node, opts);
+}
+
+function printRollbackTransaction(node: SqlNode, opts: Options): Doc {
+    return printTransaction('ROLLBACK TRANSACTION', node, opts);
+}
+
+// ---------------------------------------------------------------------------
+// DECLARE
+// ---------------------------------------------------------------------------
+
+function printDeclareVariable(node: SqlNode, opts: Options): Doc {
+    const decls = propArr(node, 'declarations');
+    const declDocs = decls.map((d) => {
+        const name = propStr(d, 'name') ?? '@var';
+        const dt = propStr(d, 'dataType') ?? 'INT';
+        const params = d.props?.['dataTypeParams'];
+        const typeStr: Doc = Array.isArray(params) && params.length > 0
+            ? [keyword(dt, opts), `(${(params as string[]).join(', ')})`]
+            : keyword(dt, opts);
+        const val = prop(d, 'value');
+        return [keyword('DECLARE', opts), ' ', name, ' ', typeStr, ...(val ? [' = ', printNode(val, opts)] : []), ';'] as Doc;
+    });
+    return join(hardline, declDocs);
+}
+
+function printDeclareTableVariable(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '@t';
+    const columns = propArr(node, 'columns');
+    const constraints = propArr(node, 'constraints');
+    const allDefs = [
+        ...columns.map((c) => printColumnDef(c, opts)),
+        ...constraints.map((c) => printConstraintDef(c, opts)),
+    ];
+    return group([
+        keyword('DECLARE', opts), ' ', name, ' ', keyword('TABLE', opts), ' (',
+        indent([hardline, join([',', hardline], allDefs)]),
+        hardline, ');',
+    ]);
+}
+
+// ---------------------------------------------------------------------------
+// SET
+// ---------------------------------------------------------------------------
+
+function printSetVariable(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '@var';
+    const val = prop(node, 'value');
+    const op = propStr(node, 'operator') ?? 'Equals';
+    const opStr = op === 'Equals' ? '=' : op === 'AddEquals' ? '+=' : op === 'SubtractEquals' ? '-=' : op;
+    return [keyword('SET', opts), ' ', name, ' ', opStr, ' ', val ? printNode(val, opts) : '', ';'];
+}
+
+function printSetRowCount(node: SqlNode, opts: Options): Doc {
+    const rows = prop(node, 'rows');
+    return [keyword('SET', opts), ' ', keyword('ROWCOUNT', opts), ' ', rows ? printNode(rows, opts) : '0', ';'];
+}
+
+// ---------------------------------------------------------------------------
+// PRINT / RETURN
+// ---------------------------------------------------------------------------
+
+function printPrint(node: SqlNode, opts: Options): Doc {
+    const expr = prop(node, 'expr');
+    return [keyword('PRINT', opts), ' ', expr ? printNode(expr, opts) : '', ';'];
+}
+
+function printReturn(node: SqlNode, opts: Options): Doc {
+    const expr = prop(node, 'expr');
+    return expr
+        ? [keyword('RETURN', opts), ' ', printNode(expr, opts), ';']
+        : [keyword('RETURN', opts), ';'];
+}
+
+// ---------------------------------------------------------------------------
+// IF / WHILE
+// ---------------------------------------------------------------------------
+
+function printIf(node: SqlNode, opts: Options): Doc {
+    const condition = prop(node, 'condition');
+    const then = prop(node, 'then');
+    const els = prop(node, 'else');
+
+    const condDoc = condition ? printBool(condition, opts) : '';
+    const thenDoc = then ? printStatementBlock(then, opts) : ';';
+    const parts: Doc[] = [keyword('IF', opts), ' ', condDoc, thenDoc];
+
+    if (els) {
+        parts.push(hardline, keyword('ELSE', opts), printStatementBlock(els, opts));
+    }
+
+    return group(parts);
+}
+
+function printWhile(node: SqlNode, opts: Options): Doc {
+    const condition = prop(node, 'condition');
+    const body = prop(node, 'body');
+    const condDoc = condition ? printBool(condition, opts) : '';
+    return group([keyword('WHILE', opts), ' ', condDoc, body ? printStatementBlock(body, opts) : ';']);
+}
+
+/** Wrap a statement in BEGIN/END if it's already a block, otherwise indent inline. */
+function printStatementBlock(node: SqlNode, opts: Options): Doc {
+    if (node.type === 'BeginEndBlock') {
+        const stmts = propArr(node, 'statements');
+        return [
+            hardline, keyword('BEGIN', opts),
+            indent([hardline, join([hardline, hardline], stmts.map((s) => printStatementWithComments(s, opts)))]),
+            hardline, keyword('END', opts),
+        ];
+    }
+    return indent([hardline, printStatementWithComments(node, opts)]);
+}
+
+// ---------------------------------------------------------------------------
+// EXECUTE
+// ---------------------------------------------------------------------------
+
+function printExecute(node: SqlNode, opts: Options): Doc {
+    const procNode = prop(node, 'proc');
+    const parameters = propArr(node, 'parameters');
+
+    const nameParts: string[] = [];
+    if (procNode) {
+        const schema = propStr(procNode, 'schema');
+        const nm = propStr(procNode, 'name');
+        if (schema) nameParts.push(schema);
+        if (nm) nameParts.push(nm);
+    }
+
+    const paramDocs = parameters.map((p) => {
+        const pname = propStr(p, 'name');
+        const val = prop(p, 'value');
+        const isOutput = propBool(p, 'output');
+        const valDoc = val ? printNode(val, opts) : '';
+        const parts: Doc[] = pname ? [pname, ' = ', valDoc] : [valDoc];
+        if (isOutput) parts.push(' ', keyword('OUTPUT', opts));
+        return parts as Doc;
+    });
+
+    return group([
+        keyword('EXECUTE', opts), ' ', nameParts.join('.'),
+        parameters.length > 0
+            ? indent([hardline, join([',', hardline], paramDocs)])
+            : '',
+        ';',
+    ]);
+}
+// ---------------------------------------------------------------------------
+// CREATE / ALTER / CREATE OR ALTER VIEW
+// ---------------------------------------------------------------------------
+
+function printCreateView(node: SqlNode, opts: Options): Doc {
+    const name = prop(node, 'name');
+    const columns = node.props?.['columns'] as string[] | undefined;
+    const withOptions = node.props?.['withOptions'] as string[] | undefined;
+    const body = prop(node, 'body'); // QueryExpression node
+
+    const nameParts: string[] = [];
+    if (name) {
+        const schema = propStr(name, 'schema');
+        const nm = propStr(name, 'name');
+        if (schema) nameParts.push(schema);
+        if (nm) nameParts.push(nm);
+    }
+
+    const kw = node.type === 'CreateOrAlterViewStatement' ? keyword('CREATE OR ALTER VIEW', opts)
+             : node.type === 'AlterViewStatement'         ? keyword('ALTER VIEW', opts)
+             :                                              keyword('CREATE VIEW', opts);
+
+    const colsPart: Doc = columns?.length
+        ? [' (', join(', ', columns), ')']
+        : '';
+
+    const withPart: Doc = withOptions?.length
+        ? [hardline, keyword('WITH', opts), ' ', join(', ', withOptions.map(o => keyword(o, opts)))]
+        : '';
+
+    const preBodyPart: Doc = node.preBodyComments?.length
+        ? node.preBodyComments.flatMap((c): Doc[] => [hardline, c])
+        : '';
+
+    return group([
+        kw, ' ', nameParts.join('.'),
+        colsPart,
+        withPart,
+        preBodyPart,
+        hardline,
+        keyword('AS', opts),
+        hardline,
+        body ? printQueryExpression(body, opts, (n) => printNode(n, opts)) : '',
+        ';',
+    ]);
+}
+
+// ---------------------------------------------------------------------------
+// CREATE FUNCTION
+// ---------------------------------------------------------------------------
+
+export function printCreateFunction(node: SqlNode, opts: Options): Doc {
+    const name = prop(node, 'name');
+    const parameters = propArr(node, 'parameters');
+    const bodyType = propStr(node, 'bodyType') ?? 'scalar';
+    const returnType = propStr(node, 'returnType') ?? '';
+    const body = node.props?.['body'];
+
+    const nameParts: string[] = [];
+    if (name) {
+        const schema = propStr(name, 'schema');
+        const nm = propStr(name, 'name');
+        if (schema) nameParts.push(schema);
+        if (nm) nameParts.push(nm);
+    }
+
+    const paramDocs = parameters.map((p) => {
+        const pName = propStr(p, 'name') ?? '@p';
+        const dt = propStr(p, 'dataType') ?? 'INT';
+        return [pName, ' ', keyword(dt, opts)] as Doc;
+    });
+
+    let bodyDoc: Doc;
+    if (bodyType === 'table' || bodyType === 'inline-table') {
+        bodyDoc = body && typeof body === 'object'
+            ? qexpr(body as SqlNode, opts)
+            : '/* table body */';
+    } else {
+        const stmts = Array.isArray(body) ? (body as SqlNode[]).map((s) => printStatementWithComments(s, opts)) : [];
+        bodyDoc = join([hardline, hardline], stmts);
+    }
+
+    const preBody: Doc = node.preBodyComments?.length
+        ? (node.preBodyComments as string[]).flatMap((c): Doc[] => [hardline, c])
+        : '';
+    const postParam: Doc = node.postParamComments?.length
+        ? (node.postParamComments as string[]).flatMap((c): Doc[] => [hardline, c])
+        : '';
+
+    return group([
+        keyword('CREATE FUNCTION', opts), ' ', nameParts.join('.'),
+        preBody,
+        '(',
+        parameters.length > 0
+            ? [indent([softline, join([',', line], paramDocs)]), softline]
+            : '',
+        ')',
+        postParam,
+        hardline,
+        keyword('RETURNS', opts), ' ', keyword(returnType, opts),
+        hardline,
+        keyword('AS', opts),
+        hardline,
+        keyword('BEGIN', opts),
+        indent([hardline, bodyDoc]),
+        hardline,
+        keyword('END', opts),
+        ';',
+    ]);
+}

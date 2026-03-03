@@ -1,0 +1,1 @@
+create table dbo.users (id int not null identity(1,1), name nvarchar(100) not null, email nvarchar(255) not null, active bit not null default 1, created_at datetime2 not null default getdate(), constraint pk_users primary key (id))

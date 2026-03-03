@@ -1,0 +1,623 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ALTER TABLE formatting > add column 1`] = `
+"alter table dbo.Books
+add
+  isbn nvarchar(20) null;"
+`;
+
+exports[`ALTER TABLE formatting > drop column 1`] = `
+"alter table dbo.Books
+drop column isbn;"
+`;
+
+exports[`CREATE PROCEDURE formatting > block comment after last parameter (before AS) stays between params and as 1`] = `
+"create procedure dbo.GetBookById
+  @id int,
+  @active bit
+/*WITH ENCRYPTION*/
+as
+begin
+  select book_id
+  from dbo.Books
+  where book_id = @id;
+end;
+go"
+`;
+
+exports[`CREATE PROCEDURE formatting > block comment between procedure name and first parameter is preserved 1`] = `
+"create procedure dbo.GetBookById
+/**********************
+** Author: Jon
+** Date:   2012-01-10
+**********************/
+  @id int,
+  @includeOutOfStock bit = 0
+as
+begin
+  select book_id
+  from dbo.Books
+  where book_id = @id;
+end;
+go"
+`;
+
+exports[`CREATE PROCEDURE formatting > line comment inside procedure body is preserved 1`] = `
+"create procedure dbo.GetAvailableBooks
+as
+begin
+  -- fetch available books only
+  select
+    book_id,
+    title
+  from dbo.Books
+  where in_stock = 1;
+end;
+go"
+`;
+
+exports[`CREATE PROCEDURE formatting > procedure with parameters 1`] = `
+"create procedure dbo.GetBookById
+  @id int,
+  @includeOutOfStock bit = 0
+as
+begin
+  select
+    book_id,
+    title
+  from dbo.Books
+  where book_id = @id;
+end;
+go"
+`;
+
+exports[`CREATE PROCEDURE formatting > simple procedure 1`] = `
+"create procedure dbo.GetAvailableBooks
+as
+begin
+  select
+    book_id,
+    title
+  from dbo.Books
+  where in_stock = 1;
+end;
+go"
+`;
+
+exports[`CREATE TABLE formatting > basic table 1`] = `
+"create table dbo.Books (
+  book_id int identity(1, 1) not null,
+  title nvarchar(200) not null,
+  price decimal(10, 2) not null,
+  in_stock bit default 1 not null,
+  constraint pk_books primary key (book_id)
+);"
+`;
+
+exports[`CREATE TABLE formatting > table with foreign key constraint 1`] = `
+"create table dbo.Orders (
+  order_id int identity(1, 1) not null,
+  customer_id int not null,
+  total decimal(18, 2) not null,
+  constraint pk_orders primary key (order_id),
+  constraint fk_orders_customers foreign key (customer_id) references dbo.Customers (customer_id)
+);"
+`;
+
+exports[`DELETE formatting > basic delete 1`] = `
+"delete from dbo.Books
+where
+  in_stock = 0
+  and published_date < dateadd(year, -10, getdate());"
+`;
+
+exports[`IN clause formatting > IN subquery is unaffected 1`] = `
+"select book_id
+from dbo.Books
+where book_id in (
+  select book_id
+  from dbo.OrderItems
+  where unit_price > 50
+);"
+`;
+
+exports[`IN clause formatting > NOT IN short list stays inline 1`] = `
+"select book_id
+from dbo.Books
+where genre_id not in (1, 2);"
+`;
+
+exports[`IN clause formatting > long value list wraps each value to its own line 1`] = `
+"select author_id
+from dbo.Authors
+where country in (
+  'United States',
+  'United Kingdom',
+  'Canada',
+  'Australia',
+  'Germany'
+);"
+`;
+
+exports[`IN clause formatting > short value list stays on one line 1`] = `
+"select book_id
+from dbo.Books
+where genre_id in (1, 2, 3);"
+`;
+
+exports[`INSERT formatting > INSERT ... SELECT 1`] = `
+"insert into dbo.ArchivedBooks (
+  book_id,
+  title
+)
+select
+  book_id,
+  title
+from dbo.Books
+where in_stock = 0;"
+`;
+
+exports[`INSERT formatting > VALUES insert 1`] = `
+"insert into dbo.Customers (
+  name,
+  email,
+  active
+)
+values
+  ('Jane Smith', 'jane@example.com', 1);"
+`;
+
+exports[`OPTION clause formatting > OPTION (RECOMPILE) is preserved on its own line 1`] = `
+"select
+  book_id,
+  title
+from dbo.Books
+where in_stock = 1
+option (recompile);"
+`;
+
+exports[`OPTION clause formatting > OPTION clause respects keyword case upper 1`] = `
+"SELECT book_id
+FROM dbo.Books
+OPTION (RECOMPILE);"
+`;
+
+exports[`OPTION clause formatting > OPTION clause with ORDER BY appears after ORDER BY 1`] = `
+"select
+  book_id,
+  title
+from dbo.Books
+where in_stock = 1
+order by title asc
+option (recompile);"
+`;
+
+exports[`SELECT formatting > CTE 1`] = `
+"with available_books as (
+  select
+    book_id,
+    title
+  from dbo.Books
+  where in_stock = 1
+)
+select b.title
+from available_books as b
+order by b.title asc;"
+`;
+
+exports[`SELECT formatting > SELECT DISTINCT 1`] = `
+"select distinct genre_id
+from dbo.Books;"
+`;
+
+exports[`SELECT formatting > aggregate with GROUP BY / HAVING 1`] = `
+"select
+  genre_id,
+  count(*) as cnt,
+  avg(price) as avg_price
+from dbo.Books
+group by genre_id
+having count(*) > 5;"
+`;
+
+exports[`SELECT formatting > basic select with join and where 1`] = `
+"select
+  b.book_id,
+  b.title,
+  b.price
+from
+  dbo.Books as b
+  inner join dbo.Authors as a on b.author_id = a.author_id
+where b.in_stock = 1
+order by b.title asc;"
+`;
+
+exports[`SELECT formatting > nested CASE in THEN branch indents inner case on new line 1`] = `
+"select case
+  when ContentType = 'movie' then
+    case
+      when
+        BoxOfficeTotal is null
+        or BoxOfficeTotal < 250000000
+      then 2.78
+      else 3.69
+    end
+  when ContentType = 'tv-episode' then
+    case
+      when ContentLength < 30 * 60 then 0.61
+      else 0.91
+    end
+  else -1
+end as AgencyCost
+from dbo.Content;"
+`;
+
+exports[`SELECT formatting > searched CASE with AND condition 1`] = `
+"select case
+  when
+    b.author_id is not null
+    and b.genre_id in (1, 2, 3)
+  then 1
+  else 0
+end as IsAvailable
+from dbo.Books as b;"
+`;
+
+exports[`SELECT formatting > subquery in WHERE 1`] = `
+"select
+  book_id,
+  title
+from dbo.Books
+where book_id in (
+  select book_id
+  from dbo.OrderItems
+  where unit_price > 50
+);"
+`;
+
+exports[`SELECT formatting > window functions 1`] = `
+"select
+  book_id,
+  price,
+  row_number() over (
+    partition by genre_id
+    order by price desc
+  ) as rn
+from dbo.Books;"
+`;
+
+exports[`SET ROWCOUNT formatting > SET ROWCOUNT 0 resets to unlimited 1`] = `"set rowcount 0;"`;
+
+exports[`SET ROWCOUNT formatting > SET ROWCOUNT respects keyword case 1`] = `"set rowcount 5;"`;
+
+exports[`SET ROWCOUNT formatting > SET ROWCOUNT with integer literal 1`] = `"set rowcount 10;"`;
+
+exports[`UNION / INTERSECT / EXCEPT formatting > UNION (distinct) has blank lines around the operator 1`] = `
+"select author_id
+from dbo.Books
+
+union
+
+select author_id
+from dbo.ArchivedBooks;"
+`;
+
+exports[`UNION / INTERSECT / EXCEPT formatting > UNION ALL has blank lines before and after the operator 1`] = `
+"select
+  book_id,
+  title
+from dbo.Books
+where in_stock = 1
+
+union all
+
+select
+  book_id,
+  title
+from dbo.ArchivedBooks;"
+`;
+
+exports[`UPDATE formatting > basic update 1`] = `
+"update dbo.Books
+set
+  title = 'Updated Title',
+  price = 29.99
+where book_id = 42;"
+`;
+
+exports[`UPDATE formatting > update with join 1`] = `
+"update b
+set b.in_stock = 0
+from
+  dbo.Books as b
+  inner join dbo.Publishers as p on b.publisher_id = p.publisher_id
+where p.country = 'UK';"
+`;
+
+exports[`VIEW formatting > CREATE OR ALTER VIEW basic 1`] = `
+"create or alter view dbo.vw_available_books
+as
+select
+  book_id,
+  title
+from dbo.Books
+where in_stock = 1;
+go"
+`;
+
+exports[`VIEW formatting > block comment between view name and AS is preserved in place 1`] = `
+"create or alter view dbo.vw_example
+/* with encryption */
+as
+select book_id
+from dbo.Books;
+go"
+`;
+
+exports[`VIEW formatting > block comment inside first view does not appear before second view 1`] = `
+"create or alter view dbo.vw_first
+/* with encryption */
+as
+select 1 as x;
+go
+
+create or alter view dbo.vw_second
+as
+select 2 as y;
+go"
+`;
+
+exports[`VIEW formatting > leading comment before CREATE VIEW attaches correctly 1`] = `
+"-- view description
+create or alter view dbo.vw_test
+as
+select 1 as x;
+go"
+`;
+
+exports[`comma style option > trailing commas (default) 1`] = `
+"select
+  book_id,
+  title,
+  price
+from dbo.Books;"
+`;
+
+exports[`comment between JOIN clauses > line comment between two joins is preserved on its own line 1`] = `
+"select
+  b.book_id,
+  b.title
+from
+  dbo.Books as b
+  inner join dbo.Authors as a on b.author_id = a.author_id
+  -- left join: publishers may not exist for all books
+  left join dbo.Publishers as p on b.publisher_id = p.publisher_id;"
+`;
+
+exports[`comment between JOIN clauses > multiple comments between joins are all preserved 1`] = `
+"select b.book_id
+from
+  dbo.Books as b
+  inner join dbo.Authors as a on b.author_id = a.author_id
+  -- optional: genre
+  left join dbo.Genres as g on b.genre_id = g.genre_id
+  -- optional: publisher
+  left join dbo.Publishers as p on b.publisher_id = p.publisher_id;"
+`;
+
+exports[`comment preservation > block comment after last statement in file is not lost 1`] = `
+"select book_id
+from dbo.Books;
+/* end of queries */"
+`;
+
+exports[`comment preservation > line comment after last statement in file is not lost 1`] = `
+"select book_id
+from dbo.Books; -- end of queries"
+`;
+
+exports[`density option > compact > join with ON inline 1`] = `
+"select b.book_id, b.title
+from dbo.Books as b inner join dbo.Authors as a on b.author_id = a.author_id
+where b.in_stock = 1
+order by b.title asc;"
+`;
+
+exports[`density option > compact > multiple predicates wrap at printWidth 1`] = `"select book_id from dbo.Books where in_stock = 1 and price < 100;"`;
+
+exports[`density option > compact > single-line query stays inline 1`] = `"select book_id from dbo.Books where in_stock = 1;"`;
+
+exports[`density option > spacious > multiple ON predicates each on own line 1`] = `
+"select
+  b.book_id
+from
+  dbo.Books as b
+  inner join dbo.Authors as a on
+    b.author_id = a.author_id
+    and b.publisher_id = a.publisher_id;"
+`;
+
+exports[`density option > spacious > single ON predicate on own line 1`] = `
+"select
+  b.book_id,
+  b.title
+from
+  dbo.Books as b
+  inner join dbo.Authors as a on
+    b.author_id = a.author_id
+where
+  b.in_stock = 1
+order by
+  b.title asc;"
+`;
+
+exports[`density option > spacious > single WHERE predicate on own line 1`] = `
+"select
+  book_id
+from
+  dbo.Books
+where
+  in_stock = 1;"
+`;
+
+exports[`density option > standard > multiple ON predicates each on own line 1`] = `
+"select b.book_id
+from
+  dbo.Books as b
+  inner join dbo.Authors as a on
+    b.author_id = a.author_id
+    and b.publisher_id = a.publisher_id;"
+`;
+
+exports[`density option > standard > multiple WHERE predicates each on own line 1`] = `
+"select book_id
+from dbo.Books
+where
+  in_stock = 1
+  and price < 100;"
+`;
+
+exports[`density option > standard > single ON predicate stays inline 1`] = `
+"select
+  b.book_id,
+  b.title
+from
+  dbo.Books as b
+  inner join dbo.Authors as a on b.author_id = a.author_id
+where b.in_stock = 1
+order by b.title asc;"
+`;
+
+exports[`derived table (subquery in FROM) > derived table joined to another table 1`] = `
+"select
+  b.title,
+  a.last_name
+from
+  (
+    select
+      book_id,
+      title,
+      author_id
+    from dbo.Books
+    where price > 20
+  ) as b
+  inner join dbo.Authors as a on b.author_id = a.author_id;"
+`;
+
+exports[`derived table (subquery in FROM) > simple derived table with alias 1`] = `
+"select
+  b.title,
+  b.price
+from (
+  select
+    title,
+    price
+  from dbo.Books
+  where in_stock = 1
+) as b;"
+`;
+
+exports[`expression functions > AT TIME ZONE expression 1`] = `
+"SELECT GETDATE() AT TIME ZONE 'UTC'
+FROM dbo.Books;"
+`;
+
+exports[`expression functions > CAST preserves length 1`] = `
+"SELECT CAST(title AS NVARCHAR(100))
+FROM dbo.Books;"
+`;
+
+exports[`expression functions > COALESCE expression 1`] = `
+"SELECT COALESCE(price, 0.0)
+FROM dbo.Books;"
+`;
+
+exports[`expression functions > CONVERT preserves length and style 1`] = `
+"SELECT CONVERT(NVARCHAR(50), price, 1)
+FROM dbo.Books;"
+`;
+
+exports[`expression functions > IIF expression 1`] = `
+"SELECT IIF(in_stock = 1, 'yes', 'no')
+FROM dbo.Books;"
+`;
+
+exports[`expression functions > NULLIF expression 1`] = `
+"SELECT NULLIF(price, 0)
+FROM dbo.Books;"
+`;
+
+exports[`expression functions > TRY_CAST expression 1`] = `
+"SELECT TRY_CAST(title AS INT)
+FROM dbo.Books;"
+`;
+
+exports[`expression functions > TRY_CONVERT expression 1`] = `
+"SELECT TRY_CONVERT(DECIMAL(10,2), price)
+FROM dbo.Books;"
+`;
+
+exports[`expression functions > TVF in FROM clause 1`] = `
+"select *
+from dbo.GetBooks(1) as b;"
+`;
+
+exports[`expression functions > long string concatenation breaks before + not inside function args 1`] = `
+"select isnull(VID.LastNm, '') + ', ' + isnull(VID.FirstNm, '') + ' '
++ isnull(VID.MiddleNm, '') + ' ' + isnull(S.Suffix, '') as VisitorNm
+from
+  dbo.Visitors as VID
+  inner join dbo.Suffixes as S on VID.SuffixId = S.SuffixId;"
+`;
+
+exports[`expression functions > short string concatenation stays on one line 1`] = `
+"select isnull(last_nm, '') + ', ' + isnull(first_nm, '') as full_nm
+from dbo.Authors;"
+`;
+
+exports[`intra-WHERE comments > commented-out predicates are preserved between active predicates 1`] = `
+"select book_id
+from dbo.Books
+where
+  1 = 1
+  and Books.genre_id in (1)
+  --and Books.genre_id in (select genre_id from dbo.Genres where name = 'Fiction')
+  and Books.publisher_id in (4)
+  --and Books.publisher_id in (select publisher_id from dbo.Publishers where country = 'UK')
+  and Books.author_id in (101, 102);"
+`;
+
+exports[`nested join formatting > parenthesized nested join 1`] = `
+"select b.title
+from
+  dbo.Books as b
+  left join (
+    dbo.Authors as a
+    inner join dbo.Publishers as p on a.publisher_id = p.publisher_id
+  ) on b.author_id = a.author_id;"
+`;
+
+exports[`table hints > NOLOCK on joined table 1`] = `
+"select
+  b.book_id,
+  p.name
+from
+  dbo.Books as b with (nolock)
+  inner join dbo.Publishers as p with (nolock) on
+    b.publisher_id = p.publisher_id;"
+`;
+
+exports[`table hints > NOLOCK on single table 1`] = `
+"select book_id
+from dbo.Books as b with (nolock);"
+`;
+
+exports[`table hints > hints respect keyword case upper 1`] = `
+"SELECT book_id
+FROM dbo.Books WITH (NOLOCK);"
+`;
+
+exports[`table hints > multiple hints 1`] = `
+"select book_id
+from dbo.Books with (nolock, rowlock);"
+`;

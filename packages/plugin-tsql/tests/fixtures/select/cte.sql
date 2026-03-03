@@ -1,0 +1,1 @@
+with active_users as (select id, name from dbo.users where active = 1), user_orders as (select user_id, count(*) as order_count from dbo.orders group by user_id) select u.name, o.order_count from active_users u inner join user_orders o on u.id = o.user_id order by o.order_count desc

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+bin/
+src/dotnet/**/obj/
+src/dotnet/**/bin/
+*.user
+.DS_Store
+tests/test.sql

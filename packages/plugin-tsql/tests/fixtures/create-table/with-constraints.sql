@@ -1,0 +1,1 @@
+create table dbo.orders (id int not null identity(1,1), user_id int not null, total decimal(18,2) not null, status nvarchar(50) not null default 'pending', created_at datetime2 not null default getdate(), constraint pk_orders primary key (id), constraint fk_orders_users foreign key (user_id) references dbo.users (id), constraint ck_orders_total check (total >= 0))
