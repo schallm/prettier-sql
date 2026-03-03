@@ -619,6 +619,12 @@ public class AstBuilder : TSqlFragmentVisitor
                     ["expression"] = BuildScalarExpression(scalar.Expression),
                     ["alias"] = scalar.ColumnName?.Value,
                 }),
+            SelectSetVariable sv => Node("SelectSetVariable", sv, new Dictionary<string, object?>
+            {
+                ["variable"] = sv.Variable?.Name,
+                ["operator"] = sv.AssignmentKind.ToString(),
+                ["value"]    = BuildScalarExpression(sv.Expression),
+            }),
             _ => Leaf("SelectElement", se, RawText(se)),
         };
     }
@@ -787,6 +793,7 @@ public class AstBuilder : TSqlFragmentVisitor
             CreateTableStatement ct => BuildCreateTableStatement(ct),
             AlterTableStatement at => BuildAlterTableStatement(at),
             CreateIndexStatement ci => BuildCreateIndexStatement(ci),
+            CreateOrAlterProcedureStatement cap => BuildCreateOrAlterProcedure(cap),
             CreateProcedureStatement cp => BuildCreateProcedureStatement(cp),
             CreateFunctionStatement cf => BuildCreateFunctionStatement(cf),
             CreateViewStatement cv => BuildViewStatement("CreateViewStatement", cv),
@@ -805,6 +812,19 @@ public class AstBuilder : TSqlFragmentVisitor
             IfStatement ifs => BuildIf(ifs),
             WhileStatement ws => BuildWhile(ws),
             ExecuteStatement es => BuildExecute(es),
+            TruncateTableStatement trunc => BuildTruncateTable(trunc),
+            BreakStatement brk => Leaf("BreakStatement", brk),
+            ContinueStatement cont => Leaf("ContinueStatement", cont),
+            GoToStatement gt => BuildGoto(gt),
+            LabelStatement lbl => BuildLabel(lbl),
+            ThrowStatement thr => BuildThrow(thr),
+            RaiseErrorStatement raise => BuildRaiseError(raise),
+            TryCatchStatement tc => BuildTryCatch(tc),
+            DropTableStatement dts => BuildDropObjects("DropTableStatement", dts),
+            DropProcedureStatement dps => BuildDropObjects("DropProcedureStatement", dps),
+            DropViewStatement dvs => BuildDropObjects("DropViewStatement", dvs),
+            DropFunctionStatement dfs => BuildDropObjects("DropFunctionStatement", dfs),
+            DropIndexStatement di => BuildDropIndex(di),
             _ => Leaf("Statement", stmt, RawText(stmt)),
         };
     }
@@ -1409,4 +1429,96 @@ public class AstBuilder : TSqlFragmentVisitor
                 ["body"]        = queryExpr,
             });
     }
+
+    // -------------------------------------------------------------------------
+    // DDL: CREATE OR ALTER PROCEDURE
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildCreateOrAlterProcedure(CreateOrAlterProcedureStatement cap)
+    {
+        var parms = cap.Parameters?.Select(p => (object?)BuildProcedureParameter(p)).ToList();
+        var stmts = cap.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
+        return Node("CreateOrAlterProcedureStatement", cap, new Dictionary<string, object?>
+        {
+            ["name"]       = BuildSchemaObjectName(cap.ProcedureReference?.Name),
+            ["parameters"] = parms,
+            ["bodyStart"]  = cap.StatementList?.StartOffset,
+            ["body"]       = stmts,
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // DDL: TRUNCATE TABLE
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildTruncateTable(TruncateTableStatement trunc) =>
+        Node("TruncateTableStatement", trunc, new Dictionary<string, object?>
+        {
+            ["name"] = BuildSchemaObjectName(trunc.TableName),
+        });
+
+    // -------------------------------------------------------------------------
+    // Control flow: GOTO / LABEL / THROW / RAISERROR / TRY-CATCH
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildGoto(GoToStatement gt) =>
+        Node("GotoStatement", gt, new Dictionary<string, object?>
+        {
+            ["label"] = gt.LabelName?.Value,
+        });
+
+    private static SqlNode BuildLabel(LabelStatement lbl) =>
+        Node("LabelStatement", lbl, new Dictionary<string, object?>
+        {
+            ["label"] = lbl.Value,
+        });
+
+    private static SqlNode BuildThrow(ThrowStatement thr) =>
+        Node("ThrowStatement", thr, new Dictionary<string, object?>
+        {
+            ["errorNumber"] = BuildScalarExpression(thr.ErrorNumber),
+            ["message"]     = BuildScalarExpression(thr.Message),
+            ["state"]       = BuildScalarExpression(thr.State),
+        });
+
+    private static SqlNode BuildRaiseError(RaiseErrorStatement raise) =>
+        Node("RaiseErrorStatement", raise, new Dictionary<string, object?>
+        {
+            ["message"]  = BuildScalarExpression(raise.FirstParameter),
+            ["severity"] = BuildScalarExpression(raise.SecondParameter),
+            ["state"]    = BuildScalarExpression(raise.ThirdParameter),
+        });
+
+    private static SqlNode BuildTryCatch(TryCatchStatement tc) =>
+        Node("TryCatchStatement", tc, new Dictionary<string, object?>
+        {
+            ["tryBody"]   = tc.TryStatements?.Statements?.Select(s => (object?)BuildStatement(s)).ToList(),
+            ["catchBody"] = tc.CatchStatements?.Statements?.Select(s => (object?)BuildStatement(s)).ToList(),
+        });
+
+    // -------------------------------------------------------------------------
+    // DDL: DROP TABLE / PROCEDURE / VIEW / FUNCTION
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildDropObjects(string type, DropObjectsStatement drop) =>
+        Node(type, drop, new Dictionary<string, object?>
+        {
+            ["names"]    = drop.Objects?.Select(o => (object?)BuildSchemaObjectName(o)).ToList(),
+            ["ifExists"] = drop.IsIfExists,
+        });
+
+    // -------------------------------------------------------------------------
+    // DDL: DROP INDEX
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildDropIndex(DropIndexStatement di) =>
+        Node("DropIndexStatement", di, new Dictionary<string, object?>
+        {
+            ["indices"] = di.DropIndexClauses?.OfType<DropIndexClause>()
+                .Select(c => (object?)Node("IndexRef", c, new Dictionary<string, object?>
+                {
+                    ["name"]  = c.Index?.Value,
+                    ["table"] = BuildSchemaObjectName(c.Object),
+                })).ToList(),
+        });
 }

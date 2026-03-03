@@ -12,8 +12,18 @@ A [Prettier](https://prettier.io) plugin that formats T-SQL (SQL Server) using M
 - Table hints (`WITH (NOLOCK)`, etc.), control-flow (`IF`, `WHILE`, `DECLARE`, `EXECUTE`, transactions), `SET ROWCOUNT`
 - Preserves `--` and `/* */` comments — trailing, leading, inside procedure bodies, between parameters and `AS`
 - Configurable keyword casing, layout density, and comma style
+- Control flow: `BREAK`, `CONTINUE`, `GOTO`/label, `THROW`, `RAISERROR`, `TRY/CATCH`
+- DDL: `TRUNCATE TABLE`, `DROP TABLE/PROCEDURE/VIEW/FUNCTION/INDEX` (with `IF EXISTS`), `CREATE OR ALTER PROCEDURE`
 - Emits `go` batch separators where required
 - Integrates with editor extensions that support Prettier (VS Code, etc.)
+
+## Passthrough constructs
+
+The following T-SQL constructs are recognised by the parser but emitted unchanged (their original source text is preserved):
+
+- `MERGE` statements
+- Full-text predicates (`CONTAINS`, `FREETEXT`)
+- Rowset functions used as table sources (`OPENROWSET`, `OPENXML`, `OPENJSON`)
 
 ## Requirements
 

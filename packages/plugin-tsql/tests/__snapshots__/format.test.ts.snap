@@ -104,6 +104,32 @@ exports[`CREATE TABLE formatting > table with foreign key constraint 1`] = `
 );"
 `;
 
+exports[`Control flow & DDL additions > CREATE OR ALTER PROCEDURE emits correct keyword and GO 1`] = `
+"create or alter procedure dbo.GetBooks
+as
+begin
+  select book_id
+  from dbo.Books;
+end;
+go"
+`;
+
+exports[`Control flow & DDL additions > SELECT @var assignment in select list 1`] = `
+"select @total = sum(price)
+from dbo.Books
+where in_stock = 1;"
+`;
+
+exports[`Control flow & DDL additions > TRY/CATCH block 1`] = `
+"begin try
+  select book_id
+  from dbo.Books;
+end try
+begin catch
+  throw;
+end catch"
+`;
+
 exports[`DELETE formatting > basic delete 1`] = `
 "delete from dbo.Books
 where

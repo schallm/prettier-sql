@@ -75,7 +75,7 @@ function printTable(node: SqlNode, opts: Options): Doc {
 // Statement types that must be the only statement in their batch.
 const BATCH_ISOLATING = new Set([
     'CreateViewStatement', 'AlterViewStatement', 'CreateOrAlterViewStatement',
-    'CreateProcedureStatement', 'CreateFunctionStatement',
+    'CreateProcedureStatement', 'CreateOrAlterProcedureStatement', 'CreateFunctionStatement',
 ]);
 
 export function printScript(node: SqlNode, opts: Options): Doc {
@@ -117,7 +117,8 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'CreateTableStatement':    return printCreateTable(node, opts);
         case 'AlterTableStatement':     return printAlterTable(node, opts);
         case 'CreateIndexStatement':    return printCreateIndex(node, opts);
-        case 'CreateProcedureStatement': return printCreateProcedure(node, opts);
+        case 'CreateProcedureStatement':
+        case 'CreateOrAlterProcedureStatement': return printCreateProcedure(node, opts);
         case 'CreateFunctionStatement': return printCreateFunction(node, opts);
         case 'CreateViewStatement':
         case 'AlterViewStatement':
@@ -138,6 +139,19 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'IfStatement':                 return printIf(node, opts);
         case 'WhileStatement':              return printWhile(node, opts);
         case 'ExecuteStatement':            return printExecute(node, opts);
+        case 'TruncateTableStatement':      return printTruncateTable(node, opts);
+        case 'BreakStatement':              return [keyword('BREAK', opts), ';'];
+        case 'ContinueStatement':           return [keyword('CONTINUE', opts), ';'];
+        case 'GotoStatement':               return printGoto(node, opts);
+        case 'LabelStatement':              return printLabel(node, opts);
+        case 'ThrowStatement':              return printThrow(node, opts);
+        case 'RaiseErrorStatement':         return printRaiseError(node, opts);
+        case 'TryCatchStatement':           return printTryCatch(node, opts);
+        case 'DropTableStatement':          return printDropObjects('TABLE', node, opts);
+        case 'DropProcedureStatement':      return printDropObjects('PROCEDURE', node, opts);
+        case 'DropViewStatement':           return printDropObjects('VIEW', node, opts);
+        case 'DropFunctionStatement':       return printDropObjects('FUNCTION', node, opts);
+        case 'DropIndexStatement':          return printDropIndex(node, opts);
         default:
             return node.text ?? `/* unhandled statement: ${node.type} */`;
     }
@@ -555,8 +569,12 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
         ? (node.postParamComments as string[]).flatMap((c): Doc[] => [hardline, c])
         : '';
 
+    const procKw = node.type === 'CreateOrAlterProcedureStatement'
+        ? keyword('CREATE OR ALTER PROCEDURE', opts)
+        : keyword('CREATE PROCEDURE', opts);
+
     return group([
-        keyword('CREATE PROCEDURE', opts), ' ', schemaObjectName(prop(node, 'name')),
+        procKw, ' ', schemaObjectName(prop(node, 'name')),
         preBody,
         parameters.length > 0
             ? indent([hardline, join([',', hardline], paramDocs)])
@@ -816,6 +834,102 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
         indent([hardline, bodyDoc]),
         hardline,
         keyword('END', opts),
+        ';',
+    ]);
+}
+
+// ---------------------------------------------------------------------------
+// TRUNCATE TABLE
+// ---------------------------------------------------------------------------
+
+function printTruncateTable(node: SqlNode, opts: Options): Doc {
+    return [keyword('TRUNCATE TABLE', opts), ' ', schemaObjectName(prop(node, 'name')), ';'];
+}
+
+// ---------------------------------------------------------------------------
+// GOTO / LABEL
+// ---------------------------------------------------------------------------
+
+function printGoto(node: SqlNode, opts: Options): Doc {
+    return [keyword('GOTO', opts), ' ', propStr(node, 'label') ?? '', ';'];
+}
+
+function printLabel(node: SqlNode, opts: Options): Doc {
+    // LabelStatement.Value already includes the trailing colon from ScriptDom
+    return propStr(node, 'label') ?? '';
+}
+
+// ---------------------------------------------------------------------------
+// THROW / RAISERROR
+// ---------------------------------------------------------------------------
+
+function printThrow(node: SqlNode, opts: Options): Doc {
+    const errNum = prop(node, 'errorNumber');
+    if (!errNum) return [keyword('THROW', opts), ';'];
+    return [
+        keyword('THROW', opts), ' ',
+        printNode(errNum, opts), ', ',
+        printNode(prop(node, 'message')!, opts), ', ',
+        printNode(prop(node, 'state')!, opts), ';',
+    ];
+}
+
+function printRaiseError(node: SqlNode, opts: Options): Doc {
+    return [
+        keyword('RAISERROR', opts), ' (',
+        printNode(prop(node, 'message')!, opts), ', ',
+        printNode(prop(node, 'severity')!, opts), ', ',
+        printNode(prop(node, 'state')!, opts),
+        ');',
+    ];
+}
+
+// ---------------------------------------------------------------------------
+// TRY / CATCH
+// ---------------------------------------------------------------------------
+
+function printTryCatch(node: SqlNode, opts: Options): Doc {
+    const tryStmts  = propArr(node, 'tryBody').map(s => printStatementWithComments(s, opts));
+    const catchStmts = propArr(node, 'catchBody').map(s => printStatementWithComments(s, opts));
+    return [
+        keyword('BEGIN TRY', opts),
+        indent([hardline, join([hardline, hardline], tryStmts)]),
+        hardline, keyword('END TRY', opts),
+        hardline, keyword('BEGIN CATCH', opts),
+        indent([hardline, join([hardline, hardline], catchStmts)]),
+        hardline, keyword('END CATCH', opts),
+    ];
+}
+
+// ---------------------------------------------------------------------------
+// DROP TABLE / PROCEDURE / VIEW / FUNCTION
+// ---------------------------------------------------------------------------
+
+function printDropObjects(objType: string, node: SqlNode, opts: Options): Doc {
+    const names = propArr(node, 'names');
+    const ifExists = propBool(node, 'ifExists');
+    const ifExistsPart: Doc = ifExists ? [' ', keyword('IF EXISTS', opts)] : '';
+    return [
+        keyword('DROP', opts), ' ', keyword(objType, opts),
+        ifExistsPart, ' ',
+        join(', ', names.map(n => schemaObjectName(n))),
+        ';',
+    ];
+}
+
+// ---------------------------------------------------------------------------
+// DROP INDEX
+// ---------------------------------------------------------------------------
+
+function printDropIndex(node: SqlNode, opts: Options): Doc {
+    const indices = propArr(node, 'indices');
+    const indexDocs = indices.map(idx => [
+        propStr(idx, 'name') ?? '', ' ',
+        keyword('ON', opts), ' ', schemaObjectName(prop(idx, 'table')),
+    ] as Doc);
+    return group([
+        keyword('DROP INDEX', opts), ' ',
+        join([',', hardline], indexDocs),
         ';',
     ]);
 }

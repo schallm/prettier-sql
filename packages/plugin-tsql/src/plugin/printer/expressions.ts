@@ -2,7 +2,7 @@ import type { Doc } from 'prettier';
 import type { SqlNode } from '../parser/types.js';
 import type { Options } from './utils.js';
 import { keyword, getDensity, hardline, join, group, indent, line, softline, ifBreak, fill } from './utils.js';
-import { prop, propArr, propStr, propBool, schemaObjectName } from './helpers.js';
+import { prop, propArr, propStr, propBool, schemaObjectName, assignmentOp } from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // Scalar expressions
@@ -24,6 +24,7 @@ export function printExpression(node: SqlNode, opts: Options, printFn: (n: SqlNo
         case 'GlobalVariable':    return node.text ?? '@@var';
         case 'SelectStar':        return '*';
         case 'SelectScalar':      return printSelectScalar(node, opts, printFn);
+        case 'SelectSetVariable': return printSelectSetVariable(node, opts, printFn);
         case 'FunctionCall':      return printFunctionCall(node, opts, printFn);
         case 'BinaryExpression':  return printBinaryExpr(node, opts, printFn);
         case 'UnaryExpression':   return printUnaryExpr(node, opts, printFn);
@@ -66,6 +67,13 @@ function printSelectScalar(node: SqlNode, opts: Options, printFn: (n: SqlNode) =
         return [exprDoc, ' ', keyword('AS', opts), ' ', alias];
     }
     return exprDoc;
+}
+
+function printSelectSetVariable(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const varName = propStr(node, 'variable') ?? '@var';
+    const op = assignmentOp(propStr(node, 'operator') ?? 'Equals');
+    const val = prop(node, 'value');
+    return [varName, ' ', op, ' ', val ? printExpression(val, opts, printFn) : ''];
 }
 
 function printFunctionCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {

@@ -725,6 +725,108 @@ go
 
 ---
 
+## GO Batch Separators — expanded list
+
+`CREATE OR ALTER PROCEDURE` is now also treated as batch-isolating and gets a `go` appended, matching the behaviour of `CREATE PROCEDURE`:
+
+```sql
+create or alter procedure dbo.GetBooks
+  @genre_id int = null
+as
+begin
+  select book_id, title, price
+  from dbo.Books
+  where genre_id = @genre_id or @genre_id is null;
+end;
+go
+```
+
+---
+
+## TRUNCATE TABLE
+
+```sql
+truncate table dbo.Books;
+```
+
+---
+
+## DROP statements
+
+```sql
+drop table dbo.Books;
+drop table if exists dbo.Books;
+
+drop procedure dbo.GetBooks;
+drop view dbo.vw_available_books;
+drop function dbo.GetBookPrice;
+
+drop index ix_title on dbo.Books;
+```
+
+Multiple objects in one `DROP` are comma-separated on one line.
+
+---
+
+## Control flow: BREAK / CONTINUE / GOTO / label
+
+```sql
+while @i < 10
+begin
+  if @i = 5
+    break;
+  set @i = @i + 1;
+  continue;
+end;
+
+goto exit_label;
+
+exit_label:
+```
+
+Labels are emitted as-is (ScriptDom preserves the trailing colon in the value).
+
+---
+
+## THROW / RAISERROR
+
+```sql
+-- Re-throw inside a CATCH block
+throw;
+
+-- New-style throw with arguments
+throw 50001, 'Book not found', 1;
+
+-- Legacy RAISERROR
+raiserror ('Book not found', 16, 1);
+```
+
+---
+
+## TRY / CATCH
+
+```sql
+begin try
+  insert into dbo.Books (title, price)
+  values ('New Book', 29.99);
+end try
+begin catch
+  throw;
+end catch
+```
+
+---
+
+## SELECT @var = expr (variable assignment in select list)
+
+```sql
+select @total = sum(price)
+from dbo.Books
+where in_stock = 1;
+```
+
+---
+
 ## Semicolons
 
 All statements are terminated with a semicolon. The plugin normalises statements that are missing them.

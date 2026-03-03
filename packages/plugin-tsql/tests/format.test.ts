@@ -725,3 +725,111 @@ describe('expression functions', () => {
         expect(result).toMatchSnapshot();
     });
 });
+
+describe('Control flow & DDL additions', () => {
+    it('TRUNCATE TABLE', async () => {
+        const result = await fmt('truncate table dbo.Books');
+        expect(result).toMatchInlineSnapshot(`"truncate table dbo.Books;"`);
+    });
+
+    it('TRUNCATE TABLE uppercase', async () => {
+        const result = await fmt('TRUNCATE TABLE dbo.Books', { sqlKeywordCase: 'upper' });
+        expect(result).toMatchInlineSnapshot(`"TRUNCATE TABLE dbo.Books;"`);
+    });
+
+    it('BREAK statement', async () => {
+        const result = await fmt('break');
+        expect(result).toMatchInlineSnapshot(`"break;"`);
+    });
+
+    it('CONTINUE statement', async () => {
+        const result = await fmt('continue');
+        expect(result).toMatchInlineSnapshot(`"continue;"`);
+    });
+
+    it('GOTO statement', async () => {
+        const result = await fmt('goto exit_label');
+        expect(result).toMatchInlineSnapshot(`"goto exit_label;"`);
+    });
+
+    it('LABEL statement', async () => {
+        const result = await fmt('exit_label:');
+        // ScriptDom LabelStatement.Value includes the trailing colon
+        expect(result.trim()).toBe('exit_label:');
+    });
+
+    it('THROW with no args', async () => {
+        const result = await fmt('throw');
+        expect(result).toMatchInlineSnapshot(`"throw;"`);
+    });
+
+    it('THROW with args', async () => {
+        const result = await fmt("throw 50001, 'Not found', 1");
+        expect(result).toMatchInlineSnapshot(`"throw 50001, 'Not found', 1;"`);
+    });
+
+    it('RAISERROR statement', async () => {
+        const result = await fmt("raiserror ('Not found', 16, 1)");
+        expect(result).toMatchInlineSnapshot(`"raiserror ('Not found', 16, 1);"`);
+    });
+
+    it('TRY/CATCH block', async () => {
+        const sql = `
+begin try
+  select book_id from dbo.Books;
+end try
+begin catch
+  throw;
+end catch`;
+        const result = await fmt(sql);
+        expect(result).toContain('begin try');
+        expect(result).toContain('end try');
+        expect(result).toContain('begin catch');
+        expect(result).toContain('end catch');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('DROP TABLE', async () => {
+        const result = await fmt('drop table dbo.Books');
+        expect(result).toMatchInlineSnapshot(`"drop table dbo.Books;"`);
+    });
+
+    it('DROP TABLE IF EXISTS', async () => {
+        const result = await fmt('drop table if exists dbo.Books');
+        expect(result).toMatchInlineSnapshot(`"drop table if exists dbo.Books;"`);
+    });
+
+    it('DROP PROCEDURE', async () => {
+        const result = await fmt('drop procedure dbo.GetBooks');
+        expect(result).toMatchInlineSnapshot(`"drop procedure dbo.GetBooks;"`);
+    });
+
+    it('DROP VIEW', async () => {
+        const result = await fmt('drop view dbo.vw_available_books');
+        expect(result).toMatchInlineSnapshot(`"drop view dbo.vw_available_books;"`);
+    });
+
+    it('DROP FUNCTION', async () => {
+        const result = await fmt('drop function dbo.GetBookPrice');
+        expect(result).toMatchInlineSnapshot(`"drop function dbo.GetBookPrice;"`);
+    });
+
+    it('DROP INDEX', async () => {
+        const result = await fmt('drop index ix_title on dbo.Books');
+        expect(result).toMatchInlineSnapshot(`"drop index ix_title on dbo.Books;"`);
+    });
+
+    it('CREATE OR ALTER PROCEDURE emits correct keyword and GO', async () => {
+        const sql = `create or alter procedure dbo.GetBooks as begin select book_id from dbo.Books; end`;
+        const result = await fmt(sql);
+        expect(result).toContain('create or alter procedure');
+        expect(result).toContain('go');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('SELECT @var assignment in select list', async () => {
+        const result = await fmt('select @total = sum(price) from dbo.Books where in_stock = 1');
+        expect(result).toContain('@total');
+        expect(result).toMatchSnapshot();
+    });
+});
