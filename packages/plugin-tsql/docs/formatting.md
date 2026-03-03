@@ -185,6 +185,28 @@ group by genre_id
 having count(*) > 5;
 ```
 
+#### ROLLUP and CUBE
+
+`rollup` and `cube` are treated as keywords and respect `sqlKeywordCase`:
+
+```sql
+select
+  genre_id,
+  author_id,
+  sum(price) as total
+from dbo.Books
+group by rollup(genre_id, author_id);
+```
+
+```sql
+select
+  genre_id,
+  in_stock,
+  count(*) as cnt
+from dbo.Books
+group by cube(genre_id, in_stock);
+```
+
 ### ORDER BY
 
 ```sql

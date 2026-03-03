@@ -39,6 +39,8 @@ export function printExpression(node: SqlNode, opts: Options, printFn: (n: SqlNo
         case 'AtTimeZoneCall':    return printAtTimeZone(node, opts, printFn);
         case 'ScalarSubquery':    return printScalarSubquery(node, opts, printFn);
         case 'OverClause':        return printOverClause(node, opts, printFn);
+        case 'RollupSpec': return printGroupingSet('ROLLUP', node, opts, printFn);
+        case 'CubeSpec':   return printGroupingSet('CUBE', node, opts, printFn);
         // Query nodes — appear as subqueries inside expressions
         case 'QuerySpecification':
         case 'BinaryQueryExpression':
@@ -435,6 +437,11 @@ function printTop(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): D
     if (isPercent) parts.push(' ', keyword('PERCENT', opts));
     if (withTies) parts.push(' ', keyword('WITH TIES', opts));
     return parts;
+}
+
+function printGroupingSet(kw: string, node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const exprs = propArr(node, 'expressions').map((e) => printExpression(e, opts, printFn));
+    return group([keyword(kw, opts), '(', indent([softline, join([',', line], exprs)]), softline, ')']);
 }
 
 function printBinaryQuery(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {

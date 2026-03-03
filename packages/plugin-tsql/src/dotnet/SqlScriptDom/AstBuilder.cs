@@ -655,6 +655,15 @@ public class AstBuilder : TSqlFragmentVisitor
     {
         if (gs is ExpressionGroupingSpecification expr)
             return BuildScalarExpression(expr.Expression);
+        if (gs is RollupGroupingSpecification rollup)
+            return Node("RollupSpec", rollup, new Dictionary<string, object?> {
+                ["expressions"] = rollup.Arguments?.Select(e => (object?)BuildGroupingSpec(e)).ToList(),
+            });
+        if (gs is CubeGroupingSpecification cube)
+            return Node("CubeSpec", cube, new Dictionary<string, object?> {
+                ["expressions"] = cube.Arguments?.Select(e => (object?)BuildGroupingSpec(e)).ToList(),
+            });
+        // GrandTotalGroupingSpecification, GroupingSetsGroupingSpecification, etc.
         return Leaf("GroupingSpecification", gs, RawText(gs));
     }
 

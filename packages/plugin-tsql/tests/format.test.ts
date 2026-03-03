@@ -71,6 +71,29 @@ from dbo.Content`;
         expect(result).toMatchSnapshot();
     });
 
+    it('GROUP BY ROLLUP respects keyword case', async () => {
+        const lower = await fmt(
+            'SELECT genre_id, author_id, SUM(price) AS total FROM dbo.Books GROUP BY ROLLUP (genre_id, author_id)'
+        );
+        expect(lower).toContain('rollup(');
+        expect(lower).toMatchSnapshot();
+
+        const upper = await fmt(
+            'SELECT genre_id, author_id, SUM(price) AS total FROM dbo.Books GROUP BY ROLLUP (genre_id, author_id)',
+            { sqlKeywordCase: 'upper' }
+        );
+        expect(upper).toContain('ROLLUP(');
+    });
+
+    it('GROUP BY CUBE respects keyword case', async () => {
+        const result = await fmt(
+            'SELECT genre_id, in_stock, COUNT(*) AS cnt FROM dbo.Books GROUP BY CUBE (genre_id, in_stock)',
+            { sqlKeywordCase: 'upper' }
+        );
+        expect(result).toContain('CUBE(');
+        expect(result).toMatchSnapshot();
+    });
+
     it('CTE', async () => {
         const result = await fmt(
             'with available_books as (select book_id, title from dbo.Books where in_stock = 1) select b.title from available_books as b order by b.title asc'

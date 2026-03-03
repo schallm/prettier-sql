@@ -205,6 +205,24 @@ from available_books as b
 order by b.title asc;"
 `;
 
+exports[`SELECT formatting > GROUP BY CUBE respects keyword case 1`] = `
+"SELECT
+  genre_id,
+  in_stock,
+  COUNT(*) AS cnt
+FROM dbo.Books
+GROUP BY CUBE(genre_id, in_stock);"
+`;
+
+exports[`SELECT formatting > GROUP BY ROLLUP respects keyword case 1`] = `
+"select
+  genre_id,
+  author_id,
+  sum(price) as total
+from dbo.Books
+group by rollup(genre_id, author_id);"
+`;
+
 exports[`SELECT formatting > SELECT DISTINCT 1`] = `
 "select distinct genre_id
 from dbo.Books;"
