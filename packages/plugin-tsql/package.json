@@ -4,10 +4,23 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist", "bin/dotnet"],
-  "keywords": ["prettier", "prettier-plugin", "sql", "tsql", "sqlserver"],
-  "peerDependencies": { "prettier": ">=3.0.0" },
-  "dependencies": { "node-api-dotnet": "^0.8.0" },
+  "files": [
+    "dist",
+    "bin/dotnet"
+  ],
+  "keywords": [
+    "prettier",
+    "prettier-plugin",
+    "sql",
+    "tsql",
+    "sqlserver"
+  ],
+  "peerDependencies": {
+    "prettier": ">=3.0.0"
+  },
+  "dependencies": {
+    "node-api-dotnet": "^0.8.0"
+  },
   "devDependencies": {
     "prettier": "^3.0.0",
     "typescript": "^5.0.0",
@@ -15,11 +28,11 @@
     "@types/node": "^22.0.0"
   },
   "scripts": {
-    "build:dotnet": "dotnet msbuild src/dotnet/SqlScriptDom/SqlScriptDom.csproj /t:Publish /p:Configuration=Release \"/p:PublishDir=../../../bin/dotnet/\"",
-    "build:ts":    "tsc -p tsconfig.json",
+    "build:dotnet": "dotnet restore src/dotnet/SqlScriptDom/SqlScriptDom.csproj && dotnet msbuild src/dotnet/SqlScriptDom/SqlScriptDom.csproj /t:Publish /p:Configuration=Release \"/p:PublishDir=../../../bin/dotnet/\"",
+    "build:ts": "tsc -p tsconfig.json",
     "build:ts:watch": "tsc -p tsconfig.json --watch",
-    "build":       "npm run build:dotnet && npm run build:ts",
-    "test":        "vitest run",
-    "test:watch":  "vitest"
+    "build": "npm run build:dotnet && npm run build:ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   }
 }
