@@ -94,6 +94,20 @@ from dbo.Content`;
         expect(result).toMatchSnapshot();
     });
 
+    it('GROUP BY GROUPING SETS with composite groups and grand total', async () => {
+        const lower = await fmt(
+            'SELECT genre_id, author_id, SUM(price) AS total FROM dbo.Books GROUP BY GROUPING SETS ((genre_id, author_id), (genre_id), ())'
+        );
+        expect(lower).toContain('grouping sets(');
+        expect(lower).toMatchSnapshot();
+
+        const upper = await fmt(
+            'SELECT genre_id, author_id, SUM(price) AS total FROM dbo.Books GROUP BY GROUPING SETS ((genre_id, author_id), (genre_id), ())',
+            { sqlKeywordCase: 'upper' }
+        );
+        expect(upper).toContain('GROUPING SETS(');
+    });
+
     it('CTE', async () => {
         const result = await fmt(
             'with available_books as (select book_id, title from dbo.Books where in_stock = 1) select b.title from available_books as b order by b.title asc'

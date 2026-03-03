@@ -663,7 +663,16 @@ public class AstBuilder : TSqlFragmentVisitor
             return Node("CubeSpec", cube, new Dictionary<string, object?> {
                 ["expressions"] = cube.Arguments?.Select(e => (object?)BuildGroupingSpec(e)).ToList(),
             });
-        // GrandTotalGroupingSpecification, GroupingSetsGroupingSpecification, etc.
+        if (gs is GroupingSetsGroupingSpecification gsets)
+            return Node("GroupingSetsSpec", gsets, new Dictionary<string, object?> {
+                ["sets"] = gsets.Sets?.Select(e => (object?)BuildGroupingSpec(e)).ToList(),
+            });
+        if (gs is CompositeGroupingSpecification composite)
+            return Node("CompositeGroupingSpec", composite, new Dictionary<string, object?> {
+                ["items"] = composite.Items?.Select(e => (object?)BuildGroupingSpec(e)).ToList(),
+            });
+        if (gs is GrandTotalGroupingSpecification)
+            return Leaf("GrandTotalSpec", gs, "()");
         return Leaf("GroupingSpecification", gs, RawText(gs));
     }
 

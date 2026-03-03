@@ -39,8 +39,11 @@ export function printExpression(node: SqlNode, opts: Options, printFn: (n: SqlNo
         case 'AtTimeZoneCall':    return printAtTimeZone(node, opts, printFn);
         case 'ScalarSubquery':    return printScalarSubquery(node, opts, printFn);
         case 'OverClause':        return printOverClause(node, opts, printFn);
-        case 'RollupSpec': return printGroupingSet('ROLLUP', node, opts, printFn);
-        case 'CubeSpec':   return printGroupingSet('CUBE', node, opts, printFn);
+        case 'RollupSpec':           return printGroupingSet('ROLLUP', node, opts, printFn);
+        case 'CubeSpec':             return printGroupingSet('CUBE', node, opts, printFn);
+        case 'GroupingSetsSpec':     return printGroupingSets(node, opts, printFn);
+        case 'CompositeGroupingSpec': return printCompositeGroup(node, opts, printFn);
+        case 'GrandTotalSpec':       return '()';
         // Query nodes — appear as subqueries inside expressions
         case 'QuerySpecification':
         case 'BinaryQueryExpression':
@@ -442,6 +445,20 @@ function printTop(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): D
 function printGroupingSet(kw: string, node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
     const exprs = propArr(node, 'expressions').map((e) => printExpression(e, opts, printFn));
     return group([keyword(kw, opts), '(', indent([softline, join([',', line], exprs)]), softline, ')']);
+}
+
+function printGroupingSets(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const sets = propArr(node, 'sets').map((s) => printExpression(s, opts, printFn));
+    return group([
+        keyword('GROUPING SETS', opts), '(',
+        indent([softline, join([',', line], sets)]),
+        softline, ')',
+    ]);
+}
+
+function printCompositeGroup(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const items = propArr(node, 'items').map((e) => printExpression(e, opts, printFn));
+    return group(['(', indent([softline, join([',', line], items)]), softline, ')']);
 }
 
 function printBinaryQuery(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {

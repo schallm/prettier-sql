@@ -214,6 +214,15 @@ FROM dbo.Books
 GROUP BY CUBE(genre_id, in_stock);"
 `;
 
+exports[`SELECT formatting > GROUP BY GROUPING SETS with composite groups and grand total 1`] = `
+"select
+  genre_id,
+  author_id,
+  sum(price) as total
+from dbo.Books
+group by grouping sets((genre_id, author_id), (genre_id), ());"
+`;
+
 exports[`SELECT formatting > GROUP BY ROLLUP respects keyword case 1`] = `
 "select
   genre_id,

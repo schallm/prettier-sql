@@ -185,9 +185,9 @@ group by genre_id
 having count(*) > 5;
 ```
 
-#### ROLLUP and CUBE
+#### ROLLUP, CUBE, and GROUPING SETS
 
-`rollup` and `cube` are treated as keywords and respect `sqlKeywordCase`:
+`rollup`, `cube`, and `grouping sets` are treated as keywords and respect `sqlKeywordCase`:
 
 ```sql
 select
@@ -205,6 +205,17 @@ select
   count(*) as cnt
 from dbo.Books
 group by cube(genre_id, in_stock);
+```
+
+`grouping sets` supports composite groups `(col1, col2)` and the grand-total empty set `()`:
+
+```sql
+select
+  genre_id,
+  author_id,
+  sum(price) as total
+from dbo.Books
+group by grouping sets((genre_id, author_id), (genre_id), ());
 ```
 
 ### ORDER BY
