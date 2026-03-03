@@ -27,10 +27,10 @@ export const options: Record<string, SupportOption> = {
         type: 'choice',
         category: 'SQL',
         default: 'trailing',
-        description: 'Comma position in column lists',
+        description: 'Comma position in column lists (leading is not yet implemented)',
         choices: [
             { value: 'trailing', description: 'Trailing comma: col1,' },
-            { value: 'leading', description: 'Leading comma: , col1' },
+            { value: 'leading', description: 'Leading comma: , col1 (not yet implemented — behaves as trailing)' },
         ],
     } as SupportOption,
 };

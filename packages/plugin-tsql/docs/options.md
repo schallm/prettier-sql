@@ -116,6 +116,8 @@ Controls where commas appear in column and value lists.
 | `trailing` | Comma at the end of the line | ✓ |
 | `leading` | Comma at the start of the line | |
 
+> **Note:** `leading` is declared but not yet implemented. Setting it currently has no effect — output will use trailing commas.
+
 ### `trailing` (default)
 
 ```sql
@@ -123,16 +125,6 @@ select
   book_id,
   title,
   price
-from dbo.Books;
-```
-
-### `leading`
-
-```sql
-select
-    book_id
-  , title
-  , price
 from dbo.Books;
 ```
 

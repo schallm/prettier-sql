@@ -1,11 +1,8 @@
 import type { Doc } from 'prettier';
-import { builders } from 'prettier/doc';
 import type { SqlNode } from '../parser/types.js';
 import type { Options } from './utils.js';
-import { keyword, getDensity, hardline, join, group, indent, line } from './utils.js';
-import { prop, propArr, propStr, propBool } from './helpers.js';
-
-const { softline, ifBreak, fill } = builders;
+import { keyword, getDensity, hardline, join, group, indent, line, softline, ifBreak, fill } from './utils.js';
+import { prop, propArr, propStr, propBool, schemaObjectName } from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // Scalar expressions
@@ -687,23 +684,9 @@ export function printTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode
 }
 
 function printNamedTableRef(node: SqlNode, opts: Options): Doc {
-    const name = prop(node, 'name');
     const alias = propStr(node, 'alias');
     const hints = node.props?.['hints'] as string[] | undefined;
-    const nameParts: string[] = [];
-
-    if (name) {
-        const schema = propStr(name, 'schema');
-        const db = propStr(name, 'database');
-        const srv = propStr(name, 'server');
-        const nm = propStr(name, 'name');
-        if (srv) nameParts.push(srv);
-        if (db) nameParts.push(db);
-        if (schema) nameParts.push(schema);
-        if (nm) nameParts.push(nm);
-    }
-
-    const nameDoc: Doc = nameParts.join('.');
+    const nameDoc: Doc = schemaObjectName(prop(node, 'name'));
     const aliasDoc: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
     const hintsDoc: Doc = hints?.length
         ? [' ', keyword('WITH', opts), ' (', join(', ', hints.map((h) => keyword(h, opts))), ')']
@@ -827,20 +810,11 @@ function printQueryDerivedTable(node: SqlNode, opts: Options, printFn: (n: SqlNo
 }
 
 function printSchemaObjectFunctionTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
-    const name  = prop(node, 'name');
     const args  = propArr(node, 'args');
     const alias = propStr(node, 'alias');
-
-    const nameParts: string[] = [];
-    if (name) {
-        const schema = propStr(name, 'schema');
-        const nm     = propStr(name, 'name');
-        if (schema) nameParts.push(schema);
-        if (nm)     nameParts.push(nm);
-    }
     const argsDoc: Doc = join(', ', args.map((a) => printExpression(a, opts, printFn)));
     const aliasDoc: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
-    return [nameParts.join('.'), '(', argsDoc, ')', aliasDoc];
+    return [schemaObjectName(prop(node, 'name')), '(', argsDoc, ')', aliasDoc];
 }
 
 // ---------------------------------------------------------------------------

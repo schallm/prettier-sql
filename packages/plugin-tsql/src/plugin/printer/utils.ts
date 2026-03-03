@@ -2,7 +2,7 @@ import type { Doc, ParserOptions } from 'prettier';
 import { builders } from 'prettier/doc';
 import type { SqlNode } from '../parser/types.js';
 
-const { hardline, join, indent, group, line, softline, trim, ifBreak } = builders;
+const { hardline, join, indent, group, line, softline, lineSuffix, ifBreak, fill } = builders;
 
 export type Options = ParserOptions<SqlNode>;
 
@@ -24,9 +24,4 @@ export function getDensity(opts: Options): 'compact' | 'standard' | 'spacious' {
     return 'standard';
 }
 
-/** Emit a top-level SQL clause: KEYWORD\n    body */
-export function clause(kw: string, body: Doc, opts: Options): Doc {
-    return group([keyword(kw, opts), indent([hardline, body])]);
-}
-
-export { hardline, join, indent, group, line, softline, trim, ifBreak, builders };
+export { hardline, join, indent, group, line, softline, lineSuffix, ifBreak, fill };
