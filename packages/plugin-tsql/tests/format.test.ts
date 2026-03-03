@@ -833,3 +833,68 @@ end catch`;
         expect(result).toMatchSnapshot();
     });
 });
+
+describe('MERGE statement', () => {
+    it('full MERGE with all three clause types', async () => {
+        const result = await fmt(`
+            merge into dbo.Books as t
+            using dbo.ArchivedBooks as s
+            on t.book_id = s.book_id
+            when matched then
+                update set t.title = s.title, t.price = s.price
+            when not matched by target then
+                insert (book_id, title, price) values (s.book_id, s.title, s.price)
+            when not matched by source then
+                delete;
+        `);
+        expect(result).toContain('merge into');
+        expect(result).toContain('using');
+        expect(result).toContain('when matched then');
+        expect(result).toContain('update set');
+        expect(result).toContain('when not matched by target then');
+        expect(result).toContain('insert');
+        expect(result).toContain('when not matched by source then');
+        expect(result).toContain('delete');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('MERGE with AND predicate on WHEN MATCHED', async () => {
+        const result = await fmt(`
+            merge into dbo.Books as t
+            using dbo.ArchivedBooks as s
+            on t.book_id = s.book_id
+            when matched and t.price <> s.price then
+                update set t.price = s.price;
+        `);
+        expect(result).toContain('when matched and');
+        expect(result).toContain('update set');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('MERGE respects sqlKeywordCase upper', async () => {
+        const result = await fmt(`
+            merge into dbo.Books as t
+            using dbo.ArchivedBooks as s
+            on t.book_id = s.book_id
+            when matched then
+                update set t.price = s.price;
+        `, { sqlKeywordCase: 'upper' });
+        expect(result).toContain('MERGE INTO');
+        expect(result).toContain('WHEN MATCHED THEN');
+        expect(result).toContain('UPDATE SET');
+    });
+
+    it('MERGE with subquery as source', async () => {
+        const result = await fmt(`
+            merge into dbo.Books as t
+            using (select book_id, title, price from dbo.ArchivedBooks where price > 0) as s
+            on t.book_id = s.book_id
+            when matched then
+                update set t.title = s.title, t.price = s.price;
+        `);
+        expect(result).toContain('using');
+        expect(result).toContain('select');
+        expect(result).toContain('when matched then');
+        expect(result).toMatchSnapshot();
+    });
+});

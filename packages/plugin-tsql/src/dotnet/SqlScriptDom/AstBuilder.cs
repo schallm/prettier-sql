@@ -825,6 +825,7 @@ public class AstBuilder : TSqlFragmentVisitor
             DropViewStatement dvs => BuildDropObjects("DropViewStatement", dvs),
             DropFunctionStatement dfs => BuildDropObjects("DropFunctionStatement", dfs),
             DropIndexStatement di => BuildDropIndex(di),
+            MergeStatement merge => BuildMergeStatement(merge),
             _ => Leaf("Statement", stmt, RawText(stmt)),
         };
     }
@@ -1521,4 +1522,50 @@ public class AstBuilder : TSqlFragmentVisitor
                     ["table"] = BuildSchemaObjectName(c.Object),
                 })).ToList(),
         });
+
+    // -------------------------------------------------------------------------
+    // DML: MERGE
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildMergeStatement(MergeStatement merge)
+    {
+        var spec = merge.MergeSpecification;
+        var ctes = merge.WithCtesAndXmlNamespaces?.CommonTableExpressions
+            ?.Select(c => (object?)BuildCte(c)).ToList();
+        return Node("MergeStatement", merge, new Dictionary<string, object?>
+        {
+            ["ctes"]        = ctes,
+            ["target"]      = BuildTableReference(spec?.Target),
+            ["targetAlias"] = spec?.TableAlias?.Value,
+            ["source"]      = BuildTableReference(spec?.TableReference),
+            ["on"]          = BuildBooleanExpression(spec?.SearchCondition),
+            ["clauses"]     = spec?.ActionClauses?.Select(c => (object?)BuildMergeActionClause(c)).ToList(),
+        });
+    }
+
+    private static SqlNode BuildMergeActionClause(MergeActionClause clause) =>
+        Node("MergeActionClause", clause, new Dictionary<string, object?>
+        {
+            ["condition"] = clause.Condition.ToString(),
+            ["predicate"] = BuildBooleanExpression(clause.SearchCondition),
+            ["action"]    = BuildMergeAction(clause.Action),
+        });
+
+    private static SqlNode BuildMergeAction(MergeAction action) =>
+        action switch
+        {
+            InsertMergeAction ins => Node("MergeInsertAction", ins, new Dictionary<string, object?>
+            {
+                ["columns"] = ins.Columns?.Select(c => (object?)BuildColumnRef(c)).ToList(),
+                ["source"]  = ins.Source is ValuesInsertSource vals
+                              ? BuildValuesInsertSource(vals)
+                              : ins.Source != null ? Leaf("InsertSource", ins.Source, RawText(ins.Source)) : null,
+            }),
+            UpdateMergeAction upd => Node("MergeUpdateAction", upd, new Dictionary<string, object?>
+            {
+                ["set"] = upd.SetClauses?.Select(s => (object?)BuildSetClause(s)).ToList(),
+            }),
+            DeleteMergeAction del => Node("MergeDeleteAction", del, new Dictionary<string, object?>()),
+            _                     => Leaf("MergeAction", action, RawText(action)),
+        };
 }

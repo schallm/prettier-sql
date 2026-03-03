@@ -193,6 +193,47 @@ values
   ('Jane Smith', 'jane@example.com', 1);"
 `;
 
+exports[`MERGE statement > MERGE with AND predicate on WHEN MATCHED 1`] = `
+"merge into dbo.Books as t
+using dbo.ArchivedBooks as s
+on t.book_id = s.book_id
+when matched and t.price <> s.price then
+  update set
+    t.price = s.price;"
+`;
+
+exports[`MERGE statement > MERGE with subquery as source 1`] = `
+"merge into dbo.Books as t
+using (
+  select
+    book_id,
+    title,
+    price
+  from dbo.ArchivedBooks
+  where price > 0
+) as s
+on t.book_id = s.book_id
+when matched then
+  update set
+    t.title = s.title,
+    t.price = s.price;"
+`;
+
+exports[`MERGE statement > full MERGE with all three clause types 1`] = `
+"merge into dbo.Books as t
+using dbo.ArchivedBooks as s
+on t.book_id = s.book_id
+when matched then
+  update set
+    t.title = s.title,
+    t.price = s.price
+when not matched by target then
+  insert (book_id, title, price)
+  values (s.book_id, s.title, s.price)
+when not matched by source then
+  delete;"
+`;
+
 exports[`OPTION clause formatting > OPTION (RECOMPILE) is preserved on its own line 1`] = `
 "select
   book_id,

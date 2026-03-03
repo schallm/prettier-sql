@@ -152,6 +152,7 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'DropViewStatement':           return printDropObjects('VIEW', node, opts);
         case 'DropFunctionStatement':       return printDropObjects('FUNCTION', node, opts);
         case 'DropIndexStatement':          return printDropIndex(node, opts);
+        case 'MergeStatement':              return printMerge(node, opts);
         default:
             return node.text ?? `/* unhandled statement: ${node.type} */`;
     }
@@ -932,4 +933,98 @@ function printDropIndex(node: SqlNode, opts: Options): Doc {
         join([',', hardline], indexDocs),
         ';',
     ]);
+}
+
+// ---------------------------------------------------------------------------
+// MERGE
+// ---------------------------------------------------------------------------
+
+function printMerge(node: SqlNode, opts: Options): Doc {
+    const ctesDocs = printCtes(node, opts);
+    const target = prop(node, 'target');
+    const targetAlias = propStr(node, 'targetAlias');
+    const source = prop(node, 'source');
+    const on = prop(node, 'on');
+    const clauses = propArr(node, 'clauses');
+
+    const targetDoc: Doc = target
+        ? (targetAlias ? [printTable(target, opts), ' ', keyword('AS', opts), ' ', targetAlias] : printTable(target, opts))
+        : '';
+
+    const parts: Doc[] = [
+        ...ctesDocs,
+        keyword('MERGE INTO', opts), ' ', targetDoc,
+        hardline,
+        keyword('USING', opts), ' ', source ? printTable(source, opts) : '',
+        hardline,
+        keyword('ON', opts), ' ', on ? printBool(on, opts) : '',
+    ];
+
+    for (const clause of clauses) {
+        parts.push(hardline, printMergeClause(clause, opts));
+    }
+
+    parts.push(';');
+    return group(parts);
+}
+
+function printMergeClause(node: SqlNode, opts: Options): Doc {
+    const condition = propStr(node, 'condition') ?? 'Matched';
+    const predicate = prop(node, 'predicate');
+    const action    = prop(node, 'action');
+
+    const condKw: Doc =
+        condition === 'Matched'            ? keyword('WHEN MATCHED', opts) :
+        condition === 'NotMatchedByTarget' ? keyword('WHEN NOT MATCHED BY TARGET', opts) :
+        condition === 'NotMatched'         ? keyword('WHEN NOT MATCHED', opts) :
+                                             keyword('WHEN NOT MATCHED BY SOURCE', opts);
+
+    const predPart: Doc = predicate
+        ? [' ', keyword('AND', opts), ' ', printBool(predicate, opts)]
+        : '';
+
+    return [
+        condKw, predPart,
+        ' ', keyword('THEN', opts),
+        indent([hardline, action ? printMergeAction(action, opts) : '']),
+    ];
+}
+
+function printMergeAction(node: SqlNode, opts: Options): Doc {
+    switch (node.type) {
+        case 'MergeUpdateAction': {
+            const setParts = propArr(node, 'set').map(sc => {
+                const col   = prop(sc, 'column');
+                const val   = prop(sc, 'value');
+                const opStr = assignmentOp(propStr(sc, 'operator') ?? 'Equals');
+                return [col ? printNode(col, opts) : '', ' ', opStr, ' ', val ? printNode(val, opts) : ''] as Doc;
+            });
+            return [
+                keyword('UPDATE SET', opts),
+                indent([hardline, join([',', hardline], setParts)]),
+            ];
+        }
+        case 'MergeInsertAction': {
+            const columns = propArr(node, 'columns');
+            const source  = prop(node, 'source');
+            const colsPart: Doc = columns.length
+                ? ['(', join(', ', columns.map(c => printNode(c, opts))), ')']
+                : '';
+            return [keyword('INSERT', opts), ' ', colsPart, source ? printMergeValues(source, opts) : ''];
+        }
+        case 'MergeDeleteAction':
+            return keyword('DELETE', opts);
+        default:
+            return node.text ?? `/* ${node.type} */`;
+    }
+}
+
+function printMergeValues(source: SqlNode, opts: Options): Doc {
+    if (source.type !== 'ValuesSource') return source.text ? [hardline, source.text] : '';
+    const rows = source.props?.['rows'];
+    if (!Array.isArray(rows) || rows.length === 0) return [hardline, keyword('VALUES', opts), ' ()'];
+    // MERGE INSERT has exactly one VALUES row
+    const row = rows[0] as SqlNode;
+    const vals = propArr(row, 'values').map(v => printNode(v, opts));
+    return [hardline, keyword('VALUES', opts), ' (', join(', ', vals), ')'];
 }
