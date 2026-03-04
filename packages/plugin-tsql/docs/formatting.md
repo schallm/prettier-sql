@@ -649,9 +649,10 @@ drop column isbn;
 
 ---
 
-## CREATE PROCEDURE
+## CREATE / ALTER PROCEDURE
 
-Batch-isolating statements (`create procedure`, `create function`, `create view`) are automatically followed by `go`.
+`alter procedure` and `create or alter procedure` follow the same layout as `create procedure`.
+All three are batch-isolating (automatically followed by `go`).
 
 ```sql
 create procedure dbo.GetAvailableBooks
@@ -700,7 +701,9 @@ go
 
 ---
 
-## CREATE FUNCTION
+## CREATE / ALTER FUNCTION
+
+`alter function` and `create or alter function` follow the same layout as `create function`.
 
 Scalar function:
 
@@ -819,8 +822,8 @@ go
 The following statement types must be alone in a batch and automatically get a `go` appended:
 
 - `CREATE VIEW` / `ALTER VIEW` / `CREATE OR ALTER VIEW`
-- `CREATE PROCEDURE`
-- `CREATE FUNCTION`
+- `CREATE PROCEDURE` / `ALTER PROCEDURE` / `CREATE OR ALTER PROCEDURE`
+- `CREATE FUNCTION` / `ALTER FUNCTION` / `CREATE OR ALTER FUNCTION`
 
 When multiple such statements appear in a file (separated by `go` in the input), each batch is separated by a blank line in the output:
 
@@ -838,20 +841,59 @@ go
 
 ---
 
-## GO Batch Separators — expanded list
-
-`CREATE OR ALTER PROCEDURE` is now also treated as batch-isolating and gets a `go` appended, matching the behaviour of `CREATE PROCEDURE`:
+## USE
 
 ```sql
-create or alter procedure dbo.GetBooks
-  @genre_id int = null
-as
-begin
-  select book_id, title, price
-  from dbo.Books
-  where genre_id = @genre_id or @genre_id is null;
-end;
-go
+use AdventureWorks2019;
+```
+
+---
+
+## SET statements
+
+### SET option ON / OFF
+
+`SET` on/off options are formatted as `set <option> on;` or `set <option> off;`. Keyword casing
+applies to both the `SET` keyword and the option name.
+
+```sql
+set nocount on;
+set ansi_nulls on;
+set quoted_identifier on;
+set xact_abort off;
+```
+
+### SET STATISTICS
+
+```sql
+set statistics io on;
+set statistics time off;
+```
+
+### SET IDENTITY_INSERT
+
+```sql
+set identity_insert dbo.Books on;
+set identity_insert dbo.Books off;
+```
+
+### SET TRANSACTION ISOLATION LEVEL
+
+```sql
+set transaction isolation level read committed;
+set transaction isolation level snapshot;
+set transaction isolation level serializable;
+```
+
+Supported levels: `READ COMMITTED`, `READ UNCOMMITTED`, `REPEATABLE READ`, `SERIALIZABLE`, `SNAPSHOT`.
+
+---
+
+## WAITFOR
+
+```sql
+waitfor delay '00:00:05';
+waitfor time '10:00:00';
 ```
 
 ---
