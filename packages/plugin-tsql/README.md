@@ -27,6 +27,38 @@ The following T-SQL constructs are recognised by the parser but emitted unchange
 
 - `OPENROWSET` — complex provider/connection-string form
 
+## Pending implementation
+
+The constructs below are parsed correctly but not yet formatted — they pass through as-is. PRs welcome.
+
+**Common in everyday scripts**
+
+- `USE dbname`
+- `SET NOCOUNT ON/OFF`, `SET ANSI_NULLS ON/OFF`, `SET QUOTED_IDENTIFIER ON/OFF`, and other on/off `SET` options
+- `SET TRANSACTION ISOLATION LEVEL`
+- `SET IDENTITY_INSERT table ON/OFF`
+- `WAITFOR DELAY / TIME`
+- `ALTER PROCEDURE` / `ALTER FUNCTION` (note: `CREATE OR ALTER` is already supported)
+- `CREATE/ALTER/DROP TRIGGER`
+- `GRANT` / `DENY` / `REVOKE`
+- `CREATE/ALTER/DROP USER`, `LOGIN`, `ROLE`
+- `CREATE/ALTER/DROP SEQUENCE`
+- `DECLARE CURSOR` / `OPEN` / `FETCH` / `CLOSE` / `DEALLOCATE`
+- `BULK INSERT`
+- `ALTER INDEX … REBUILD / REORGANIZE`
+- `CREATE TYPE` (user-defined table types and scalar UDTs)
+
+**Specialised / lower priority**
+
+- `DBCC` commands
+- `BACKUP` / `RESTORE`
+- `CREATE/ALTER/DROP DATABASE`
+- Service Broker statements (`CREATE QUEUE`, `SEND`, `RECEIVE`, etc.)
+- Extended Events (`CREATE EVENT SESSION`, etc.)
+- Cryptography (`CREATE CERTIFICATE`, `CREATE SYMMETRIC KEY`, etc.)
+- Availability Group DDL
+- External data (`CREATE EXTERNAL TABLE`, `CREATE EXTERNAL DATA SOURCE`, etc.)
+
 ## Requirements
 
 - Node.js 18+
