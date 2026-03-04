@@ -449,6 +449,14 @@ from dbo.Books
 where in_stock = 0;
 ```
 
+INSERT with OUTPUT (see [OUTPUT clause](#output-clause) below):
+
+```sql
+insert into dbo.Books (title, price)
+output inserted.book_id, inserted.title
+values ('New Book', 9.99);
+```
+
 ---
 
 ## UPDATE
@@ -480,6 +488,15 @@ from
 where p.country = 'UK';
 ```
 
+UPDATE with OUTPUT:
+
+```sql
+update dbo.Books
+set price = price * 1.1
+output inserted.book_id, deleted.price, inserted.price
+where in_stock = 1;
+```
+
 ---
 
 ## DELETE
@@ -490,6 +507,102 @@ where
   in_stock = 0
   and published_date < dateadd(year, -10, getdate());
 ```
+
+DELETE with OUTPUT INTO:
+
+```sql
+delete from dbo.Books
+output deleted.book_id, deleted.title into @removed (book_id, title)
+where in_stock = 0;
+```
+
+---
+
+## MERGE
+
+`merge into` targets the destination table (with an optional alias). `using` specifies the source, which can be a table or a subquery. Each `when` clause appears on its own line; the action is indented one level below `then`:
+
+```sql
+merge into dbo.Books as t
+using dbo.ArchivedBooks as s
+on t.book_id = s.book_id
+when matched then
+  update set
+    t.title = s.title,
+    t.price = s.price
+when not matched by target then
+  insert (book_id, title, price)
+  values (s.book_id, s.title, s.price)
+when not matched by source then
+  delete;
+```
+
+An optional `and` predicate on a `when` clause stays inline with the condition keyword:
+
+```sql
+merge into dbo.Books as t
+using dbo.ArchivedBooks as s
+on t.book_id = s.book_id
+when matched and t.price <> s.price then
+  update set
+    t.price = s.price;
+```
+
+A subquery source is indented inside parentheses:
+
+```sql
+merge into dbo.Books as t
+using (
+  select book_id, title, price
+  from dbo.ArchivedBooks
+  where price > 0
+) as s
+on t.book_id = s.book_id
+when matched then
+  update set
+    t.title = s.title,
+    t.price = s.price;
+```
+
+MERGE with OUTPUT:
+
+```sql
+merge into dbo.Books as t
+using dbo.ArchivedBooks as s
+on t.book_id = s.book_id
+when matched then
+  update set
+    t.price = s.price
+output $action, inserted.book_id, deleted.price;
+```
+
+---
+
+## OUTPUT clause
+
+`output` and `output into` are supported on INSERT, UPDATE, DELETE, and MERGE. The column list fits on one line when short; longer lists break with one column per line.
+
+Short list — stays inline:
+
+```sql
+update dbo.Books
+set price = price * 1.1
+output inserted.book_id, deleted.price, inserted.price
+where in_stock = 1;
+```
+
+Longer list with `into` — breaks to indented lines before `into`:
+
+```sql
+delete from dbo.Books
+output
+  deleted.book_id,
+  deleted.title
+into @removed (book_id, title)
+where in_stock = 0;
+```
+
+`$action`, `inserted.*`, and `deleted.*` are preserved exactly as written since they are pseudo-columns, not SQL keywords (keyword casing does not apply to them).
 
 ---
 
