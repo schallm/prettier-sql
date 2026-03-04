@@ -712,6 +712,8 @@ export function printTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode
         case 'QueryDerivedTable':           return printQueryDerivedTable(node, opts, printFn);
         case 'SchemaObjectFunctionTableReference': return printSchemaObjectFunctionTableRef(node, opts, printFn);
         case 'FullTextTableReference': return printFullTextTableRef(node, opts, printFn);
+        case 'OpenXmlTableReference':  return printOpenXmlTableRef(node, opts);
+        case 'OpenJsonTableReference': return printOpenJsonTableRef(node, opts);
         default:
             return node.text ?? `/* ${node.type} */`;
     }
@@ -898,6 +900,52 @@ function printFullTextTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNod
 
     const aliasDoc: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
     return [fnKw, '(', ...args, ')', aliasDoc];
+}
+
+function rowsetWithClause(items: SqlNode[], opts: Options): Doc {
+    return [
+        hardline,
+        keyword('WITH', opts),
+        ' (',
+        indent([hardline, join([',', hardline], items.map((i) => i.text ?? ''))]),
+        hardline,
+        ')',
+    ];
+}
+
+function printOpenXmlTableRef(node: SqlNode, opts: Options): Doc {
+    const variable   = propStr(node, 'variable') ?? '';
+    const rowPattern = propStr(node, 'rowPattern');
+    const flags      = propStr(node, 'flags');
+    const withItems  = propArr(node, 'withItems');
+    const tableName  = prop(node, 'tableName');
+    const alias      = propStr(node, 'alias');
+
+    const args: Doc[] = [variable];
+    if (rowPattern) args.push(', ', rowPattern);
+    if (flags)      args.push(', ', flags);
+
+    const withPart: Doc = withItems.length
+        ? rowsetWithClause(withItems, opts)
+        : tableName
+            ? [hardline, keyword('WITH', opts), ' ', schemaObjectName(tableName)]
+            : '';
+    const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
+    return [keyword('OPENXML', opts), '(', ...args, ')', withPart, aliasPart];
+}
+
+function printOpenJsonTableRef(node: SqlNode, opts: Options): Doc {
+    const variable   = propStr(node, 'variable') ?? '';
+    const rowPattern = propStr(node, 'rowPattern');
+    const withItems  = propArr(node, 'withItems');
+    const alias      = propStr(node, 'alias');
+
+    const args: Doc[] = [variable];
+    if (rowPattern) args.push(', ', rowPattern);
+
+    const withPart: Doc = withItems.length ? rowsetWithClause(withItems, opts) : '';
+    const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
+    return [keyword('OPENJSON', opts), '(', ...args, ')', withPart, aliasPart];
 }
 
 // ---------------------------------------------------------------------------

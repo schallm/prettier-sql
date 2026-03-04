@@ -1015,6 +1015,70 @@ from
 
 ---
 
+## Rowset functions (OPENJSON / OPENXML)
+
+### OPENJSON
+
+`OPENJSON` appears in `FROM` / `CROSS APPLY` clauses. Without a `WITH` clause, only the alias
+is attached:
+
+```sql
+select
+  j.key,
+  j.value
+from
+  dbo.Orders as o
+  cross apply openjson(o.json_data) as j;
+```
+
+With a row-path and `WITH` schema declaration, each column definition is on its own indented
+line inside the parentheses:
+
+```sql
+select
+  j.order_id,
+  j.amount
+from
+  dbo.Orders as o
+  cross apply openjson(o.json_data, '$.items')
+  with (
+    order_id int '$.id',
+    amount decimal(10, 2) '$.amount',
+    notes nvarchar(500) '$.notes'
+  ) as j;
+```
+
+`AS JSON` columns are preserved:
+
+```sql
+select j.id, j.data
+from openjson(@json)
+with (
+  id int '$.id',
+  data nvarchar(max) '$.data' as json
+) as j;
+```
+
+### OPENXML
+
+`OPENXML` follows the same WITH-clause layout:
+
+```sql
+select
+  x.id,
+  x.name
+from openxml(@hDoc, '/root/item', 2)
+with (
+  id int '@id',
+  name varchar(100) 'name'
+) as x;
+```
+
+The column data types inside `WITH (...)` are emitted as raw text (original casing is
+preserved). `OPENROWSET` is not yet formatted and is emitted as-is.
+
+---
+
 ## Semicolons
 
 All statements are terminated with a semicolon. The plugin normalises statements that are missing them.

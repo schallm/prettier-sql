@@ -463,6 +463,8 @@ public class AstBuilder : TSqlFragmentVisitor
             JoinParenthesisTableReference jp => BuildJoinParenthesis(jp),
             SchemaObjectFunctionTableReference tvf => BuildSchemaObjectFunctionTableRef(tvf),
             FullTextTableReference ftt => BuildFullTextTableReference(ftt),
+            OpenXmlTableReference openXml => BuildOpenXmlTableReference(openXml),
+            OpenJsonTableReference openJson => BuildOpenJsonTableReference(openJson),
             _ => Leaf("TableReference", tableRef, RawText(tableRef)),
         };
     }
@@ -1602,6 +1604,39 @@ public class AstBuilder : TSqlFragmentVisitor
             ["topN"]            = BuildScalarExpression(ftt.TopN),
             ["language"]        = ftt.Language != null ? RawText(ftt.Language) : null,
             ["alias"]           = ftt.Alias?.Value,
+        });
+
+    private static SqlNode BuildSchemaItem(SchemaDeclarationItem item)
+    {
+        var text = RawText(item);
+        // SchemaDeclarationItemOpenjson.AsJson is outside the fragment span — append manually
+        if (item is SchemaDeclarationItemOpenjson ojItem && ojItem.AsJson)
+            text += " as json";
+        return Leaf("SchemaItem", item, text);
+    }
+
+    private static SqlNode BuildOpenXmlTableReference(OpenXmlTableReference ox) =>
+        Node("OpenXmlTableReference", ox, new Dictionary<string, object?>
+        {
+            ["variable"]   = ox.Variable   != null ? RawText(ox.Variable)   : null,
+            ["rowPattern"] = ox.RowPattern  != null ? RawText(ox.RowPattern) : null,
+            ["flags"]      = ox.Flags       != null ? RawText(ox.Flags)      : null,
+            ["withItems"]  = ox.SchemaDeclarationItems?.Count > 0
+                             ? ox.SchemaDeclarationItems.Select(i => (object?)BuildSchemaItem(i)).ToList()
+                             : null,
+            ["tableName"]  = ox.TableName != null ? BuildSchemaObjectName(ox.TableName) : null,
+            ["alias"]      = ox.Alias?.Value,
+        });
+
+    private static SqlNode BuildOpenJsonTableReference(OpenJsonTableReference oj) =>
+        Node("OpenJsonTableReference", oj, new Dictionary<string, object?>
+        {
+            ["variable"]   = oj.Variable   != null ? RawText(oj.Variable)   : null,
+            ["rowPattern"] = oj.RowPattern  != null ? RawText(oj.RowPattern) : null,
+            ["withItems"]  = oj.SchemaDeclarationItems?.Count > 0
+                             ? oj.SchemaDeclarationItems.Select(i => (object?)BuildSchemaItem(i)).ToList()
+                             : null,
+            ["alias"]      = oj.Alias?.Value,
         });
 
     private static SqlNode? BuildOutputClause(OutputClause? output)

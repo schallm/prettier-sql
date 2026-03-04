@@ -1040,3 +1040,73 @@ describe('Full-text predicates', () => {
         expect(result).toContain('WHERE');
     });
 });
+
+describe('Rowset functions', () => {
+    it('OPENJSON without WITH clause', async () => {
+        const result = await fmt(
+            "select j.[key], j.[value] from dbo.Orders as o cross apply openjson(o.json_data) as j where o.id = 1;"
+        );
+        expect(result).toMatchInlineSnapshot(`
+"select
+  j.key,
+  j.value
+from
+  dbo.Orders as o
+  cross apply openjson(o.json_data) as j
+where o.id = 1;"
+        `);
+    });
+
+    it('OPENJSON with row path and WITH clause', async () => {
+        const result = await fmt(
+            "select j.order_id, j.amount from dbo.Orders as o cross apply openjson(o.json_data, '$.items') with (order_id int '$.id', amount decimal(10,2) '$.amount', notes nvarchar(500) '$.notes') as j;"
+        );
+        expect(result).toMatchInlineSnapshot(`
+"select
+  j.order_id,
+  j.amount
+from
+  dbo.Orders as o
+  cross apply openjson(o.json_data, '$.items')
+  with (
+    order_id int '$.id',
+    amount decimal(10,2) '$.amount',
+    notes nvarchar(500) '$.notes'
+  ) as j;"
+        `);
+    });
+
+    it('OPENJSON WITH clause with AS JSON column', async () => {
+        const result = await fmt(
+            "select j.id, j.data from openjson(@json) with (id int '$.id', data nvarchar(max) '$.data' as json) as j;"
+        );
+        expect(result).toContain("data nvarchar(max) '$.data' as json");
+        expect(result).toContain('openjson(@json)');
+    });
+
+    it('OPENXML with WITH schema declaration', async () => {
+        const result = await fmt(
+            "select x.id, x.name from openxml(@hDoc, '/root/item', 2) with (id int '@id', name varchar(100) 'name') as x;"
+        );
+        expect(result).toMatchInlineSnapshot(`
+"select
+  x.id,
+  x.name
+from openxml(@hDoc, '/root/item', 2)
+with (
+  id int '@id',
+  name varchar(100) 'name'
+) as x;"
+        `);
+    });
+
+    it('rowset function keywords respect sqlKeywordCase upper', async () => {
+        const result = await fmt(
+            "select j.id from openjson(@json) with (id int '$.id') as j;",
+            { sqlKeywordCase: 'upper' }
+        );
+        expect(result).toContain('OPENJSON(');
+        expect(result).toContain('WITH (');
+        expect(result).toContain('AS j');
+    });
+});
