@@ -10,10 +10,11 @@ A [Prettier](https://prettier.io) plugin that formats T-SQL (SQL Server) using M
 - Table-valued functions (TVFs) in FROM clauses
 - Expression functions: `CAST`, `CONVERT`, `TRY_CAST`, `TRY_CONVERT` (with full data type including length/precision), `IIF`, `COALESCE`, `NULLIF`, `AT TIME ZONE`
 - Table hints (`WITH (NOLOCK)`, etc.), control-flow (`IF`, `WHILE`, `DECLARE`, `EXECUTE`, transactions), `SET ROWCOUNT`
+- `USE dbname`; `SET NOCOUNT/ANSI_NULLS/QUOTED_IDENTIFIER/XACT_ABORT/…` on/off; `SET IDENTITY_INSERT`; `SET TRANSACTION ISOLATION LEVEL`; `SET STATISTICS`; `WAITFOR DELAY/TIME`
 - Preserves `--` and `/* */` comments — trailing, leading, inside procedure bodies, between parameters and `AS`
 - Configurable keyword casing, layout density, and comma style
 - Control flow: `BREAK`, `CONTINUE`, `GOTO`/label, `THROW`, `RAISERROR`, `TRY/CATCH`
-- DDL: `TRUNCATE TABLE`, `DROP TABLE/PROCEDURE/VIEW/FUNCTION/INDEX` (with `IF EXISTS`), `CREATE OR ALTER PROCEDURE`
+- DDL: `TRUNCATE TABLE`, `DROP TABLE/PROCEDURE/VIEW/FUNCTION/INDEX` (with `IF EXISTS`), `CREATE OR ALTER PROCEDURE/FUNCTION`, `ALTER PROCEDURE/FUNCTION`
 - `MERGE INTO ... USING ... ON ... WHEN MATCHED/NOT MATCHED THEN UPDATE/INSERT/DELETE` (with optional `AND` predicates)
 - `OUTPUT` / `OUTPUT INTO` clause on INSERT, UPDATE, DELETE, and MERGE (including `$action`, `inserted.*`, `deleted.*`)
 - Full-text predicates: `CONTAINS` / `FREETEXT` (single column, multi-column, wildcard `*`, `LANGUAGE` term); `CONTAINSTABLE` / `FREETEXTTABLE` as join sources
@@ -33,12 +34,6 @@ The constructs below are parsed correctly but not yet formatted — they pass th
 
 **Common in everyday scripts**
 
-- `USE dbname`
-- `SET NOCOUNT ON/OFF`, `SET ANSI_NULLS ON/OFF`, `SET QUOTED_IDENTIFIER ON/OFF`, and other on/off `SET` options
-- `SET TRANSACTION ISOLATION LEVEL`
-- `SET IDENTITY_INSERT table ON/OFF`
-- `WAITFOR DELAY / TIME`
-- `ALTER PROCEDURE` / `ALTER FUNCTION` (note: `CREATE OR ALTER` is already supported)
 - `CREATE/ALTER/DROP TRIGGER`
 - `GRANT` / `DENY` / `REVOKE`
 - `CREATE/ALTER/DROP USER`, `LOGIN`, `ROLE`

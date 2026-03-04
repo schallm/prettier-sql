@@ -75,7 +75,8 @@ function printTable(node: SqlNode, opts: Options): Doc {
 // Statement types that must be the only statement in their batch.
 const BATCH_ISOLATING = new Set([
     'CreateViewStatement', 'AlterViewStatement', 'CreateOrAlterViewStatement',
-    'CreateProcedureStatement', 'CreateOrAlterProcedureStatement', 'CreateFunctionStatement',
+    'CreateProcedureStatement', 'CreateOrAlterProcedureStatement', 'AlterProcedureStatement',
+    'CreateFunctionStatement', 'AlterFunctionStatement', 'CreateOrAlterFunctionStatement',
 ]);
 
 export function printScript(node: SqlNode, opts: Options): Doc {
@@ -118,8 +119,11 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'AlterTableStatement':     return printAlterTable(node, opts);
         case 'CreateIndexStatement':    return printCreateIndex(node, opts);
         case 'CreateProcedureStatement':
+        case 'AlterProcedureStatement':
         case 'CreateOrAlterProcedureStatement': return printCreateProcedure(node, opts);
-        case 'CreateFunctionStatement': return printCreateFunction(node, opts);
+        case 'CreateFunctionStatement':
+        case 'AlterFunctionStatement':
+        case 'CreateOrAlterFunctionStatement':  return printCreateFunction(node, opts);
         case 'CreateViewStatement':
         case 'AlterViewStatement':
         case 'CreateOrAlterViewStatement': return printCreateView(node, opts);
@@ -153,6 +157,12 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'DropFunctionStatement':       return printDropObjects('FUNCTION', node, opts);
         case 'DropIndexStatement':          return printDropIndex(node, opts);
         case 'MergeStatement':              return printMerge(node, opts);
+        case 'UseStatement':                return printUse(node, opts);
+        case 'PredicateSetStatement':       return printPredicateSet(node, opts);
+        case 'SetStatisticsStatement':      return printSetStatistics(node, opts);
+        case 'SetIdentityInsertStatement':  return printSetIdentityInsert(node, opts);
+        case 'SetTransactionIsolationLevelStatement': return printSetIsolationLevel(node, opts);
+        case 'WaitForStatement':            return printWaitFor(node, opts);
         default:
             return node.text ?? `/* unhandled statement: ${node.type} */`;
     }
@@ -586,9 +596,10 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
         ? (node.postParamComments as string[]).flatMap((c): Doc[] => [hardline, c])
         : '';
 
-    const procKw = node.type === 'CreateOrAlterProcedureStatement'
-        ? keyword('CREATE OR ALTER PROCEDURE', opts)
-        : keyword('CREATE PROCEDURE', opts);
+    const procKw =
+        node.type === 'CreateOrAlterProcedureStatement' ? keyword('CREATE OR ALTER PROCEDURE', opts) :
+        node.type === 'AlterProcedureStatement'         ? keyword('ALTER PROCEDURE', opts) :
+                                                          keyword('CREATE PROCEDURE', opts);
 
     return group([
         procKw, ' ', schemaObjectName(prop(node, 'name')),
@@ -833,8 +844,13 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
         ? (node.postParamComments as string[]).flatMap((c): Doc[] => [hardline, c])
         : '';
 
+    const fnKw =
+        node.type === 'CreateOrAlterFunctionStatement' ? keyword('CREATE OR ALTER FUNCTION', opts) :
+        node.type === 'AlterFunctionStatement'         ? keyword('ALTER FUNCTION', opts) :
+                                                         keyword('CREATE FUNCTION', opts);
+
     return group([
-        keyword('CREATE FUNCTION', opts), ' ', schemaObjectName(prop(node, 'name')),
+        fnKw, ' ', schemaObjectName(prop(node, 'name')),
         preBody,
         '(',
         parameters.length > 0
@@ -853,6 +869,51 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
         keyword('END', opts),
         ';',
     ]);
+}
+
+// ---------------------------------------------------------------------------
+// USE / SET variants / WAITFOR
+// ---------------------------------------------------------------------------
+
+function printUse(node: SqlNode, opts: Options): Doc {
+    return [keyword('USE', opts), ' ', propStr(node, 'database') ?? '', ';'];
+}
+
+function printPredicateSet(node: SqlNode, opts: Options): Doc {
+    const opt   = propStr(node, 'options') ?? '';
+    const onOff = propBool(node, 'isOn') ? keyword('ON', opts) : keyword('OFF', opts);
+    return [keyword('SET', opts), ' ', keyword(opt, opts), ' ', onOff, ';'];
+}
+
+function printSetStatistics(node: SqlNode, opts: Options): Doc {
+    const opt   = propStr(node, 'options') ?? '';
+    const onOff = propBool(node, 'isOn') ? keyword('ON', opts) : keyword('OFF', opts);
+    return [keyword('SET STATISTICS', opts), ' ', keyword(opt, opts), ' ', onOff, ';'];
+}
+
+function printSetIdentityInsert(node: SqlNode, opts: Options): Doc {
+    const onOff = propBool(node, 'isOn') ? keyword('ON', opts) : keyword('OFF', opts);
+    return [keyword('SET IDENTITY_INSERT', opts), ' ', schemaObjectName(prop(node, 'table')), ' ', onOff, ';'];
+}
+
+function printSetIsolationLevel(node: SqlNode, opts: Options): Doc {
+    const levelMap: Record<string, string> = {
+        ReadCommitted:   'READ COMMITTED',
+        ReadUncommitted: 'READ UNCOMMITTED',
+        RepeatableRead:  'REPEATABLE READ',
+        Serializable:    'SERIALIZABLE',
+        Snapshot:        'SNAPSHOT',
+    };
+    const raw   = propStr(node, 'level') ?? '';
+    const level = levelMap[raw] ?? raw.toUpperCase();
+    return [keyword('SET TRANSACTION ISOLATION LEVEL', opts), ' ', keyword(level, opts), ';'];
+}
+
+function printWaitFor(node: SqlNode, opts: Options): Doc {
+    const opt   = propStr(node, 'option') ?? 'Delay';
+    const param = propStr(node, 'parameter') ?? '';
+    const kw    = opt === 'Time' ? keyword('WAITFOR TIME', opts) : keyword('WAITFOR DELAY', opts);
+    return [kw, ' ', param, ';'];
 }
 
 // ---------------------------------------------------------------------------

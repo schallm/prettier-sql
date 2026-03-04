@@ -1110,3 +1110,84 @@ with (
         expect(result).toContain('AS j');
     });
 });
+
+describe('USE / SET / WAITFOR / ALTER PROC/FUNC', () => {
+    it('USE statement', async () => {
+        expect(await fmt('USE AdventureWorks2019')).toContain('use AdventureWorks2019;');
+    });
+
+    it('USE respects keyword casing', async () => {
+        expect(await fmt('USE AdventureWorks2019', { sqlKeywordCase: 'upper' })).toContain('USE AdventureWorks2019;');
+    });
+
+    it('SET NOCOUNT ON', async () => {
+        expect(await fmt('SET NOCOUNT ON')).toContain('set nocount on;');
+    });
+
+    it('SET QUOTED_IDENTIFIER OFF', async () => {
+        expect(await fmt('SET QUOTED_IDENTIFIER OFF')).toContain('set quoted_identifier off;');
+    });
+
+    it('SET ANSI_NULLS ON', async () => {
+        expect(await fmt('SET ANSI_NULLS ON')).toContain('set ansi_nulls on;');
+    });
+
+    it('SET IDENTITY_INSERT table ON', async () => {
+        expect(await fmt('SET IDENTITY_INSERT dbo.Books ON')).toContain('set identity_insert dbo.Books on;');
+    });
+
+    it('SET TRANSACTION ISOLATION LEVEL READ COMMITTED', async () => {
+        expect(await fmt('SET TRANSACTION ISOLATION LEVEL READ COMMITTED'))
+            .toContain('set transaction isolation level read committed;');
+    });
+
+    it('SET TRANSACTION ISOLATION LEVEL SNAPSHOT', async () => {
+        expect(await fmt('SET TRANSACTION ISOLATION LEVEL SNAPSHOT'))
+            .toContain('set transaction isolation level snapshot;');
+    });
+
+    it('SET STATISTICS IO ON', async () => {
+        expect(await fmt('SET STATISTICS IO ON')).toContain('set statistics io on;');
+    });
+
+    it('WAITFOR DELAY', async () => {
+        expect(await fmt("WAITFOR DELAY '00:00:05'")).toContain("waitfor delay '00:00:05';");
+    });
+
+    it('WAITFOR TIME', async () => {
+        expect(await fmt("WAITFOR TIME '10:00:00'")).toContain("waitfor time '10:00:00';");
+    });
+
+    it('SET keywords respect sqlKeywordCase upper', async () => {
+        const result = await fmt('SET NOCOUNT ON; SET ANSI_NULLS ON;', { sqlKeywordCase: 'upper' });
+        expect(result).toContain('SET NOCOUNT ON;');
+        expect(result).toContain('SET ANSI_NULLS ON;');
+    });
+
+    it('ALTER PROCEDURE', async () => {
+        const result = await fmt(
+            'alter procedure dbo.GetBooks @genre nvarchar(100) as begin select book_id from dbo.Books where genre = @genre; end'
+        );
+        expect(result).toContain('alter procedure dbo.GetBooks');
+        expect(result).toContain('@genre nvarchar(100)');
+        expect(result).toContain('go');
+    });
+
+    it('ALTER FUNCTION scalar', async () => {
+        const result = await fmt(
+            'alter function dbo.GetCount(@genre nvarchar(100)) returns int as begin return (select count(*) from dbo.Books where genre = @genre); end'
+        );
+        expect(result).toContain('alter function dbo.GetCount');
+        expect(result).toContain('@genre nvarchar(100)');
+        expect(result).toContain('returns int');
+        expect(result).toContain('go');
+    });
+
+    it('CREATE OR ALTER FUNCTION', async () => {
+        const result = await fmt(
+            'create or alter function dbo.GetCount(@genre nvarchar(100)) returns int as begin return (select count(*) from dbo.Books where genre = @genre); end'
+        );
+        expect(result).toContain('create or alter function dbo.GetCount');
+        expect(result).toContain('go');
+    });
+});

@@ -830,6 +830,15 @@ public class AstBuilder : TSqlFragmentVisitor
             DropFunctionStatement dfs => BuildDropObjects("DropFunctionStatement", dfs),
             DropIndexStatement di => BuildDropIndex(di),
             MergeStatement merge => BuildMergeStatement(merge),
+            UseStatement use => BuildUseStatement(use),
+            SetIdentityInsertStatement sis => BuildSetIdentityInsert(sis),
+            PredicateSetStatement ps => BuildPredicateSetStatement(ps),
+            SetStatisticsStatement sst => BuildSetStatisticsStatement(sst),
+            SetTransactionIsolationLevelStatement stils => BuildSetIsolationLevel(stils),
+            WaitForStatement wf => BuildWaitFor(wf),
+            AlterProcedureStatement ap => BuildProcedureStatement("AlterProcedureStatement", ap),
+            AlterFunctionStatement af => BuildFunctionStatement("AlterFunctionStatement", af),
+            CreateOrAlterFunctionStatement coaf => BuildFunctionStatement("CreateOrAlterFunctionStatement", coaf),
             _ => Leaf("Statement", stmt, RawText(stmt)),
         };
     }
@@ -1354,7 +1363,7 @@ public class AstBuilder : TSqlFragmentVisitor
             new Dictionary<string, object?>
             {
                 ["name"] = p.VariableName?.Value,
-                ["dataType"] = p.DataType?.Name?.BaseIdentifier?.Value,
+                ["dataType"] = p.DataType != null ? RawText(p.DataType) : null,
                 ["defaultValue"] = p.Value != null ? BuildScalarExpression(p.Value) : null,
                 ["output"] = p.Modifier == ParameterModifier.Output,
                 ["readonly"] = p.Modifier == ParameterModifier.ReadOnly,
@@ -1605,6 +1614,127 @@ public class AstBuilder : TSqlFragmentVisitor
             ["language"]        = ftt.Language != null ? RawText(ftt.Language) : null,
             ["alias"]           = ftt.Alias?.Value,
         });
+
+    // -------------------------------------------------------------------------
+    // USE / SET ON-OFF / WAITFOR / ALTER PROCEDURE / ALTER FUNCTION
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildUseStatement(UseStatement use) =>
+        Node("UseStatement", use, new Dictionary<string, object?>
+        {
+            ["database"] = use.DatabaseName?.Value,
+        });
+
+    private static SqlNode BuildPredicateSetStatement(PredicateSetStatement ps) =>
+        Node("PredicateSetStatement", ps, new Dictionary<string, object?>
+        {
+            ["options"] = SetOptionsToSql(ps.Options),
+            ["isOn"]    = ps.IsOn,
+        });
+
+    private static SqlNode BuildSetStatisticsStatement(SetStatisticsStatement sst) =>
+        Node("SetStatisticsStatement", sst, new Dictionary<string, object?>
+        {
+            ["options"] = sst.Options.ToString().ToUpper(),
+            ["isOn"]    = sst.IsOn,
+        });
+
+    private static SqlNode BuildSetIdentityInsert(SetIdentityInsertStatement sis) =>
+        Node("SetIdentityInsertStatement", sis, new Dictionary<string, object?>
+        {
+            ["table"] = BuildSchemaObjectName(sis.Table),
+            ["isOn"]  = sis.IsOn,
+        });
+
+    private static SqlNode BuildSetIsolationLevel(SetTransactionIsolationLevelStatement s) =>
+        Node("SetTransactionIsolationLevelStatement", s, new Dictionary<string, object?>
+        {
+            ["level"] = s.Level.ToString(),
+        });
+
+    private static SqlNode BuildWaitFor(WaitForStatement wf) =>
+        Node("WaitForStatement", wf, new Dictionary<string, object?>
+        {
+            ["option"]    = wf.WaitForOption.ToString(),
+            ["parameter"] = wf.Parameter != null ? RawText(wf.Parameter) : null,
+        });
+
+    private static string SetOptionsToSql(SetOptions opt) => opt switch
+    {
+        SetOptions.NoCount              => "NOCOUNT",
+        SetOptions.QuotedIdentifier     => "QUOTED_IDENTIFIER",
+        SetOptions.AnsiNulls            => "ANSI_NULLS",
+        SetOptions.AnsiWarnings         => "ANSI_WARNINGS",
+        SetOptions.AnsiPadding          => "ANSI_PADDING",
+        SetOptions.AnsiDefaults         => "ANSI_DEFAULTS",
+        SetOptions.AnsiNullDfltOn       => "ANSI_NULL_DFLT_ON",
+        SetOptions.AnsiNullDfltOff      => "ANSI_NULL_DFLT_OFF",
+        SetOptions.XactAbort            => "XACT_ABORT",
+        SetOptions.ConcatNullYieldsNull => "CONCAT_NULL_YIELDS_NULL",
+        SetOptions.ArithAbort           => "ARITHABORT",
+        SetOptions.ArithIgnore          => "ARITHIGNORE",
+        SetOptions.ImplicitTransactions => "IMPLICIT_TRANSACTIONS",
+        SetOptions.RemoteProcTransactions => "REMOTE_PROC_TRANSACTIONS",
+        SetOptions.CursorCloseOnCommit  => "CURSOR_CLOSE_ON_COMMIT",
+        SetOptions.FmtOnly              => "FMTONLY",
+        SetOptions.NoExec               => "NOEXEC",
+        SetOptions.NumericRoundAbort    => "NUMERIC_ROUNDABORT",
+        SetOptions.ParseOnly            => "PARSEONLY",
+        SetOptions.ForcePlan            => "FORCEPLAN",
+        SetOptions.ShowPlanAll          => "SHOWPLAN_ALL",
+        SetOptions.ShowPlanText         => "SHOWPLAN_TEXT",
+        SetOptions.ShowPlanXml          => "SHOWPLAN_XML",
+        SetOptions.NoBrowsetable        => "NO_BROWSETABLE",
+        SetOptions.DisableDefCnstChk    => "DISABLE_DEF_CNST_CHK",
+        _                               => opt.ToString().ToUpper(),
+    };
+
+    private static SqlNode BuildProcedureStatement(string type, ProcedureStatementBody p)
+    {
+        var parms = p.Parameters?.Select(pr => (object?)BuildProcedureParameter(pr)).ToList();
+        var stmts = p.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
+        return Node(type, p, new Dictionary<string, object?>
+        {
+            ["name"]      = BuildSchemaObjectName(p.ProcedureReference?.Name),
+            ["parameters"] = parms,
+            ["bodyStart"] = p.StatementList?.StartOffset,
+            ["body"]      = stmts,
+        });
+    }
+
+    private static SqlNode BuildFunctionStatement(string type, FunctionStatementBody f)
+    {
+        var parms = f.Parameters?.Select(p => (object?)BuildProcedureParameter(p)).ToList();
+        string bodyType;
+        object? body;
+
+        if (f.ReturnType is SelectFunctionReturnType selRet)
+        {
+            bodyType = "table";
+            body = BuildQueryExpression(selRet.SelectStatement?.QueryExpression);
+        }
+        else if (f.ReturnType is TableValuedFunctionReturnType tvf)
+        {
+            bodyType = "inline-table";
+            body = tvf.DeclareTableVariableBody?.Definition?.ColumnDefinitions
+                ?.Select(c => (object?)BuildColumnDefinition(c)).ToList();
+        }
+        else
+        {
+            bodyType = "scalar";
+            body = f.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
+        }
+
+        return Node(type, f, new Dictionary<string, object?>
+        {
+            ["name"]       = BuildSchemaObjectName(f.Name),
+            ["parameters"] = parms,
+            ["bodyStart"]  = f.StatementList?.StartOffset,
+            ["returnType"] = f.ReturnType != null ? RawText(f.ReturnType) : null,
+            ["bodyType"]   = bodyType,
+            ["body"]       = body,
+        });
+    }
 
     private static SqlNode BuildSchemaItem(SchemaDeclarationItem item)
     {
