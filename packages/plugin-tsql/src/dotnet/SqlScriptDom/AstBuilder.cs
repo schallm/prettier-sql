@@ -608,7 +608,7 @@ public class AstBuilder : TSqlFragmentVisitor
         if (se == null) return null;
         return se switch
         {
-            SelectStarExpression star => Leaf("SelectStar", star),
+            SelectStarExpression star => Leaf("SelectStar", star, RawText(star)),
             SelectScalarExpression scalar => new SqlNode(
                 "SelectScalar",
                 scalar.StartOffset,
@@ -920,10 +920,12 @@ public class AstBuilder : TSqlFragmentVisitor
             null,
             new Dictionary<string, object?>
             {
-                ["ctes"] = ctes,
-                ["target"] = target,
-                ["columns"] = columns,
-                ["source"] = source,
+                ["ctes"]       = ctes,
+                ["target"]     = target,
+                ["columns"]    = columns,
+                ["source"]     = source,
+                ["output"]     = BuildOutputClause(spec.OutputClause),
+                ["outputInto"] = BuildOutputIntoClause(spec.OutputIntoClause),
             });
     }
 
@@ -971,11 +973,13 @@ public class AstBuilder : TSqlFragmentVisitor
             null,
             new Dictionary<string, object?>
             {
-                ["ctes"] = ctes,
-                ["target"] = target,
-                ["set"] = setClauses,
-                ["from"] = fromClause,
-                ["where"] = whereClause,
+                ["ctes"]       = ctes,
+                ["target"]     = target,
+                ["set"]        = setClauses,
+                ["from"]       = fromClause,
+                ["where"]      = whereClause,
+                ["output"]     = BuildOutputClause(spec.OutputClause),
+                ["outputInto"] = BuildOutputIntoClause(spec.OutputIntoClause),
             });
     }
 
@@ -1020,10 +1024,12 @@ public class AstBuilder : TSqlFragmentVisitor
             null,
             new Dictionary<string, object?>
             {
-                ["ctes"] = ctes,
-                ["target"] = target,
-                ["from"] = fromClause,
-                ["where"] = whereClause,
+                ["ctes"]       = ctes,
+                ["target"]     = target,
+                ["from"]       = fromClause,
+                ["where"]      = whereClause,
+                ["output"]     = BuildOutputClause(spec.OutputClause),
+                ["outputInto"] = BuildOutputIntoClause(spec.OutputIntoClause),
             });
     }
 
@@ -1540,6 +1546,8 @@ public class AstBuilder : TSqlFragmentVisitor
             ["source"]      = BuildTableReference(spec?.TableReference),
             ["on"]          = BuildBooleanExpression(spec?.SearchCondition),
             ["clauses"]     = spec?.ActionClauses?.Select(c => (object?)BuildMergeActionClause(c)).ToList(),
+            ["output"]      = BuildOutputClause(spec?.OutputClause),
+            ["outputInto"]  = BuildOutputIntoClause(spec?.OutputIntoClause),
         });
     }
 
@@ -1568,4 +1576,27 @@ public class AstBuilder : TSqlFragmentVisitor
             DeleteMergeAction del => Node("MergeDeleteAction", del, new Dictionary<string, object?>()),
             _                     => Leaf("MergeAction", action, RawText(action)),
         };
+
+    private static SqlNode? BuildOutputClause(OutputClause? output)
+    {
+        if (output == null) return null;
+        return Node("OutputClause", output, new Dictionary<string, object?>
+        {
+            // Use raw text per column: $action, inserted.col, deleted.*, etc. cannot be
+            // reliably reconstructed via BuildScalarExpression ($action has a null/zero-length
+            // expression fragment in ScriptDom).
+            ["columns"] = output.SelectColumns?.Select(c => (object?)Leaf("OutputColumn", c, RawText(c))).ToList(),
+        });
+    }
+
+    private static SqlNode? BuildOutputIntoClause(OutputIntoClause? output)
+    {
+        if (output == null) return null;
+        return Node("OutputIntoClause", output, new Dictionary<string, object?>
+        {
+            ["columns"]     = output.SelectColumns?.Select(c => (object?)Leaf("OutputColumn", c, RawText(c))).ToList(),
+            ["into"]        = BuildTableReference(output.IntoTable),
+            ["intoColumns"] = output.IntoTableColumns?.Select(c => (object?)BuildColumnRef(c)).ToList(),
+        });
+    }
 }

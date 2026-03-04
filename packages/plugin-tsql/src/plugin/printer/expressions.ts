@@ -22,7 +22,7 @@ export function printExpression(node: SqlNode, opts: Options, printFn: (n: SqlNo
         case 'BooleanLiteral':    return node.text?.toUpperCase() ?? 'TRUE';
         case 'VariableReference': return node.text ?? '@var';
         case 'GlobalVariable':    return node.text ?? '@@var';
-        case 'SelectStar':        return '*';
+        case 'SelectStar':        return node.text ?? '*';
         case 'SelectScalar':      return printSelectScalar(node, opts, printFn);
         case 'SelectSetVariable': return printSelectSetVariable(node, opts, printFn);
         case 'FunctionCall':      return printFunctionCall(node, opts, printFn);

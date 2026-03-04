@@ -898,3 +898,74 @@ describe('MERGE statement', () => {
         expect(result).toMatchSnapshot();
     });
 });
+
+describe('OUTPUT clause', () => {
+    it('MERGE with OUTPUT $action and inserted/deleted columns', async () => {
+        const result = await fmt(`
+            merge into dbo.Books as t
+            using dbo.ArchivedBooks as s on t.book_id = s.book_id
+            when matched then update set t.price = s.price
+            when not matched by target then insert (book_id, title, price) values (s.book_id, s.title, s.price)
+            when not matched by source then delete
+            output $action, inserted.book_id, deleted.price;
+        `);
+        expect(result).toContain('output');
+        expect(result).toContain('$action');
+        expect(result).toContain('inserted.book_id');
+        expect(result).toContain('deleted.price');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('MERGE with OUTPUT INTO table variable', async () => {
+        const result = await fmt(`
+            merge into dbo.Books as t
+            using dbo.ArchivedBooks as s on t.book_id = s.book_id
+            when matched then update set t.price = s.price
+            output $action, inserted.book_id, inserted.price
+            into @changes (action, book_id, price);
+        `);
+        expect(result).toContain('output');
+        expect(result).toContain('into @changes');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('INSERT with OUTPUT inserted.*', async () => {
+        const result = await fmt(
+            'insert into dbo.Books (title, price) output inserted.book_id, inserted.title values (\'New Book\', 9.99)'
+        );
+        expect(result).toContain('output');
+        expect(result).toContain('inserted.book_id');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('DELETE with OUTPUT INTO', async () => {
+        const result = await fmt(`
+            delete from dbo.Books
+            output deleted.book_id, deleted.title into @removed (book_id, title)
+            where in_stock = 0
+        `);
+        expect(result).toContain('output');
+        expect(result).toContain('into @removed');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('UPDATE with OUTPUT', async () => {
+        const result = await fmt(
+            'update dbo.Books set price = price * 1.1 output inserted.book_id, deleted.price, inserted.price where in_stock = 1'
+        );
+        expect(result).toContain('output');
+        expect(result).toContain('deleted.price');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('OUTPUT respects keyword casing upper', async () => {
+        const result = await fmt(`
+            merge into dbo.Books as t
+            using dbo.ArchivedBooks as s on t.book_id = s.book_id
+            when matched then update set t.price = s.price
+            output $action, inserted.book_id;
+        `, { sqlKeywordCase: 'upper' });
+        expect(result).toContain('OUTPUT');
+        expect(result).toContain('MERGE INTO');
+    });
+});

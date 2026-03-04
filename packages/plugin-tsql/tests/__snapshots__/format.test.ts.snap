@@ -259,6 +259,61 @@ order by title asc
 option (recompile);"
 `;
 
+exports[`OUTPUT clause > DELETE with OUTPUT INTO 1`] = `
+"delete from dbo.Books
+output
+  deleted.book_id,
+  deleted.title
+into @removed (book_id, title)
+where in_stock = 0;"
+`;
+
+exports[`OUTPUT clause > INSERT with OUTPUT inserted.* 1`] = `
+"insert into dbo.Books (
+  title,
+  price
+)
+output inserted.book_id, inserted.title
+values
+  ('New Book', 9.99);"
+`;
+
+exports[`OUTPUT clause > MERGE with OUTPUT $action and inserted/deleted columns 1`] = `
+"merge into dbo.Books as t
+using dbo.ArchivedBooks as s
+on t.book_id = s.book_id
+when matched then
+  update set
+    t.price = s.price
+when not matched by target then
+  insert (book_id, title, price)
+  values (s.book_id, s.title, s.price)
+when not matched by source then
+  delete
+output $action, inserted.book_id, deleted.price;"
+`;
+
+exports[`OUTPUT clause > MERGE with OUTPUT INTO table variable 1`] = `
+"merge into dbo.Books as t
+using dbo.ArchivedBooks as s
+on t.book_id = s.book_id
+when matched then
+  update set
+    t.price = s.price
+output
+  $action,
+  inserted.book_id,
+  inserted.price
+into @changes (action, book_id, price);"
+`;
+
+exports[`OUTPUT clause > UPDATE with OUTPUT 1`] = `
+"update dbo.Books
+set price = price * 1.1
+output inserted.book_id, deleted.price, inserted.price
+where in_stock = 1;"
+`;
+
 exports[`SELECT formatting > CTE 1`] = `
 "with available_books as (
   select

@@ -228,6 +228,8 @@ export function printInsert(node: SqlNode, opts: Options): Doc {
     const target = prop(node, 'target');
     const columns = propArr(node, 'columns');
     const source = prop(node, 'source');
+    const output = prop(node, 'output');
+    const outputInto = prop(node, 'outputInto');
 
     const colsPart: Doc = columns.length
         ? [
@@ -246,15 +248,19 @@ export function printInsert(node: SqlNode, opts: Options): Doc {
         ? [hardline, qexpr(source, opts)]
         : '';
 
-    return group([
+    const parts: Doc[] = [
         ...ctesDocs,
         keyword('INSERT INTO', opts),
         ' ',
         targetDoc,
         colsPart,
-        sourcePart,
-        ';',
-    ]);
+    ];
+
+    if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
+    else if (output) parts.push(hardline, printOutputClause(output, opts));
+
+    parts.push(sourcePart, ';');
+    return group(parts);
 }
 
 function printValuesSource(node: SqlNode, opts: Options): Doc {
@@ -288,6 +294,8 @@ export function printUpdate(node: SqlNode, opts: Options): Doc {
     const setClauses = propArr(node, 'set');
     const from = prop(node, 'from');
     const where = prop(node, 'where');
+    const output = prop(node, 'output');
+    const outputInto = prop(node, 'outputInto');
 
     const setParts = setClauses.map((sc) => {
         const col = prop(sc, 'column');
@@ -317,6 +325,9 @@ export function printUpdate(node: SqlNode, opts: Options): Doc {
         );
     }
 
+    if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
+    else if (output) parts.push(hardline, printOutputClause(output, opts));
+
     if (where) {
         const inline = density !== 'spacious' && where.type !== 'BooleanBinary';
         if (inline) {
@@ -340,6 +351,8 @@ export function printDelete(node: SqlNode, opts: Options): Doc {
     const target = prop(node, 'target');
     const from = prop(node, 'from');
     const where = prop(node, 'where');
+    const output = prop(node, 'output');
+    const outputInto = prop(node, 'outputInto');
 
     const parts: Doc[] = [
         ...ctesDocs,
@@ -356,6 +369,9 @@ export function printDelete(node: SqlNode, opts: Options): Doc {
             indent([hardline, join([',', hardline], tableRefs.map((tr) => printTable(tr, opts)))])
         );
     }
+
+    if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
+    else if (output) parts.push(hardline, printOutputClause(output, opts));
 
     if (where) {
         const inline = density !== 'spacious' && where.type !== 'BooleanBinary';
@@ -936,6 +952,40 @@ function printDropIndex(node: SqlNode, opts: Options): Doc {
 }
 
 // ---------------------------------------------------------------------------
+// OUTPUT clause (shared by INSERT / UPDATE / DELETE / MERGE)
+// ---------------------------------------------------------------------------
+
+function printOutputColumns(columns: SqlNode[], opts: Options): Doc {
+    return join([',', line], columns.map(c => printNode(c, opts)));
+}
+
+function printOutputClause(node: SqlNode, opts: Options): Doc {
+    const columns = propArr(node, 'columns');
+    return group([
+        keyword('OUTPUT', opts),
+        indent([line, printOutputColumns(columns, opts)]),
+    ]);
+}
+
+function printOutputIntoClause(node: SqlNode, opts: Options): Doc {
+    const columns = propArr(node, 'columns');
+    const into = prop(node, 'into');
+    const intoColumns = propArr(node, 'intoColumns');
+
+    const intoColsPart: Doc = intoColumns.length
+        ? [' (', join(', ', intoColumns.map(c => printNode(c, opts))), ')']
+        : '';
+
+    return group([
+        keyword('OUTPUT', opts),
+        indent([line, printOutputColumns(columns, opts)]),
+        hardline,
+        keyword('INTO', opts), ' ', into ? printTable(into, opts) : '',
+        intoColsPart,
+    ]);
+}
+
+// ---------------------------------------------------------------------------
 // MERGE
 // ---------------------------------------------------------------------------
 
@@ -946,6 +996,8 @@ function printMerge(node: SqlNode, opts: Options): Doc {
     const source = prop(node, 'source');
     const on = prop(node, 'on');
     const clauses = propArr(node, 'clauses');
+    const output = prop(node, 'output');
+    const outputInto = prop(node, 'outputInto');
 
     const targetDoc: Doc = target
         ? (targetAlias ? [printTable(target, opts), ' ', keyword('AS', opts), ' ', targetAlias] : printTable(target, opts))
@@ -963,6 +1015,9 @@ function printMerge(node: SqlNode, opts: Options): Doc {
     for (const clause of clauses) {
         parts.push(hardline, printMergeClause(clause, opts));
     }
+
+    if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
+    else if (output) parts.push(hardline, printOutputClause(output, opts));
 
     parts.push(';');
     return group(parts);
