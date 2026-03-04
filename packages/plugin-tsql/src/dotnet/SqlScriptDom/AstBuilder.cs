@@ -332,6 +332,7 @@ public class AstBuilder : TSqlFragmentVisitor
             LikePredicate like => BuildLikePredicate(like),
             ExistsPredicate exists => BuildExistsPredicate(exists),
             BooleanTernaryExpression between => BuildBetween(between),
+            FullTextPredicate ftp => BuildFullTextPredicate(ftp),
             _ => Leaf("BooleanExpression", expr, RawText(expr)),
         };
     }
@@ -461,6 +462,7 @@ public class AstBuilder : TSqlFragmentVisitor
             QueryDerivedTable sub => BuildQueryDerivedTable(sub),
             JoinParenthesisTableReference jp => BuildJoinParenthesis(jp),
             SchemaObjectFunctionTableReference tvf => BuildSchemaObjectFunctionTableRef(tvf),
+            FullTextTableReference ftt => BuildFullTextTableReference(ftt),
             _ => Leaf("TableReference", tableRef, RawText(tableRef)),
         };
     }
@@ -1576,6 +1578,31 @@ public class AstBuilder : TSqlFragmentVisitor
             DeleteMergeAction del => Node("MergeDeleteAction", del, new Dictionary<string, object?>()),
             _                     => Leaf("MergeAction", action, RawText(action)),
         };
+
+    // -------------------------------------------------------------------------
+    // Full-text predicates: CONTAINS / FREETEXT
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildFullTextPredicate(FullTextPredicate ftp) =>
+        Node("FullTextPredicate", ftp, new Dictionary<string, object?>
+        {
+            ["functionType"] = ftp.FullTextFunctionType.ToString(),
+            ["columns"]      = ftp.Columns?.Select(c => (object?)BuildColumnRef(c)).ToList(),
+            ["value"]        = BuildScalarExpression(ftp.Value),
+            ["language"]     = ftp.LanguageTerm != null ? RawText(ftp.LanguageTerm) : null,
+        });
+
+    private static SqlNode BuildFullTextTableReference(FullTextTableReference ftt) =>
+        Node("FullTextTableReference", ftt, new Dictionary<string, object?>
+        {
+            ["functionType"]    = ftt.FullTextFunctionType.ToString(),
+            ["tableName"]       = BuildSchemaObjectName(ftt.TableName),
+            ["columns"]         = ftt.Columns?.Select(c => (object?)BuildColumnRef(c)).ToList(),
+            ["searchCondition"] = BuildScalarExpression(ftt.SearchCondition),
+            ["topN"]            = BuildScalarExpression(ftt.TopN),
+            ["language"]        = ftt.Language != null ? RawText(ftt.Language) : null,
+            ["alias"]           = ftt.Alias?.Value,
+        });
 
     private static SqlNode? BuildOutputClause(OutputClause? output)
     {

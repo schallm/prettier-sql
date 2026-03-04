@@ -940,6 +940,81 @@ where in_stock = 1;
 
 ---
 
+## Full-text predicates
+
+### CONTAINS / FREETEXT
+
+`contains` and `freetext` are formatted as inline function calls and treated as keywords (subject to `sqlKeywordCase`).
+
+Single column — bare column name, no extra parentheses:
+
+```sql
+select book_id, title
+from dbo.Books
+where contains(title, '"SQL Server"');
+```
+
+Wildcard — all full-text indexed columns:
+
+```sql
+select book_id
+from dbo.Books
+where contains(*, 'programming');
+```
+
+Multiple columns — inner parentheses around the column list:
+
+```sql
+select book_id
+from dbo.Books
+where contains((title, author_id), 'design');
+```
+
+With `LANGUAGE`:
+
+```sql
+select book_id
+from dbo.Books
+where contains(title, 'query', language 1033);
+```
+
+`freetext` follows the same layout:
+
+```sql
+select book_id, title
+from dbo.Books
+where freetext(title, 'database programming');
+```
+
+### CONTAINSTABLE / FREETEXTTABLE
+
+These table-valued functions appear in `FROM` / `JOIN` clauses and are formatted like other TVFs, with an alias:
+
+```sql
+select
+  b.book_id,
+  b.title,
+  ft.rank
+from
+  dbo.Books as b
+  inner join containstable(dbo.Books, title, '"SQL"') as ft on
+    b.book_id = ft.key;
+```
+
+With wildcard and TOP N limit:
+
+```sql
+select
+  b.book_id,
+  ft.rank
+from
+  dbo.Books as b
+  inner join freetexttable(dbo.Books, *, 'programming', 10) as ft on
+    b.book_id = ft.key;
+```
+
+---
+
 ## Semicolons
 
 All statements are terminated with a semicolon. The plugin normalises statements that are missing them.

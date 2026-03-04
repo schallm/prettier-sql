@@ -526,6 +526,7 @@ export function printBoolExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode
         case 'LikePredicate':      return printLikePredicate(node, opts, printFn);
         case 'ExistsPredicate':    return printExistsPredicate(node, opts, printFn);
         case 'BetweenExpression':  return printBetween(node, opts, printFn);
+        case 'FullTextPredicate':  return printFullTextPredicate(node, opts, printFn);
         default:
             return node.text ?? `/* ${node.type} */`;
     }
@@ -710,6 +711,7 @@ export function printTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode
         case 'JoinParenthesisTableReference': return printJoinParenthesis(node, opts, printFn);
         case 'QueryDerivedTable':           return printQueryDerivedTable(node, opts, printFn);
         case 'SchemaObjectFunctionTableReference': return printSchemaObjectFunctionTableRef(node, opts, printFn);
+        case 'FullTextTableReference': return printFullTextTableRef(node, opts, printFn);
         default:
             return node.text ?? `/* ${node.type} */`;
     }
@@ -847,6 +849,55 @@ function printSchemaObjectFunctionTableRef(node: SqlNode, opts: Options, printFn
     const argsDoc: Doc = join(', ', args.map((a) => printExpression(a, opts, printFn)));
     const aliasDoc: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
     return [schemaObjectName(prop(node, 'name')), '(', argsDoc, ')', aliasDoc];
+}
+
+// ---------------------------------------------------------------------------
+// Full-text: CONTAINS / FREETEXT predicates and CONTAINSTABLE / FREETEXTTABLE
+// ---------------------------------------------------------------------------
+
+/** Render the column-list argument: single column → bare name, multiple → (a, b), wildcard → * */
+function fullTextColumnsPart(columns: SqlNode[], printFn: (n: SqlNode) => Doc): Doc {
+    if (columns.length === 0) return '*';
+    if (columns.length === 1 && columns[0]!.type === 'WildcardColumn') return '*';
+    if (columns.length === 1) return printFn(columns[0]!);
+    return ['(', join(', ', columns.map(printFn)), ')'];
+}
+
+function printFullTextPredicate(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const fnType = propStr(node, 'functionType') ?? 'Contains';
+    const fnKw = fnType === 'FreeText' ? keyword('FREETEXT', opts) : keyword('CONTAINS', opts);
+    const columns = propArr(node, 'columns');
+    const value = prop(node, 'value');
+    const language = propStr(node, 'language');
+
+    const args: Doc[] = [fullTextColumnsPart(columns, printFn), ', ', value ? printExpression(value, opts, printFn) : ''];
+    if (language) args.push(', ', keyword('LANGUAGE', opts), ' ', language);
+
+    return [fnKw, '(', ...args, ')'];
+}
+
+function printFullTextTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const fnType = propStr(node, 'functionType') ?? 'Contains';
+    const fnKw = fnType === 'FreeText' ? keyword('FREETEXTTABLE', opts) : keyword('CONTAINSTABLE', opts);
+    const tableName = prop(node, 'tableName');
+    const columns = propArr(node, 'columns');
+    const searchCondition = prop(node, 'searchCondition');
+    const topN = prop(node, 'topN');
+    const language = propStr(node, 'language');
+    const alias = propStr(node, 'alias');
+
+    const args: Doc[] = [
+        schemaObjectName(tableName),
+        ', ',
+        fullTextColumnsPart(columns, printFn),
+        ', ',
+        searchCondition ? printExpression(searchCondition, opts, printFn) : '',
+    ];
+    if (language) args.push(', ', keyword('LANGUAGE', opts), ' ', language);
+    if (topN) args.push(', ', printExpression(topN, opts, printFn));
+
+    const aliasDoc: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
+    return [fnKw, '(', ...args, ')', aliasDoc];
 }
 
 // ---------------------------------------------------------------------------

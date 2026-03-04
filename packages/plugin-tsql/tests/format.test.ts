@@ -969,3 +969,74 @@ describe('OUTPUT clause', () => {
         expect(result).toContain('MERGE INTO');
     });
 });
+
+describe('Full-text predicates', () => {
+    it('CONTAINS with single column', async () => {
+        const result = await fmt(
+            "select book_id, title from dbo.Books where contains(title, '\"SQL Server\"')"
+        );
+        expect(result).toContain('contains(');
+        expect(result).toContain('title');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('FREETEXT with single column', async () => {
+        const result = await fmt(
+            "select book_id, title from dbo.Books where freetext(title, 'database programming')"
+        );
+        expect(result).toContain('freetext(');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('CONTAINS with wildcard *', async () => {
+        const result = await fmt(
+            "select book_id from dbo.Books where contains(*, 'programming')"
+        );
+        expect(result).toContain('contains(*, ');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('CONTAINS with multiple columns', async () => {
+        const result = await fmt(
+            "select book_id from dbo.Books where contains((title, author_id), 'design')"
+        );
+        expect(result).toContain('contains((title, author_id)');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('CONTAINS with LANGUAGE', async () => {
+        const result = await fmt(
+            "select book_id from dbo.Books where contains(title, 'query', language 1033)"
+        );
+        expect(result).toContain('language');
+        expect(result).toContain('1033');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('CONTAINSTABLE in FROM clause', async () => {
+        const result = await fmt(
+            "select b.book_id, b.title, ft.[rank] from dbo.Books as b inner join containstable(dbo.Books, title, '\"SQL\"') as ft on b.book_id = ft.[key]"
+        );
+        expect(result).toContain('containstable(');
+        expect(result).toContain('dbo.Books');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('FREETEXTTABLE with wildcard and TOP N', async () => {
+        const result = await fmt(
+            "select b.book_id, ft.[rank] from dbo.Books as b inner join freetexttable(dbo.Books, *, 'programming', 10) as ft on b.book_id = ft.[key]"
+        );
+        expect(result).toContain('freetexttable(');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('full-text keywords respect sqlKeywordCase upper', async () => {
+        const result = await fmt(
+            "select book_id from dbo.Books where contains(title, 'SQL')",
+            { sqlKeywordCase: 'upper' }
+        );
+        expect(result).toContain('CONTAINS(');
+        expect(result).toContain('FROM');
+        expect(result).toContain('WHERE');
+    });
+});

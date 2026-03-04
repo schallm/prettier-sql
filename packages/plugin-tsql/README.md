@@ -16,6 +16,7 @@ A [Prettier](https://prettier.io) plugin that formats T-SQL (SQL Server) using M
 - DDL: `TRUNCATE TABLE`, `DROP TABLE/PROCEDURE/VIEW/FUNCTION/INDEX` (with `IF EXISTS`), `CREATE OR ALTER PROCEDURE`
 - `MERGE INTO ... USING ... ON ... WHEN MATCHED/NOT MATCHED THEN UPDATE/INSERT/DELETE` (with optional `AND` predicates)
 - `OUTPUT` / `OUTPUT INTO` clause on INSERT, UPDATE, DELETE, and MERGE (including `$action`, `inserted.*`, `deleted.*`)
+- Full-text predicates: `CONTAINS` / `FREETEXT` (single column, multi-column, wildcard `*`, `LANGUAGE` term); `CONTAINSTABLE` / `FREETEXTTABLE` as join sources
 - Emits `go` batch separators where required
 - Integrates with editor extensions that support Prettier (VS Code, etc.)
 
@@ -23,7 +24,6 @@ A [Prettier](https://prettier.io) plugin that formats T-SQL (SQL Server) using M
 
 The following T-SQL constructs are recognised by the parser but emitted unchanged (their original source text is preserved):
 
-- Full-text predicates (`CONTAINS`, `FREETEXT`)
 - Rowset functions used as table sources (`OPENROWSET`, `OPENXML`, `OPENJSON`)
 
 ## Requirements

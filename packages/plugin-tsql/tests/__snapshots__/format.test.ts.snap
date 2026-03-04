@@ -137,6 +137,61 @@ where
   and published_date < dateadd(year, -10, getdate());"
 `;
 
+exports[`Full-text predicates > CONTAINS with LANGUAGE 1`] = `
+"select book_id
+from dbo.Books
+where contains(title, 'query', language 1033);"
+`;
+
+exports[`Full-text predicates > CONTAINS with multiple columns 1`] = `
+"select book_id
+from dbo.Books
+where contains((title, author_id), 'design');"
+`;
+
+exports[`Full-text predicates > CONTAINS with single column 1`] = `
+"select
+  book_id,
+  title
+from dbo.Books
+where contains(title, '"SQL Server"');"
+`;
+
+exports[`Full-text predicates > CONTAINS with wildcard * 1`] = `
+"select book_id
+from dbo.Books
+where contains(*, 'programming');"
+`;
+
+exports[`Full-text predicates > CONTAINSTABLE in FROM clause 1`] = `
+"select
+  b.book_id,
+  b.title,
+  ft.rank
+from
+  dbo.Books as b
+  inner join containstable(dbo.Books, title, '"SQL"') as ft on
+    b.book_id = ft.key;"
+`;
+
+exports[`Full-text predicates > FREETEXT with single column 1`] = `
+"select
+  book_id,
+  title
+from dbo.Books
+where freetext(title, 'database programming');"
+`;
+
+exports[`Full-text predicates > FREETEXTTABLE with wildcard and TOP N 1`] = `
+"select
+  b.book_id,
+  ft.rank
+from
+  dbo.Books as b
+  inner join freetexttable(dbo.Books, *, 'programming', 10) as ft on
+    b.book_id = ft.key;"
+`;
+
 exports[`IN clause formatting > IN subquery is unaffected 1`] = `
 "select book_id
 from dbo.Books
