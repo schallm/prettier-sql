@@ -1,5 +1,25 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`ALTER INDEX > ALTER INDEX ALL REBUILD 1`] = `
+"alter index all on dbo.Books
+rebuild;"
+`;
+
+exports[`ALTER INDEX > ALTER INDEX DISABLE 1`] = `
+"alter index ix_Books_title on dbo.Books
+disable;"
+`;
+
+exports[`ALTER INDEX > ALTER INDEX REBUILD 1`] = `
+"alter index ix_Books_title on dbo.Books
+rebuild;"
+`;
+
+exports[`ALTER INDEX > ALTER INDEX REORGANIZE 1`] = `
+"alter index ix_Books_title on dbo.Books
+reorganize;"
+`;
+
 exports[`ALTER TABLE formatting > add column 1`] = `
 "alter table dbo.Books
 add
@@ -9,6 +29,21 @@ add
 exports[`ALTER TABLE formatting > drop column 1`] = `
 "alter table dbo.Books
 drop column isbn;"
+`;
+
+exports[`BULK INSERT > BULK INSERT basic 1`] = `
+"bulk insert dbo.Books
+from 'C:\\data\\books.csv';"
+`;
+
+exports[`BULK INSERT > BULK INSERT with WITH options 1`] = `
+"bulk insert dbo.Books
+from 'C:\\data\\books.csv'
+with (
+  fieldterminator = ',',
+  rowterminator = '\\n',
+  firstrow = 2
+);"
 `;
 
 exports[`CREATE PROCEDURE formatting > block comment after last parameter (before AS) stays between params and as 1`] = `
@@ -104,6 +139,78 @@ exports[`CREATE TABLE formatting > table with foreign key constraint 1`] = `
 );"
 `;
 
+exports[`CREATE TYPE > CREATE TYPE scalar UDDT 1`] = `"create type dbo.BookTitle from nvarchar(200) not null;"`;
+
+exports[`CREATE TYPE > CREATE TYPE table type 1`] = `
+"create type dbo.BookList as table (
+  book_id int not null,
+  title nvarchar(200),
+  price decimal(10, 2)
+);"
+`;
+
+exports[`CREATE/ALTER TRIGGER > ALTER TRIGGER 1`] = `
+"alter trigger dbo.trg_Books_AI
+on dbo.Books
+after insert
+as
+begin
+  return;
+end;
+go"
+`;
+
+exports[`CREATE/ALTER TRIGGER > CREATE TRIGGER after insert 1`] = `
+"create trigger dbo.trg_Books_AI
+on dbo.Books
+after insert
+as
+begin
+  update dbo.Books
+  set price = price * 1.1
+  where book_id in (
+    select book_id
+    from inserted
+  );
+end;
+go"
+`;
+
+exports[`CREATE/ALTER TRIGGER > CREATE TRIGGER instead of update/delete 1`] = `
+"create trigger dbo.trg_Books_IOD
+on dbo.Books
+instead of update, delete
+as
+begin
+  print 'blocked';
+end;
+go"
+`;
+
+exports[`CREATE/ALTER/DROP SEQUENCE > ALTER SEQUENCE restart 1`] = `
+"alter sequence dbo.OrderSeq
+restart with 100
+increment by 5;"
+`;
+
+exports[`CREATE/ALTER/DROP SEQUENCE > CREATE SEQUENCE minimal 1`] = `
+"create sequence dbo.OrderSeq
+as int
+start with 1
+increment by 1;"
+`;
+
+exports[`CREATE/ALTER/DROP SEQUENCE > CREATE SEQUENCE with min/max/cycle/cache 1`] = `
+"create sequence dbo.Seq
+as bigint
+start with 1
+increment by 1
+minvalue 1
+maxvalue 9999
+cycle
+cache 20;"
+`;
+
 exports[`Control flow & DDL additions > CREATE OR ALTER PROCEDURE emits correct keyword and GO 1`] = `
 "create or alter procedure dbo.GetBooks
 as
@@ -128,6 +235,26 @@ end try
 begin catch
   throw;
 end catch"
+`;
+
+exports[`Cursor operations > DECLARE CURSOR basic 1`] = `
+"declare book_cursor cursor
+for
+select
+  book_id,
+  title
+from dbo.Books
+where in_stock = 1;"
+`;
+
+exports[`Cursor operations > OPEN / FETCH NEXT / CLOSE / DEALLOCATE 1`] = `
+"open book_cursor;
+
+fetch next from book_cursor into @id, @title;
+
+close book_cursor;
+
+deallocate book_cursor;"
 `;
 
 exports[`DELETE formatting > basic delete 1`] = `

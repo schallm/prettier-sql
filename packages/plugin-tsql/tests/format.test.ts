@@ -1191,3 +1191,288 @@ describe('USE / SET / WAITFOR / ALTER PROC/FUNC', () => {
         expect(result).toContain('go');
     });
 });
+
+describe('CREATE/ALTER TRIGGER', () => {
+    it('CREATE TRIGGER after insert', async () => {
+        const result = await fmt(
+            'create trigger dbo.trg_Books_AI on dbo.Books after insert as begin update dbo.Books set price = price * 1.1 where book_id in (select book_id from inserted); end'
+        );
+        expect(result).toContain('create trigger dbo.trg_Books_AI');
+        expect(result).toContain('on dbo.Books');
+        expect(result).toContain('after insert');
+        expect(result).toContain('as');
+        expect(result).toContain('begin');
+        expect(result).toContain('end;');
+        expect(result).toContain('go');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('CREATE TRIGGER instead of update/delete', async () => {
+        const result = await fmt(
+            'create trigger dbo.trg_Books_IOD on dbo.Books instead of update, delete as begin print \'blocked\'; end'
+        );
+        expect(result).toContain('instead of update, delete');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('ALTER TRIGGER', async () => {
+        const result = await fmt(
+            'alter trigger dbo.trg_Books_AI on dbo.Books after insert as begin return; end'
+        );
+        expect(result).toContain('alter trigger');
+        expect(result).toContain('go');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('DROP TRIGGER', async () => {
+        expect(await fmt('drop trigger dbo.trg_Books_AI')).toContain('drop trigger dbo.trg_Books_AI;');
+    });
+
+    it('DROP TRIGGER IF EXISTS', async () => {
+        expect(await fmt('drop trigger if exists dbo.trg_Books_AI')).toContain('drop trigger if exists dbo.trg_Books_AI;');
+    });
+
+    it('trigger keywords respect sqlKeywordCase upper', async () => {
+        const result = await fmt(
+            'create trigger dbo.trg on dbo.Books after insert as begin return; end',
+            { sqlKeywordCase: 'upper' }
+        );
+        expect(result).toContain('CREATE TRIGGER');
+        expect(result).toContain('ON dbo.Books');
+        expect(result).toContain('AFTER INSERT');
+    });
+});
+
+describe('ALTER INDEX', () => {
+    it('ALTER INDEX REBUILD', async () => {
+        const result = await fmt('alter index ix_Books_title on dbo.Books rebuild');
+        expect(result).toContain('alter index ix_Books_title on dbo.Books');
+        expect(result).toContain('rebuild;');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('ALTER INDEX ALL REBUILD', async () => {
+        const result = await fmt('alter index all on dbo.Books rebuild');
+        expect(result).toContain('alter index all on dbo.Books');
+        expect(result).toContain('rebuild;');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('ALTER INDEX REORGANIZE', async () => {
+        const result = await fmt('alter index ix_Books_title on dbo.Books reorganize');
+        expect(result).toContain('reorganize;');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('ALTER INDEX DISABLE', async () => {
+        const result = await fmt('alter index ix_Books_title on dbo.Books disable');
+        expect(result).toContain('disable;');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('alter index keywords respect sqlKeywordCase upper', async () => {
+        const result = await fmt('alter index ix_Books_title on dbo.Books rebuild', { sqlKeywordCase: 'upper' });
+        expect(result).toContain('ALTER INDEX ix_Books_title ON dbo.Books');
+        expect(result).toContain('REBUILD;');
+    });
+});
+
+describe('Cursor operations', () => {
+    it('DECLARE CURSOR basic', async () => {
+        const result = await fmt(
+            'declare book_cursor cursor for select book_id, title from dbo.Books where in_stock = 1'
+        );
+        expect(result).toContain('declare book_cursor cursor');
+        expect(result).toContain('for');
+        expect(result).toContain('select');
+        expect(result).toContain('dbo.Books');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('OPEN / FETCH NEXT / CLOSE / DEALLOCATE', async () => {
+        const sql = `
+open book_cursor;
+fetch next from book_cursor into @id, @title;
+close book_cursor;
+deallocate book_cursor;`;
+        const result = await fmt(sql);
+        expect(result).toContain('open book_cursor;');
+        expect(result).toContain('fetch next from book_cursor');
+        expect(result).toContain('@id, @title');
+        expect(result).toContain('close book_cursor;');
+        expect(result).toContain('deallocate book_cursor;');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('FETCH FIRST / LAST / PRIOR', async () => {
+        const result = await fmt('fetch first from c; fetch last from c; fetch prior from c;');
+        expect(result).toContain('fetch first from c;');
+        expect(result).toContain('fetch last from c;');
+        expect(result).toContain('fetch prior from c;');
+    });
+
+    it('cursor keywords respect sqlKeywordCase upper', async () => {
+        const result = await fmt(
+            'declare c cursor for select book_id from dbo.Books; open c; fetch next from c into @id; close c; deallocate c;',
+            { sqlKeywordCase: 'upper' }
+        );
+        expect(result).toContain('DECLARE c CURSOR');
+        expect(result).toContain('FOR');
+        expect(result).toContain('OPEN c;');
+        expect(result).toContain('FETCH NEXT FROM c');
+        expect(result).toContain('CLOSE c;');
+        expect(result).toContain('DEALLOCATE c;');
+    });
+});
+
+describe('CREATE/ALTER/DROP SEQUENCE', () => {
+    it('CREATE SEQUENCE minimal', async () => {
+        const result = await fmt('create sequence dbo.OrderSeq as int start with 1 increment by 1');
+        expect(result).toContain('create sequence dbo.OrderSeq');
+        expect(result).toContain('as int');
+        expect(result).toContain('start with 1');
+        expect(result).toContain('increment by 1');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('CREATE SEQUENCE with min/max/cycle/cache', async () => {
+        const result = await fmt(
+            'create sequence dbo.Seq as bigint start with 1 increment by 1 minvalue 1 maxvalue 9999 cycle cache 20'
+        );
+        expect(result).toContain('minvalue 1');
+        expect(result).toContain('maxvalue 9999');
+        expect(result).toContain('cycle');
+        expect(result).toContain('cache 20');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('CREATE SEQUENCE with NO options', async () => {
+        const result = await fmt(
+            'create sequence dbo.Seq as int start with 1 no minvalue no maxvalue no cycle no cache'
+        );
+        expect(result).toContain('no minvalue');
+        expect(result).toContain('no maxvalue');
+        expect(result).toContain('no cycle');
+        expect(result).toContain('no cache');
+    });
+
+    it('ALTER SEQUENCE restart', async () => {
+        const result = await fmt('alter sequence dbo.OrderSeq restart with 100 increment by 5');
+        expect(result).toContain('alter sequence dbo.OrderSeq');
+        expect(result).toContain('restart with 100');
+        expect(result).toContain('increment by 5');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('DROP SEQUENCE', async () => {
+        expect(await fmt('drop sequence dbo.OrderSeq')).toContain('drop sequence dbo.OrderSeq;');
+    });
+
+    it('DROP SEQUENCE IF EXISTS', async () => {
+        expect(await fmt('drop sequence if exists dbo.OrderSeq')).toContain('drop sequence if exists dbo.OrderSeq;');
+    });
+
+    it('sequence keywords respect sqlKeywordCase upper', async () => {
+        const result = await fmt('create sequence dbo.S as int start with 1 increment by 1', { sqlKeywordCase: 'upper' });
+        expect(result).toContain('CREATE SEQUENCE dbo.S');
+        expect(result).toContain('AS INT');
+        expect(result).toContain('START WITH 1');
+        expect(result).toContain('INCREMENT BY 1');
+    });
+});
+
+describe('BULK INSERT', () => {
+    it('BULK INSERT basic', async () => {
+        const result = await fmt("bulk insert dbo.Books from 'C:\\data\\books.csv'");
+        expect(result).toContain('bulk insert dbo.Books');
+        expect(result).toContain("from 'C:\\data\\books.csv'");
+        expect(result).toMatchSnapshot();
+    });
+
+    it('BULK INSERT with WITH options', async () => {
+        const result = await fmt(
+            "bulk insert dbo.Books from 'C:\\data\\books.csv' with (fieldterminator = ',', rowterminator = '\\n', firstrow = 2)"
+        );
+        expect(result).toContain('bulk insert dbo.Books');
+        expect(result).toContain('with (');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('BULK INSERT keywords respect sqlKeywordCase upper', async () => {
+        const result = await fmt("bulk insert dbo.Books from 'C:\\data\\books.csv'", { sqlKeywordCase: 'upper' });
+        expect(result).toContain('BULK INSERT dbo.Books');
+        expect(result).toContain('FROM');
+    });
+});
+
+describe('CREATE TYPE', () => {
+    it('CREATE TYPE scalar UDDT', async () => {
+        const result = await fmt('create type dbo.BookTitle from nvarchar(200) not null');
+        expect(result).toContain('create type dbo.BookTitle');
+        expect(result).toContain('from nvarchar(200)');
+        expect(result).toContain('not null');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('CREATE TYPE scalar UDDT nullable', async () => {
+        const result = await fmt('create type dbo.OptionalText from nvarchar(500) null');
+        expect(result).toContain('from nvarchar(500)');
+        expect(result).toContain('null;');
+    });
+
+    it('CREATE TYPE table type', async () => {
+        const result = await fmt(
+            'create type dbo.BookList as table (book_id int not null, title nvarchar(200), price decimal(10,2))'
+        );
+        expect(result).toContain('create type dbo.BookList');
+        expect(result).toContain('as table (');
+        expect(result).toContain('book_id int');
+        expect(result).toContain('title nvarchar');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('type keywords respect sqlKeywordCase upper', async () => {
+        const result = await fmt('create type dbo.BookTitle from nvarchar(200) not null', { sqlKeywordCase: 'upper' });
+        expect(result).toContain('CREATE TYPE dbo.BookTitle');
+        expect(result).toContain('FROM NVARCHAR(200)');
+        expect(result).toContain('NOT NULL');
+    });
+});
+
+describe('Security statements (passthrough)', () => {
+    it('GRANT passes through without error', async () => {
+        const result = await fmt('grant select, insert on object::dbo.Books to AppUser');
+        expect(result).toBeTruthy();
+        expect(result).not.toContain('unhandled statement');
+    });
+
+    it('DENY passes through without error', async () => {
+        const result = await fmt('deny delete on object::dbo.Books to GuestUser');
+        expect(result).toBeTruthy();
+        expect(result).not.toContain('unhandled statement');
+    });
+
+    it('REVOKE passes through without error', async () => {
+        const result = await fmt('revoke select on object::dbo.Books from AppUser');
+        expect(result).toBeTruthy();
+        expect(result).not.toContain('unhandled statement');
+    });
+
+    it('CREATE ROLE passes through without error', async () => {
+        const result = await fmt('create role db_reader');
+        expect(result).toBeTruthy();
+        expect(result).not.toContain('unhandled statement');
+    });
+
+    it('CREATE LOGIN passes through without error', async () => {
+        const result = await fmt("create login AppLogin with password = 'P@ssw0rd'");
+        expect(result).toBeTruthy();
+        expect(result).not.toContain('unhandled statement');
+    });
+
+    it('CREATE USER passes through without error', async () => {
+        const result = await fmt('create user AppUser for login AppLogin');
+        expect(result).toBeTruthy();
+        expect(result).not.toContain('unhandled statement');
+    });
+});

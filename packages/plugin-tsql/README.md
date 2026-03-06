@@ -19,6 +19,12 @@ A [Prettier](https://prettier.io) plugin that formats T-SQL (SQL Server) using M
 - `OUTPUT` / `OUTPUT INTO` clause on INSERT, UPDATE, DELETE, and MERGE (including `$action`, `inserted.*`, `deleted.*`)
 - Full-text predicates: `CONTAINS` / `FREETEXT` (single column, multi-column, wildcard `*`, `LANGUAGE` term); `CONTAINSTABLE` / `FREETEXTTABLE` as join sources
 - Rowset functions: `OPENJSON` and `OPENXML` with `WITH` schema declarations; `OPENJSON` row-path argument and `AS JSON` columns
+- `CREATE/ALTER TRIGGER` (DML triggers: AFTER/INSTEAD OF INSERT/UPDATE/DELETE) and `DROP TRIGGER [IF EXISTS]`
+- `ALTER INDEX … REBUILD / REORGANIZE / DISABLE` (specific index or ALL)
+- `DECLARE CURSOR` / `OPEN` / `FETCH NEXT/PRIOR/FIRST/LAST/ABSOLUTE/RELATIVE` / `CLOSE` / `DEALLOCATE`
+- `CREATE/ALTER/DROP SEQUENCE` with full options (AS, START WITH, INCREMENT BY, MINVALUE/NO MINVALUE, MAXVALUE/NO MAXVALUE, CYCLE/NO CYCLE, CACHE/NO CACHE)
+- `BULK INSERT … FROM … WITH (options)`
+- `CREATE TYPE … FROM …` (scalar user-defined types) and `CREATE TYPE … AS TABLE (…)` (table-valued parameters)
 - Emits `go` batch separators where required
 - Integrates with editor extensions that support Prettier (VS Code, etc.)
 
@@ -27,21 +33,12 @@ A [Prettier](https://prettier.io) plugin that formats T-SQL (SQL Server) using M
 The following T-SQL constructs are recognised by the parser but emitted unchanged (their original source text is preserved):
 
 - `OPENROWSET` — complex provider/connection-string form
+- `GRANT` / `DENY` / `REVOKE` — many permission/securable variants; keywords not re-cased
+- `CREATE/ALTER/DROP USER`, `LOGIN`, `ROLE` — many option variants; keywords not re-cased
 
 ## Pending implementation
 
 The constructs below are parsed correctly but not yet formatted — they pass through as-is. PRs welcome.
-
-**Common in everyday scripts**
-
-- `CREATE/ALTER/DROP TRIGGER`
-- `GRANT` / `DENY` / `REVOKE`
-- `CREATE/ALTER/DROP USER`, `LOGIN`, `ROLE`
-- `CREATE/ALTER/DROP SEQUENCE`
-- `DECLARE CURSOR` / `OPEN` / `FETCH` / `CLOSE` / `DEALLOCATE`
-- `BULK INSERT`
-- `ALTER INDEX … REBUILD / REORGANIZE`
-- `CREATE TYPE` (user-defined table types and scalar UDTs)
 
 **Specialised / lower priority**
 

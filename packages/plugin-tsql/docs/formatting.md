@@ -824,6 +824,7 @@ The following statement types must be alone in a batch and automatically get a `
 - `CREATE VIEW` / `ALTER VIEW` / `CREATE OR ALTER VIEW`
 - `CREATE PROCEDURE` / `ALTER PROCEDURE` / `CREATE OR ALTER PROCEDURE`
 - `CREATE FUNCTION` / `ALTER FUNCTION` / `CREATE OR ALTER FUNCTION`
+- `CREATE TRIGGER` / `ALTER TRIGGER`
 
 When multiple such statements appear in a file (separated by `go` in the input), each batch is separated by a blank line in the output:
 
@@ -915,6 +916,11 @@ drop table if exists dbo.Books;
 drop procedure dbo.GetBooks;
 drop view dbo.vw_available_books;
 drop function dbo.GetBookPrice;
+drop trigger dbo.trg_Books_AI;
+drop trigger if exists dbo.trg_Books_AI;
+
+drop sequence dbo.OrderSeq;
+drop sequence if exists dbo.OrderSeq;
 
 drop index ix_title on dbo.Books;
 ```
@@ -1118,6 +1124,197 @@ with (
 
 The column data types inside `WITH (...)` are emitted as raw text (original casing is
 preserved). `OPENROWSET` is not yet formatted and is emitted as-is.
+
+---
+
+---
+
+## CREATE / ALTER TRIGGER
+
+`create trigger` and `alter trigger` are batch-isolating (automatically followed by `go`).
+
+The trigger name, `on` clause, timing/events, and body each appear on their own line:
+
+```sql
+create trigger dbo.trg_Books_AI
+on dbo.Books
+after insert
+as
+begin
+  update dbo.Books
+  set price = price * 1.1
+  where book_id in (
+    select book_id
+    from inserted
+  );
+end;
+go
+```
+
+Multiple DML events are comma-separated on the event line:
+
+```sql
+create trigger dbo.trg_Books_IUD
+on dbo.Books
+after insert, update, delete
+as
+begin
+  print 'modified';
+end;
+go
+```
+
+`instead of` triggers use the same layout:
+
+```sql
+create trigger dbo.trg_Books_IOD
+on dbo.Books
+instead of update, delete
+as
+begin
+  print 'blocked';
+end;
+go
+```
+
+---
+
+## ALTER INDEX
+
+`alter index` reformats the index name (or `all`), table, and operation on separate lines:
+
+```sql
+alter index ix_Books_title on dbo.Books
+rebuild;
+
+alter index all on dbo.Books
+rebuild;
+
+alter index ix_Books_title on dbo.Books
+reorganize;
+
+alter index ix_Books_title on dbo.Books
+disable;
+```
+
+---
+
+## DECLARE CURSOR / OPEN / FETCH / CLOSE / DEALLOCATE
+
+`declare … cursor for` puts the cursor name and `cursor` keyword on the first line. The `for` keyword and the query each appear on their own line:
+
+```sql
+declare book_cursor cursor
+for
+select book_id, title
+from dbo.Books
+where in_stock = 1;
+```
+
+Cursor options (e.g. `SCROLL`, `READ_ONLY`) appear between the cursor name and the `cursor` keyword:
+
+```sql
+declare book_cursor scroll cursor
+for
+select book_id from dbo.Books;
+```
+
+The remaining cursor operations are single-line statements:
+
+```sql
+open book_cursor;
+
+fetch next from book_cursor into @id, @title;
+fetch prior from book_cursor;
+fetch first from book_cursor into @id, @title;
+fetch last from book_cursor into @id;
+
+close book_cursor;
+deallocate book_cursor;
+```
+
+---
+
+## CREATE / ALTER SEQUENCE
+
+Options each appear on their own line below the sequence name:
+
+```sql
+create sequence dbo.OrderSeq
+as bigint
+start with 1
+increment by 1
+minvalue 1
+maxvalue 9999
+cycle
+cache 20;
+```
+
+`NO` variants are supported:
+
+```sql
+create sequence dbo.Seq
+as int
+start with 1
+no minvalue
+no maxvalue
+no cycle
+no cache;
+```
+
+`alter sequence` uses `restart with` (not `start with`):
+
+```sql
+alter sequence dbo.OrderSeq
+restart with 100
+increment by 5;
+```
+
+---
+
+## BULK INSERT
+
+```sql
+bulk insert dbo.Books
+from 'C:\data\books.csv';
+```
+
+With a `WITH` options block — each option on its own indented line:
+
+```sql
+bulk insert dbo.Books
+from 'C:\data\books.csv'
+with (
+  fieldterminator = ',',
+  rowterminator = '\n',
+  firstrow = 2
+);
+```
+
+---
+
+## CREATE TYPE
+
+### Scalar user-defined type (UDDT)
+
+```sql
+create type dbo.BookTitle from nvarchar(200) not null;
+create type dbo.OptionalText from nvarchar(500) null;
+```
+
+The base data type — including length, precision, and scale — is preserved. Keyword casing applies to the type keyword itself (e.g. `nvarchar`, `int`).
+
+### Table-valued parameter type (TVP)
+
+The column list follows the same rules as `CREATE TABLE`:
+
+```sql
+create type dbo.BookList as table (
+  book_id int not null,
+  title nvarchar(200) not null,
+  price decimal(10, 2)
+);
+```
 
 ---
 

@@ -839,6 +839,40 @@ public class AstBuilder : TSqlFragmentVisitor
             AlterProcedureStatement ap => BuildProcedureStatement("AlterProcedureStatement", ap),
             AlterFunctionStatement af => BuildFunctionStatement("AlterFunctionStatement", af),
             CreateOrAlterFunctionStatement coaf => BuildFunctionStatement("CreateOrAlterFunctionStatement", coaf),
+            // Trigger DDL
+            CreateTriggerStatement ctrig => BuildTriggerStatement("CreateTriggerStatement", ctrig),
+            AlterTriggerStatement atrig => BuildTriggerStatement("AlterTriggerStatement", atrig),
+            DropTriggerStatement dtrig => BuildDropObjects("DropTriggerStatement", dtrig),
+            // Index DDL
+            AlterIndexStatement ai => BuildAlterIndex(ai),
+            // Cursor operations
+            DeclareCursorStatement dcs => BuildDeclareCursor(dcs),
+            OpenCursorStatement ocs => BuildOpenCursor(ocs),
+            FetchCursorStatement fcs => BuildFetchCursor(fcs),
+            CloseCursorStatement ccs => BuildCloseCursor(ccs),
+            DeallocateCursorStatement dalc => BuildDeallocateCursor(dalc),
+            // Sequence DDL
+            CreateSequenceStatement cseq => BuildCreateSequence(cseq),
+            AlterSequenceStatement aseq => BuildAlterSequence(aseq),
+            DropSequenceStatement dseq => BuildDropObjects("DropSequenceStatement", dseq),
+            // BULK INSERT
+            BulkInsertStatement bulk => BuildBulkInsert(bulk),
+            // CREATE TYPE
+            CreateTypeUddtStatement ctud => BuildCreateTypeUddt(ctud),
+            CreateTypeTableStatement cttbl => BuildCreateTypeTable(cttbl),
+            // Security statements — typed passthrough (raw text preserved, no "unhandled" error)
+            GrantStatement gs => Leaf("GrantStatement", gs, RawText(gs)),
+            DenyStatement dny => Leaf("DenyStatement", dny, RawText(dny)),
+            RevokeStatement rvk => Leaf("RevokeStatement", rvk, RawText(rvk)),
+            CreateUserStatement cus => Leaf("CreateUserStatement", cus, RawText(cus)),
+            AlterUserStatement aus => Leaf("AlterUserStatement", aus, RawText(aus)),
+            DropUserStatement dup => Leaf("DropUserStatement", dup, RawText(dup)),
+            CreateLoginStatement clog => Leaf("CreateLoginStatement", clog, RawText(clog)),
+            AlterLoginStatement alog => Leaf("AlterLoginStatement", alog, RawText(alog)),
+            DropLoginStatement dlog => Leaf("DropLoginStatement", dlog, RawText(dlog)),
+            CreateRoleStatement crol => Leaf("CreateRoleStatement", crol, RawText(crol)),
+            AlterRoleStatement arol => Leaf("AlterRoleStatement", arol, RawText(arol)),
+            DropRoleStatement drol => Leaf("DropRoleStatement", drol, RawText(drol)),
             _ => Leaf("Statement", stmt, RawText(stmt)),
         };
     }
@@ -1733,6 +1767,211 @@ public class AstBuilder : TSqlFragmentVisitor
             ["returnType"] = f.ReturnType != null ? RawText(f.ReturnType) : null,
             ["bodyType"]   = bodyType,
             ["body"]       = body,
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // DDL: CREATE / ALTER TRIGGER
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildTriggerStatement(string type, TriggerStatementBody trigger)
+    {
+        var actions = trigger.TriggerActions?.Select(a => (object?)a.TriggerActionType.ToString()).ToList();
+        var stmts = trigger.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
+        return Node(type, trigger, new Dictionary<string, object?>
+        {
+            ["name"]        = BuildSchemaObjectName(trigger.Name),
+            ["onName"]      = BuildSchemaObjectName(trigger.TriggerObject?.Name),
+            ["triggerType"] = trigger.TriggerType.ToString(),
+            ["actions"]     = actions,
+            ["body"]        = stmts,
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // DDL: ALTER INDEX
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildAlterIndex(AlterIndexStatement ai) =>
+        Node("AlterIndexStatement", ai, new Dictionary<string, object?>
+        {
+            ["indexName"] = ai.Name?.Value,   // null means ALL
+            ["table"]     = BuildSchemaObjectName(ai.OnName),
+            ["alterType"] = ai.AlterIndexType.ToString(),
+        });
+
+    // -------------------------------------------------------------------------
+    // Cursor operations
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildDeclareCursor(DeclareCursorStatement dc)
+    {
+        var opts = dc.CursorDefinition?.Options
+            ?.Select(o => (object?)o.OptionKind.ToString().ToUpper()).ToList();
+        var select = dc.CursorDefinition?.Select != null
+            ? BuildQueryExpression(dc.CursorDefinition.Select.QueryExpression)
+            : null;
+        return Node("DeclareCursorStatement", dc, new Dictionary<string, object?>
+        {
+            ["name"]    = dc.Name?.Value,
+            ["options"] = opts,
+            ["select"]  = select,
+        });
+    }
+
+    private static SqlNode BuildOpenCursor(OpenCursorStatement oc) =>
+        Node("OpenCursorStatement", oc, new Dictionary<string, object?>
+        {
+            ["cursorName"] = oc.Cursor?.Name?.Value,
+        });
+
+    private static SqlNode BuildFetchCursor(FetchCursorStatement fc)
+    {
+        var intoVars = fc.IntoVariables?.Select(v => (object?)v.Name).ToList();
+        return Node("FetchCursorStatement", fc, new Dictionary<string, object?>
+        {
+            ["fetchType"]     = fc.FetchType?.Orientation.ToString(),
+            ["cursorName"]    = fc.Cursor?.Name?.Value,
+            ["intoVariables"] = intoVars,
+            ["fetchOffset"]   = BuildScalarExpression(fc.FetchType?.RowOffset),
+        });
+    }
+
+    private static SqlNode BuildCloseCursor(CloseCursorStatement cc) =>
+        Node("CloseCursorStatement", cc, new Dictionary<string, object?>
+        {
+            ["cursorName"] = cc.Cursor?.Name?.Value,
+        });
+
+    private static SqlNode BuildDeallocateCursor(DeallocateCursorStatement dalc) =>
+        Node("DeallocateCursorStatement", dalc, new Dictionary<string, object?>
+        {
+            ["cursorName"] = dalc.Cursor?.Name?.Value,
+        });
+
+    // -------------------------------------------------------------------------
+    // DDL: CREATE / ALTER / DROP SEQUENCE
+    // -------------------------------------------------------------------------
+
+    private static Dictionary<string, object?> ExtractSequenceOptions(IList<SequenceOption>? options)
+    {
+        string? dataType = null;
+        string? startWith = null;
+        string? restartWith = null;
+        string? incrementBy = null;
+        string? minValue = null;
+        string? maxValue = null;
+        bool? cycle = null;
+        bool noMinValue = false;
+        bool noMaxValue = false;
+        bool noCache = false;
+        string? cache = null;
+
+        foreach (var opt in options ?? Enumerable.Empty<SequenceOption>())
+        {
+            if (opt is DataTypeSequenceOption dtOpt)
+            {
+                dataType = dtOpt.DataType != null ? RawText(dtOpt.DataType) : null;
+            }
+            else if (opt is ScalarExpressionSequenceOption seOpt && seOpt.OptionValue != null)
+            {
+                var val = RawText(seOpt.OptionValue);
+                switch (seOpt.OptionKind)
+                {
+                    case SequenceOptionKind.Start:     startWith = val; break;
+                    case SequenceOptionKind.Restart:   restartWith = val; break;
+                    case SequenceOptionKind.Increment: incrementBy = val; break;
+                    case SequenceOptionKind.MinValue:  minValue = val; break;
+                    case SequenceOptionKind.MaxValue:  maxValue = val; break;
+                    case SequenceOptionKind.Cache:     cache = val; break;
+                }
+            }
+            else
+            {
+                // NoValue=true means it's a NO xxx option (NO CYCLE, NO MINVALUE, etc.)
+                switch (opt.OptionKind)
+                {
+                    case SequenceOptionKind.Cycle:
+                        cycle = !opt.NoValue; // false=NO CYCLE, true=CYCLE
+                        break;
+                    case SequenceOptionKind.MinValue:
+                        if (opt.NoValue) noMinValue = true;
+                        break;
+                    case SequenceOptionKind.MaxValue:
+                        if (opt.NoValue) noMaxValue = true;
+                        break;
+                    case SequenceOptionKind.Cache:
+                        if (opt.NoValue) noCache = true;
+                        break;
+                }
+            }
+        }
+
+        return new Dictionary<string, object?>
+        {
+            ["dataType"]    = dataType,
+            ["startWith"]   = startWith,
+            ["restartWith"] = restartWith,
+            ["incrementBy"] = incrementBy,
+            ["minValue"]    = minValue,
+            ["maxValue"]    = maxValue,
+            ["noMinValue"]  = noMinValue,
+            ["noMaxValue"]  = noMaxValue,
+            ["cycle"]       = cycle,
+            ["cache"]       = cache,
+            ["noCache"]     = noCache,
+        };
+    }
+
+    private static SqlNode BuildCreateSequence(CreateSequenceStatement cseq)
+    {
+        var opts = ExtractSequenceOptions(cseq.SequenceOptions);
+        opts["name"] = BuildSchemaObjectName(cseq.Name);
+        return Node("CreateSequenceStatement", cseq, opts);
+    }
+
+    private static SqlNode BuildAlterSequence(AlterSequenceStatement aseq)
+    {
+        var opts = ExtractSequenceOptions(aseq.SequenceOptions);
+        opts["name"] = BuildSchemaObjectName(aseq.Name);
+        return Node("AlterSequenceStatement", aseq, opts);
+    }
+
+    // -------------------------------------------------------------------------
+    // DML: BULK INSERT
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildBulkInsert(BulkInsertStatement bulk) =>
+        Node("BulkInsertStatement", bulk, new Dictionary<string, object?>
+        {
+            ["table"]   = BuildSchemaObjectName(bulk.To),
+            ["from"]    = bulk.From != null ? RawText(bulk.From) : null,
+            ["options"] = bulk.Options?.Select(o => (object?)RawText(o)).ToList(),
+        });
+
+    // -------------------------------------------------------------------------
+    // DDL: CREATE TYPE
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildCreateTypeUddt(CreateTypeUddtStatement ctud) =>
+        Node("CreateTypeUddtStatement", ctud, new Dictionary<string, object?>
+        {
+            ["name"]     = BuildSchemaObjectName(ctud.Name),
+            ["dataType"] = ctud.DataType != null ? RawText(ctud.DataType) : null,
+            ["nullable"] = ctud.NullableConstraint?.Nullable,
+        });
+
+    private static SqlNode BuildCreateTypeTable(CreateTypeTableStatement cttbl)
+    {
+        var columns = cttbl.Definition?.ColumnDefinitions
+            ?.Select(c => (object?)BuildColumnDefinition(c)).ToList();
+        var constraints = cttbl.Definition?.TableConstraints
+            ?.Select(c => (object?)BuildTableConstraint(c)).ToList();
+        return Node("CreateTypeTableStatement", cttbl, new Dictionary<string, object?>
+        {
+            ["name"]        = BuildSchemaObjectName(cttbl.Name),
+            ["columns"]     = columns,
+            ["constraints"] = constraints,
         });
     }
 
