@@ -923,9 +923,13 @@ drop sequence dbo.OrderSeq;
 drop sequence if exists dbo.OrderSeq;
 
 drop index ix_title on dbo.Books;
+
+drop user AppUser;
+drop login AppLogin;
+drop role if exists db_reader;
 ```
 
-Multiple objects in one `DROP` are comma-separated on one line.
+Multiple objects in one `DROP TABLE/PROCEDURE/VIEW/FUNCTION` are comma-separated on one line.
 
 ---
 
@@ -1314,6 +1318,139 @@ create type dbo.BookList as table (
   title nvarchar(200) not null,
   price decimal(10, 2)
 );
+```
+
+---
+
+## CREATE / ALTER / DROP USER
+
+### CREATE USER
+
+The `FOR`/`FROM`/`WITHOUT` clause goes on its own line. A `WITH` option list is indented one level:
+
+```sql
+create user AppUser
+for login AppLogin;
+
+create user SvcUser
+without login;
+
+create user AzureUser
+from external provider;
+
+create user AppUser
+for login AppLogin
+with
+  default_schema = dbo;
+```
+
+### ALTER USER
+
+```sql
+alter user AppUser
+with
+  name = NewUser,
+  default_schema = reports;
+```
+
+### DROP USER
+
+```sql
+drop user AppUser;
+```
+
+---
+
+## CREATE / ALTER / DROP LOGIN
+
+### CREATE LOGIN
+
+The `WITH` or `FROM` clause starts on a new line. Options are indented one level, one per line:
+
+```sql
+create login AppLogin
+with
+  password = 'P@ssw0rd';
+
+create login AppLogin
+with
+  password = 'P@ssw0rd',
+  default_database = master,
+  check_policy = on,
+  check_expiration = on;
+
+create login AppLogin
+with
+  password = 'P@ssw0rd' hashed must_change;
+
+create login WindowsUser
+from windows;
+
+create login WindowsUser
+from windows
+with
+  default_domain = CORP;
+```
+
+### ALTER LOGIN
+
+```sql
+alter login AppLogin enable;
+alter login AppLogin disable;
+
+alter login AppLogin
+add credential BackupCred;
+
+alter login AppLogin
+drop credential BackupCred;
+
+alter login AppLogin
+with
+  password = 'NewP@ss';
+
+alter login AppLogin
+with
+  password = 'NewP@ss',
+  old_password = 'OldP@ss';
+```
+
+### DROP LOGIN
+
+```sql
+drop login AppLogin;
+```
+
+---
+
+## CREATE / ALTER / DROP ROLE
+
+### CREATE ROLE
+
+```sql
+create role db_reader;
+
+create role db_reader
+authorization dbo;
+```
+
+### ALTER ROLE
+
+```sql
+alter role db_reader
+add member AppUser;
+
+alter role db_reader
+drop member AppUser;
+
+alter role db_reader
+with name = db_reader_v2;
+```
+
+### DROP ROLE
+
+```sql
+drop role db_reader;
+drop role if exists db_reader;
 ```
 
 ---

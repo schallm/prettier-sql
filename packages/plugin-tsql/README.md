@@ -25,6 +25,9 @@ A [Prettier](https://prettier.io) plugin that formats T-SQL (SQL Server) using M
 - `CREATE/ALTER/DROP SEQUENCE` with full options (AS, START WITH, INCREMENT BY, MINVALUE/NO MINVALUE, MAXVALUE/NO MAXVALUE, CYCLE/NO CYCLE, CACHE/NO CACHE)
 - `BULK INSERT … FROM … WITH (options)`
 - `CREATE TYPE … FROM …` (scalar user-defined types) and `CREATE TYPE … AS TABLE (…)` (table-valued parameters)
+- `CREATE/ALTER/DROP USER` — FOR LOGIN, WITHOUT LOGIN, FROM EXTERNAL PROVIDER, WITH options (DEFAULT_SCHEMA, etc.)
+- `CREATE/ALTER/DROP LOGIN` — password (WITH HASHED/MUST_CHANGE), FROM WINDOWS, FROM CERTIFICATE/ASYMMETRIC KEY, ENABLE/DISABLE, ADD/DROP CREDENTIAL
+- `CREATE/ALTER/DROP ROLE` — AUTHORIZATION owner, ADD/DROP MEMBER, WITH NAME rename
 - Emits `go` batch separators where required
 - Integrates with editor extensions that support Prettier (VS Code, etc.)
 
@@ -34,7 +37,6 @@ The following T-SQL constructs are recognised by the parser but emitted unchange
 
 - `OPENROWSET` — complex provider/connection-string form
 - `GRANT` / `DENY` / `REVOKE` — many permission/securable variants; keywords not re-cased
-- `CREATE/ALTER/DROP USER`, `LOGIN`, `ROLE` — many option variants; keywords not re-cased
 
 ## Pending implementation
 
