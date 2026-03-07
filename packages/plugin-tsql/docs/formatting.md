@@ -649,6 +649,31 @@ drop column isbn;
 
 ---
 
+## CREATE INDEX
+
+`CREATE INDEX` places the index name on the same line as the verb, then `ON table (columns)` on its own line with the column list indented. Each column includes an explicit `ASC` or `DESC` direction. An optional `INCLUDE` clause goes on a further line.
+
+```sql
+create nonclustered index ix_title
+on dbo.Books (
+  title asc
+);
+
+create unique clustered index ix_book_id
+on dbo.Books (
+  book_id asc
+);
+
+create nonclustered index ix_author_price
+on dbo.Books (
+  author_id asc,
+  price desc
+)
+include (title, in_stock);
+```
+
+---
+
 ## CREATE / ALTER PROCEDURE
 
 `alter procedure` and `create or alter procedure` follow the same layout as `create procedure`.

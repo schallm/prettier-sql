@@ -14,7 +14,7 @@ A [Prettier](https://prettier.io) plugin that formats T-SQL (SQL Server) using M
 - Preserves `--` and `/* */` comments — trailing, leading, inside procedure bodies, between parameters and `AS`
 - Configurable keyword casing, layout density, and comma style
 - Control flow: `BREAK`, `CONTINUE`, `GOTO`/label, `THROW`, `RAISERROR`, `TRY/CATCH`
-- DDL: `TRUNCATE TABLE`, `DROP TABLE/PROCEDURE/VIEW/FUNCTION/INDEX` (with `IF EXISTS`), `CREATE OR ALTER PROCEDURE/FUNCTION`, `ALTER PROCEDURE/FUNCTION`
+- DDL: `CREATE INDEX` (UNIQUE/CLUSTERED/NONCLUSTERED, column list with ASC/DESC, INCLUDE); `TRUNCATE TABLE`; `DROP TABLE/PROCEDURE/VIEW/FUNCTION/INDEX/TRIGGER/SEQUENCE` (with `IF EXISTS`); `CREATE OR ALTER PROCEDURE/FUNCTION/VIEW`, `ALTER PROCEDURE/FUNCTION`
 - `MERGE INTO ... USING ... ON ... WHEN MATCHED/NOT MATCHED THEN UPDATE/INSERT/DELETE` (with optional `AND` predicates)
 - `OUTPUT` / `OUTPUT INTO` clause on INSERT, UPDATE, DELETE, and MERGE (including `$action`, `inserted.*`, `deleted.*`)
 - Full-text predicates: `CONTAINS` / `FREETEXT` (single column, multi-column, wildcard `*`, `LANGUAGE` term); `CONTAINSTABLE` / `FREETEXTTABLE` as join sources
