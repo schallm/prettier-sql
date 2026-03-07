@@ -860,19 +860,19 @@ public class AstBuilder : TSqlFragmentVisitor
             // CREATE TYPE
             CreateTypeUddtStatement ctud => BuildCreateTypeUddt(ctud),
             CreateTypeTableStatement cttbl => BuildCreateTypeTable(cttbl),
-            // Security statements — typed passthrough (raw text preserved, no "unhandled" error)
+            // Security statements — GRANT/DENY/REVOKE passthrough; USER/LOGIN/ROLE fully formatted
             GrantStatement gs => Leaf("GrantStatement", gs, RawText(gs)),
             DenyStatement dny => Leaf("DenyStatement", dny, RawText(dny)),
             RevokeStatement rvk => Leaf("RevokeStatement", rvk, RawText(rvk)),
-            CreateUserStatement cus => Leaf("CreateUserStatement", cus, RawText(cus)),
-            AlterUserStatement aus => Leaf("AlterUserStatement", aus, RawText(aus)),
-            DropUserStatement dup => Leaf("DropUserStatement", dup, RawText(dup)),
-            CreateLoginStatement clog => Leaf("CreateLoginStatement", clog, RawText(clog)),
-            AlterLoginStatement alog => Leaf("AlterLoginStatement", alog, RawText(alog)),
-            DropLoginStatement dlog => Leaf("DropLoginStatement", dlog, RawText(dlog)),
-            CreateRoleStatement crol => Leaf("CreateRoleStatement", crol, RawText(crol)),
-            AlterRoleStatement arol => Leaf("AlterRoleStatement", arol, RawText(arol)),
-            DropRoleStatement drol => Leaf("DropRoleStatement", drol, RawText(drol)),
+            CreateUserStatement cus => BuildCreateUser(cus),
+            AlterUserStatement aus => BuildAlterUser(aus),
+            DropUserStatement dup => BuildDropUser(dup),
+            CreateLoginStatement clog => BuildCreateLogin(clog),
+            AlterLoginStatement alog => BuildAlterLogin(alog),
+            DropLoginStatement dlog => BuildDropLogin(dlog),
+            CreateRoleStatement crol => BuildCreateRole(crol),
+            AlterRoleStatement arol => BuildAlterRole(arol),
+            DropRoleStatement drol => BuildDropRole(drol),
             _ => Leaf("Statement", stmt, RawText(stmt)),
         };
     }
@@ -2030,4 +2030,169 @@ public class AstBuilder : TSqlFragmentVisitor
             ["intoColumns"] = output.IntoTableColumns?.Select(c => (object?)BuildColumnRef(c)).ToList(),
         });
     }
+
+    // -------------------------------------------------------------------------
+    // Security: USER / LOGIN / ROLE
+    // -------------------------------------------------------------------------
+
+    private static object? BuildPrincipalOption(PrincipalOption opt) => opt switch
+    {
+        PasswordAlterPrincipalOption popt => new Dictionary<string, object?>
+        {
+            ["kind"]        = "Password",
+            ["password"]    = popt.Password    != null ? RawText(popt.Password)    : null,
+            ["oldPassword"] = popt.OldPassword != null ? RawText(popt.OldPassword) : null,
+            ["mustChange"]  = popt.MustChange,
+            ["unlock"]      = popt.Unlock,
+            ["hashed"]      = popt.Hashed,
+        },
+        OnOffPrincipalOption onOff => new Dictionary<string, object?>
+        {
+            ["kind"]  = opt.OptionKind.ToString(),
+            ["onOff"] = onOff.OptionState == OptionState.On ? "on" : "off",
+        },
+        LiteralPrincipalOption litOpt => new Dictionary<string, object?>
+        {
+            ["kind"]  = opt.OptionKind.ToString(),
+            ["value"] = litOpt.Value != null ? RawText(litOpt.Value) : null,
+        },
+        IdentifierPrincipalOption idOpt => new Dictionary<string, object?>
+        {
+            ["kind"]       = opt.OptionKind.ToString(),
+            ["identifier"] = idOpt.Identifier?.Value,
+        },
+        _ => new Dictionary<string, object?> { ["kind"] = opt.OptionKind.ToString() },
+    };
+
+    private static List<object?>? BuildPrincipalOptions<T>(IList<T>? options) where T : class =>
+        options?.Count > 0
+            ? options.OfType<PrincipalOption>().Select(o => (object?)BuildPrincipalOption(o)).ToList()
+            : null;
+
+    // USER
+
+    private static SqlNode BuildCreateUser(CreateUserStatement s) =>
+        Node("CreateUserStatement", s, new Dictionary<string, object?>
+        {
+            ["name"]            = s.Name?.Value,
+            ["loginOptionType"] = s.UserLoginOption?.UserLoginOptionType.ToString(),
+            ["loginOptionId"]   = s.UserLoginOption?.Identifier?.Value,
+            ["options"]         = BuildPrincipalOptions(s.UserOptions),
+        });
+
+    private static SqlNode BuildAlterUser(AlterUserStatement s) =>
+        Node("AlterUserStatement", s, new Dictionary<string, object?>
+        {
+            ["name"]    = s.Name?.Value,
+            ["options"] = BuildPrincipalOptions(s.UserOptions),
+        });
+
+    private static SqlNode BuildDropUser(DropUserStatement s) =>
+        Node("DropUserStatement", s, new Dictionary<string, object?>
+        {
+            ["name"]     = s.Name?.Value,
+            ["ifExists"] = s.IsIfExists,
+        });
+
+    // LOGIN
+
+    private static SqlNode BuildCreateLogin(CreateLoginStatement s)
+    {
+        var props = new Dictionary<string, object?> { ["name"] = s.Name?.Value };
+        switch (s.Source)
+        {
+            case PasswordCreateLoginSource pcs:
+                props["sourceType"] = "Password";
+                props["password"]   = pcs.Password != null ? RawText(pcs.Password) : null;
+                props["hashed"]     = pcs.Hashed;
+                props["mustChange"] = pcs.MustChange;
+                props["options"]    = BuildPrincipalOptions(pcs.Options);
+                break;
+            case WindowsCreateLoginSource wcs:
+                props["sourceType"] = "Windows";
+                props["options"]    = BuildPrincipalOptions(wcs.Options);
+                break;
+            case CertificateCreateLoginSource ccs:
+                props["sourceType"] = "Certificate";
+                props["sourceName"] = ccs.Certificate?.Value;
+                break;
+            case AsymmetricKeyCreateLoginSource aks:
+                props["sourceType"] = "AsymmetricKey";
+                props["sourceName"] = aks.Key?.Value;
+                break;
+            default:
+                props["sourceType"] = s.Source != null ? RawText(s.Source) : null;
+                break;
+        }
+        return Node("CreateLoginStatement", s, props);
+    }
+
+    private static SqlNode BuildAlterLogin(AlterLoginStatement s) => s switch
+    {
+        AlterLoginEnableDisableStatement eds => Node("AlterLoginStatement", eds, new Dictionary<string, object?>
+        {
+            ["name"]   = eds.Name?.Value,
+            ["action"] = eds.IsEnable ? "Enable" : "Disable",
+        }),
+        AlterLoginAddDropCredentialStatement cds => Node("AlterLoginStatement", cds, new Dictionary<string, object?>
+        {
+            ["name"]           = cds.Name?.Value,
+            ["action"]         = cds.IsAdd ? "AddCredential" : "DropCredential",
+            ["credentialName"] = cds.CredentialName?.Value,
+        }),
+        AlterLoginOptionsStatement opts => Node("AlterLoginStatement", opts, new Dictionary<string, object?>
+        {
+            ["name"]    = opts.Name?.Value,
+            ["action"]  = "WithOptions",
+            ["options"] = BuildPrincipalOptions(opts.Options),
+        }),
+        _ => Leaf("AlterLoginStatement", s, RawText(s)),
+    };
+
+    private static SqlNode BuildDropLogin(DropLoginStatement s) =>
+        Node("DropLoginStatement", s, new Dictionary<string, object?>
+        {
+            ["name"]     = s.Name?.Value,
+            ["ifExists"] = s.IsIfExists,
+        });
+
+    // ROLE
+
+    private static SqlNode BuildCreateRole(CreateRoleStatement s) =>
+        Node("CreateRoleStatement", s, new Dictionary<string, object?>
+        {
+            ["name"]  = s.Name?.Value,
+            ["owner"] = s.Owner?.Value,
+        });
+
+    private static SqlNode BuildAlterRole(AlterRoleStatement s)
+    {
+        var props = new Dictionary<string, object?> { ["name"] = s.Name?.Value };
+        switch (s.Action)
+        {
+            case AddMemberAlterRoleAction add:
+                props["action"] = "AddMember";
+                props["member"] = add.Member?.Value;
+                break;
+            case DropMemberAlterRoleAction drop:
+                props["action"] = "DropMember";
+                props["member"] = drop.Member?.Value;
+                break;
+            case RenameAlterRoleAction ren:
+                props["action"]  = "Rename";
+                props["newName"] = ren.NewName?.Value;
+                break;
+            default:
+                if (s.Action != null) props["action"] = RawText(s.Action);
+                break;
+        }
+        return Node("AlterRoleStatement", s, props);
+    }
+
+    private static SqlNode BuildDropRole(DropRoleStatement s) =>
+        Node("DropRoleStatement", s, new Dictionary<string, object?>
+        {
+            ["name"]     = s.Name?.Value,
+            ["ifExists"] = s.IsIfExists,
+        });
 }

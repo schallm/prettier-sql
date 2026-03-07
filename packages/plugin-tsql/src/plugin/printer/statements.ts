@@ -185,20 +185,20 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         // CREATE TYPE
         case 'CreateTypeUddtStatement':    return printCreateTypeUddt(node, opts);
         case 'CreateTypeTableStatement':   return printCreateTypeTable(node, opts);
-        // Security / principal statements — preserved as-is (keywords not re-cased)
+        // Security / principal statements — GRANT/DENY/REVOKE passthrough; USER/LOGIN/ROLE formatted
         case 'GrantStatement':
         case 'DenyStatement':
         case 'RevokeStatement':
-        case 'CreateUserStatement':
-        case 'AlterUserStatement':
-        case 'DropUserStatement':
-        case 'CreateLoginStatement':
-        case 'AlterLoginStatement':
-        case 'DropLoginStatement':
-        case 'CreateRoleStatement':
-        case 'AlterRoleStatement':
-        case 'DropRoleStatement':
             return node.text ?? '';
+        case 'CreateUserStatement':   return printCreateUser(node, opts);
+        case 'AlterUserStatement':    return printAlterUser(node, opts);
+        case 'DropUserStatement':     return printDropUser(node, opts);
+        case 'CreateLoginStatement':  return printCreateLogin(node, opts);
+        case 'AlterLoginStatement':   return printAlterLogin(node, opts);
+        case 'DropLoginStatement':    return printDropLogin(node, opts);
+        case 'CreateRoleStatement':   return printCreateRole(node, opts);
+        case 'AlterRoleStatement':    return printAlterRole(node, opts);
+        case 'DropRoleStatement':     return printDropRole(node, opts);
         default:
             return node.text ?? `/* unhandled statement: ${node.type} */`;
     }
@@ -1392,4 +1392,211 @@ function printMergeValues(source: SqlNode, opts: Options): Doc {
     const row = rows[0] as SqlNode;
     const vals = propArr(row, 'values').map(v => printNode(v, opts));
     return [hardline, keyword('VALUES', opts), ' (', join(', ', vals), ')'];
+}
+
+// =============================================================================
+// USER / LOGIN / ROLE
+// =============================================================================
+
+/** Map PrincipalOptionKind → SQL keyword (uppercase; keyword() applies casing). */
+const principalOptionKindMap: Record<string, string> = {
+    DefaultDatabase:                    'DEFAULT_DATABASE',
+    DefaultLanguage:                    'DEFAULT_LANGUAGE',
+    DefaultSchema:                      'DEFAULT_SCHEMA',
+    Sid:                                'SID',
+    AllowEncryptedValueModifications:   'ALLOW_ENCRYPTED_VALUE_MODIFICATIONS',
+    CheckExpiration:                    'CHECK_EXPIRATION',
+    CheckPolicy:                        'CHECK_POLICY',
+    Name:                               'NAME',
+    Password:                           'PASSWORD',
+    DefaultDomain:                      'DEFAULT_DOMAIN',
+    MustChange:                         'MUST_CHANGE',
+    Credential:                         'CREDENTIAL',
+    OldPassword:                        'OLD_PASSWORD',
+    Unlock:                             'UNLOCK',
+};
+
+function principalOptionKw(kind: string, opts: Options): Doc {
+    const sql = principalOptionKindMap[kind] ?? kind.toUpperCase();
+    return keyword(sql, opts);
+}
+
+function printPrincipalOption(o: Record<string, unknown>, opts: Options): Doc {
+    const kind = o['kind'] as string ?? '';
+    if (kind === 'Password') {
+        const pw = o['password'] as string | undefined;
+        const old = o['oldPassword'] as string | undefined;
+        const hashed = o['hashed'] as boolean | undefined;
+        const mustChange = o['mustChange'] as boolean | undefined;
+        const unlock = o['unlock'] as boolean | undefined;
+        const parts: Doc[] = [keyword('PASSWORD', opts), ' = ', pw ?? ''];
+        if (hashed)     parts.push(' ', keyword('HASHED', opts));
+        if (mustChange) parts.push(' ', keyword('MUST_CHANGE', opts));
+        if (old)        parts.push([',', hardline, keyword('OLD_PASSWORD', opts), ' = ', old]);
+        if (unlock)     parts.push([',', hardline, keyword('UNLOCK', opts)]);
+        return parts;
+    }
+    if ('onOff' in o) {
+        return [principalOptionKw(kind, opts), ' = ', keyword((o['onOff'] as string).toUpperCase(), opts)];
+    }
+    if ('value' in o) {
+        return [principalOptionKw(kind, opts), ' = ', (o['value'] as string) ?? ''];
+    }
+    if ('identifier' in o) {
+        return [principalOptionKw(kind, opts), ' = ', (o['identifier'] as string) ?? ''];
+    }
+    return principalOptionKw(kind, opts);
+}
+
+function renderPrincipalOptions(node: SqlNode, opts: Options): Doc {
+    const options = node.props?.['options'];
+    if (!Array.isArray(options) || options.length === 0) return '';
+    const parts = (options as Record<string, unknown>[]).map(o => printPrincipalOption(o, opts));
+    return [keyword('WITH', opts), indent([hardline, join([',', hardline], parts)])];
+}
+
+// CREATE USER user_name [FOR|FROM LOGIN/CERT/ASYMKEY/etc] [WITH options]
+function printCreateUser(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const loginType = propStr(node, 'loginOptionType') ?? '';
+    const loginId   = propStr(node, 'loginOptionId');
+    const optionsDoc = renderPrincipalOptions(node, opts);
+
+    const loginTypeMap: Record<string, string> = {
+        Login:         'FOR LOGIN',
+        Certificate:   'FOR CERTIFICATE',
+        AsymmetricKey: 'FOR ASYMMETRIC KEY',
+        WithoutLogin:  'WITHOUT LOGIN',
+        External:      'FROM EXTERNAL PROVIDER',
+    };
+    const loginClause = loginTypeMap[loginType];
+
+    const parts: Doc[] = [keyword('CREATE USER', opts), ' ', name];
+    if (loginClause) {
+        parts.push([hardline, keyword(loginClause, opts)]);
+        if (loginId) parts.push(' ', loginId);
+    }
+    if (optionsDoc !== '') parts.push([hardline, optionsDoc]);
+    parts.push(';');
+    return parts;
+}
+
+// ALTER USER user_name WITH options
+function printAlterUser(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    return [keyword('ALTER USER', opts), ' ', name, hardline, renderPrincipalOptions(node, opts), ';'];
+}
+
+// DROP USER [IF EXISTS] user_name
+function printDropUser(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const ifExists = node.props?.['ifExists'];
+    return [
+        keyword('DROP USER', opts),
+        ifExists ? [' ', keyword('IF EXISTS', opts)] : '',
+        ' ', name, ';',
+    ];
+}
+
+// CREATE LOGIN
+function printCreateLogin(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const sourceType = propStr(node, 'sourceType') ?? '';
+    const parts: Doc[] = [keyword('CREATE LOGIN', opts), ' ', name];
+
+    if (sourceType === 'Password') {
+        const pw = propStr(node, 'password') ?? '';
+        const hashed    = node.props?.['hashed']     as boolean | undefined;
+        const mustChange = node.props?.['mustChange'] as boolean | undefined;
+        const pwParts: Doc[] = [keyword('PASSWORD', opts), ' = ', pw];
+        if (hashed)     pwParts.push(' ', keyword('HASHED', opts));
+        if (mustChange) pwParts.push(' ', keyword('MUST_CHANGE', opts));
+        const options = node.props?.['options'];
+        const optDocs: Doc[] = Array.isArray(options)
+            ? (options as Record<string, unknown>[]).map(o => printPrincipalOption(o, opts))
+            : [];
+        const allOpts = [pwParts, ...optDocs];
+        parts.push([hardline, keyword('WITH', opts), indent([hardline, join([',', hardline], allOpts)])]);
+    } else if (sourceType === 'Windows') {
+        parts.push([hardline, keyword('FROM WINDOWS', opts)]);
+        const optionsDoc = renderPrincipalOptions(node, opts);
+        if (optionsDoc !== '') parts.push([hardline, optionsDoc]);
+    } else if (sourceType === 'Certificate') {
+        parts.push([hardline, keyword('FROM CERTIFICATE', opts), ' ', propStr(node, 'sourceName') ?? '']);
+    } else if (sourceType === 'AsymmetricKey') {
+        parts.push([hardline, keyword('FROM ASYMMETRIC KEY', opts), ' ', propStr(node, 'sourceName') ?? '']);
+    } else if (sourceType) {
+        parts.push([' ', sourceType]);
+    }
+    parts.push(';');
+    return parts;
+}
+
+// ALTER LOGIN
+function printAlterLogin(node: SqlNode, opts: Options): Doc {
+    const name   = propStr(node, 'name') ?? '';
+    const action = propStr(node, 'action') ?? '';
+    const base: Doc = [keyword('ALTER LOGIN', opts), ' ', name];
+
+    if (action === 'Enable')  return [base, ' ', keyword('ENABLE', opts), ';'];
+    if (action === 'Disable') return [base, ' ', keyword('DISABLE', opts), ';'];
+    if (action === 'AddCredential') {
+        return [base, hardline, keyword('ADD CREDENTIAL', opts), ' ', propStr(node, 'credentialName') ?? '', ';'];
+    }
+    if (action === 'DropCredential') {
+        return [base, hardline, keyword('DROP CREDENTIAL', opts), ' ', propStr(node, 'credentialName') ?? '', ';'];
+    }
+    if (action === 'WithOptions') {
+        const options = node.props?.['options'];
+        const optDocs: Doc[] = Array.isArray(options)
+            ? (options as Record<string, unknown>[]).map(o => printPrincipalOption(o, opts))
+            : [];
+        return [base, hardline, keyword('WITH', opts), indent([hardline, join([',', hardline], optDocs)]), ';'];
+    }
+    return [base, ';'];
+}
+
+// DROP LOGIN [IF EXISTS] name
+function printDropLogin(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const ifExists = node.props?.['ifExists'];
+    return [
+        keyword('DROP LOGIN', opts),
+        ifExists ? [' ', keyword('IF EXISTS', opts)] : '',
+        ' ', name, ';',
+    ];
+}
+
+// CREATE ROLE role_name [AUTHORIZATION owner]
+function printCreateRole(node: SqlNode, opts: Options): Doc {
+    const name  = propStr(node, 'name')  ?? '';
+    const owner = propStr(node, 'owner');
+    return [
+        keyword('CREATE ROLE', opts), ' ', name,
+        owner ? [hardline, keyword('AUTHORIZATION', opts), ' ', owner] : '',
+        ';',
+    ];
+}
+
+// ALTER ROLE
+function printAlterRole(node: SqlNode, opts: Options): Doc {
+    const name   = propStr(node, 'name')   ?? '';
+    const action = propStr(node, 'action') ?? '';
+    const base: Doc = [keyword('ALTER ROLE', opts), ' ', name];
+
+    if (action === 'AddMember')  return [base, hardline, keyword('ADD MEMBER', opts),  ' ', propStr(node, 'member') ?? '', ';'];
+    if (action === 'DropMember') return [base, hardline, keyword('DROP MEMBER', opts), ' ', propStr(node, 'member') ?? '', ';'];
+    if (action === 'Rename')     return [base, hardline, keyword('WITH NAME', opts), ' = ', propStr(node, 'newName') ?? '', ';'];
+    return [base, ';'];
+}
+
+// DROP ROLE [IF EXISTS] role_name
+function printDropRole(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const ifExists = node.props?.['ifExists'];
+    return [
+        keyword('DROP ROLE', opts),
+        ifExists ? [' ', keyword('IF EXISTS', opts)] : '',
+        ' ', name, ';',
+    ];
 }

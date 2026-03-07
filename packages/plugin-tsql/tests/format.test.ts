@@ -1457,22 +1457,116 @@ describe('Security statements (passthrough)', () => {
         expect(result).toBeTruthy();
         expect(result).not.toContain('unhandled statement');
     });
+});
 
-    it('CREATE ROLE passes through without error', async () => {
-        const result = await fmt('create role db_reader');
-        expect(result).toBeTruthy();
-        expect(result).not.toContain('unhandled statement');
+describe('CREATE/ALTER/DROP USER', () => {
+    it('CREATE USER ... FOR LOGIN', async () => {
+        expect(await fmt('create user AppUser for login AppLogin')).toBe(
+            'create user AppUser\nfor login AppLogin;'
+        );
     });
 
-    it('CREATE LOGIN passes through without error', async () => {
-        const result = await fmt("create login AppLogin with password = 'P@ssw0rd'");
-        expect(result).toBeTruthy();
-        expect(result).not.toContain('unhandled statement');
+    it('CREATE USER ... WITHOUT LOGIN', async () => {
+        expect(await fmt('create user SvcUser without login')).toBe(
+            'create user SvcUser\nwithout login;'
+        );
     });
 
-    it('CREATE USER passes through without error', async () => {
-        const result = await fmt('create user AppUser for login AppLogin');
-        expect(result).toBeTruthy();
-        expect(result).not.toContain('unhandled statement');
+    it('CREATE USER ... FROM EXTERNAL PROVIDER', async () => {
+        expect(await fmt('create user AzureUser from external provider')).toBe(
+            'create user AzureUser\nfrom external provider;'
+        );
+    });
+
+    it('CREATE USER ... FOR LOGIN WITH DEFAULT_SCHEMA', async () => {
+        expect(await fmt("create user AppUser for login AppLogin with default_schema = dbo")).toBe(
+            'create user AppUser\nfor login AppLogin\nwith\n  default_schema = dbo;'
+        );
+    });
+
+    it('ALTER USER ... WITH NAME', async () => {
+        expect(await fmt('alter user AppUser with name = NewUser')).toBe(
+            'alter user AppUser\nwith\n  name = NewUser;'
+        );
+    });
+
+    it('DROP USER', async () => {
+        expect(await fmt('drop user AppUser')).toBe('drop user AppUser;');
+    });
+});
+
+describe('CREATE/ALTER/DROP LOGIN', () => {
+    it('CREATE LOGIN with password', async () => {
+        expect(await fmt("create login AppLogin with password = 'P@ssw0rd'")).toBe(
+            "create login AppLogin\nwith\n  password = 'P@ssw0rd';"
+        );
+    });
+
+    it('CREATE LOGIN with password and options', async () => {
+        expect(await fmt("create login AppLogin with password = 'P@ssw0rd', default_database = master, check_policy = on")).toBe(
+            "create login AppLogin\nwith\n  password = 'P@ssw0rd',\n  default_database = master,\n  check_policy = on;"
+        );
+    });
+
+    it('CREATE LOGIN from Windows', async () => {
+        expect(await fmt('create login WindowsUser from windows')).toBe(
+            'create login WindowsUser\nfrom windows;'
+        );
+    });
+
+    it('ALTER LOGIN ENABLE', async () => {
+        expect(await fmt('alter login AppLogin enable')).toBe('alter login AppLogin enable;');
+    });
+
+    it('ALTER LOGIN DISABLE', async () => {
+        expect(await fmt('alter login AppLogin disable')).toBe('alter login AppLogin disable;');
+    });
+
+    it('ALTER LOGIN with new password', async () => {
+        expect(await fmt("alter login AppLogin with password = 'NewP@ss'")).toBe(
+            "alter login AppLogin\nwith\n  password = 'NewP@ss';"
+        );
+    });
+
+    it('DROP LOGIN', async () => {
+        expect(await fmt('drop login AppLogin')).toBe('drop login AppLogin;');
+    });
+});
+
+describe('CREATE/ALTER/DROP ROLE', () => {
+    it('CREATE ROLE', async () => {
+        expect(await fmt('create role db_reader')).toBe('create role db_reader;');
+    });
+
+    it('CREATE ROLE with AUTHORIZATION', async () => {
+        expect(await fmt('create role db_reader authorization dbo')).toBe(
+            'create role db_reader\nauthorization dbo;'
+        );
+    });
+
+    it('ALTER ROLE ADD MEMBER', async () => {
+        expect(await fmt('alter role db_reader add member AppUser')).toBe(
+            'alter role db_reader\nadd member AppUser;'
+        );
+    });
+
+    it('ALTER ROLE DROP MEMBER', async () => {
+        expect(await fmt('alter role db_reader drop member AppUser')).toBe(
+            'alter role db_reader\ndrop member AppUser;'
+        );
+    });
+
+    it('ALTER ROLE WITH NAME', async () => {
+        expect(await fmt('alter role db_reader with name = db_reader_v2')).toBe(
+            'alter role db_reader\nwith name = db_reader_v2;'
+        );
+    });
+
+    it('DROP ROLE', async () => {
+        expect(await fmt('drop role db_reader')).toBe('drop role db_reader;');
+    });
+
+    it('DROP ROLE IF EXISTS', async () => {
+        expect(await fmt('drop role if exists db_reader')).toBe('drop role if exists db_reader;');
     });
 });
