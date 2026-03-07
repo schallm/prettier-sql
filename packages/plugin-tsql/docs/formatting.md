@@ -4,15 +4,15 @@ This page documents how each SQL construct is formatted. All examples use the de
 
 The examples use a Books domain:
 
-| Table | Key columns |
-|---|---|
-| `dbo.Books` | `book_id`, `title`, `author_id`, `publisher_id`, `genre_id`, `price`, `in_stock`, `published_date` |
-| `dbo.Authors` | `author_id`, `first_name`, `last_name`, `country`, `publisher_id` |
-| `dbo.Publishers` | `publisher_id`, `name`, `country` |
-| `dbo.Genres` | `genre_id`, `name` |
-| `dbo.Customers` | `customer_id`, `name`, `email`, `active` |
-| `dbo.Orders` | `order_id`, `customer_id`, `total`, `order_date` |
-| `dbo.OrderItems` | `order_item_id`, `order_id`, `book_id`, `quantity`, `unit_price` |
+| Table            | Key columns                                                                                        |
+| ---------------- | -------------------------------------------------------------------------------------------------- |
+| `dbo.Books`      | `book_id`, `title`, `author_id`, `publisher_id`, `genre_id`, `price`, `in_stock`, `published_date` |
+| `dbo.Authors`    | `author_id`, `first_name`, `last_name`, `country`, `publisher_id`                                  |
+| `dbo.Publishers` | `publisher_id`, `name`, `country`                                                                  |
+| `dbo.Genres`     | `genre_id`, `name`                                                                                 |
+| `dbo.Customers`  | `customer_id`, `name`, `email`, `active`                                                           |
+| `dbo.Orders`     | `order_id`, `customer_id`, `total`, `order_date`                                                   |
+| `dbo.OrderItems` | `order_item_id`, `order_id`, `book_id`, `quantity`, `unit_price`                                   |
 
 ---
 
@@ -57,7 +57,9 @@ from
 A single table with no joins stays inline with `from`:
 
 ```sql
-select book_id, title
+select
+  book_id,
+  title
 from dbo.Books;
 ```
 
@@ -68,7 +70,8 @@ select *
 from
   dbo.Books as b
   inner join dbo.Authors as a on
-    b.author_id = a.author_id and b.publisher_id = a.publisher_id;
+    b.author_id = a.author_id
+    and b.publisher_id = a.publisher_id;
 ```
 
 ##### Nested (parenthesized) joins
@@ -106,15 +109,20 @@ from dbo.Books with (nolock, rowlock);
 A TVF used as a row source in `from` is written as `schema.function(args)` with an optional alias:
 
 ```sql
-select b.title, b.price
+select
+  b.title,
+  b.price
 from dbo.GetAvailableBooks(1) as b;
 ```
 
 TVFs can be joined like regular tables:
 
 ```sql
-select b.title, g.name
-from dbo.GetAvailableBooks(1) as b
+select
+  b.title,
+  g.name
+from
+  dbo.GetAvailableBooks(1) as b
   inner join dbo.Genres as g on b.genre_id = g.genre_id;
 ```
 
@@ -223,9 +231,13 @@ group by grouping sets((genre_id, author_id), (genre_id), ());
 #### ORDER BY
 
 ```sql
-select book_id, title
+select
+  book_id,
+  title
 from dbo.Books
-order by published_date desc, title asc;
+order by
+  published_date desc,
+  title asc;
 ```
 
 #### CASE expressions
@@ -235,12 +247,11 @@ order by published_date desc, title asc;
 Single-predicate `when` conditions stay inline:
 
 ```sql
-select
-  case
-    when price > 50 then 'premium'
-    when price > 20 then 'standard'
-    else 'budget'
-  end as price_tier
+select case
+  when price > 50 then 'premium'
+  when price > 20 then 'standard'
+  else 'budget'
+end as price_tier
 from dbo.Books;
 ```
 
@@ -260,12 +271,11 @@ from dbo.Books;
 ##### Simple CASE
 
 ```sql
-select
-  case genre_id
-    when 1 then 'Fiction'
-    when 2 then 'Non-Fiction'
-    else 'Other'
-  end as genre_name
+select case genre_id
+  when 1 then 'Fiction'
+  when 2 then 'Non-Fiction'
+  else 'Other'
+end as genre_name
 from dbo.Books;
 ```
 
@@ -316,8 +326,7 @@ from dbo.Books;
 The `at time zone` operator keeps the source expression and timezone string on one line:
 
 ```sql
-select
-  published_date at time zone 'UTC' as published_utc
+select published_date at time zone 'UTC' as published_utc
 from dbo.Books;
 ```
 
@@ -326,13 +335,17 @@ from dbo.Books;
 Each query branch is separated from the set operator by a blank line:
 
 ```sql
-select book_id, title
+select
+  book_id,
+  title
 from dbo.Books
 where in_stock = 1
 
 union all
 
-select book_id, title
+select
+  book_id,
+  title
 from dbo.ArchivedBooks;
 ```
 
@@ -385,7 +398,9 @@ from dbo.Books;
 A subquery used as a table in the `from` clause is indented inside parentheses and aliased with `as`:
 
 ```sql
-select t.genre_id, t.avg_price
+select
+  t.genre_id,
+  t.avg_price
 from (
   select
     genre_id,
@@ -401,7 +416,9 @@ where t.avg_price > 25;
 Subqueries inside `where` are indented inside parentheses:
 
 ```sql
-select book_id, title
+select
+  book_id,
+  title
 from dbo.Books
 where book_id in (
   select book_id
@@ -419,7 +436,9 @@ where book_id in (
 Single column — bare column name, no extra parentheses:
 
 ```sql
-select book_id, title
+select
+  book_id,
+  title
 from dbo.Books
 where contains(title, '"SQL Server"');
 ```
@@ -451,7 +470,9 @@ where contains(title, 'query', language 1033);
 `freetext` follows the same layout:
 
 ```sql
-select book_id, title
+select
+  book_id,
+  title
 from dbo.Books
 where freetext(title, 'database programming');
 ```
@@ -519,7 +540,9 @@ from
 `AS JSON` columns are preserved:
 
 ```sql
-select j.id, j.data
+select
+  j.id,
+  j.data
 from openjson(@json)
 with (
   id int '$.id',
@@ -574,7 +597,10 @@ values
 Multiple rows stay on one line each (wrapping only if a single row exceeds `printWidth`):
 
 ```sql
-insert into dbo.Genres (genre_id, name)
+insert into dbo.Genres (
+  genre_id,
+  name
+)
 values
   (1, 'Fiction'),
   (2, 'Non-Fiction');
@@ -597,9 +623,13 @@ where in_stock = 0;
 INSERT with OUTPUT (see [OUTPUT clause](#output-clause) below):
 
 ```sql
-insert into dbo.Books (title, price)
+insert into dbo.Books (
+  title,
+  price
+)
 output inserted.book_id, inserted.title
-values ('New Book', 9.99);
+values
+  ('New Book', 9.99);
 ```
 
 ---
@@ -657,7 +687,10 @@ DELETE with OUTPUT INTO:
 
 ```sql
 delete from dbo.Books
-output deleted.book_id, deleted.title into @removed (book_id, title)
+output
+  deleted.book_id,
+  deleted.title
+into @removed (book_id, title)
 where in_stock = 0;
 ```
 
@@ -698,7 +731,10 @@ A subquery source is indented inside parentheses:
 ```sql
 merge into dbo.Books as t
 using (
-  select book_id, title, price
+  select
+    book_id,
+    title,
+    price
   from dbo.ArchivedBooks
   where price > 0
 ) as s
@@ -845,21 +881,29 @@ disable;
 
 ```sql
 drop table dbo.Books;
+
 drop table if exists dbo.Books;
 
 drop procedure dbo.GetBooks;
+
 drop view dbo.vw_available_books;
+
 drop function dbo.GetBookPrice;
+
 drop trigger dbo.trg_Books_AI;
+
 drop trigger if exists dbo.trg_Books_AI;
 
 drop sequence dbo.OrderSeq;
+
 drop sequence if exists dbo.OrderSeq;
 
 drop index ix_title on dbo.Books;
 
 drop user AppUser;
+
 drop login AppLogin;
+
 drop role if exists db_reader;
 ```
 
@@ -893,7 +937,9 @@ create procedure dbo.GetBookById
   @includeOutOfStock bit = 0
 as
 begin
-  select book_id, title
+  select
+    book_id,
+    title
   from dbo.Books
   where book_id = @id;
 end;
@@ -904,13 +950,15 @@ Comments between the procedure name and the parameter list are preserved before 
 
 ```sql
 create procedure dbo.GetBookById
-  /* Returns a single book by its ID */
+/* Returns a single book by its ID */
   @id int,
   @active bit = 1
-  /* WITH ENCRYPTION */
+/* WITH ENCRYPTION */
 as
 begin
-  select book_id, title
+  select
+    book_id,
+    title
   from dbo.Books
   where book_id = @id;
 end;
@@ -926,7 +974,10 @@ go
 Scalar function:
 
 ```sql
-create function dbo.GetAuthorFullName(@first nvarchar(50), @last nvarchar(50))
+create function dbo.GetAuthorFullName(
+  @first nvarchar(50),
+  @last nvarchar(50)
+)
 returns nvarchar(101)
 as
 begin
@@ -956,7 +1007,9 @@ Block comments between the view name and `as` are preserved in place:
 create or alter view dbo.vw_sensitive_prices
 /* with encryption */
 as
-select book_id, price
+select
+  book_id,
+  price
 from dbo.Books;
 go
 ```
@@ -1077,6 +1130,7 @@ with (
 
 ```sql
 create type dbo.BookTitle from nvarchar(200) not null;
+
 create type dbo.OptionalText from nvarchar(500) null;
 ```
 
@@ -1115,8 +1169,11 @@ applies to both the `SET` keyword and the option name.
 
 ```sql
 set nocount on;
+
 set ansi_nulls on;
+
 set quoted_identifier on;
+
 set xact_abort off;
 ```
 
@@ -1124,6 +1181,7 @@ set xact_abort off;
 
 ```sql
 set statistics io on;
+
 set statistics time off;
 ```
 
@@ -1131,6 +1189,7 @@ set statistics time off;
 
 ```sql
 set identity_insert dbo.Books on;
+
 set identity_insert dbo.Books off;
 ```
 
@@ -1138,7 +1197,9 @@ set identity_insert dbo.Books off;
 
 ```sql
 set transaction isolation level read committed;
+
 set transaction isolation level snapshot;
+
 set transaction isolation level serializable;
 ```
 
@@ -1150,6 +1211,7 @@ Supported levels: `READ COMMITTED`, `READ UNCOMMITTED`, `REPEATABLE READ`, `SERI
 
 ```sql
 waitfor delay '00:00:05';
+
 waitfor time '10:00:00';
 ```
 
@@ -1170,9 +1232,11 @@ while @i < 10
 begin
   if @i = 5
     break;
+
   set @i = @i + 1;
+
   continue;
-end;
+end
 
 goto exit_label;
 
@@ -1202,8 +1266,12 @@ raiserror ('Book not found', 16, 1);
 
 ```sql
 begin try
-  insert into dbo.Books (title, price)
-  values ('New Book', 29.99);
+  insert into dbo.Books (
+    title,
+    price
+  )
+  values
+    ('New Book', 29.99);
 end try
 begin catch
   throw;
@@ -1219,7 +1287,9 @@ end catch
 ```sql
 declare book_cursor cursor
 for
-select book_id, title
+select
+  book_id,
+  title
 from dbo.Books
 where in_stock = 1;
 ```
@@ -1227,9 +1297,10 @@ where in_stock = 1;
 Cursor options (e.g. `SCROLL`, `READ_ONLY`) appear between the cursor name and the `cursor` keyword:
 
 ```sql
-declare book_cursor scroll cursor
+declare book_cursor SCROLL cursor
 for
-select book_id from dbo.Books;
+select book_id
+from dbo.Books;
 ```
 
 The remaining cursor operations are single-line statements:
@@ -1238,11 +1309,15 @@ The remaining cursor operations are single-line statements:
 open book_cursor;
 
 fetch next from book_cursor into @id, @title;
+
 fetch prior from book_cursor;
+
 fetch first from book_cursor into @id, @title;
+
 fetch last from book_cursor into @id;
 
 close book_cursor;
+
 deallocate book_cursor;
 ```
 
@@ -1294,7 +1369,9 @@ deny delete
 on object::dbo.Books
 to GuestUser;
 
-deny insert, update
+deny
+  insert,
+  update
 on object::dbo.Books
 to GuestUser
 cascade;
@@ -1445,6 +1522,7 @@ with name = db_reader_v2;
 
 ```sql
 drop role db_reader;
+
 drop role if exists db_reader;
 ```
 
@@ -1459,9 +1537,12 @@ drop role if exists db_reader;
 Line comments at the end of a statement or VALUES row are kept on the same line:
 
 ```sql
-insert into dbo.Genres (genre_id, name)
+insert into dbo.Genres (
+  genre_id,
+  name
+)
 values
-  (1, 'Fiction'),   -- primary genre
+  (1, 'Fiction'), -- primary genre
   (2, 'Non-Fiction'); -- secondary genre
 ```
 
@@ -1471,7 +1552,9 @@ Standalone comment lines before a statement are attached to that statement:
 
 ```sql
 -- Returns all available books
-select book_id, title
+select
+  book_id,
+  title
 from dbo.Books
 where in_stock = 1;
 ```
@@ -1484,7 +1567,8 @@ Block comments are preserved in their original relative position. A block commen
 /* legacy view — do not remove */
 create or alter view dbo.vw_legacy
 as
-select * from dbo.Books;
+select *
+from dbo.Books;
 go
 ```
 
@@ -1497,7 +1581,6 @@ select book_id
 from dbo.Books
 where
   in_stock = 1
-  -- and price < 50
   and genre_id = 1;
 ```
 
@@ -1515,7 +1598,9 @@ begin
   where published_date < '2000-01-01';
 
   -- Step 2: return the remaining stock
-  select book_id, title
+  select
+    book_id,
+    title
   from dbo.Books
   where in_stock = 1;
 end;
@@ -1538,12 +1623,19 @@ When multiple such statements appear in a file (separated by `go` in the input),
 ```sql
 create or alter view dbo.vw_books
 as
-select book_id, title from dbo.Books;
+select
+  book_id,
+  title
+from dbo.Books;
 go
 
 create or alter view dbo.vw_authors
 as
-select author_id, first_name, last_name from dbo.Authors;
+select
+  author_id,
+  first_name,
+  last_name
+from dbo.Authors;
 go
 ```
 

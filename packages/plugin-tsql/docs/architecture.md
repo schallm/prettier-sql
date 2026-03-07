@@ -29,12 +29,12 @@ T-SQL is a complex dialect. Rather than maintaining a hand-written parser, the p
 
 ### Files
 
-| File | Purpose |
-|---|---|
-| `SqlScriptDom.csproj` | .NET 8.0 project; references `Microsoft.SqlServer.TransactSql.ScriptDom` v161.* |
-| `SqlNode.cs` | Serializable record: `type`, `startOffset`, `endOffset`, optional `text` and `props` |
-| `AstBuilder.cs` | `TSqlFragmentVisitor` subclass; walks the ScriptDom tree and builds `SqlNode` objects |
-| `SqlParser.cs` | Static `Parse(string sql)` entry point; extracts comment tokens; returns JSON |
+| File                  | Purpose                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| `SqlScriptDom.csproj` | .NET 8.0 project; references `Microsoft.SqlServer.TransactSql.ScriptDom` v161.\*      |
+| `SqlNode.cs`          | Serializable record: `type`, `startOffset`, `endOffset`, optional `text` and `props`  |
+| `AstBuilder.cs`       | `TSqlFragmentVisitor` subclass; walks the ScriptDom tree and builds `SqlNode` objects |
+| `SqlParser.cs`        | Static `Parse(string sql)` entry point; extracts comment tokens; returns JSON         |
 
 ### Parse flow
 
@@ -57,6 +57,7 @@ public record SqlNode(
 ```
 
 `Props` keys use camelCase (matching TypeScript conventions). Values can be:
+
 - A single `SqlNode` child
 - A `List<SqlNode>` for ordered collections (e.g., `columns`, `joins`)
 - Primitive values (`string`, `bool`) for inline metadata
@@ -71,8 +72,8 @@ public record SqlNode(
 
 ```ts
 const require = createRequire(import.meta.url);
-const dotnet = require('node-api-dotnet') as DotnetModule;
-dotnet.load('/path/to/SqlScriptDom.dll');
+const dotnet = require("node-api-dotnet") as DotnetModule;
+dotnet.load("/path/to/SqlScriptDom.dll");
 const { SqlParser } = dotnet.PrettierTsql;
 ```
 
@@ -106,16 +107,16 @@ Any comment still inside a statement's span (e.g. a commented-out WHERE predicat
 
 ### Files
 
-| File | Purpose |
-|---|---|
-| `index.ts` | `Printer<SqlNode>` export; `print()` dispatcher by `node.type`; `getVisitorKeys()` |
-| `statements.ts` | Script/batch entry points, statement dispatcher, DML (SELECT, INSERT, UPDATE, DELETE, MERGE), OUTPUT clause; exports `printStatementWithComments` |
-| `ddl.ts` | DDL: CREATE/ALTER TABLE, CREATE/ALTER INDEX, CREATE/ALTER/CREATE OR ALTER PROCEDURE/FUNCTION/VIEW/TRIGGER, CREATE/ALTER SEQUENCE, BULK INSERT, CREATE TYPE, DROP |
-| `procedural.ts` | Transactions, DECLARE, SET variants, USE, WAITFOR, IF/WHILE, EXECUTE, TRUNCATE, control flow, error handling, cursors |
-| `security.ts` | GRANT/DENY/REVOKE, CREATE/ALTER/DROP USER/LOGIN/ROLE |
-| `expressions.ts` | Column references, literals, binary expressions, predicates, function calls, CASE, CAST, JOIN, table references, query expressions |
-| `helpers.ts` | Shared `prop()`, `propArr()`, `propStr()`, `propBool()` accessors for the untyped `node.props` record |
-| `utils.ts` | `keyword()`, `getDensity()`, shared Prettier builder aliases |
+| File             | Purpose                                                                                                                                                          |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `index.ts`       | `Printer<SqlNode>` export; `print()` dispatcher by `node.type`; `getVisitorKeys()`                                                                               |
+| `statements.ts`  | Script/batch entry points, statement dispatcher, DML (SELECT, INSERT, UPDATE, DELETE, MERGE), OUTPUT clause; exports `printStatementWithComments`                |
+| `ddl.ts`         | DDL: CREATE/ALTER TABLE, CREATE/ALTER INDEX, CREATE/ALTER/CREATE OR ALTER PROCEDURE/FUNCTION/VIEW/TRIGGER, CREATE/ALTER SEQUENCE, BULK INSERT, CREATE TYPE, DROP |
+| `procedural.ts`  | Transactions, DECLARE, SET variants, USE, WAITFOR, IF/WHILE, EXECUTE, TRUNCATE, control flow, error handling, cursors                                            |
+| `security.ts`    | GRANT/DENY/REVOKE, CREATE/ALTER/DROP USER/LOGIN/ROLE                                                                                                             |
+| `expressions.ts` | Column references, literals, binary expressions, predicates, function calls, CASE, CAST, JOIN, table references, query expressions                               |
+| `helpers.ts`     | Shared `prop()`, `propArr()`, `propStr()`, `propBool()` accessors for the untyped `node.props` record                                                            |
+| `utils.ts`       | `keyword()`, `getDensity()`, shared Prettier builder aliases                                                                                                     |
 
 ### Printing strategy
 
@@ -123,31 +124,31 @@ The printer uses manual recursion rather than Prettier's path-based traversal. E
 
 Prettier's **doc IR** is used to express formatting intent:
 
-| Doc | Meaning |
-|---|---|
-| `hardline` | Always a newline |
-| `line` | A newline when the enclosing `group` breaks, otherwise a space |
-| `softline` | A newline when the enclosing `group` breaks, otherwise nothing |
-| `group([...])` | Try to fit on one line; if it doesn't fit, switch to break mode |
-| `indent([...])` | Increase indentation for children |
-| `join(sep, docs)` | Interleave a separator between docs |
-| `ifBreak(a, b)` | Emit `a` in break mode, `b` in flat mode |
+| Doc               | Meaning                                                                   |
+| ----------------- | ------------------------------------------------------------------------- |
+| `hardline`        | Always a newline                                                          |
+| `line`            | A newline when the enclosing `group` breaks, otherwise a space            |
+| `softline`        | A newline when the enclosing `group` breaks, otherwise nothing            |
+| `group([...])`    | Try to fit on one line; if it doesn't fit, switch to break mode           |
+| `indent([...])`   | Increase indentation for children                                         |
+| `join(sep, docs)` | Interleave a separator between docs                                       |
+| `ifBreak(a, b)`   | Emit `a` in break mode, `b` in flat mode                                  |
 | `lineSuffix(doc)` | Queue content to the end of the current line (used for trailing comments) |
 
 ### Density option
 
 The `sqlDensity` option is threaded through every printer function as part of the Prettier `Options` object. Key differences:
 
-| Construct | `compact` | `standard` | `spacious` |
-|---|---|---|---|
-| FROM with joins | Inline joins | Each join on own line | Each join on own line |
-| Single WHERE predicate | Inline | Inline | Own line |
-| Multiple WHERE predicates | Wrap at printWidth | Each on own line | Each on own line |
-| Single ON condition | Inline | Inline, wraps if long | Own line |
-| Multiple ON conditions | Wrap at printWidth | Each on own line | Each on own line |
-| SELECT columns | Wrap at printWidth | One per line | One per line |
-| CASE WHEN (single predicate) | Inline with `when` | Inline with `when` | Own indented line |
-| CASE WHEN (multiple predicates) | Inline, wraps at printWidth | Indented below `when`, `then` at `when` level | Same as standard |
+| Construct                       | `compact`                   | `standard`                                    | `spacious`            |
+| ------------------------------- | --------------------------- | --------------------------------------------- | --------------------- |
+| FROM with joins                 | Inline joins                | Each join on own line                         | Each join on own line |
+| Single WHERE predicate          | Inline                      | Inline                                        | Own line              |
+| Multiple WHERE predicates       | Wrap at printWidth          | Each on own line                              | Each on own line      |
+| Single ON condition             | Inline                      | Inline, wraps if long                         | Own line              |
+| Multiple ON conditions          | Wrap at printWidth          | Each on own line                              | Each on own line      |
+| SELECT columns                  | Wrap at printWidth          | One per line                                  | One per line          |
+| CASE WHEN (single predicate)    | Inline with `when`          | Inline with `when`                            | Own indented line     |
+| CASE WHEN (multiple predicates) | Inline, wraps at printWidth | Indented below `when`, `then` at `when` level | Same as standard      |
 
 ### GO emission
 
@@ -157,7 +158,7 @@ Batch-isolating statement types are tracked in a `BATCH_ISOLATING` set. After pr
 
 ## Project Structure
 
-```
+```text
 prettier-plugin-tsql/
 ├── src/
 │   ├── dotnet/SqlScriptDom/   # C# parser project
@@ -226,10 +227,10 @@ The process is the same as for statements, but targeting different switches:
 
 ## Key Dependencies
 
-| Package | Role |
-|---|---|
-| `Microsoft.SqlServer.TransactSql.ScriptDom` (NuGet) | T-SQL parser |
-| `node-api-dotnet` (npm) | Load .NET DLL from Node.js |
-| `prettier` (peer dep) | Plugin host and doc IR engine |
-| `typescript` | Plugin source language |
-| `vitest` | Test runner |
+| Package                                             | Role                          |
+| --------------------------------------------------- | ----------------------------- |
+| `Microsoft.SqlServer.TransactSql.ScriptDom` (NuGet) | T-SQL parser                  |
+| `node-api-dotnet` (npm)                             | Load .NET DLL from Node.js    |
+| `prettier` (peer dep)                               | Plugin host and doc IR engine |
+| `typescript`                                        | Plugin source language        |
+| `vitest`                                            | Test runner                   |

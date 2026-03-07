@@ -8,15 +8,16 @@ All options are in the `SQL` category and can be set in any Prettier config file
 
 Controls the casing of SQL keywords (`select`, `from`, `where`, `join`, data types, built-in functions, etc.).
 
-| Value | Description | Default |
-|---|---|---|
-| `lower` | lowercase keywords | ✓ |
-| `upper` | UPPERCASE keywords | |
-| `preserve` | Keep original casing from input | |
+| Value      | Description                     | Default |
+| ---------- | ------------------------------- | ------- |
+| `lower`    | lowercase keywords              | ✓       |
+| `upper`    | UPPERCASE keywords              |         |
+| `preserve` | Keep original casing from input |         |
 
 ### Examples
 
 **`lower` (default)**
+
 ```sql
 select
   b.book_id,
@@ -26,12 +27,13 @@ where b.in_stock = 1;
 ```
 
 **`upper`**
+
 ```sql
-SELECT
+select
   b.book_id,
   b.title
-FROM dbo.Books AS b
-WHERE b.in_stock = 1;
+from dbo.Books as b
+where b.in_stock = 1;
 ```
 
 **`preserve`**
@@ -43,11 +45,11 @@ Input casing is kept as-is. Useful when your team has mixed conventions and you 
 
 Controls vertical spacing and how aggressively clauses and predicates are placed on their own lines.
 
-| Value | Description | Default |
-|---|---|---|
-| `standard` | One clause per line; single predicates stay inline | ✓ |
-| `compact` | Fits as much as possible per line, wraps at `printWidth` | |
-| `spacious` | Every predicate on its own line, even single ones | |
+| Value      | Description                                              | Default |
+| ---------- | -------------------------------------------------------- | ------- |
+| `standard` | One clause per line; single predicates stay inline       | ✓       |
+| `compact`  | Fits as much as possible per line, wraps at `printWidth` |         |
+| `spacious` | Every predicate on its own line, even single ones        |         |
 
 ### `standard` (default)
 
@@ -80,8 +82,13 @@ where
 Tries to keep everything on as few lines as possible, wrapping only when a line would exceed `printWidth`.
 
 ```sql
-select b.book_id, b.title, b.price
-from dbo.Books as b inner join dbo.Authors as a on b.author_id = a.author_id
+select
+  b.book_id,
+  b.title,
+  b.price
+from
+  dbo.Books as b
+  inner join dbo.Authors as a on b.author_id = a.author_id
 where b.in_stock = 1
 order by b.title asc;
 ```
@@ -97,12 +104,9 @@ select
   b.price
 from
   dbo.Books as b
-  inner join dbo.Authors as a on
-    b.author_id = a.author_id
-where
-  b.in_stock = 1
-order by
-  b.title asc;
+  inner join dbo.Authors as a on b.author_id = a.author_id
+where b.in_stock = 1
+order by b.title asc;
 ```
 
 ---
@@ -111,10 +115,10 @@ order by
 
 Controls where commas appear in column and value lists.
 
-| Value | Description | Default |
-|---|---|---|
-| `trailing` | Comma at the end of the line | ✓ |
-| `leading` | Comma at the start of the line | |
+| Value      | Description                    | Default |
+| ---------- | ------------------------------ | ------- |
+| `trailing` | Comma at the end of the line   | ✓       |
+| `leading`  | Comma at the start of the line |         |
 
 > **Note:** `leading` is declared but not yet implemented. Setting it currently has no effect — output will use trailing commas.
 
@@ -146,12 +150,12 @@ The standard Prettier `printWidth` option (default `80`) controls when lines wra
 ```js
 // prettier.config.js
 export default {
-  plugins: ['prettier-plugin-tsql'],
+  plugins: ["prettier-plugin-tsql"],
 
   // SQL-specific options
-  sqlKeywordCase: 'lower',    // lower | upper | preserve
-  sqlDensity: 'standard',     // compact | standard | spacious
-  sqlCommaStyle: 'trailing',  // trailing | leading
+  sqlKeywordCase: "lower", // lower | upper | preserve
+  sqlDensity: "standard", // compact | standard | spacious
+  sqlCommaStyle: "trailing", // trailing | leading
 
   // Standard Prettier options (also apply to SQL)
   printWidth: 100,

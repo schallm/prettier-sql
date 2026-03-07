@@ -7,6 +7,7 @@ A [Prettier](https://prettier.io) plugin that formats T-SQL (SQL Server) using M
 Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Configurable keyword casing, layout density, and comma style. Preserves `--` and `/* */` comments — trailing, leading, inside procedure bodies, between parameters and `AS`. Emits `go` batch separators where required. Integrates with editor extensions that support Prettier (VS Code, etc.).
 
 **DML**
+
 - `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `MERGE INTO … USING … ON … WHEN MATCHED/NOT MATCHED`
 - `OUTPUT` / `OUTPUT INTO` on INSERT, UPDATE, DELETE, and MERGE (including `$action`, `inserted.*`, `deleted.*`)
 - CTEs, window functions, derived tables, subqueries, `UNION`/`UNION ALL`, `CASE` expressions (simple and searched), `IN`/`NOT IN`, nested joins
@@ -16,6 +17,7 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - Rowset functions: `OPENJSON` and `OPENXML` with `WITH` schema declarations; `OPENJSON` row-path and `AS JSON` columns
 
 **DDL**
+
 - `CREATE TABLE`, `ALTER TABLE` (ADD/DROP column), `CREATE INDEX` (UNIQUE/CLUSTERED/NONCLUSTERED, ASC/DESC, INCLUDE), `ALTER INDEX … REBUILD/REORGANIZE/DISABLE`
 - `CREATE/ALTER/CREATE OR ALTER PROCEDURE`, `CREATE/ALTER/CREATE OR ALTER FUNCTION`, `CREATE/ALTER/CREATE OR ALTER VIEW`
 - `CREATE/ALTER TRIGGER` (DML triggers: AFTER/INSTEAD OF INSERT/UPDATE/DELETE)
@@ -25,6 +27,7 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - `DROP TABLE/PROCEDURE/VIEW/FUNCTION/INDEX/TRIGGER/SEQUENCE` (with `IF EXISTS`)
 
 **Procedural / Control Flow**
+
 - `USE`, `SET NOCOUNT/ANSI_NULLS/QUOTED_IDENTIFIER/XACT_ABORT/…` ON/OFF, `SET IDENTITY_INSERT`, `SET TRANSACTION ISOLATION LEVEL`, `SET STATISTICS`, `WAITFOR DELAY/TIME`
 - `DECLARE`, `SET @var`, `SET ROWCOUNT`, `PRINT`, `RETURN`, `EXECUTE`, `TRUNCATE TABLE`
 - `IF`/`ELSE`, `WHILE`, `BREAK`, `CONTINUE`, `GOTO`/label, `THROW`, `RAISERROR`, `TRY/CATCH`
@@ -32,6 +35,7 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - `DECLARE CURSOR` / `OPEN` / `FETCH NEXT/PRIOR/FIRST/LAST/ABSOLUTE/RELATIVE` / `CLOSE` / `DEALLOCATE`
 
 **Security**
+
 - `GRANT` / `DENY` / `REVOKE` — all securable classes (OBJECT, SCHEMA, DATABASE, SERVER, LOGIN, USER, ROLE, ASSEMBLY, …), column lists, WITH GRANT OPTION, CASCADE, GRANT OPTION FOR, AS clause, multiple principals
 - `CREATE/ALTER/DROP USER` — FOR LOGIN, WITHOUT LOGIN, FROM EXTERNAL PROVIDER, WITH options
 - `CREATE/ALTER/DROP LOGIN` — password (HASHED/MUST_CHANGE), FROM WINDOWS, FROM CERTIFICATE/ASYMMETRIC KEY, ENABLE/DISABLE, ADD/DROP CREDENTIAL
@@ -79,10 +83,10 @@ Add the plugin to your Prettier config:
 ```js
 // prettier.config.js
 export default {
-  plugins: ['prettier-plugin-tsql'],
-  sqlKeywordCase: 'lower',
-  sqlDensity: 'standard',
-  sqlCommaStyle: 'trailing',
+  plugins: ["prettier-plugin-tsql"],
+  sqlKeywordCase: "lower",
+  sqlDensity: "standard",
+  sqlCommaStyle: "trailing",
 };
 ```
 
@@ -99,22 +103,32 @@ Or in `.prettierrc`:
 
 ## Options
 
-| Option | Default | Choices |
-|---|---|---|
-| `sqlKeywordCase` | `lower` | `upper`, `lower`, `preserve` |
-| `sqlDensity` | `standard` | `compact`, `standard`, `spacious` |
-| `sqlCommaStyle` | `trailing` | `trailing`, `leading` |
+| Option           | Default    | Choices                           |
+| ---------------- | ---------- | --------------------------------- |
+| `sqlKeywordCase` | `lower`    | `upper`, `lower`, `preserve`      |
+| `sqlDensity`     | `standard` | `compact`, `standard`, `spacious` |
+| `sqlCommaStyle`  | `trailing` | `trailing`, `leading`             |
 
 See [docs/options.md](docs/options.md) for full details and examples.
 
 ## Quick Example
 
 **Input**
+
 ```sql
-select b.book_id,b.title,b.price from dbo.Books as b inner join dbo.Authors as a on b.author_id=a.author_id where b.in_stock=1 order by b.title asc
+select
+  b.book_id,
+  b.title,
+  b.price
+from
+  dbo.Books as b
+  inner join dbo.Authors as a on b.author_id = a.author_id
+where b.in_stock = 1
+order by b.title asc;
 ```
 
 **Output** (default options)
+
 ```sql
 select
   b.book_id,

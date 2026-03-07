@@ -3,10 +3,10 @@
 ## Requirements
 
 | Requirement | Version |
-|---|---|
-| Node.js | 18+ |
-| .NET SDK | 8.0 |
-| Prettier | 3.x |
+| ----------- | ------- |
+| Node.js     | 18+     |
+| .NET SDK    | 8.0     |
+| Prettier    | 3.x     |
 
 ## Installing from npm
 
@@ -23,7 +23,7 @@ Create or update your Prettier config to include the plugin:
 ```js
 // prettier.config.js
 export default {
-  plugins: ['prettier-plugin-tsql'],
+  plugins: ["prettier-plugin-tsql"],
 };
 ```
 
@@ -76,14 +76,14 @@ npm test
 
 ### Build Scripts
 
-| Script | Description |
-|---|---|
-| `npm run build` | Full build (C# + TypeScript) |
-| `npm run build:dotnet` | Compile C# project → `bin/dotnet/SqlScriptDom.dll` |
-| `npm run build:ts` | Compile TypeScript → `dist/` |
-| `npm run build:ts:watch` | TypeScript watch mode |
-| `npm test` | Run all tests |
-| `npm run test:watch` | Vitest watch mode |
+| Script                   | Description                                        |
+| ------------------------ | -------------------------------------------------- |
+| `npm run build`          | Full build (C# + TypeScript)                       |
+| `npm run build:dotnet`   | Compile C# project → `bin/dotnet/SqlScriptDom.dll` |
+| `npm run build:ts`       | Compile TypeScript → `dist/`                       |
+| `npm run build:ts:watch` | TypeScript watch mode                              |
+| `npm test`               | Run all tests                                      |
+| `npm run test:watch`     | Vitest watch mode                                  |
 
 ### Using a Local Build
 
@@ -92,7 +92,7 @@ Point your Prettier config at the local `dist/index.js`:
 ```js
 // prettier.config.js
 export default {
-  plugins: ['./path/to/prettier-plugin-tsql/dist/index.js'],
+  plugins: ["./path/to/prettier-plugin-tsql/dist/index.js"],
 };
 ```
 
@@ -101,7 +101,15 @@ export default {
 Create a test file `test.sql`:
 
 ```sql
-select b.book_id,b.title,b.price from dbo.Books as b inner join dbo.Authors as a on b.author_id=a.author_id where b.in_stock=1 order by b.title asc
+select
+  b.book_id,
+  b.title,
+  b.price
+from
+  dbo.Books as b
+  inner join dbo.Authors as a on b.author_id = a.author_id
+where b.in_stock = 1
+order by b.title asc;
 ```
 
 Run Prettier:
