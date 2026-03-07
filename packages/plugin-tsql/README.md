@@ -4,33 +4,38 @@ A [Prettier](https://prettier.io) plugin that formats T-SQL (SQL Server) using M
 
 ## Features
 
-- Parses T-SQL via the official ScriptDom library (no hand-rolled grammar)
-- Formats SELECT, INSERT, UPDATE, DELETE, CREATE/ALTER TABLE, CREATE PROCEDURE, CREATE FUNCTION, CREATE/ALTER VIEW
-- CTEs, window functions, derived tables, subqueries, UNION/UNION ALL, CASE expressions (simple and searched), IN/NOT IN, nested joins
-- Table-valued functions (TVFs) in FROM clauses
+Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Configurable keyword casing, layout density, and comma style. Preserves `--` and `/* */` comments — trailing, leading, inside procedure bodies, between parameters and `AS`. Emits `go` batch separators where required. Integrates with editor extensions that support Prettier (VS Code, etc.).
+
+**DML**
+- `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `MERGE INTO … USING … ON … WHEN MATCHED/NOT MATCHED`
+- `OUTPUT` / `OUTPUT INTO` on INSERT, UPDATE, DELETE, and MERGE (including `$action`, `inserted.*`, `deleted.*`)
+- CTEs, window functions, derived tables, subqueries, `UNION`/`UNION ALL`, `CASE` expressions (simple and searched), `IN`/`NOT IN`, nested joins
+- Table-valued functions (TVFs) in `FROM` clauses; table hints (`WITH (NOLOCK)`, etc.)
 - Expression functions: `CAST`, `CONVERT`, `TRY_CAST`, `TRY_CONVERT` (with full data type including length/precision), `IIF`, `COALESCE`, `NULLIF`, `AT TIME ZONE`
-- Table hints (`WITH (NOLOCK)`, etc.), control-flow (`IF`, `WHILE`, `DECLARE`, `EXECUTE`, transactions), `SET ROWCOUNT`
-- `USE dbname`; `SET NOCOUNT/ANSI_NULLS/QUOTED_IDENTIFIER/XACT_ABORT/…` on/off; `SET IDENTITY_INSERT`; `SET TRANSACTION ISOLATION LEVEL`; `SET STATISTICS`; `WAITFOR DELAY/TIME`
-- Preserves `--` and `/* */` comments — trailing, leading, inside procedure bodies, between parameters and `AS`
-- Configurable keyword casing, layout density, and comma style
-- Control flow: `BREAK`, `CONTINUE`, `GOTO`/label, `THROW`, `RAISERROR`, `TRY/CATCH`
-- DDL: `CREATE INDEX` (UNIQUE/CLUSTERED/NONCLUSTERED, column list with ASC/DESC, INCLUDE); `TRUNCATE TABLE`; `DROP TABLE/PROCEDURE/VIEW/FUNCTION/INDEX/TRIGGER/SEQUENCE` (with `IF EXISTS`); `CREATE OR ALTER PROCEDURE/FUNCTION/VIEW`, `ALTER PROCEDURE/FUNCTION`
-- `MERGE INTO ... USING ... ON ... WHEN MATCHED/NOT MATCHED THEN UPDATE/INSERT/DELETE` (with optional `AND` predicates)
-- `OUTPUT` / `OUTPUT INTO` clause on INSERT, UPDATE, DELETE, and MERGE (including `$action`, `inserted.*`, `deleted.*`)
-- Full-text predicates: `CONTAINS` / `FREETEXT` (single column, multi-column, wildcard `*`, `LANGUAGE` term); `CONTAINSTABLE` / `FREETEXTTABLE` as join sources
-- Rowset functions: `OPENJSON` and `OPENXML` with `WITH` schema declarations; `OPENJSON` row-path argument and `AS JSON` columns
-- `CREATE/ALTER TRIGGER` (DML triggers: AFTER/INSTEAD OF INSERT/UPDATE/DELETE) and `DROP TRIGGER [IF EXISTS]`
-- `ALTER INDEX … REBUILD / REORGANIZE / DISABLE` (specific index or ALL)
-- `DECLARE CURSOR` / `OPEN` / `FETCH NEXT/PRIOR/FIRST/LAST/ABSOLUTE/RELATIVE` / `CLOSE` / `DEALLOCATE`
-- `CREATE/ALTER/DROP SEQUENCE` with full options (AS, START WITH, INCREMENT BY, MINVALUE/NO MINVALUE, MAXVALUE/NO MAXVALUE, CYCLE/NO CYCLE, CACHE/NO CACHE)
+- Full-text predicates: `CONTAINS` / `FREETEXT` (single column, multi-column, wildcard, `LANGUAGE`); `CONTAINSTABLE` / `FREETEXTTABLE` as join sources
+- Rowset functions: `OPENJSON` and `OPENXML` with `WITH` schema declarations; `OPENJSON` row-path and `AS JSON` columns
+
+**DDL**
+- `CREATE TABLE`, `ALTER TABLE` (ADD/DROP column), `CREATE INDEX` (UNIQUE/CLUSTERED/NONCLUSTERED, ASC/DESC, INCLUDE), `ALTER INDEX … REBUILD/REORGANIZE/DISABLE`
+- `CREATE/ALTER/CREATE OR ALTER PROCEDURE`, `CREATE/ALTER/CREATE OR ALTER FUNCTION`, `CREATE/ALTER/CREATE OR ALTER VIEW`
+- `CREATE/ALTER TRIGGER` (DML triggers: AFTER/INSTEAD OF INSERT/UPDATE/DELETE)
+- `CREATE/ALTER/DROP SEQUENCE` with full options (START WITH, INCREMENT BY, MINVALUE/NO MINVALUE, MAXVALUE/NO MAXVALUE, CYCLE/NO CYCLE, CACHE/NO CACHE)
 - `BULK INSERT … FROM … WITH (options)`
-- `CREATE TYPE … FROM …` (scalar user-defined types) and `CREATE TYPE … AS TABLE (…)` (table-valued parameters)
-- `CREATE/ALTER/DROP USER` — FOR LOGIN, WITHOUT LOGIN, FROM EXTERNAL PROVIDER, WITH options (DEFAULT_SCHEMA, etc.)
-- `CREATE/ALTER/DROP LOGIN` — password (WITH HASHED/MUST_CHANGE), FROM WINDOWS, FROM CERTIFICATE/ASYMMETRIC KEY, ENABLE/DISABLE, ADD/DROP CREDENTIAL
-- `CREATE/ALTER/DROP ROLE` — AUTHORIZATION owner, ADD/DROP MEMBER, WITH NAME rename
+- `CREATE TYPE … FROM …` (scalar UDDTs) and `CREATE TYPE … AS TABLE (…)` (table-valued parameters)
+- `DROP TABLE/PROCEDURE/VIEW/FUNCTION/INDEX/TRIGGER/SEQUENCE` (with `IF EXISTS`)
+
+**Procedural / Control Flow**
+- `USE`, `SET NOCOUNT/ANSI_NULLS/QUOTED_IDENTIFIER/XACT_ABORT/…` ON/OFF, `SET IDENTITY_INSERT`, `SET TRANSACTION ISOLATION LEVEL`, `SET STATISTICS`, `WAITFOR DELAY/TIME`
+- `DECLARE`, `SET @var`, `SET ROWCOUNT`, `PRINT`, `RETURN`, `EXECUTE`, `TRUNCATE TABLE`
+- `IF`/`ELSE`, `WHILE`, `BREAK`, `CONTINUE`, `GOTO`/label, `THROW`, `RAISERROR`, `TRY/CATCH`
+- `BEGIN`/`COMMIT`/`ROLLBACK TRANSACTION`
+- `DECLARE CURSOR` / `OPEN` / `FETCH NEXT/PRIOR/FIRST/LAST/ABSOLUTE/RELATIVE` / `CLOSE` / `DEALLOCATE`
+
+**Security**
 - `GRANT` / `DENY` / `REVOKE` — all securable classes (OBJECT, SCHEMA, DATABASE, SERVER, LOGIN, USER, ROLE, ASSEMBLY, …), column lists, WITH GRANT OPTION, CASCADE, GRANT OPTION FOR, AS clause, multiple principals
-- Emits `go` batch separators where required
-- Integrates with editor extensions that support Prettier (VS Code, etc.)
+- `CREATE/ALTER/DROP USER` — FOR LOGIN, WITHOUT LOGIN, FROM EXTERNAL PROVIDER, WITH options
+- `CREATE/ALTER/DROP LOGIN` — password (HASHED/MUST_CHANGE), FROM WINDOWS, FROM CERTIFICATE/ASYMMETRIC KEY, ENABLE/DISABLE, ADD/DROP CREDENTIAL
+- `CREATE/ALTER/DROP ROLE` — AUTHORIZATION owner, ADD/DROP MEMBER, WITH NAME rename
 
 ## Passthrough constructs
 
