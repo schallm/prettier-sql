@@ -8,31 +8,34 @@ This document describes how `prettier-plugin-tsql` works internally. It is aimed
 
 The plugin is a three-layer stack:
 
-```
-SQL text
-   │
-   ▼
-┌─────────────────────────────────────┐
-│  C# Parser  (src/dotnet/)           │
-│  TSql160Parser → AstBuilder         │
-│  Outputs: JSON (ast + comments)     │
-└─────────────────────────────────────┘
-   │  JSON over node-api-dotnet
-   ▼
-┌─────────────────────────────────────┐
-│  Parser Bridge  (src/plugin/parser/)│
-│  Loads DLL, calls Parse(), attaches │
-│  comments to AST nodes              │
-└─────────────────────────────────────┘
-   │  SqlNode tree
-   ▼
-┌─────────────────────────────────────┐
-│  Prettier Printer  (src/plugin/printer/) │
-│  Walks SqlNode tree, emits Prettier  │
-│  IR docs (group, indent, hardline…) │
-└─────────────────────────────────────┘
-   │  Formatted SQL text
-   ▼
+```mermaid
+flowchart TD
+    input([SQL text])
+    input --> parser
+
+    subgraph parser["C# Parser — src/dotnet/SqlScriptDom/"]
+        P1[TSql160Parser] --> P2[AstBuilder]
+        P2 --> P3[SqlParser.Parse]
+    end
+
+    parser -->|"JSON { ast, comments }\nvia node-api-dotnet"| bridge
+
+    subgraph bridge["Parser Bridge — src/plugin/parser/"]
+        B1[Load DLL] --> B2["Call Parse()"]
+        B2 --> B3[3-pass comment attachment]
+    end
+
+    bridge -->|SqlNode tree| printer
+
+    subgraph printer["Prettier Printer — src/plugin/printer/"]
+        PR1[statements.ts\nDispatcher + DML]
+        PR2[ddl.ts]
+        PR3[procedural.ts]
+        PR4[security.ts]
+        PR5[expressions.ts]
+    end
+
+    printer --> output([Formatted SQL text])
 ```
 
 ---
