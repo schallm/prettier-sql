@@ -1322,6 +1322,73 @@ create type dbo.BookList as table (
 
 ---
 
+## GRANT / DENY / REVOKE
+
+Permissions, the `ON` clause, and the `TO`/`FROM` clause each go on their own line. A single permission stays inline with the verb; multiple permissions are indented one per line.
+
+### GRANT
+
+```sql
+grant execute
+on dbo.GetBooks
+to AppUser;
+
+grant
+  select,
+  insert
+on object::dbo.Books
+to AppUser, GuestUser;
+
+grant select (title, price)
+on dbo.Books
+to AppUser
+with grant option;
+
+grant alter any user
+to dbo;
+
+grant connect
+to public;
+
+grant control
+on schema::dbo
+to AppUser;
+```
+
+The securable class (`OBJECT`, `SCHEMA`, `DATABASE`, `LOGIN`, `USER`, `ROLE`, `SERVER`, `ASSEMBLY`, etc.) is emitted in the configured keyword case followed by `::`.
+
+When there is no `ON` clause (server-scoped or database-scoped permissions), it is omitted.
+
+### DENY
+
+```sql
+deny delete
+on object::dbo.Books
+to GuestUser;
+
+deny insert, update
+on object::dbo.Books
+to GuestUser
+cascade;
+```
+
+### REVOKE
+
+Uses `FROM` to revoke a grant. The optional `GRANT OPTION FOR` prefix and `CASCADE` clause each appear on their own line:
+
+```sql
+revoke select
+on object::dbo.Books
+from AppUser;
+
+revoke grant option for select
+on object::dbo.Books
+from AppUser
+cascade;
+```
+
+---
+
 ## CREATE / ALTER / DROP USER
 
 ### CREATE USER

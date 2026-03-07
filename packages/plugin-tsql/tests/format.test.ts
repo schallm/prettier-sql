@@ -1439,23 +1439,65 @@ describe('CREATE TYPE', () => {
     });
 });
 
-describe('Security statements (passthrough)', () => {
-    it('GRANT passes through without error', async () => {
-        const result = await fmt('grant select, insert on object::dbo.Books to AppUser');
-        expect(result).toBeTruthy();
-        expect(result).not.toContain('unhandled statement');
+describe('GRANT / DENY / REVOKE', () => {
+    it('GRANT multiple permissions ON object TO principal', async () => {
+        expect(await fmt('grant select, insert on object::dbo.Books to AppUser')).toBe(
+            'grant\n  select,\n  insert\non object::dbo.Books\nto AppUser;'
+        );
     });
 
-    it('DENY passes through without error', async () => {
-        const result = await fmt('deny delete on object::dbo.Books to GuestUser');
-        expect(result).toBeTruthy();
-        expect(result).not.toContain('unhandled statement');
+    it('GRANT single permission ON object TO principal', async () => {
+        expect(await fmt('grant execute on dbo.GetBooks to AppUser')).toBe(
+            'grant execute\non dbo.GetBooks\nto AppUser;'
+        );
     });
 
-    it('REVOKE passes through without error', async () => {
-        const result = await fmt('revoke select on object::dbo.Books from AppUser');
-        expect(result).toBeTruthy();
-        expect(result).not.toContain('unhandled statement');
+    it('GRANT with column list', async () => {
+        expect(await fmt('grant select (title, price) on dbo.Books to AppUser with grant option')).toBe(
+            'grant select (title, price)\non dbo.Books\nto AppUser\nwith grant option;'
+        );
+    });
+
+    it('GRANT server-scoped permission (no ON)', async () => {
+        expect(await fmt('grant alter any user to dbo')).toBe(
+            'grant alter any user\nto dbo;'
+        );
+    });
+
+    it('GRANT TO PUBLIC', async () => {
+        expect(await fmt('grant connect to public')).toBe(
+            'grant connect\nto public;'
+        );
+    });
+
+    it('GRANT ON SCHEMA::', async () => {
+        expect(await fmt('grant control on schema::dbo to AppUser')).toBe(
+            'grant control\non schema::dbo\nto AppUser;'
+        );
+    });
+
+    it('GRANT TO multiple principals', async () => {
+        expect(await fmt('grant execute on dbo.GetBooks to AppUser, GuestUser')).toBe(
+            'grant execute\non dbo.GetBooks\nto AppUser, GuestUser;'
+        );
+    });
+
+    it('DENY with CASCADE', async () => {
+        expect(await fmt('deny delete on object::dbo.Books to GuestUser')).toBe(
+            'deny delete\non object::dbo.Books\nto GuestUser;'
+        );
+    });
+
+    it('REVOKE FROM principal', async () => {
+        expect(await fmt('revoke select on object::dbo.Books from AppUser')).toBe(
+            'revoke select\non object::dbo.Books\nfrom AppUser;'
+        );
+    });
+
+    it('REVOKE GRANT OPTION FOR with CASCADE', async () => {
+        expect(await fmt('revoke grant option for select on object::dbo.Books from AppUser cascade')).toBe(
+            'revoke grant option for select\non object::dbo.Books\nfrom AppUser\ncascade;'
+        );
     });
 });
 

@@ -860,10 +860,10 @@ public class AstBuilder : TSqlFragmentVisitor
             // CREATE TYPE
             CreateTypeUddtStatement ctud => BuildCreateTypeUddt(ctud),
             CreateTypeTableStatement cttbl => BuildCreateTypeTable(cttbl),
-            // Security statements — GRANT/DENY/REVOKE passthrough; USER/LOGIN/ROLE fully formatted
-            GrantStatement gs => Leaf("GrantStatement", gs, RawText(gs)),
-            DenyStatement dny => Leaf("DenyStatement", dny, RawText(dny)),
-            RevokeStatement rvk => Leaf("RevokeStatement", rvk, RawText(rvk)),
+            // Security statements — all fully formatted
+            GrantStatement gs => BuildGrant(gs),
+            DenyStatement dny => BuildDeny(dny),
+            RevokeStatement rvk => BuildRevoke(rvk),
             CreateUserStatement cus => BuildCreateUser(cus),
             AlterUserStatement aus => BuildAlterUser(aus),
             DropUserStatement dup => BuildDropUser(dup),
@@ -2030,6 +2030,69 @@ public class AstBuilder : TSqlFragmentVisitor
             ["intoColumns"] = output.IntoTableColumns?.Select(c => (object?)BuildColumnRef(c)).ToList(),
         });
     }
+
+    // -------------------------------------------------------------------------
+    // Security: GRANT / DENY / REVOKE
+    // -------------------------------------------------------------------------
+
+    private static Dictionary<string, object?> BuildSecurityBase(SecurityStatement s) => new()
+    {
+        ["permissions"] = s.Permissions?.Select(p => (object?)BuildPermission(p)).ToList(),
+        ["target"]      = BuildSecurityTarget(s.SecurityTargetObject),
+        ["principals"]  = s.Principals?.Select(p => (object?)BuildSecurityPrincipal(p)).ToList(),
+        ["asClause"]    = s.AsClause != null ? RawText(s.AsClause) : null,
+    };
+
+    private static SqlNode BuildGrant(GrantStatement s)
+    {
+        var props = BuildSecurityBase(s);
+        props["withGrantOption"] = s.WithGrantOption;
+        return Node("GrantStatement", s, props);
+    }
+
+    private static SqlNode BuildDeny(DenyStatement s)
+    {
+        var props = BuildSecurityBase(s);
+        props["cascade"] = s.CascadeOption;
+        return Node("DenyStatement", s, props);
+    }
+
+    private static SqlNode BuildRevoke(RevokeStatement s)
+    {
+        var props = BuildSecurityBase(s);
+        props["grantOptionFor"] = s.GrantOptionFor;
+        props["cascade"]        = s.CascadeOption;
+        return Node("RevokeStatement", s, props);
+    }
+
+    private static object? BuildPermission(Permission p)
+    {
+        // Join identifier Values to form the permission keyword (e.g. "ALTER ANY USER")
+        var name = string.Join(" ", p.Identifiers?.Select(id => id.Value ?? "") ?? []);
+        var cols = p.Columns?.Count > 0
+            ? p.Columns.Select(c => RawText(c)).ToList<object?>()
+            : null;
+        return new Dictionary<string, object?> { ["name"] = name, ["columns"] = cols };
+    }
+
+    private static object? BuildSecurityTarget(SecurityTargetObject? target)
+    {
+        if (target == null) return null;
+        return new Dictionary<string, object?>
+        {
+            ["objectKind"] = target.ObjectKind.ToString(),
+            ["objectName"] = target.ObjectName != null ? RawText(target.ObjectName) : null,
+            ["columns"]    = target.Columns?.Count > 0
+                             ? target.Columns.Select(c => RawText(c)).ToList<object?>()
+                             : null,
+        };
+    }
+
+    private static object? BuildSecurityPrincipal(SecurityPrincipal p) => new Dictionary<string, object?>
+    {
+        ["principalType"] = p.PrincipalType.ToString(),
+        ["name"]          = p.Identifier != null ? RawText(p.Identifier) : null,
+    };
 
     // -------------------------------------------------------------------------
     // Security: USER / LOGIN / ROLE

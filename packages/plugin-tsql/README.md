@@ -28,6 +28,7 @@ A [Prettier](https://prettier.io) plugin that formats T-SQL (SQL Server) using M
 - `CREATE/ALTER/DROP USER` — FOR LOGIN, WITHOUT LOGIN, FROM EXTERNAL PROVIDER, WITH options (DEFAULT_SCHEMA, etc.)
 - `CREATE/ALTER/DROP LOGIN` — password (WITH HASHED/MUST_CHANGE), FROM WINDOWS, FROM CERTIFICATE/ASYMMETRIC KEY, ENABLE/DISABLE, ADD/DROP CREDENTIAL
 - `CREATE/ALTER/DROP ROLE` — AUTHORIZATION owner, ADD/DROP MEMBER, WITH NAME rename
+- `GRANT` / `DENY` / `REVOKE` — all securable classes (OBJECT, SCHEMA, DATABASE, SERVER, LOGIN, USER, ROLE, ASSEMBLY, …), column lists, WITH GRANT OPTION, CASCADE, GRANT OPTION FOR, AS clause, multiple principals
 - Emits `go` batch separators where required
 - Integrates with editor extensions that support Prettier (VS Code, etc.)
 
@@ -36,7 +37,6 @@ A [Prettier](https://prettier.io) plugin that formats T-SQL (SQL Server) using M
 The following T-SQL constructs are recognised by the parser but emitted unchanged (their original source text is preserved):
 
 - `OPENROWSET` — complex provider/connection-string form
-- `GRANT` / `DENY` / `REVOKE` — many permission/securable variants; keywords not re-cased
 
 ## Pending implementation
 

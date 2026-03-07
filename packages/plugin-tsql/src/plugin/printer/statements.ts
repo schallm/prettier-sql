@@ -185,11 +185,10 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         // CREATE TYPE
         case 'CreateTypeUddtStatement':    return printCreateTypeUddt(node, opts);
         case 'CreateTypeTableStatement':   return printCreateTypeTable(node, opts);
-        // Security / principal statements — GRANT/DENY/REVOKE passthrough; USER/LOGIN/ROLE formatted
-        case 'GrantStatement':
-        case 'DenyStatement':
-        case 'RevokeStatement':
-            return node.text ?? '';
+        // Security statements — all formatted
+        case 'GrantStatement':        return printGrantDenyRevoke(node, 'GRANT',  opts);
+        case 'DenyStatement':         return printGrantDenyRevoke(node, 'DENY',   opts);
+        case 'RevokeStatement':       return printGrantDenyRevoke(node, 'REVOKE', opts);
         case 'CreateUserStatement':   return printCreateUser(node, opts);
         case 'AlterUserStatement':    return printAlterUser(node, opts);
         case 'DropUserStatement':     return printDropUser(node, opts);
@@ -1392,6 +1391,105 @@ function printMergeValues(source: SqlNode, opts: Options): Doc {
     const row = rows[0] as SqlNode;
     const vals = propArr(row, 'values').map(v => printNode(v, opts));
     return [hardline, keyword('VALUES', opts), ' (', join(', ', vals), ')'];
+}
+
+// =============================================================================
+// GRANT / DENY / REVOKE
+// =============================================================================
+
+const securityObjectKindMap: Record<string, string> = {
+    NotSpecified:         '',
+    Object:               'OBJECT',
+    Database:             'DATABASE',
+    Schema:               'SCHEMA',
+    Login:                'LOGIN',
+    User:                 'USER',
+    Role:                 'ROLE',
+    ServerRole:           'SERVER ROLE',
+    Server:               'SERVER',
+    Assembly:             'ASSEMBLY',
+    AsymmetricKey:        'ASYMMETRIC KEY',
+    Certificate:          'CERTIFICATE',
+    Contract:             'CONTRACT',
+    Endpoint:             'ENDPOINT',
+    FullTextCatalog:      'FULLTEXT CATALOG',
+    FullTextStopList:     'FULLTEXT STOPLIST',
+    MessageType:          'MESSAGE TYPE',
+    RemoteServiceBinding: 'REMOTE SERVICE BINDING',
+    Route:                'ROUTE',
+    SearchPropertyList:   'SEARCH PROPERTY LIST',
+    Service:              'SERVICE',
+    SymmetricKey:         'SYMMETRIC KEY',
+    Type:                 'TYPE',
+    XmlSchemaCollection:  'XML SCHEMA COLLECTION',
+    AvailabilityGroup:    'AVAILABILITY GROUP',
+};
+
+function printSecurityTarget(target: Record<string, unknown>, opts: Options): Doc {
+    const kind      = (target['objectKind'] as string) ?? 'NotSpecified';
+    const objName   = target['objectName']  as string | undefined;
+    const cols      = target['columns']     as string[] | undefined;
+
+    if (kind === 'Server') return keyword('SERVER', opts);
+
+    const className = securityObjectKindMap[kind] ?? kind.toUpperCase();
+    const prefix: Doc = className ? [keyword(className, opts), '::'] : '';
+    let result: Doc = [prefix, objName ?? ''];
+    if (cols && cols.length > 0) result = [result, ' (', join(', ', cols), ')'];
+    return result;
+}
+
+function printSecurityPrincipal(p: Record<string, unknown>, opts: Options): Doc {
+    const type = (p['principalType'] as string) ?? '';
+    if (type === 'Public') return keyword('PUBLIC', opts);
+    return (p['name'] as string) ?? '';
+}
+
+function printPermission(p: Record<string, unknown>, opts: Options): Doc {
+    const name = ((p['name'] as string) ?? '').toUpperCase();
+    const cols = p['columns'] as string[] | undefined;
+    const parts: Doc[] = [keyword(name, opts)];
+    if (cols && cols.length > 0) parts.push(' (', join(', ', cols), ')');
+    return parts;
+}
+
+function printGrantDenyRevoke(node: SqlNode, verb: string, opts: Options): Doc {
+    const perms      = (node.props?.['permissions'] as Record<string, unknown>[]) ?? [];
+    const target     = node.props?.['target']         as Record<string, unknown> | undefined;
+    const principals = (node.props?.['principals']    as Record<string, unknown>[]) ?? [];
+    const asClause   = node.props?.['asClause']       as string | undefined;
+    const withGrant  = node.props?.['withGrantOption'] as boolean | undefined;
+    const cascade    = node.props?.['cascade']         as boolean | undefined;
+    const grantOptFor = node.props?.['grantOptionFor'] as boolean | undefined;
+
+    const permDocs = perms.map(p => printPermission(p, opts));
+    const principalDocs = principals.map(p => printSecurityPrincipal(p, opts));
+
+    // Verb + optional "GRANT OPTION FOR" prefix (REVOKE only)
+    const verbParts: Doc[] = [keyword(verb, opts)];
+    if (grantOptFor) verbParts.push(' ', keyword('GRANT OPTION FOR', opts));
+
+    // Permissions: single stays inline, multiple break one-per-line
+    const permPart: Doc = permDocs.length === 1
+        ? [' ', permDocs[0]]
+        : indent([hardline, join([',', hardline], permDocs)]);
+
+    const parts: Doc[] = [...verbParts, permPart];
+
+    // ON clause
+    if (target) parts.push([hardline, keyword('ON', opts), ' ', printSecurityTarget(target, opts)]);
+
+    // TO / FROM
+    const direction = verb === 'REVOKE' ? 'FROM' : 'TO';
+    parts.push([hardline, keyword(direction, opts), ' ', join(', ', principalDocs)]);
+
+    // Optional trailing clauses
+    if (withGrant) parts.push([hardline, keyword('WITH GRANT OPTION', opts)]);
+    if (cascade)   parts.push([hardline, keyword('CASCADE', opts)]);
+    if (asClause)  parts.push([hardline, keyword('AS', opts), ' ', asClause]);
+
+    parts.push(';');
+    return parts;
 }
 
 // =============================================================================
