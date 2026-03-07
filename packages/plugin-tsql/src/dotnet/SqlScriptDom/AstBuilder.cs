@@ -790,28 +790,78 @@ public class AstBuilder : TSqlFragmentVisitor
         if (stmt == null) return null;
         return stmt switch
         {
+            // DML
             SelectStatement sel => BuildSelectStatement(sel),
             InsertStatement ins => BuildInsertStatement(ins),
             UpdateStatement upd => BuildUpdateStatement(upd),
             DeleteStatement del => BuildDeleteStatement(del),
+            MergeStatement merge => BuildMergeStatement(merge),
+
+            // DDL — tables & indexes
             CreateTableStatement ct => BuildCreateTableStatement(ct),
             AlterTableStatement at => BuildAlterTableStatement(at),
             CreateIndexStatement ci => BuildCreateIndexStatement(ci),
-            CreateOrAlterProcedureStatement cap => BuildCreateOrAlterProcedure(cap),
+            AlterIndexStatement ai => BuildAlterIndex(ai),
+            DropIndexStatement di => BuildDropIndex(di),
+
+            // DDL — procedures & functions
             CreateProcedureStatement cp => BuildCreateProcedureStatement(cp),
+            CreateOrAlterProcedureStatement cap => BuildCreateOrAlterProcedure(cap),
+            AlterProcedureStatement ap => BuildProcedureStatement("AlterProcedureStatement", ap),
             CreateFunctionStatement cf => BuildCreateFunctionStatement(cf),
+            CreateOrAlterFunctionStatement coaf => BuildFunctionStatement("CreateOrAlterFunctionStatement", coaf),
+            AlterFunctionStatement af => BuildFunctionStatement("AlterFunctionStatement", af),
+
+            // DDL — views
             CreateViewStatement cv => BuildViewStatement("CreateViewStatement", cv),
             AlterViewStatement av => BuildViewStatement("AlterViewStatement", av),
             CreateOrAlterViewStatement coav => BuildViewStatement("CreateOrAlterViewStatement", coav),
+
+            // DDL — triggers
+            CreateTriggerStatement ctrig => BuildTriggerStatement("CreateTriggerStatement", ctrig),
+            AlterTriggerStatement atrig => BuildTriggerStatement("AlterTriggerStatement", atrig),
+            DropTriggerStatement dtrig => BuildDropObjects("DropTriggerStatement", dtrig),
+
+            // DDL — sequences
+            CreateSequenceStatement cseq => BuildCreateSequence(cseq),
+            AlterSequenceStatement aseq => BuildAlterSequence(aseq),
+            DropSequenceStatement dseq => BuildDropObjects("DropSequenceStatement", dseq),
+
+            // DDL — types & bulk insert
+            BulkInsertStatement bulk => BuildBulkInsert(bulk),
+            CreateTypeUddtStatement ctud => BuildCreateTypeUddt(ctud),
+            CreateTypeTableStatement cttbl => BuildCreateTypeTable(cttbl),
+
+            // DDL — DROP (shared helper)
+            DropTableStatement dts => BuildDropObjects("DropTableStatement", dts),
+            DropProcedureStatement dps => BuildDropObjects("DropProcedureStatement", dps),
+            DropViewStatement dvs => BuildDropObjects("DropViewStatement", dvs),
+            DropFunctionStatement dfs => BuildDropObjects("DropFunctionStatement", dfs),
+
+            // BEGIN/END block
             BeginEndBlockStatement begin => BuildBeginEnd(begin),
+
+            // Transactions
             BeginTransactionStatement bt => BuildBeginTransaction(bt),
             CommitTransactionStatement ct => BuildCommitTransaction(ct),
             RollbackTransactionStatement rt => BuildRollbackTransaction(rt),
+
+            // Variable management
             DeclareVariableStatement dv => BuildDeclareVariable(dv),
             DeclareTableVariableStatement dtv => BuildDeclareTableVariable(dtv),
             SetVariableStatement sv => BuildSetVariable(sv),
             SetRowCountStatement src => BuildSetRowCount(src),
-            PrintStatement ps => BuildPrint(ps),
+
+            // SET / USE / WAITFOR
+            UseStatement use => BuildUseStatement(use),
+            PredicateSetStatement ps => BuildPredicateSetStatement(ps),
+            SetStatisticsStatement sst => BuildSetStatisticsStatement(sst),
+            SetIdentityInsertStatement sis => BuildSetIdentityInsert(sis),
+            SetTransactionIsolationLevelStatement stils => BuildSetIsolationLevel(stils),
+            WaitForStatement wf => BuildWaitFor(wf),
+
+            // Output / flow
+            PrintStatement pst => BuildPrint(pst),
             ReturnStatement rs => BuildReturn(rs),
             IfStatement ifs => BuildIf(ifs),
             WhileStatement ws => BuildWhile(ws),
@@ -824,46 +874,20 @@ public class AstBuilder : TSqlFragmentVisitor
             ThrowStatement thr => BuildThrow(thr),
             RaiseErrorStatement raise => BuildRaiseError(raise),
             TryCatchStatement tc => BuildTryCatch(tc),
-            DropTableStatement dts => BuildDropObjects("DropTableStatement", dts),
-            DropProcedureStatement dps => BuildDropObjects("DropProcedureStatement", dps),
-            DropViewStatement dvs => BuildDropObjects("DropViewStatement", dvs),
-            DropFunctionStatement dfs => BuildDropObjects("DropFunctionStatement", dfs),
-            DropIndexStatement di => BuildDropIndex(di),
-            MergeStatement merge => BuildMergeStatement(merge),
-            UseStatement use => BuildUseStatement(use),
-            SetIdentityInsertStatement sis => BuildSetIdentityInsert(sis),
-            PredicateSetStatement ps => BuildPredicateSetStatement(ps),
-            SetStatisticsStatement sst => BuildSetStatisticsStatement(sst),
-            SetTransactionIsolationLevelStatement stils => BuildSetIsolationLevel(stils),
-            WaitForStatement wf => BuildWaitFor(wf),
-            AlterProcedureStatement ap => BuildProcedureStatement("AlterProcedureStatement", ap),
-            AlterFunctionStatement af => BuildFunctionStatement("AlterFunctionStatement", af),
-            CreateOrAlterFunctionStatement coaf => BuildFunctionStatement("CreateOrAlterFunctionStatement", coaf),
-            // Trigger DDL
-            CreateTriggerStatement ctrig => BuildTriggerStatement("CreateTriggerStatement", ctrig),
-            AlterTriggerStatement atrig => BuildTriggerStatement("AlterTriggerStatement", atrig),
-            DropTriggerStatement dtrig => BuildDropObjects("DropTriggerStatement", dtrig),
-            // Index DDL
-            AlterIndexStatement ai => BuildAlterIndex(ai),
-            // Cursor operations
+
+            // Cursors
             DeclareCursorStatement dcs => BuildDeclareCursor(dcs),
             OpenCursorStatement ocs => BuildOpenCursor(ocs),
             FetchCursorStatement fcs => BuildFetchCursor(fcs),
             CloseCursorStatement ccs => BuildCloseCursor(ccs),
             DeallocateCursorStatement dalc => BuildDeallocateCursor(dalc),
-            // Sequence DDL
-            CreateSequenceStatement cseq => BuildCreateSequence(cseq),
-            AlterSequenceStatement aseq => BuildAlterSequence(aseq),
-            DropSequenceStatement dseq => BuildDropObjects("DropSequenceStatement", dseq),
-            // BULK INSERT
-            BulkInsertStatement bulk => BuildBulkInsert(bulk),
-            // CREATE TYPE
-            CreateTypeUddtStatement ctud => BuildCreateTypeUddt(ctud),
-            CreateTypeTableStatement cttbl => BuildCreateTypeTable(cttbl),
-            // Security statements — all fully formatted
+
+            // Security — GRANT / DENY / REVOKE
             GrantStatement gs => BuildGrant(gs),
             DenyStatement dny => BuildDeny(dny),
             RevokeStatement rvk => BuildRevoke(rvk),
+
+            // Security — USER / LOGIN / ROLE
             CreateUserStatement cus => BuildCreateUser(cus),
             AlterUserStatement aus => BuildAlterUser(aus),
             DropUserStatement dup => BuildDropUser(dup),
@@ -873,6 +897,7 @@ public class AstBuilder : TSqlFragmentVisitor
             CreateRoleStatement crol => BuildCreateRole(crol),
             AlterRoleStatement arol => BuildAlterRole(arol),
             DropRoleStatement drol => BuildDropRole(drol),
+
             _ => Leaf("Statement", stmt, RawText(stmt)),
         };
     }
