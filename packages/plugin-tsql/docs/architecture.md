@@ -10,32 +10,13 @@ The plugin is a three-layer stack:
 
 ```mermaid
 flowchart TD
-    input([SQL text])
-    input --> parser
-
-    subgraph parser["C# Parser — src/dotnet/SqlScriptDom/"]
-        P1[TSql160Parser] --> P2[AstBuilder]
-        P2 --> P3[SqlParser.Parse]
-    end
-
-    parser -->|"JSON { ast, comments }\nvia node-api-dotnet"| bridge
-
-    subgraph bridge["Parser Bridge — src/plugin/parser/"]
-        B1[Load DLL] --> B2["Call Parse()"]
-        B2 --> B3[3-pass comment attachment]
-    end
-
-    bridge -->|SqlNode tree| printer
-
-    subgraph printer["Prettier Printer — src/plugin/printer/"]
-        PR1[statements.ts\nDispatcher + DML]
-        PR2[ddl.ts]
-        PR3[procedural.ts]
-        PR4[security.ts]
-        PR5[expressions.ts]
-    end
-
-    printer --> output([Formatted SQL text])
+    A([SQL text])
+    A --> B["C# Parser — src/dotnet/SqlScriptDom/<br/>TSql160Parser → AstBuilder → SqlParser.Parse()"]
+    B -->|"JSON { ast, comments } via node-api-dotnet"| C
+    C["Parser Bridge — src/plugin/parser/<br/>Load DLL · Call Parse() · 3-pass comment attachment"]
+    C -->|SqlNode tree| D
+    D["Prettier Printer — src/plugin/printer/<br/>statements · ddl · procedural · security · expressions"]
+    D --> E([Formatted SQL text])
 ```
 
 ---
@@ -128,10 +109,13 @@ Any comment still inside a statement's span (e.g. a commented-out WHERE predicat
 | File | Purpose |
 |---|---|
 | `index.ts` | `Printer<SqlNode>` export; `print()` dispatcher by `node.type`; `getVisitorKeys()` |
-| `statements.ts` | DML: SELECT, INSERT, UPDATE, DELETE; DDL: CREATE/ALTER TABLE, CREATE PROCEDURE, CREATE FUNCTION, CREATE VIEW; transaction and control flow |
+| `statements.ts` | Script/batch entry points, statement dispatcher, DML (SELECT, INSERT, UPDATE, DELETE, MERGE), OUTPUT clause; exports `printStatementWithComments` |
+| `ddl.ts` | DDL: CREATE/ALTER TABLE, CREATE/ALTER INDEX, CREATE/ALTER/CREATE OR ALTER PROCEDURE/FUNCTION/VIEW/TRIGGER, CREATE/ALTER SEQUENCE, BULK INSERT, CREATE TYPE, DROP |
+| `procedural.ts` | Transactions, DECLARE, SET variants, USE, WAITFOR, IF/WHILE, EXECUTE, TRUNCATE, control flow, error handling, cursors |
+| `security.ts` | GRANT/DENY/REVOKE, CREATE/ALTER/DROP USER/LOGIN/ROLE |
 | `expressions.ts` | Column references, literals, binary expressions, predicates, function calls, CASE, CAST, JOIN, table references, query expressions |
 | `helpers.ts` | Shared `prop()`, `propArr()`, `propStr()`, `propBool()` accessors for the untyped `node.props` record |
-| `utils.ts` | `keyword()`, `clause()`, `getDensity()`, shared Prettier builder aliases |
+| `utils.ts` | `keyword()`, `getDensity()`, shared Prettier builder aliases |
 
 ### Printing strategy
 
@@ -190,7 +174,10 @@ prettier-plugin-tsql/
 │       │   └── types.ts       # SqlNode, CommentToken TypeScript interfaces
 │       └── printer/
 │           ├── index.ts       # Dispatcher + getVisitorKeys
-│           ├── statements.ts  # Statement formatters
+│           ├── statements.ts  # Dispatcher, DML (SELECT/INSERT/UPDATE/DELETE/MERGE)
+│           ├── ddl.ts         # DDL statement formatters
+│           ├── procedural.ts  # Transactions, control flow, cursors, SET/USE/WAITFOR
+│           ├── security.ts    # GRANT/DENY/REVOKE, USER/LOGIN/ROLE
 │           ├── expressions.ts # Expression formatters
 │           ├── helpers.ts     # Shared prop accessors (prop, propArr, propStr, propBool)
 │           └── utils.ts       # keyword(), getDensity(), Prettier builder aliases
