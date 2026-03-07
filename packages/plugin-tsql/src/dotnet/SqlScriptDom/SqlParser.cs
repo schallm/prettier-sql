@@ -16,8 +16,7 @@ public static class SqlParser
     public static string Parse(string sql)
     {
         var parser = new TSql160Parser(initialQuotedIdentifiers: false);
-        IList<ParseError> errors;
-        var fragment = parser.Parse(new StringReader(sql), out errors);
+        var fragment = parser.Parse(new StringReader(sql), out var errors);
 
         if (errors.Count > 0)
         {
@@ -61,9 +60,9 @@ public static class SqlParser
 
     private static int[] BuildLineStarts(string text)
     {
-        var starts = new List<int> { 0 };
+        List<int> starts = [0];
         for (int i = 0; i < text.Length; i++)
             if (text[i] == '\n') starts.Add(i + 1);
-        return starts.ToArray();
+        return [.. starts];
     }
 }

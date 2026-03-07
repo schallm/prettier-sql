@@ -121,202 +121,122 @@ public class AstBuilder : TSqlFragmentVisitor
     }
 
     private static SqlNode BuildBinaryExpr(BinaryExpression bin) =>
-        new SqlNode(
-            "BinaryExpression",
-            bin.StartOffset,
-            bin.StartOffset + bin.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["operator"] = bin.BinaryExpressionType.ToString(),
-                ["left"] = BuildScalarExpression(bin.FirstExpression),
-                ["right"] = BuildScalarExpression(bin.SecondExpression),
-            });
+        Node("BinaryExpression", bin, new Dictionary<string, object?>
+        {
+            ["operator"] = bin.BinaryExpressionType.ToString(),
+            ["left"] = BuildScalarExpression(bin.FirstExpression),
+            ["right"] = BuildScalarExpression(bin.SecondExpression),
+        });
 
     private static SqlNode BuildUnaryExpr(UnaryExpression un) =>
-        new SqlNode(
-            "UnaryExpression",
-            un.StartOffset,
-            un.StartOffset + un.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["operator"] = un.UnaryExpressionType.ToString(),
-                ["expr"] = BuildScalarExpression(un.Expression),
-            });
+        Node("UnaryExpression", un, new Dictionary<string, object?>
+        {
+            ["operator"] = un.UnaryExpressionType.ToString(),
+            ["expr"] = BuildScalarExpression(un.Expression),
+        });
 
     private static SqlNode BuildParenExpr(ParenthesisExpression paren) =>
-        new SqlNode(
-            "ParenthesisExpression",
-            paren.StartOffset,
-            paren.StartOffset + paren.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["expr"] = BuildScalarExpression(paren.Expression),
-            });
+        Node("ParenthesisExpression", paren, new Dictionary<string, object?>
+        {
+            ["expr"] = BuildScalarExpression(paren.Expression),
+        });
 
     private static SqlNode BuildCaseExpr(CaseExpression caseExpr)
     {
         if (caseExpr is SimpleCaseExpression simple)
         {
-            return new SqlNode(
-                "CaseExpression",
-                simple.StartOffset,
-                simple.StartOffset + simple.FragmentLength,
-                null,
-                new Dictionary<string, object?>
+            return Node("CaseExpression", simple, new Dictionary<string, object?>
+            {
+                ["caseType"] = "simple",
+                ["input"] = BuildScalarExpression(simple.InputExpression),
+                ["whens"] = simple.WhenClauses?.Select(w => (object?)Node("WhenClause", w, new Dictionary<string, object?>
                 {
-                    ["caseType"] = "simple",
-                    ["input"] = BuildScalarExpression(simple.InputExpression),
-                    ["whens"] = simple.WhenClauses?.Select(w => (object?)new SqlNode(
-                        "WhenClause",
-                        w.StartOffset,
-                        w.StartOffset + w.FragmentLength,
-                        null,
-                        new Dictionary<string, object?>
-                        {
-                            ["when"] = BuildScalarExpression(w.WhenExpression),
-                            ["then"] = BuildScalarExpression(w.ThenExpression),
-                        })).ToList(),
-                    ["else"] = BuildScalarExpression(simple.ElseExpression),
-                });
+                    ["when"] = BuildScalarExpression(w.WhenExpression),
+                    ["then"] = BuildScalarExpression(w.ThenExpression),
+                })).ToList(),
+                ["else"] = BuildScalarExpression(simple.ElseExpression),
+            });
         }
         else
         {
             // SearchedCaseExpression is the only other concrete subtype of CaseExpression.
             var searched = (SearchedCaseExpression)caseExpr;
-            return new SqlNode(
-                "CaseExpression",
-                searched.StartOffset,
-                searched.StartOffset + searched.FragmentLength,
-                null,
-                new Dictionary<string, object?>
+            return Node("CaseExpression", searched, new Dictionary<string, object?>
+            {
+                ["caseType"] = "searched",
+                ["whens"] = searched.WhenClauses?.Select(w => (object?)Node("WhenClause", w, new Dictionary<string, object?>
                 {
-                    ["caseType"] = "searched",
-                    ["whens"] = searched.WhenClauses?.Select(w => (object?)new SqlNode(
-                        "WhenClause",
-                        w.StartOffset,
-                        w.StartOffset + w.FragmentLength,
-                        null,
-                        new Dictionary<string, object?>
-                        {
-                            ["when"] = BuildBooleanExpression(w.WhenExpression),
-                            ["then"] = BuildScalarExpression(w.ThenExpression),
-                        })).ToList(),
-                    ["else"] = BuildScalarExpression(searched.ElseExpression),
-                });
+                    ["when"] = BuildBooleanExpression(w.WhenExpression),
+                    ["then"] = BuildScalarExpression(w.ThenExpression),
+                })).ToList(),
+                ["else"] = BuildScalarExpression(searched.ElseExpression),
+            });
         }
     }
 
     private static SqlNode BuildCastCall(CastCall cast) =>
-        new SqlNode(
-            "CastCall",
-            cast.StartOffset,
-            cast.StartOffset + cast.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["expr"] = BuildScalarExpression(cast.Parameter),
-                ["dataType"] = cast.DataType != null ? RawText(cast.DataType) : null,
-            });
+        Node("CastCall", cast, new Dictionary<string, object?>
+        {
+            ["expr"] = BuildScalarExpression(cast.Parameter),
+            ["dataType"] = cast.DataType != null ? RawText(cast.DataType) : null,
+        });
 
     private static SqlNode BuildConvertCall(ConvertCall conv) =>
-        new SqlNode(
-            "ConvertCall",
-            conv.StartOffset,
-            conv.StartOffset + conv.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["expr"] = BuildScalarExpression(conv.Parameter),
-                ["dataType"] = conv.DataType != null ? RawText(conv.DataType) : null,
-                ["style"] = BuildScalarExpression(conv.Style),
-            });
+        Node("ConvertCall", conv, new Dictionary<string, object?>
+        {
+            ["expr"] = BuildScalarExpression(conv.Parameter),
+            ["dataType"] = conv.DataType != null ? RawText(conv.DataType) : null,
+            ["style"] = BuildScalarExpression(conv.Style),
+        });
 
     private static SqlNode BuildIIfCall(IIfCall iif) =>
-        new SqlNode(
-            "IIfCall",
-            iif.StartOffset,
-            iif.StartOffset + iif.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["condition"] = BuildBooleanExpression(iif.Predicate),
-                ["trueVal"]   = BuildScalarExpression(iif.ThenExpression),
-                ["falseVal"]  = BuildScalarExpression(iif.ElseExpression),
-            });
+        Node("IIfCall", iif, new Dictionary<string, object?>
+        {
+            ["condition"] = BuildBooleanExpression(iif.Predicate),
+            ["trueVal"]   = BuildScalarExpression(iif.ThenExpression),
+            ["falseVal"]  = BuildScalarExpression(iif.ElseExpression),
+        });
 
     private static SqlNode BuildCoalesceExpr(CoalesceExpression coalesce) =>
-        new SqlNode(
-            "CoalesceExpression",
-            coalesce.StartOffset,
-            coalesce.StartOffset + coalesce.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["args"] = coalesce.Expressions?.Select(e => (object?)BuildScalarExpression(e)).ToList(),
-            });
+        Node("CoalesceExpression", coalesce, new Dictionary<string, object?>
+        {
+            ["args"] = coalesce.Expressions?.Select(e => (object?)BuildScalarExpression(e)).ToList(),
+        });
 
     private static SqlNode BuildNullIfExpr(NullIfExpression nullif) =>
-        new SqlNode(
-            "NullIfExpression",
-            nullif.StartOffset,
-            nullif.StartOffset + nullif.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["first"]  = BuildScalarExpression(nullif.FirstExpression),
-                ["second"] = BuildScalarExpression(nullif.SecondExpression),
-            });
+        Node("NullIfExpression", nullif, new Dictionary<string, object?>
+        {
+            ["first"]  = BuildScalarExpression(nullif.FirstExpression),
+            ["second"] = BuildScalarExpression(nullif.SecondExpression),
+        });
 
     private static SqlNode BuildTryCastCall(TryCastCall tryCast) =>
-        new SqlNode(
-            "TryCastCall",
-            tryCast.StartOffset,
-            tryCast.StartOffset + tryCast.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["expr"]     = BuildScalarExpression(tryCast.Parameter),
-                ["dataType"] = tryCast.DataType != null ? RawText(tryCast.DataType) : null,
-            });
+        Node("TryCastCall", tryCast, new Dictionary<string, object?>
+        {
+            ["expr"]     = BuildScalarExpression(tryCast.Parameter),
+            ["dataType"] = tryCast.DataType != null ? RawText(tryCast.DataType) : null,
+        });
 
     private static SqlNode BuildTryConvertCall(TryConvertCall tryConv) =>
-        new SqlNode(
-            "TryConvertCall",
-            tryConv.StartOffset,
-            tryConv.StartOffset + tryConv.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["expr"]     = BuildScalarExpression(tryConv.Parameter),
-                ["dataType"] = tryConv.DataType != null ? RawText(tryConv.DataType) : null,
-                ["style"]    = BuildScalarExpression(tryConv.Style),
-            });
+        Node("TryConvertCall", tryConv, new Dictionary<string, object?>
+        {
+            ["expr"]     = BuildScalarExpression(tryConv.Parameter),
+            ["dataType"] = tryConv.DataType != null ? RawText(tryConv.DataType) : null,
+            ["style"]    = BuildScalarExpression(tryConv.Style),
+        });
 
     private static SqlNode BuildAtTimeZoneCall(AtTimeZoneCall atz) =>
-        new SqlNode(
-            "AtTimeZoneCall",
-            atz.StartOffset,
-            atz.StartOffset + atz.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["source"]   = BuildScalarExpression(atz.DateValue),
-                ["timeZone"] = BuildScalarExpression(atz.TimeZone),
-            });
+        Node("AtTimeZoneCall", atz, new Dictionary<string, object?>
+        {
+            ["source"]   = BuildScalarExpression(atz.DateValue),
+            ["timeZone"] = BuildScalarExpression(atz.TimeZone),
+        });
 
     private static SqlNode BuildScalarSubquery(ScalarSubquery sub) =>
-        new SqlNode(
-            "ScalarSubquery",
-            sub.StartOffset,
-            sub.StartOffset + sub.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["query"] = BuildQueryExpression(sub.QueryExpression),
-            });
+        Node("ScalarSubquery", sub, new Dictionary<string, object?>
+        {
+            ["query"] = BuildQueryExpression(sub.QueryExpression),
+        });
 
     private static SqlNode? BuildBooleanExpression(BooleanExpression? expr)
     {
@@ -338,117 +258,72 @@ public class AstBuilder : TSqlFragmentVisitor
     }
 
     private static SqlNode BuildBooleanComparison(BooleanComparisonExpression cmp) =>
-        new SqlNode(
-            "BooleanComparison",
-            cmp.StartOffset,
-            cmp.StartOffset + cmp.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["operator"] = cmp.ComparisonType.ToString(),
-                ["left"] = BuildScalarExpression(cmp.FirstExpression),
-                ["right"] = BuildScalarExpression(cmp.SecondExpression),
-            });
+        Node("BooleanComparison", cmp, new Dictionary<string, object?>
+        {
+            ["operator"] = cmp.ComparisonType.ToString(),
+            ["left"] = BuildScalarExpression(cmp.FirstExpression),
+            ["right"] = BuildScalarExpression(cmp.SecondExpression),
+        });
 
     private static SqlNode BuildBooleanBinary(BooleanBinaryExpression bin) =>
-        new SqlNode(
-            "BooleanBinary",
-            bin.StartOffset,
-            bin.StartOffset + bin.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["operator"] = bin.BinaryExpressionType.ToString(),
-                ["left"] = BuildBooleanExpression(bin.FirstExpression),
-                ["right"] = BuildBooleanExpression(bin.SecondExpression),
-            });
+        Node("BooleanBinary", bin, new Dictionary<string, object?>
+        {
+            ["operator"] = bin.BinaryExpressionType.ToString(),
+            ["left"] = BuildBooleanExpression(bin.FirstExpression),
+            ["right"] = BuildBooleanExpression(bin.SecondExpression),
+        });
 
     private static SqlNode BuildBooleanNot(BooleanNotExpression not) =>
-        new SqlNode(
-            "BooleanNot",
-            not.StartOffset,
-            not.StartOffset + not.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["expr"] = BuildBooleanExpression(not.Expression),
-            });
+        Node("BooleanNot", not, new Dictionary<string, object?>
+        {
+            ["expr"] = BuildBooleanExpression(not.Expression),
+        });
 
     private static SqlNode BuildBooleanParen(BooleanParenthesisExpression paren) =>
-        new SqlNode(
-            "BooleanParenthesis",
-            paren.StartOffset,
-            paren.StartOffset + paren.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["expr"] = BuildBooleanExpression(paren.Expression),
-            });
+        Node("BooleanParenthesis", paren, new Dictionary<string, object?>
+        {
+            ["expr"] = BuildBooleanExpression(paren.Expression),
+        });
 
     private static SqlNode BuildBooleanIsNull(BooleanIsNullExpression isNull) =>
-        new SqlNode(
-            "IsNullExpression",
-            isNull.StartOffset,
-            isNull.StartOffset + isNull.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["expr"] = BuildScalarExpression(isNull.Expression),
-                ["isNot"] = isNull.IsNot,
-            });
+        Node("IsNullExpression", isNull, new Dictionary<string, object?>
+        {
+            ["expr"] = BuildScalarExpression(isNull.Expression),
+            ["isNot"] = isNull.IsNot,
+        });
 
     private static SqlNode BuildInPredicate(InPredicate inPred) =>
-        new SqlNode(
-            "InPredicate",
-            inPred.StartOffset,
-            inPred.StartOffset + inPred.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["expr"] = BuildScalarExpression(inPred.Expression),
-                ["negated"] = inPred.NotDefined,
-                ["values"] = inPred.Values?.Select(v => (object?)BuildScalarExpression(v)).ToList(),
-                ["subquery"] = inPred.Subquery != null ? BuildQueryExpression(inPred.Subquery.QueryExpression) : null,
-            });
+        Node("InPredicate", inPred, new Dictionary<string, object?>
+        {
+            ["expr"] = BuildScalarExpression(inPred.Expression),
+            ["negated"] = inPred.NotDefined,
+            ["values"] = inPred.Values?.Select(v => (object?)BuildScalarExpression(v)).ToList(),
+            ["subquery"] = inPred.Subquery != null ? BuildQueryExpression(inPred.Subquery.QueryExpression) : null,
+        });
 
     private static SqlNode BuildLikePredicate(LikePredicate like) =>
-        new SqlNode(
-            "LikePredicate",
-            like.StartOffset,
-            like.StartOffset + like.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["expr"] = BuildScalarExpression(like.FirstExpression),
-                ["pattern"] = BuildScalarExpression(like.SecondExpression),
-                ["negated"] = like.NotDefined,
-                ["escape"] = BuildScalarExpression(like.EscapeExpression),
-            });
+        Node("LikePredicate", like, new Dictionary<string, object?>
+        {
+            ["expr"] = BuildScalarExpression(like.FirstExpression),
+            ["pattern"] = BuildScalarExpression(like.SecondExpression),
+            ["negated"] = like.NotDefined,
+            ["escape"] = BuildScalarExpression(like.EscapeExpression),
+        });
 
     private static SqlNode BuildExistsPredicate(ExistsPredicate exists) =>
-        new SqlNode(
-            "ExistsPredicate",
-            exists.StartOffset,
-            exists.StartOffset + exists.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["subquery"] = BuildQueryExpression(exists.Subquery?.QueryExpression),
-            });
+        Node("ExistsPredicate", exists, new Dictionary<string, object?>
+        {
+            ["subquery"] = BuildQueryExpression(exists.Subquery?.QueryExpression),
+        });
 
     private static SqlNode BuildBetween(BooleanTernaryExpression between) =>
-        new SqlNode(
-            "BetweenExpression",
-            between.StartOffset,
-            between.StartOffset + between.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["expr"] = BuildScalarExpression(between.FirstExpression),
-                ["from"] = BuildScalarExpression(between.SecondExpression),
-                ["to"] = BuildScalarExpression(between.ThirdExpression),
-                ["negated"] = between.TernaryExpressionType == BooleanTernaryExpressionType.NotBetween,
-            });
+        Node("BetweenExpression", between, new Dictionary<string, object?>
+        {
+            ["expr"] = BuildScalarExpression(between.FirstExpression),
+            ["from"] = BuildScalarExpression(between.SecondExpression),
+            ["to"] = BuildScalarExpression(between.ThirdExpression),
+            ["negated"] = between.TernaryExpressionType == BooleanTernaryExpressionType.NotBetween,
+        });
 
     private static SqlNode? BuildTableReference(TableReference? tableRef)
     {
@@ -474,83 +349,53 @@ public class AstBuilder : TSqlFragmentVisitor
         var hints = named.TableHints?.Count > 0
             ? named.TableHints.Select(h => (object?)h.HintKind.ToString().ToUpper()).ToList()
             : null;
-        return new SqlNode(
-            "NamedTableReference",
-            named.StartOffset,
-            named.StartOffset + named.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["name"] = BuildSchemaObjectName(named.SchemaObject),
-                ["alias"] = named.Alias?.Value,
-                ["hints"] = hints,
-            });
+        return Node("NamedTableReference", named, new Dictionary<string, object?>
+        {
+            ["name"] = BuildSchemaObjectName(named.SchemaObject),
+            ["alias"] = named.Alias?.Value,
+            ["hints"] = hints,
+        });
     }
 
     private static SqlNode BuildQualifiedJoin(QualifiedJoin qj) =>
-        new SqlNode(
-            "QualifiedJoin",
-            qj.StartOffset,
-            qj.StartOffset + qj.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["joinType"] = qj.QualifiedJoinType.ToString(),
-                ["left"] = BuildTableReference(qj.FirstTableReference),
-                ["right"] = BuildTableReference(qj.SecondTableReference),
-                ["condition"] = BuildBooleanExpression(qj.SearchCondition),
-            });
+        Node("QualifiedJoin", qj, new Dictionary<string, object?>
+        {
+            ["joinType"] = qj.QualifiedJoinType.ToString(),
+            ["left"] = BuildTableReference(qj.FirstTableReference),
+            ["right"] = BuildTableReference(qj.SecondTableReference),
+            ["condition"] = BuildBooleanExpression(qj.SearchCondition),
+        });
 
     private static SqlNode BuildUnqualifiedJoin(UnqualifiedJoin uj) =>
-        new SqlNode(
-            "UnqualifiedJoin",
-            uj.StartOffset,
-            uj.StartOffset + uj.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["joinType"] = uj.UnqualifiedJoinType.ToString(),
-                ["left"] = BuildTableReference(uj.FirstTableReference),
-                ["right"] = BuildTableReference(uj.SecondTableReference),
-            });
+        Node("UnqualifiedJoin", uj, new Dictionary<string, object?>
+        {
+            ["joinType"] = uj.UnqualifiedJoinType.ToString(),
+            ["left"] = BuildTableReference(uj.FirstTableReference),
+            ["right"] = BuildTableReference(uj.SecondTableReference),
+        });
 
     private static SqlNode BuildJoinParenthesis(JoinParenthesisTableReference jp) =>
-        new SqlNode(
-            "JoinParenthesisTableReference",
-            jp.StartOffset,
-            jp.StartOffset + jp.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["join"] = BuildTableReference(jp.Join),
-            });
+        Node("JoinParenthesisTableReference", jp, new Dictionary<string, object?>
+        {
+            ["join"] = BuildTableReference(jp.Join),
+        });
 
     private static SqlNode BuildQueryDerivedTable(QueryDerivedTable sub) =>
-        new SqlNode(
-            "QueryDerivedTable",
-            sub.StartOffset,
-            sub.StartOffset + sub.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["query"] = BuildQueryExpression(sub.QueryExpression),
-                ["alias"] = sub.Alias?.Value,
-            });
+        Node("QueryDerivedTable", sub, new Dictionary<string, object?>
+        {
+            ["query"] = BuildQueryExpression(sub.QueryExpression),
+            ["alias"] = sub.Alias?.Value,
+        });
 
     private static SqlNode BuildSchemaObjectFunctionTableRef(SchemaObjectFunctionTableReference tvf)
     {
         var args = tvf.Parameters?.Select(p => (object?)BuildScalarExpression(p)).ToList();
-        return new SqlNode(
-            "SchemaObjectFunctionTableReference",
-            tvf.StartOffset,
-            tvf.StartOffset + tvf.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["name"]  = BuildSchemaObjectName(tvf.SchemaObject),
-                ["args"]  = args,
-                ["alias"] = tvf.Alias?.Value,
-            });
+        return Node("SchemaObjectFunctionTableReference", tvf, new Dictionary<string, object?>
+        {
+            ["name"]  = BuildSchemaObjectName(tvf.SchemaObject),
+            ["args"]  = args,
+            ["alias"] = tvf.Alias?.Value,
+        });
     }
 
     private static SqlNode? BuildQueryExpression(QueryExpression? expr)
@@ -576,181 +421,117 @@ public class AstBuilder : TSqlFragmentVisitor
         var orderByClause = qs.OrderByClause != null ? BuildOrderByClause(qs.OrderByClause) : null;
         var uniqueRowFilter = qs.UniqueRowFilter.ToString();
 
-        return new SqlNode(
-            "QuerySpecification",
-            qs.StartOffset,
-            qs.StartOffset + qs.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["uniqueRowFilter"] = uniqueRowFilter,
-                ["top"] = topRowFilter,
-                ["selectElements"] = selectElements,
-                ["from"] = fromClause,
-                ["where"] = whereClause,
-                ["groupBy"] = groupByClause,
-                ["having"] = havingClause,
-                ["orderBy"] = orderByClause,
-            });
+        return Node("QuerySpecification", qs, new Dictionary<string, object?>
+        {
+            ["uniqueRowFilter"] = uniqueRowFilter,
+            ["top"] = topRowFilter,
+            ["selectElements"] = selectElements,
+            ["from"] = fromClause,
+            ["where"] = whereClause,
+            ["groupBy"] = groupByClause,
+            ["having"] = havingClause,
+            ["orderBy"] = orderByClause,
+        });
     }
 
     private static SqlNode BuildTopRowFilter(TopRowFilter top) =>
-        new SqlNode(
-            "TopRowFilter",
-            top.StartOffset,
-            top.StartOffset + top.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["expression"] = BuildScalarExpression(top.Expression),
-                ["percent"] = top.Percent,
-                ["withTies"] = top.WithTies,
-            });
-
-    private static SqlNode? BuildSelectElement(SelectElement se)
-    {
-        if (se == null) return null;
-        return se switch
+        Node("TopRowFilter", top, new Dictionary<string, object?>
         {
-            SelectStarExpression star => Leaf("SelectStar", star, RawText(star)),
-            SelectScalarExpression scalar => new SqlNode(
-                "SelectScalar",
-                scalar.StartOffset,
-                scalar.StartOffset + scalar.FragmentLength,
-                null,
-                new Dictionary<string, object?>
-                {
-                    ["expression"] = BuildScalarExpression(scalar.Expression),
-                    ["alias"] = scalar.ColumnName?.Value,
-                }),
-            SelectSetVariable sv => Node("SelectSetVariable", sv, new Dictionary<string, object?>
-            {
-                ["variable"] = sv.Variable?.Name,
-                ["operator"] = sv.AssignmentKind.ToString(),
-                ["value"]    = BuildScalarExpression(sv.Expression),
-            }),
-            _ => Leaf("SelectElement", se, RawText(se)),
-        };
-    }
+            ["expression"] = BuildScalarExpression(top.Expression),
+            ["percent"] = top.Percent,
+            ["withTies"] = top.WithTies,
+        });
+
+    private static SqlNode? BuildSelectElement(SelectElement se) => se switch
+    {
+        SelectStarExpression star      => Leaf("SelectStar", star, RawText(star)),
+        SelectScalarExpression scalar  => Node("SelectScalar", scalar, new Dictionary<string, object?>
+        {
+            ["expression"] = BuildScalarExpression(scalar.Expression),
+            ["alias"]      = scalar.ColumnName?.Value,
+        }),
+        SelectSetVariable sv           => Node("SelectSetVariable", sv, new Dictionary<string, object?>
+        {
+            ["variable"] = sv.Variable?.Name,
+            ["operator"] = sv.AssignmentKind.ToString(),
+            ["value"]    = BuildScalarExpression(sv.Expression),
+        }),
+        _                              => Leaf("SelectElement", se, RawText(se)),
+    };
 
     private static SqlNode BuildFromClause(FromClause fc)
     {
         var tableRefs = fc.TableReferences?.Select(tr => (object?)BuildTableReference(tr)).ToList();
-        return new SqlNode(
-            "FromClause",
-            fc.StartOffset,
-            fc.StartOffset + fc.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["tableReferences"] = tableRefs,
-            });
+        return Node("FromClause", fc, new Dictionary<string, object?>
+        {
+            ["tableReferences"] = tableRefs,
+        });
     }
 
     private static SqlNode BuildGroupByClause(GroupByClause gb)
     {
         var elements = gb.GroupingSpecifications?.Select(gs => (object?)BuildGroupingSpec(gs)).ToList();
-        return new SqlNode(
-            "GroupByClause",
-            gb.StartOffset,
-            gb.StartOffset + gb.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["elements"] = elements,
-            });
+        return Node("GroupByClause", gb, new Dictionary<string, object?>
+        {
+            ["elements"] = elements,
+        });
     }
 
-    private static SqlNode? BuildGroupingSpec(GroupingSpecification gs)
+    private static SqlNode? BuildGroupingSpec(GroupingSpecification gs) => gs switch
     {
-        if (gs is ExpressionGroupingSpecification expr)
-            return BuildScalarExpression(expr.Expression);
-        if (gs is RollupGroupingSpecification rollup)
-            return Node("RollupSpec", rollup, new Dictionary<string, object?> {
-                ["expressions"] = rollup.Arguments?.Select(e => (object?)BuildGroupingSpec(e)).ToList(),
-            });
-        if (gs is CubeGroupingSpecification cube)
-            return Node("CubeSpec", cube, new Dictionary<string, object?> {
-                ["expressions"] = cube.Arguments?.Select(e => (object?)BuildGroupingSpec(e)).ToList(),
-            });
-        if (gs is GroupingSetsGroupingSpecification gsets)
-            return Node("GroupingSetsSpec", gsets, new Dictionary<string, object?> {
-                ["sets"] = gsets.Sets?.Select(e => (object?)BuildGroupingSpec(e)).ToList(),
-            });
-        if (gs is CompositeGroupingSpecification composite)
-            return Node("CompositeGroupingSpec", composite, new Dictionary<string, object?> {
-                ["items"] = composite.Items?.Select(e => (object?)BuildGroupingSpec(e)).ToList(),
-            });
-        if (gs is GrandTotalGroupingSpecification)
-            return Leaf("GrandTotalSpec", gs, "()");
-        return Leaf("GroupingSpecification", gs, RawText(gs));
-    }
+        ExpressionGroupingSpecification expr     => BuildScalarExpression(expr.Expression),
+        RollupGroupingSpecification rollup       => Node("RollupSpec", rollup, new Dictionary<string, object?>
+            { ["expressions"] = rollup.Arguments?.Select(e => (object?)BuildGroupingSpec(e)).ToList() }),
+        CubeGroupingSpecification cube           => Node("CubeSpec", cube, new Dictionary<string, object?>
+            { ["expressions"] = cube.Arguments?.Select(e => (object?)BuildGroupingSpec(e)).ToList() }),
+        GroupingSetsGroupingSpecification gsets  => Node("GroupingSetsSpec", gsets, new Dictionary<string, object?>
+            { ["sets"] = gsets.Sets?.Select(e => (object?)BuildGroupingSpec(e)).ToList() }),
+        CompositeGroupingSpecification composite => Node("CompositeGroupingSpec", composite, new Dictionary<string, object?>
+            { ["items"] = composite.Items?.Select(e => (object?)BuildGroupingSpec(e)).ToList() }),
+        GrandTotalGroupingSpecification          => Leaf("GrandTotalSpec", gs, "()"),
+        _                                        => Leaf("GroupingSpecification", gs, RawText(gs)),
+    };
 
     private static SqlNode BuildOrderByClause(OrderByClause ob)
     {
         var elements = ob.OrderByElements?.Select(e => (object?)BuildOrderByElement(e)).ToList();
-        return new SqlNode(
-            "OrderByClause",
-            ob.StartOffset,
-            ob.StartOffset + ob.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["elements"] = elements,
-            });
+        return Node("OrderByClause", ob, new Dictionary<string, object?>
+        {
+            ["elements"] = elements,
+        });
     }
 
     private static SqlNode BuildOrderByElement(ExpressionWithSortOrder e) =>
-        new SqlNode(
-            "OrderByElement",
-            e.StartOffset,
-            e.StartOffset + e.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["expression"] = BuildScalarExpression(e.Expression),
-                ["sortOrder"] = e.SortOrder.ToString(),
-            });
+        Node("OrderByElement", e, new Dictionary<string, object?>
+        {
+            ["expression"] = BuildScalarExpression(e.Expression),
+            ["sortOrder"] = e.SortOrder.ToString(),
+        });
 
     private static SqlNode BuildBinaryQuery(BinaryQueryExpression bq) =>
-        new SqlNode(
-            "BinaryQueryExpression",
-            bq.StartOffset,
-            bq.StartOffset + bq.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["operator"] = bq.BinaryQueryExpressionType.ToString(),
-                ["all"] = bq.All,
-                ["left"] = BuildQueryExpression(bq.FirstQueryExpression),
-                ["right"] = BuildQueryExpression(bq.SecondQueryExpression),
-            });
+        Node("BinaryQueryExpression", bq, new Dictionary<string, object?>
+        {
+            ["operator"] = bq.BinaryQueryExpressionType.ToString(),
+            ["all"] = bq.All,
+            ["left"] = BuildQueryExpression(bq.FirstQueryExpression),
+            ["right"] = BuildQueryExpression(bq.SecondQueryExpression),
+        });
 
     private static SqlNode BuildQueryParen(QueryParenthesisExpression qp) =>
-        new SqlNode(
-            "QueryParenthesis",
-            qp.StartOffset,
-            qp.StartOffset + qp.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["query"] = BuildQueryExpression(qp.QueryExpression),
-            });
+        Node("QueryParenthesis", qp, new Dictionary<string, object?>
+        {
+            ["query"] = BuildQueryExpression(qp.QueryExpression),
+        });
 
     private static SqlNode BuildOverClause(OverClause over)
     {
         var partitionBy = over.Partitions?.Select(p => (object?)BuildScalarExpression(p)).ToList();
         var orderBy = over.OrderByClause != null ? BuildOrderByClause(over.OrderByClause) : null;
-        return new SqlNode(
-            "OverClause",
-            over.StartOffset,
-            over.StartOffset + over.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["partitionBy"] = partitionBy,
-                ["orderBy"] = orderBy,
-            });
+        return Node("OverClause", over, new Dictionary<string, object?>
+        {
+            ["partitionBy"] = partitionBy,
+            ["orderBy"] = orderBy,
+        });
     }
 
     // -------------------------------------------------------------------------
@@ -760,29 +541,19 @@ public class AstBuilder : TSqlFragmentVisitor
     public override void Visit(TSqlScript script)
     {
         var batches = script.Batches?.Select(b => (object?)BuildBatch(b)).ToList();
-        Root = new SqlNode(
-            "TSqlScript",
-            script.StartOffset,
-            script.StartOffset + script.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["batches"] = batches,
-            });
+        Root = Node("TSqlScript", script, new Dictionary<string, object?>
+        {
+            ["batches"] = batches,
+        });
     }
 
     private static SqlNode BuildBatch(TSqlBatch batch)
     {
         var stmts = batch.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
-        return new SqlNode(
-            "TSqlBatch",
-            batch.StartOffset,
-            batch.StartOffset + batch.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["statements"] = stmts,
-            });
+        return Node("TSqlBatch", batch, new Dictionary<string, object?>
+        {
+            ["statements"] = stmts,
+        });
     }
 
     private static SqlNode? BuildStatement(TSqlStatement stmt)
@@ -915,17 +686,12 @@ public class AstBuilder : TSqlFragmentVisitor
             ? sel.OptimizerHints.Select(h => (object?)BuildOptimizerHint(h)).ToList()
             : null;
 
-        return new SqlNode(
-            "SelectStatement",
-            sel.StartOffset,
-            sel.StartOffset + sel.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["ctes"] = ctes,
-                ["queryExpression"] = BuildQueryExpression(sel.QueryExpression),
-                ["optimizerHints"] = optimizerHints,
-            });
+        return Node("SelectStatement", sel, new Dictionary<string, object?>
+        {
+            ["ctes"] = ctes,
+            ["queryExpression"] = BuildQueryExpression(sel.QueryExpression),
+            ["optimizerHints"] = optimizerHints,
+        });
     }
 
     private static string BuildOptimizerHint(OptimizerHint hint)
@@ -985,20 +751,15 @@ public class AstBuilder : TSqlFragmentVisitor
                 : null,
         };
 
-        return new SqlNode(
-            "InsertStatement",
-            ins.StartOffset,
-            ins.StartOffset + ins.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["ctes"]       = ctes,
-                ["target"]     = target,
-                ["columns"]    = columns,
-                ["source"]     = source,
-                ["output"]     = BuildOutputClause(spec.OutputClause),
-                ["outputInto"] = BuildOutputIntoClause(spec.OutputIntoClause),
-            });
+        return Node("InsertStatement", ins, new Dictionary<string, object?>
+        {
+            ["ctes"]       = ctes,
+            ["target"]     = target,
+            ["columns"]    = columns,
+            ["source"]     = source,
+            ["output"]     = BuildOutputClause(spec.OutputClause),
+            ["outputInto"] = BuildOutputIntoClause(spec.OutputIntoClause),
+        });
     }
 
     private static SqlNode BuildValuesInsertSource(ValuesInsertSource vals)
@@ -1006,20 +767,10 @@ public class AstBuilder : TSqlFragmentVisitor
         var rows = vals.RowValues?.Select(rv =>
         {
             var values = rv.ColumnValues?.Select(cv => (object?)BuildScalarExpression(cv)).ToList();
-            return (object?)new SqlNode(
-                "ValuesRow",
-                rv.StartOffset,
-                rv.StartOffset + rv.FragmentLength,
-                null,
-                new Dictionary<string, object?> { ["values"] = values });
+            return (object?)Node("ValuesRow", rv, new Dictionary<string, object?> { ["values"] = values });
         }).ToList();
 
-        return new SqlNode(
-            "ValuesSource",
-            vals.StartOffset,
-            vals.StartOffset + vals.FragmentLength,
-            null,
-            new Dictionary<string, object?> { ["rows"] = rows });
+        return Node("ValuesSource", vals, new Dictionary<string, object?> { ["rows"] = rows });
     }
 
     // -------------------------------------------------------------------------
@@ -1038,41 +789,28 @@ public class AstBuilder : TSqlFragmentVisitor
         var fromClause = spec.FromClause != null ? BuildFromClause(spec.FromClause) : null;
         var whereClause = spec.WhereClause != null ? BuildBooleanExpression(spec.WhereClause.SearchCondition) : null;
 
-        return new SqlNode(
-            "UpdateStatement",
-            upd.StartOffset,
-            upd.StartOffset + upd.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["ctes"]       = ctes,
-                ["target"]     = target,
-                ["set"]        = setClauses,
-                ["from"]       = fromClause,
-                ["where"]      = whereClause,
-                ["output"]     = BuildOutputClause(spec.OutputClause),
-                ["outputInto"] = BuildOutputIntoClause(spec.OutputIntoClause),
-            });
+        return Node("UpdateStatement", upd, new Dictionary<string, object?>
+        {
+            ["ctes"]       = ctes,
+            ["target"]     = target,
+            ["set"]        = setClauses,
+            ["from"]       = fromClause,
+            ["where"]      = whereClause,
+            ["output"]     = BuildOutputClause(spec.OutputClause),
+            ["outputInto"] = BuildOutputIntoClause(spec.OutputIntoClause),
+        });
     }
 
-    private static SqlNode BuildSetClause(SetClause sc)
+    private static SqlNode BuildSetClause(SetClause sc) => sc switch
     {
-        if (sc is AssignmentSetClause asc)
+        AssignmentSetClause asc => Node("AssignmentSetClause", asc, new Dictionary<string, object?>
         {
-            return new SqlNode(
-                "AssignmentSetClause",
-                asc.StartOffset,
-                asc.StartOffset + asc.FragmentLength,
-                null,
-                new Dictionary<string, object?>
-                {
-                    ["column"] = BuildColumnRef(asc.Column),
-                    ["operator"] = asc.AssignmentKind.ToString(),
-                    ["value"] = BuildScalarExpression(asc.NewValue),
-                });
-        }
-        return Leaf("SetClause", sc, RawText(sc));
-    }
+            ["column"]   = BuildColumnRef(asc.Column),
+            ["operator"] = asc.AssignmentKind.ToString(),
+            ["value"]    = BuildScalarExpression(asc.NewValue),
+        }),
+        _ => Leaf("SetClause", sc, RawText(sc)),
+    };
 
     // -------------------------------------------------------------------------
     // DML: DELETE
@@ -1089,39 +827,30 @@ public class AstBuilder : TSqlFragmentVisitor
         var fromClause = spec.FromClause != null ? BuildFromClause(spec.FromClause) : null;
         var whereClause = spec.WhereClause != null ? BuildBooleanExpression(spec.WhereClause.SearchCondition) : null;
 
-        return new SqlNode(
-            "DeleteStatement",
-            del.StartOffset,
-            del.StartOffset + del.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["ctes"]       = ctes,
-                ["target"]     = target,
-                ["from"]       = fromClause,
-                ["where"]      = whereClause,
-                ["output"]     = BuildOutputClause(spec.OutputClause),
-                ["outputInto"] = BuildOutputIntoClause(spec.OutputIntoClause),
-            });
+        return Node("DeleteStatement", del, new Dictionary<string, object?>
+        {
+            ["ctes"]       = ctes,
+            ["target"]     = target,
+            ["from"]       = fromClause,
+            ["where"]      = whereClause,
+            ["output"]     = BuildOutputClause(spec.OutputClause),
+            ["outputInto"] = BuildOutputIntoClause(spec.OutputIntoClause),
+        });
     }
 
     private static SqlNode BuildBeginTransaction(BeginTransactionStatement bt) =>
-        new SqlNode("BeginTransactionStatement", bt.StartOffset, bt.StartOffset + bt.FragmentLength, null,
-            new Dictionary<string, object?> { ["name"] = bt.Name?.Identifier?.Value });
+        Node("BeginTransactionStatement", bt, new Dictionary<string, object?> { ["name"] = bt.Name?.Identifier?.Value });
 
     private static SqlNode BuildCommitTransaction(CommitTransactionStatement ct) =>
-        new SqlNode("CommitTransactionStatement", ct.StartOffset, ct.StartOffset + ct.FragmentLength, null,
-            new Dictionary<string, object?> { ["name"] = ct.Name?.Identifier?.Value });
+        Node("CommitTransactionStatement", ct, new Dictionary<string, object?> { ["name"] = ct.Name?.Identifier?.Value });
 
     private static SqlNode BuildRollbackTransaction(RollbackTransactionStatement rt) =>
-        new SqlNode("RollbackTransactionStatement", rt.StartOffset, rt.StartOffset + rt.FragmentLength, null,
-            new Dictionary<string, object?> { ["name"] = rt.Name?.Identifier?.Value });
+        Node("RollbackTransactionStatement", rt, new Dictionary<string, object?> { ["name"] = rt.Name?.Identifier?.Value });
 
     private static SqlNode BuildDeclareVariable(DeclareVariableStatement dv)
     {
         var decls = dv.Declarations?.Select(d => (object?)BuildDeclareElement(d)).ToList();
-        return new SqlNode("DeclareVariableStatement", dv.StartOffset, dv.StartOffset + dv.FragmentLength, null,
-            new Dictionary<string, object?> { ["declarations"] = decls });
+        return Node("DeclareVariableStatement", dv, new Dictionary<string, object?> { ["declarations"] = decls });
     }
 
     private static SqlNode BuildDeclareElement(DeclareVariableElement d) =>
@@ -1141,52 +870,45 @@ public class AstBuilder : TSqlFragmentVisitor
         var body = dtv.Body;
         var columns = body?.Definition?.ColumnDefinitions?.Select(c => (object?)BuildColumnDefinition(c)).ToList();
         var constraints = body?.Definition?.TableConstraints?.Select(c => (object?)BuildTableConstraint(c)).ToList();
-        return new SqlNode("DeclareTableVariableStatement", dtv.StartOffset, dtv.StartOffset + dtv.FragmentLength, null,
-            new Dictionary<string, object?>
-            {
-                ["name"] = body?.VariableName?.Value,
-                ["columns"] = columns,
-                ["constraints"] = constraints,
-            });
+        return Node("DeclareTableVariableStatement", dtv, new Dictionary<string, object?>
+        {
+            ["name"] = body?.VariableName?.Value,
+            ["columns"] = columns,
+            ["constraints"] = constraints,
+        });
     }
 
     private static SqlNode BuildSetVariable(SetVariableStatement sv) =>
-        new SqlNode("SetVariableStatement", sv.StartOffset, sv.StartOffset + sv.FragmentLength, null,
-            new Dictionary<string, object?>
-            {
-                ["name"] = sv.Variable?.Name,
-                ["value"] = BuildScalarExpression(sv.Expression),
-                ["operator"] = sv.AssignmentKind.ToString(),
-            });
+        Node("SetVariableStatement", sv, new Dictionary<string, object?>
+        {
+            ["name"]     = sv.Variable?.Name,
+            ["value"]    = BuildScalarExpression(sv.Expression),
+            ["operator"] = sv.AssignmentKind.ToString(),
+        });
 
     private static SqlNode BuildSetRowCount(SetRowCountStatement src) =>
-        new SqlNode("SetRowCountStatement", src.StartOffset, src.StartOffset + src.FragmentLength, null,
-            new Dictionary<string, object?> { ["rows"] = BuildScalarExpression(src.NumberRows) });
+        Node("SetRowCountStatement", src, new Dictionary<string, object?> { ["rows"] = BuildScalarExpression(src.NumberRows) });
 
     private static SqlNode BuildPrint(PrintStatement ps) =>
-        new SqlNode("PrintStatement", ps.StartOffset, ps.StartOffset + ps.FragmentLength, null,
-            new Dictionary<string, object?> { ["expr"] = BuildScalarExpression(ps.Expression) });
+        Node("PrintStatement", ps, new Dictionary<string, object?> { ["expr"] = BuildScalarExpression(ps.Expression) });
 
     private static SqlNode BuildReturn(ReturnStatement rs) =>
-        new SqlNode("ReturnStatement", rs.StartOffset, rs.StartOffset + rs.FragmentLength, null,
-            new Dictionary<string, object?> { ["expr"] = BuildScalarExpression(rs.Expression) });
+        Node("ReturnStatement", rs, new Dictionary<string, object?> { ["expr"] = BuildScalarExpression(rs.Expression) });
 
     private static SqlNode BuildIf(IfStatement ifs) =>
-        new SqlNode("IfStatement", ifs.StartOffset, ifs.StartOffset + ifs.FragmentLength, null,
-            new Dictionary<string, object?>
-            {
-                ["condition"] = BuildBooleanExpression(ifs.Predicate),
-                ["then"] = BuildStatement(ifs.ThenStatement),
-                ["else"] = ifs.ElseStatement != null ? BuildStatement(ifs.ElseStatement) : null,
-            });
+        Node("IfStatement", ifs, new Dictionary<string, object?>
+        {
+            ["condition"] = BuildBooleanExpression(ifs.Predicate),
+            ["then"]      = BuildStatement(ifs.ThenStatement),
+            ["else"]      = ifs.ElseStatement != null ? BuildStatement(ifs.ElseStatement) : null,
+        });
 
     private static SqlNode BuildWhile(WhileStatement ws) =>
-        new SqlNode("WhileStatement", ws.StartOffset, ws.StartOffset + ws.FragmentLength, null,
-            new Dictionary<string, object?>
-            {
-                ["condition"] = BuildBooleanExpression(ws.Predicate),
-                ["body"] = BuildStatement(ws.Statement),
-            });
+        Node("WhileStatement", ws, new Dictionary<string, object?>
+        {
+            ["condition"] = BuildBooleanExpression(ws.Predicate),
+            ["body"]      = BuildStatement(ws.Statement),
+        });
 
     private static SqlNode BuildExecute(ExecuteStatement es)
     {
@@ -1197,36 +919,27 @@ public class AstBuilder : TSqlFragmentVisitor
             : null;
 
         var procParams = execProc?.Parameters;
-        var parameters = procParams?.Select(p => (object?)new SqlNode(
-            "ExecuteParameter",
-            p.StartOffset, p.StartOffset + p.FragmentLength, null,
-            new Dictionary<string, object?>
-            {
-                ["name"] = p.Variable?.Name,
-                ["value"] = BuildScalarExpression(p.ParameterValue),
-                ["output"] = p.IsOutput,
-            })).ToList();
+        var parameters = procParams?.Select(p => (object?)Node("ExecuteParameter", p, new Dictionary<string, object?>
+        {
+            ["name"]   = p.Variable?.Name,
+            ["value"]  = BuildScalarExpression(p.ParameterValue),
+            ["output"] = p.IsOutput,
+        })).ToList();
 
-        return new SqlNode("ExecuteStatement", es.StartOffset, es.StartOffset + es.FragmentLength, null,
-            new Dictionary<string, object?>
-            {
-                ["proc"] = procNode,
-                ["parameters"] = parameters,
-            });
+        return Node("ExecuteStatement", es, new Dictionary<string, object?>
+        {
+            ["proc"]       = procNode,
+            ["parameters"] = parameters,
+        });
     }
 
     private static SqlNode BuildBeginEnd(BeginEndBlockStatement begin)
     {
         var stmts = begin.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
-        return new SqlNode(
-            "BeginEndBlock",
-            begin.StartOffset,
-            begin.StartOffset + begin.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["statements"] = stmts,
-            });
+        return Node("BeginEndBlock", begin, new Dictionary<string, object?>
+        {
+            ["statements"] = stmts,
+        });
     }
 
     // -------------------------------------------------------------------------
@@ -1240,17 +953,12 @@ public class AstBuilder : TSqlFragmentVisitor
         var constraints = ct.Definition?.TableConstraints
             ?.Select(c => (object?)BuildTableConstraint(c)).ToList();
 
-        return new SqlNode(
-            "CreateTableStatement",
-            ct.StartOffset,
-            ct.StartOffset + ct.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["name"] = BuildSchemaObjectName(ct.SchemaObjectName),
-                ["columns"] = columns,
-                ["constraints"] = constraints,
-            });
+        return Node("CreateTableStatement", ct, new Dictionary<string, object?>
+        {
+            ["name"]        = BuildSchemaObjectName(ct.SchemaObjectName),
+            ["columns"]     = columns,
+            ["constraints"] = constraints,
+        });
     }
 
     private static SqlNode BuildColumnDefinition(ColumnDefinition col)
@@ -1349,12 +1057,7 @@ public class AstBuilder : TSqlFragmentVisitor
                 ?.Select(e => (object?)e.Name?.Value).ToList();
         }
 
-        return new SqlNode(
-            "AlterTableStatement",
-            at.StartOffset,
-            at.StartOffset + at.FragmentLength,
-            null,
-            props);
+        return Node("AlterTableStatement", at, props);
     }
 
     // -------------------------------------------------------------------------
@@ -1376,16 +1079,15 @@ public class AstBuilder : TSqlFragmentVisitor
 
         return new SqlNode(
             "CreateIndexStatement",
-            ci.StartOffset,
-            ci.StartOffset + ci.FragmentLength,
+            ci.StartOffset, ci.StartOffset + ci.FragmentLength,
             ci.Name?.Value,
             new Dictionary<string, object?>
             {
-                ["indexName"] = ci.Name?.Value,
-                ["unique"] = ci.Unique,
-                ["clustered"] = ci.Clustered,
-                ["table"] = BuildSchemaObjectName(ci.OnName),
-                ["columns"] = cols,
+                ["indexName"]      = ci.Name?.Value,
+                ["unique"]         = ci.Unique,
+                ["clustered"]      = ci.Clustered,
+                ["table"]          = BuildSchemaObjectName(ci.OnName),
+                ["columns"]        = cols,
                 ["includeColumns"] = ci.IncludeColumns?.Select(c => (object?)c.MultiPartIdentifier?.Identifiers.LastOrDefault()?.Value).ToList(),
             });
     }
@@ -1399,18 +1101,13 @@ public class AstBuilder : TSqlFragmentVisitor
         var parms = cp.Parameters?.Select(p => (object?)BuildProcedureParameter(p)).ToList();
         var stmts = cp.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
 
-        return new SqlNode(
-            "CreateProcedureStatement",
-            cp.StartOffset,
-            cp.StartOffset + cp.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["name"] = BuildSchemaObjectName(cp.ProcedureReference?.Name),
-                ["parameters"] = parms,
-                ["bodyStart"] = cp.StatementList?.StartOffset,
-                ["body"] = stmts,
-            });
+        return Node("CreateProcedureStatement", cp, new Dictionary<string, object?>
+        {
+            ["name"]       = BuildSchemaObjectName(cp.ProcedureReference?.Name),
+            ["parameters"] = parms,
+            ["bodyStart"]  = cp.StatementList?.StartOffset,
+            ["body"]       = stmts,
+        });
     }
 
     private static SqlNode BuildProcedureParameter(ProcedureParameter p) =>
@@ -1455,20 +1152,15 @@ public class AstBuilder : TSqlFragmentVisitor
             body = cf.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
         }
 
-        return new SqlNode(
-            "CreateFunctionStatement",
-            cf.StartOffset,
-            cf.StartOffset + cf.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["name"] = BuildSchemaObjectName(cf.Name),
-                ["parameters"] = parms,
-                ["bodyStart"] = cf.StatementList?.StartOffset,
-                ["returnType"] = cf.ReturnType != null ? RawText(cf.ReturnType) : null,
-                ["bodyType"] = bodyType,
-                ["body"] = body,
-            });
+        return Node("CreateFunctionStatement", cf, new Dictionary<string, object?>
+        {
+            ["name"]       = BuildSchemaObjectName(cf.Name),
+            ["parameters"] = parms,
+            ["bodyStart"]  = cf.StatementList?.StartOffset,
+            ["returnType"] = cf.ReturnType != null ? RawText(cf.ReturnType) : null,
+            ["bodyType"]   = bodyType,
+            ["body"]       = body,
+        });
     }
 
     // -------------------------------------------------------------------------
@@ -1495,18 +1187,13 @@ public class AstBuilder : TSqlFragmentVisitor
         var body = view.SelectStatement;
         var queryExpr = body != null ? BuildQueryExpression(body.QueryExpression) : null;
 
-        return new SqlNode(
-            type,
-            view.StartOffset,
-            view.StartOffset + view.FragmentLength,
-            null,
-            new Dictionary<string, object?>
-            {
-                ["name"]        = BuildSchemaObjectName(view.SchemaObjectName),
-                ["columns"]     = view.Columns?.Select(c => (object?)c.Value).ToList(),
-                ["withOptions"] = withOptions,
-                ["body"]        = queryExpr,
-            });
+        return Node(type, view, new Dictionary<string, object?>
+        {
+            ["name"]        = BuildSchemaObjectName(view.SchemaObjectName),
+            ["columns"]     = view.Columns?.Select(c => (object?)c.Value).ToList(),
+            ["withOptions"] = withOptions,
+            ["body"]        = queryExpr,
+        });
     }
 
     // -------------------------------------------------------------------------
@@ -1892,7 +1579,7 @@ public class AstBuilder : TSqlFragmentVisitor
         bool noCache = false;
         string? cache = null;
 
-        foreach (var opt in options ?? Enumerable.Empty<SequenceOption>())
+        foreach (var opt in options ?? [])
         {
             if (opt is DataTypeSequenceOption dtOpt)
             {
