@@ -16,7 +16,9 @@ The examples use a Books domain:
 
 ---
 
-## SELECT
+## DML
+
+### SELECT
 
 Column lists are always one column per line when there are multiple columns. A single column stays inline.
 
@@ -40,7 +42,7 @@ select distinct genre_id
 from dbo.Books;
 ```
 
-### FROM and JOINs
+#### FROM and JOINs
 
 Multiple tables or any join forces `from` onto its own line with the table list indented:
 
@@ -69,7 +71,7 @@ from
     b.author_id = a.author_id and b.publisher_id = a.publisher_id;
 ```
 
-#### Nested (parenthesized) joins
+##### Nested (parenthesized) joins
 
 A join whose right-hand side is itself a parenthesized join group opens a block after `join (`, indents the inner joins one level, and closes with `) on`:
 
@@ -83,7 +85,7 @@ from
   ) on b.author_id = a.author_id;
 ```
 
-#### Table hints
+##### Table hints
 
 `WITH (...)` hints are kept on the same line as the table reference:
 
@@ -99,7 +101,7 @@ select book_id
 from dbo.Books with (nolock, rowlock);
 ```
 
-#### Table-valued functions (TVFs)
+##### Table-valued functions (TVFs)
 
 A TVF used as a row source in `from` is written as `schema.function(args)` with an optional alias:
 
@@ -116,7 +118,7 @@ from dbo.GetAvailableBooks(1) as b
   inner join dbo.Genres as g on b.genre_id = g.genre_id;
 ```
 
-### WHERE
+#### WHERE
 
 A single predicate stays inline with `where` (standard density):
 
@@ -137,7 +139,7 @@ where
   and genre_id in (1, 2, 3);
 ```
 
-#### IN / NOT IN
+##### IN / NOT IN
 
 Short value lists stay on one line with `in`:
 
@@ -173,7 +175,7 @@ where book_id not in (
 );
 ```
 
-### GROUP BY / HAVING
+#### GROUP BY / HAVING
 
 ```sql
 select
@@ -185,7 +187,7 @@ group by genre_id
 having count(*) > 5;
 ```
 
-#### ROLLUP, CUBE, and GROUPING SETS
+##### ROLLUP, CUBE, and GROUPING SETS
 
 `rollup`, `cube`, and `grouping sets` are treated as keywords and respect `sqlKeywordCase`:
 
@@ -218,7 +220,7 @@ from dbo.Books
 group by grouping sets((genre_id, author_id), (genre_id), ());
 ```
 
-### ORDER BY
+#### ORDER BY
 
 ```sql
 select book_id, title
@@ -226,9 +228,9 @@ from dbo.Books
 order by published_date desc, title asc;
 ```
 
-### CASE expressions
+#### CASE expressions
 
-#### Searched CASE
+##### Searched CASE
 
 Single-predicate `when` conditions stay inline:
 
@@ -255,7 +257,7 @@ end as is_featured
 from dbo.Books;
 ```
 
-#### Simple CASE
+##### Simple CASE
 
 ```sql
 select
@@ -267,9 +269,9 @@ select
 from dbo.Books;
 ```
 
-### Expression functions
+#### Expression functions
 
-#### CAST and CONVERT
+##### CAST and CONVERT
 
 The full data type — including length, precision, and scale — is preserved and cased with the keyword setting:
 
@@ -289,7 +291,7 @@ select
 from dbo.Books;
 ```
 
-#### IIF
+##### IIF
 
 `iif` is formatted with its condition and two result expressions inline, comma-separated:
 
@@ -298,7 +300,7 @@ select iif(in_stock = 1, 'available', 'out of stock') as availability
 from dbo.Books;
 ```
 
-#### COALESCE and NULLIF
+##### COALESCE and NULLIF
 
 Arguments are comma-separated and stay inline when they fit within `printWidth`:
 
@@ -309,7 +311,7 @@ select
 from dbo.Books;
 ```
 
-#### AT TIME ZONE
+##### AT TIME ZONE
 
 The `at time zone` operator keeps the source expression and timezone string on one line:
 
@@ -319,9 +321,7 @@ select
 from dbo.Books;
 ```
 
----
-
-### UNION / UNION ALL
+#### UNION / UNION ALL
 
 Each query branch is separated from the set operator by a blank line:
 
@@ -348,7 +348,7 @@ select author_id
 from dbo.ArchivedBooks;
 ```
 
-### CTEs
+#### CTEs
 
 Each CTE body is indented inside parentheses:
 
@@ -365,7 +365,7 @@ from available_books as b
 order by b.title asc;
 ```
 
-### Window Functions
+#### Window Functions
 
 The `over(...)` clause wraps when it doesn't fit on one line:
 
@@ -380,7 +380,7 @@ select
 from dbo.Books;
 ```
 
-### Derived tables
+#### Derived tables
 
 A subquery used as a table in the `from` clause is indented inside parentheses and aliased with `as`:
 
@@ -396,7 +396,7 @@ from (
 where t.avg_price > 25;
 ```
 
-### Subqueries
+#### Subqueries
 
 Subqueries inside `where` are indented inside parentheses:
 
@@ -410,9 +410,154 @@ where book_id in (
 );
 ```
 
+#### Full-text predicates
+
+##### CONTAINS / FREETEXT
+
+`contains` and `freetext` are formatted as inline function calls and treated as keywords (subject to `sqlKeywordCase`).
+
+Single column — bare column name, no extra parentheses:
+
+```sql
+select book_id, title
+from dbo.Books
+where contains(title, '"SQL Server"');
+```
+
+Wildcard — all full-text indexed columns:
+
+```sql
+select book_id
+from dbo.Books
+where contains(*, 'programming');
+```
+
+Multiple columns — inner parentheses around the column list:
+
+```sql
+select book_id
+from dbo.Books
+where contains((title, author_id), 'design');
+```
+
+With `LANGUAGE`:
+
+```sql
+select book_id
+from dbo.Books
+where contains(title, 'query', language 1033);
+```
+
+`freetext` follows the same layout:
+
+```sql
+select book_id, title
+from dbo.Books
+where freetext(title, 'database programming');
+```
+
+##### CONTAINSTABLE / FREETEXTTABLE
+
+These table-valued functions appear in `FROM` / `JOIN` clauses and are formatted like other TVFs, with an alias:
+
+```sql
+select
+  b.book_id,
+  b.title,
+  ft.rank
+from
+  dbo.Books as b
+  inner join containstable(dbo.Books, title, '"SQL"') as ft on
+    b.book_id = ft.key;
+```
+
+With wildcard and TOP N limit:
+
+```sql
+select
+  b.book_id,
+  ft.rank
+from
+  dbo.Books as b
+  inner join freetexttable(dbo.Books, *, 'programming', 10) as ft on
+    b.book_id = ft.key;
+```
+
+#### Rowset functions (OPENJSON / OPENXML)
+
+##### OPENJSON
+
+`OPENJSON` appears in `FROM` / `CROSS APPLY` clauses. Without a `WITH` clause, only the alias
+is attached:
+
+```sql
+select
+  j.key,
+  j.value
+from
+  dbo.Orders as o
+  cross apply openjson(o.json_data) as j;
+```
+
+With a row-path and `WITH` schema declaration, each column definition is on its own indented
+line inside the parentheses:
+
+```sql
+select
+  j.order_id,
+  j.amount
+from
+  dbo.Orders as o
+  cross apply openjson(o.json_data, '$.items')
+  with (
+    order_id int '$.id',
+    amount decimal(10, 2) '$.amount',
+    notes nvarchar(500) '$.notes'
+  ) as j;
+```
+
+`AS JSON` columns are preserved:
+
+```sql
+select j.id, j.data
+from openjson(@json)
+with (
+  id int '$.id',
+  data nvarchar(max) '$.data' as json
+) as j;
+```
+
+##### OPENXML
+
+`OPENXML` follows the same WITH-clause layout:
+
+```sql
+select
+  x.id,
+  x.name
+from openxml(@hDoc, '/root/item', 2)
+with (
+  id int '@id',
+  name varchar(100) 'name'
+) as x;
+```
+
+The column data types inside `WITH (...)` are emitted as raw text (original casing is
+preserved). `OPENROWSET` is not yet formatted and is emitted as-is.
+
+#### SELECT @var = expr
+
+Variable assignment in the select list:
+
+```sql
+select @total = sum(price)
+from dbo.Books
+where in_stock = 1;
+```
+
 ---
 
-## INSERT
+### INSERT
 
 Column list and values list are each indented:
 
@@ -459,7 +604,7 @@ values ('New Book', 9.99);
 
 ---
 
-## UPDATE
+### UPDATE
 
 ```sql
 update dbo.Books
@@ -499,7 +644,7 @@ where in_stock = 1;
 
 ---
 
-## DELETE
+### DELETE
 
 ```sql
 delete from dbo.Books
@@ -518,7 +663,7 @@ where in_stock = 0;
 
 ---
 
-## MERGE
+### MERGE
 
 `merge into` targets the destination table (with an optional alias). `using` specifies the source, which can be a table or a subquery. Each `when` clause appears on its own line; the action is indented one level below `then`:
 
@@ -578,7 +723,7 @@ output $action, inserted.book_id, deleted.price;
 
 ---
 
-## OUTPUT clause
+### OUTPUT clause
 
 `output` and `output into` are supported on INSERT, UPDATE, DELETE, and MERGE. The column list fits on one line when short; longer lists break with one column per line.
 
@@ -606,7 +751,9 @@ where in_stock = 0;
 
 ---
 
-## CREATE TABLE
+## DDL
+
+### CREATE TABLE
 
 Columns are indented inside parentheses, one per line. Constraints follow the columns:
 
@@ -634,7 +781,7 @@ create table dbo.Orders (
 
 ---
 
-## ALTER TABLE
+### ALTER TABLE
 
 ```sql
 -- Add column
@@ -649,7 +796,7 @@ drop column isbn;
 
 ---
 
-## CREATE INDEX
+### CREATE INDEX
 
 `CREATE INDEX` places the index name on the same line as the verb, then `ON table (columns)` on its own line with the column list indented. Each column includes an explicit `ASC` or `DESC` direction. An optional `INCLUDE` clause goes on a further line.
 
@@ -674,7 +821,53 @@ include (title, in_stock);
 
 ---
 
-## CREATE / ALTER PROCEDURE
+### ALTER INDEX
+
+`alter index` reformats the index name (or `all`), table, and operation on separate lines:
+
+```sql
+alter index ix_Books_title on dbo.Books
+rebuild;
+
+alter index all on dbo.Books
+rebuild;
+
+alter index ix_Books_title on dbo.Books
+reorganize;
+
+alter index ix_Books_title on dbo.Books
+disable;
+```
+
+---
+
+### DROP statements
+
+```sql
+drop table dbo.Books;
+drop table if exists dbo.Books;
+
+drop procedure dbo.GetBooks;
+drop view dbo.vw_available_books;
+drop function dbo.GetBookPrice;
+drop trigger dbo.trg_Books_AI;
+drop trigger if exists dbo.trg_Books_AI;
+
+drop sequence dbo.OrderSeq;
+drop sequence if exists dbo.OrderSeq;
+
+drop index ix_title on dbo.Books;
+
+drop user AppUser;
+drop login AppLogin;
+drop role if exists db_reader;
+```
+
+Multiple objects in one `DROP TABLE/PROCEDURE/VIEW/FUNCTION` are comma-separated on one line.
+
+---
+
+### CREATE / ALTER PROCEDURE
 
 `alter procedure` and `create or alter procedure` follow the same layout as `create procedure`.
 All three are batch-isolating (automatically followed by `go`).
@@ -726,7 +919,7 @@ go
 
 ---
 
-## CREATE / ALTER FUNCTION
+### CREATE / ALTER FUNCTION
 
 `alter function` and `create or alter function` follow the same layout as `create function`.
 
@@ -744,7 +937,7 @@ go
 
 ---
 
-## CREATE / ALTER VIEW
+### CREATE / ALTER VIEW
 
 ```sql
 create or alter view dbo.vw_available_books
@@ -770,395 +963,7 @@ go
 
 ---
 
-## Comments
-
-### Trailing line comments
-
-Line comments at the end of a statement or VALUES row are kept on the same line:
-
-```sql
-insert into dbo.Genres (genre_id, name)
-values
-  (1, 'Fiction'),   -- primary genre
-  (2, 'Non-Fiction'); -- secondary genre
-```
-
-### Leading comments
-
-Standalone comment lines before a statement are attached to that statement:
-
-```sql
--- Returns all available books
-select book_id, title
-from dbo.Books
-where in_stock = 1;
-```
-
-### Block comments
-
-Block comments are preserved in their original relative position. A block comment before a statement appears before it in the output:
-
-```sql
-/* legacy view — do not remove */
-create or alter view dbo.vw_legacy
-as
-select * from dbo.Books;
-go
-```
-
-### Commented-out predicates
-
-Line or block comments inside a `where` clause (e.g. a temporarily disabled predicate) are preserved between the surrounding predicates:
-
-```sql
-select book_id
-from dbo.Books
-where
-  in_stock = 1
-  -- and price < 50
-  and genre_id = 1;
-```
-
-### Comments inside procedure bodies
-
-Comments between statements inside a `begin`/`end` block are preserved in position:
-
-```sql
-create procedure dbo.ProcessBooks
-as
-begin
-  -- Step 1: mark unavailable books
-  update dbo.Books
-  set in_stock = 0
-  where published_date < '2000-01-01';
-
-  -- Step 2: return the remaining stock
-  select book_id, title
-  from dbo.Books
-  where in_stock = 1;
-end;
-go
-```
-
----
-
-## GO Batch Separators
-
-The following statement types must be alone in a batch and automatically get a `go` appended:
-
-- `CREATE VIEW` / `ALTER VIEW` / `CREATE OR ALTER VIEW`
-- `CREATE PROCEDURE` / `ALTER PROCEDURE` / `CREATE OR ALTER PROCEDURE`
-- `CREATE FUNCTION` / `ALTER FUNCTION` / `CREATE OR ALTER FUNCTION`
-- `CREATE TRIGGER` / `ALTER TRIGGER`
-
-When multiple such statements appear in a file (separated by `go` in the input), each batch is separated by a blank line in the output:
-
-```sql
-create or alter view dbo.vw_books
-as
-select book_id, title from dbo.Books;
-go
-
-create or alter view dbo.vw_authors
-as
-select author_id, first_name, last_name from dbo.Authors;
-go
-```
-
----
-
-## USE
-
-```sql
-use AdventureWorks2019;
-```
-
----
-
-## SET statements
-
-### SET option ON / OFF
-
-`SET` on/off options are formatted as `set <option> on;` or `set <option> off;`. Keyword casing
-applies to both the `SET` keyword and the option name.
-
-```sql
-set nocount on;
-set ansi_nulls on;
-set quoted_identifier on;
-set xact_abort off;
-```
-
-### SET STATISTICS
-
-```sql
-set statistics io on;
-set statistics time off;
-```
-
-### SET IDENTITY_INSERT
-
-```sql
-set identity_insert dbo.Books on;
-set identity_insert dbo.Books off;
-```
-
-### SET TRANSACTION ISOLATION LEVEL
-
-```sql
-set transaction isolation level read committed;
-set transaction isolation level snapshot;
-set transaction isolation level serializable;
-```
-
-Supported levels: `READ COMMITTED`, `READ UNCOMMITTED`, `REPEATABLE READ`, `SERIALIZABLE`, `SNAPSHOT`.
-
----
-
-## WAITFOR
-
-```sql
-waitfor delay '00:00:05';
-waitfor time '10:00:00';
-```
-
----
-
-## TRUNCATE TABLE
-
-```sql
-truncate table dbo.Books;
-```
-
----
-
-## DROP statements
-
-```sql
-drop table dbo.Books;
-drop table if exists dbo.Books;
-
-drop procedure dbo.GetBooks;
-drop view dbo.vw_available_books;
-drop function dbo.GetBookPrice;
-drop trigger dbo.trg_Books_AI;
-drop trigger if exists dbo.trg_Books_AI;
-
-drop sequence dbo.OrderSeq;
-drop sequence if exists dbo.OrderSeq;
-
-drop index ix_title on dbo.Books;
-
-drop user AppUser;
-drop login AppLogin;
-drop role if exists db_reader;
-```
-
-Multiple objects in one `DROP TABLE/PROCEDURE/VIEW/FUNCTION` are comma-separated on one line.
-
----
-
-## Control flow: BREAK / CONTINUE / GOTO / label
-
-```sql
-while @i < 10
-begin
-  if @i = 5
-    break;
-  set @i = @i + 1;
-  continue;
-end;
-
-goto exit_label;
-
-exit_label:
-```
-
-Labels are emitted as-is (ScriptDom preserves the trailing colon in the value).
-
----
-
-## THROW / RAISERROR
-
-```sql
--- Re-throw inside a CATCH block
-throw;
-
--- New-style throw with arguments
-throw 50001, 'Book not found', 1;
-
--- Legacy RAISERROR
-raiserror ('Book not found', 16, 1);
-```
-
----
-
-## TRY / CATCH
-
-```sql
-begin try
-  insert into dbo.Books (title, price)
-  values ('New Book', 29.99);
-end try
-begin catch
-  throw;
-end catch
-```
-
----
-
-## SELECT @var = expr (variable assignment in select list)
-
-```sql
-select @total = sum(price)
-from dbo.Books
-where in_stock = 1;
-```
-
----
-
-## Full-text predicates
-
-### CONTAINS / FREETEXT
-
-`contains` and `freetext` are formatted as inline function calls and treated as keywords (subject to `sqlKeywordCase`).
-
-Single column — bare column name, no extra parentheses:
-
-```sql
-select book_id, title
-from dbo.Books
-where contains(title, '"SQL Server"');
-```
-
-Wildcard — all full-text indexed columns:
-
-```sql
-select book_id
-from dbo.Books
-where contains(*, 'programming');
-```
-
-Multiple columns — inner parentheses around the column list:
-
-```sql
-select book_id
-from dbo.Books
-where contains((title, author_id), 'design');
-```
-
-With `LANGUAGE`:
-
-```sql
-select book_id
-from dbo.Books
-where contains(title, 'query', language 1033);
-```
-
-`freetext` follows the same layout:
-
-```sql
-select book_id, title
-from dbo.Books
-where freetext(title, 'database programming');
-```
-
-### CONTAINSTABLE / FREETEXTTABLE
-
-These table-valued functions appear in `FROM` / `JOIN` clauses and are formatted like other TVFs, with an alias:
-
-```sql
-select
-  b.book_id,
-  b.title,
-  ft.rank
-from
-  dbo.Books as b
-  inner join containstable(dbo.Books, title, '"SQL"') as ft on
-    b.book_id = ft.key;
-```
-
-With wildcard and TOP N limit:
-
-```sql
-select
-  b.book_id,
-  ft.rank
-from
-  dbo.Books as b
-  inner join freetexttable(dbo.Books, *, 'programming', 10) as ft on
-    b.book_id = ft.key;
-```
-
----
-
-## Rowset functions (OPENJSON / OPENXML)
-
-### OPENJSON
-
-`OPENJSON` appears in `FROM` / `CROSS APPLY` clauses. Without a `WITH` clause, only the alias
-is attached:
-
-```sql
-select
-  j.key,
-  j.value
-from
-  dbo.Orders as o
-  cross apply openjson(o.json_data) as j;
-```
-
-With a row-path and `WITH` schema declaration, each column definition is on its own indented
-line inside the parentheses:
-
-```sql
-select
-  j.order_id,
-  j.amount
-from
-  dbo.Orders as o
-  cross apply openjson(o.json_data, '$.items')
-  with (
-    order_id int '$.id',
-    amount decimal(10, 2) '$.amount',
-    notes nvarchar(500) '$.notes'
-  ) as j;
-```
-
-`AS JSON` columns are preserved:
-
-```sql
-select j.id, j.data
-from openjson(@json)
-with (
-  id int '$.id',
-  data nvarchar(max) '$.data' as json
-) as j;
-```
-
-### OPENXML
-
-`OPENXML` follows the same WITH-clause layout:
-
-```sql
-select
-  x.id,
-  x.name
-from openxml(@hDoc, '/root/item', 2)
-with (
-  id int '@id',
-  name varchar(100) 'name'
-) as x;
-```
-
-The column data types inside `WITH (...)` are emitted as raw text (original casing is
-preserved). `OPENROWSET` is not yet formatted and is emitted as-is.
-
----
-
----
-
-## CREATE / ALTER TRIGGER
+### CREATE / ALTER TRIGGER
 
 `create trigger` and `alter trigger` are batch-isolating (automatically followed by `go`).
 
@@ -1208,63 +1013,7 @@ go
 
 ---
 
-## ALTER INDEX
-
-`alter index` reformats the index name (or `all`), table, and operation on separate lines:
-
-```sql
-alter index ix_Books_title on dbo.Books
-rebuild;
-
-alter index all on dbo.Books
-rebuild;
-
-alter index ix_Books_title on dbo.Books
-reorganize;
-
-alter index ix_Books_title on dbo.Books
-disable;
-```
-
----
-
-## DECLARE CURSOR / OPEN / FETCH / CLOSE / DEALLOCATE
-
-`declare … cursor for` puts the cursor name and `cursor` keyword on the first line. The `for` keyword and the query each appear on their own line:
-
-```sql
-declare book_cursor cursor
-for
-select book_id, title
-from dbo.Books
-where in_stock = 1;
-```
-
-Cursor options (e.g. `SCROLL`, `READ_ONLY`) appear between the cursor name and the `cursor` keyword:
-
-```sql
-declare book_cursor scroll cursor
-for
-select book_id from dbo.Books;
-```
-
-The remaining cursor operations are single-line statements:
-
-```sql
-open book_cursor;
-
-fetch next from book_cursor into @id, @title;
-fetch prior from book_cursor;
-fetch first from book_cursor into @id, @title;
-fetch last from book_cursor into @id;
-
-close book_cursor;
-deallocate book_cursor;
-```
-
----
-
-## CREATE / ALTER SEQUENCE
+### CREATE / ALTER SEQUENCE
 
 Options each appear on their own line below the sequence name:
 
@@ -1301,7 +1050,7 @@ increment by 5;
 
 ---
 
-## BULK INSERT
+### BULK INSERT
 
 ```sql
 bulk insert dbo.Books
@@ -1322,9 +1071,9 @@ with (
 
 ---
 
-## CREATE TYPE
+### CREATE TYPE
 
-### Scalar user-defined type (UDDT)
+#### Scalar user-defined type (UDDT)
 
 ```sql
 create type dbo.BookTitle from nvarchar(200) not null;
@@ -1333,7 +1082,7 @@ create type dbo.OptionalText from nvarchar(500) null;
 
 The base data type — including length, precision, and scale — is preserved. Keyword casing applies to the type keyword itself (e.g. `nvarchar`, `int`).
 
-### Table-valued parameter type (TVP)
+#### Table-valued parameter type (TVP)
 
 The column list follows the same rules as `CREATE TABLE`:
 
@@ -1347,11 +1096,165 @@ create type dbo.BookList as table (
 
 ---
 
-## GRANT / DENY / REVOKE
+## Procedural / Control Flow
+
+### USE
+
+```sql
+use AdventureWorks2019;
+```
+
+---
+
+### SET statements
+
+#### SET option ON / OFF
+
+`SET` on/off options are formatted as `set <option> on;` or `set <option> off;`. Keyword casing
+applies to both the `SET` keyword and the option name.
+
+```sql
+set nocount on;
+set ansi_nulls on;
+set quoted_identifier on;
+set xact_abort off;
+```
+
+#### SET STATISTICS
+
+```sql
+set statistics io on;
+set statistics time off;
+```
+
+#### SET IDENTITY_INSERT
+
+```sql
+set identity_insert dbo.Books on;
+set identity_insert dbo.Books off;
+```
+
+#### SET TRANSACTION ISOLATION LEVEL
+
+```sql
+set transaction isolation level read committed;
+set transaction isolation level snapshot;
+set transaction isolation level serializable;
+```
+
+Supported levels: `READ COMMITTED`, `READ UNCOMMITTED`, `REPEATABLE READ`, `SERIALIZABLE`, `SNAPSHOT`.
+
+---
+
+### WAITFOR
+
+```sql
+waitfor delay '00:00:05';
+waitfor time '10:00:00';
+```
+
+---
+
+### TRUNCATE TABLE
+
+```sql
+truncate table dbo.Books;
+```
+
+---
+
+### Control flow: BREAK / CONTINUE / GOTO / label
+
+```sql
+while @i < 10
+begin
+  if @i = 5
+    break;
+  set @i = @i + 1;
+  continue;
+end;
+
+goto exit_label;
+
+exit_label:
+```
+
+Labels are emitted as-is (ScriptDom preserves the trailing colon in the value).
+
+---
+
+### THROW / RAISERROR
+
+```sql
+-- Re-throw inside a CATCH block
+throw;
+
+-- New-style throw with arguments
+throw 50001, 'Book not found', 1;
+
+-- Legacy RAISERROR
+raiserror ('Book not found', 16, 1);
+```
+
+---
+
+### TRY / CATCH
+
+```sql
+begin try
+  insert into dbo.Books (title, price)
+  values ('New Book', 29.99);
+end try
+begin catch
+  throw;
+end catch
+```
+
+---
+
+### DECLARE CURSOR / OPEN / FETCH / CLOSE / DEALLOCATE
+
+`declare … cursor for` puts the cursor name and `cursor` keyword on the first line. The `for` keyword and the query each appear on their own line:
+
+```sql
+declare book_cursor cursor
+for
+select book_id, title
+from dbo.Books
+where in_stock = 1;
+```
+
+Cursor options (e.g. `SCROLL`, `READ_ONLY`) appear between the cursor name and the `cursor` keyword:
+
+```sql
+declare book_cursor scroll cursor
+for
+select book_id from dbo.Books;
+```
+
+The remaining cursor operations are single-line statements:
+
+```sql
+open book_cursor;
+
+fetch next from book_cursor into @id, @title;
+fetch prior from book_cursor;
+fetch first from book_cursor into @id, @title;
+fetch last from book_cursor into @id;
+
+close book_cursor;
+deallocate book_cursor;
+```
+
+---
+
+## Security
+
+### GRANT / DENY / REVOKE
 
 Permissions, the `ON` clause, and the `TO`/`FROM` clause each go on their own line. A single permission stays inline with the verb; multiple permissions are indented one per line.
 
-### GRANT
+#### GRANT
 
 ```sql
 grant execute
@@ -1384,7 +1287,7 @@ The securable class (`OBJECT`, `SCHEMA`, `DATABASE`, `LOGIN`, `USER`, `ROLE`, `S
 
 When there is no `ON` clause (server-scoped or database-scoped permissions), it is omitted.
 
-### DENY
+#### DENY
 
 ```sql
 deny delete
@@ -1397,7 +1300,7 @@ to GuestUser
 cascade;
 ```
 
-### REVOKE
+#### REVOKE
 
 Uses `FROM` to revoke a grant. The optional `GRANT OPTION FOR` prefix and `CASCADE` clause each appear on their own line:
 
@@ -1414,9 +1317,9 @@ cascade;
 
 ---
 
-## CREATE / ALTER / DROP USER
+### CREATE / ALTER / DROP USER
 
-### CREATE USER
+#### CREATE USER
 
 The `FOR`/`FROM`/`WITHOUT` clause goes on its own line. A `WITH` option list is indented one level:
 
@@ -1436,7 +1339,7 @@ with
   default_schema = dbo;
 ```
 
-### ALTER USER
+#### ALTER USER
 
 ```sql
 alter user AppUser
@@ -1445,7 +1348,7 @@ with
   default_schema = reports;
 ```
 
-### DROP USER
+#### DROP USER
 
 ```sql
 drop user AppUser;
@@ -1453,9 +1356,9 @@ drop user AppUser;
 
 ---
 
-## CREATE / ALTER / DROP LOGIN
+### CREATE / ALTER / DROP LOGIN
 
-### CREATE LOGIN
+#### CREATE LOGIN
 
 The `WITH` or `FROM` clause starts on a new line. Options are indented one level, one per line:
 
@@ -1484,7 +1387,7 @@ with
   default_domain = CORP;
 ```
 
-### ALTER LOGIN
+#### ALTER LOGIN
 
 ```sql
 alter login AppLogin enable;
@@ -1506,7 +1409,7 @@ with
   old_password = 'OldP@ss';
 ```
 
-### DROP LOGIN
+#### DROP LOGIN
 
 ```sql
 drop login AppLogin;
@@ -1514,9 +1417,9 @@ drop login AppLogin;
 
 ---
 
-## CREATE / ALTER / DROP ROLE
+### CREATE / ALTER / DROP ROLE
 
-### CREATE ROLE
+#### CREATE ROLE
 
 ```sql
 create role db_reader;
@@ -1525,7 +1428,7 @@ create role db_reader
 authorization dbo;
 ```
 
-### ALTER ROLE
+#### ALTER ROLE
 
 ```sql
 alter role db_reader
@@ -1538,7 +1441,7 @@ alter role db_reader
 with name = db_reader_v2;
 ```
 
-### DROP ROLE
+#### DROP ROLE
 
 ```sql
 drop role db_reader;
@@ -1547,6 +1450,105 @@ drop role if exists db_reader;
 
 ---
 
-## Semicolons
+## General
+
+### Comments
+
+#### Trailing line comments
+
+Line comments at the end of a statement or VALUES row are kept on the same line:
+
+```sql
+insert into dbo.Genres (genre_id, name)
+values
+  (1, 'Fiction'),   -- primary genre
+  (2, 'Non-Fiction'); -- secondary genre
+```
+
+#### Leading comments
+
+Standalone comment lines before a statement are attached to that statement:
+
+```sql
+-- Returns all available books
+select book_id, title
+from dbo.Books
+where in_stock = 1;
+```
+
+#### Block comments
+
+Block comments are preserved in their original relative position. A block comment before a statement appears before it in the output:
+
+```sql
+/* legacy view — do not remove */
+create or alter view dbo.vw_legacy
+as
+select * from dbo.Books;
+go
+```
+
+#### Commented-out predicates
+
+Line or block comments inside a `where` clause (e.g. a temporarily disabled predicate) are preserved between the surrounding predicates:
+
+```sql
+select book_id
+from dbo.Books
+where
+  in_stock = 1
+  -- and price < 50
+  and genre_id = 1;
+```
+
+#### Comments inside procedure bodies
+
+Comments between statements inside a `begin`/`end` block are preserved in position:
+
+```sql
+create procedure dbo.ProcessBooks
+as
+begin
+  -- Step 1: mark unavailable books
+  update dbo.Books
+  set in_stock = 0
+  where published_date < '2000-01-01';
+
+  -- Step 2: return the remaining stock
+  select book_id, title
+  from dbo.Books
+  where in_stock = 1;
+end;
+go
+```
+
+---
+
+### GO Batch Separators
+
+The following statement types must be alone in a batch and automatically get a `go` appended:
+
+- `CREATE VIEW` / `ALTER VIEW` / `CREATE OR ALTER VIEW`
+- `CREATE PROCEDURE` / `ALTER PROCEDURE` / `CREATE OR ALTER PROCEDURE`
+- `CREATE FUNCTION` / `ALTER FUNCTION` / `CREATE OR ALTER FUNCTION`
+- `CREATE TRIGGER` / `ALTER TRIGGER`
+
+When multiple such statements appear in a file (separated by `go` in the input), each batch is separated by a blank line in the output:
+
+```sql
+create or alter view dbo.vw_books
+as
+select book_id, title from dbo.Books;
+go
+
+create or alter view dbo.vw_authors
+as
+select author_id, first_name, last_name from dbo.Authors;
+go
+```
+
+---
+
+### Semicolons
 
 All statements are terminated with a semicolon. The plugin normalises statements that are missing them.
