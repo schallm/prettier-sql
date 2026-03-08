@@ -671,6 +671,28 @@ public class AstBuilder : TSqlFragmentVisitor
             AlterRoleStatement arol => BuildAlterRole(arol),
             DropRoleStatement drol => BuildDropRole(drol),
 
+            // Database admin — DROP / DBCC / BACKUP / RESTORE / CREATE DATABASE
+            DropDatabaseStatement ddb          => BuildDropDatabase(ddb),
+            DbccStatement dbcc                 => BuildDbcc(dbcc),
+            BackupDatabaseStatement bkd        => BuildBackupDatabase(bkd),
+            BackupTransactionLogStatement bkl  => BuildBackupLog(bkl),
+            RestoreStatement rst               => BuildRestore(rst),
+            CreateDatabaseStatement cdb        => BuildCreateDatabase(cdb),
+
+            // ALTER DATABASE variants
+            AlterDatabaseSetStatement adbs                          => BuildAlterDatabaseSet(adbs),
+            AlterDatabaseCollateStatement adbc                      => BuildAlterDatabaseCollate(adbc),
+            AlterDatabaseModifyNameStatement admn                   => BuildAlterDatabaseModifyName(admn),
+            AlterDatabaseScopedConfigurationSetStatement adcs       => BuildAlterDatabaseScopedConfigSet(adcs),
+            AlterDatabaseScopedConfigurationClearStatement adcc     => BuildAlterDatabaseScopedConfigClear(adcc),
+            AlterDatabaseAddFileStatement adaf                      => BuildAlterDatabaseAddFile(adaf),
+            AlterDatabaseAddFileGroupStatement adafg                => BuildAlterDatabaseAddFileGroup(adafg),
+            AlterDatabaseRemoveFileStatement adrf                   => BuildAlterDatabaseRemoveFile(adrf),
+            AlterDatabaseRemoveFileGroupStatement adrfg             => BuildAlterDatabaseRemoveFileGroup(adrfg),
+            AlterDatabaseModifyFileStatement admf                   => BuildAlterDatabaseModifyFile(admf),
+            AlterDatabaseModifyFileGroupStatement admfg             => BuildAlterDatabaseModifyFileGroup(admfg),
+            AlterDatabaseRebuildLogStatement adrl                   => BuildAlterDatabaseRebuildLog(adrl),
+
             _ => Leaf("Statement", stmt, RawText(stmt)),
         };
     }
@@ -1751,6 +1773,269 @@ public class AstBuilder : TSqlFragmentVisitor
                             ? bulk.Options.Select(o => (object?)RawText(o)).ToList()
                             : null,
             ["alias"]     = bulk.Alias?.Value,
+        });
+
+    // -------------------------------------------------------------------------
+    // Database administration: DROP DATABASE, DBCC, BACKUP, RESTORE,
+    // CREATE DATABASE, ALTER DATABASE (all variants)
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildDropDatabase(DropDatabaseStatement stmt) =>
+        Node("DropDatabaseStatement", stmt, new Dictionary<string, object?>
+        {
+            ["databases"] = stmt.Databases?.Select(d => (object?)d.Value).ToList(),
+            ["ifExists"]  = stmt.IsIfExists,
+        });
+
+    private static SqlNode BuildDbcc(DbccStatement stmt) =>
+        Node("DbccStatement", stmt, new Dictionary<string, object?>
+        {
+            ["command"]        = stmt.Command.ToString().ToUpperInvariant(),
+            ["literals"]       = stmt.Literals?.Count > 0
+                                 ? stmt.Literals.Select(l => (object?)RawText(l)).ToList()
+                                 : null,
+            ["options"]        = stmt.Options?.Count > 0
+                                 ? stmt.Options.Select(o => (object?)RawText(o)).ToList()
+                                 : null,
+            ["optionsUseJoin"] = stmt.OptionsUseJoin,
+        });
+
+    // DeviceInfo raw text only captures the physical path — reconstruct "DISK = 'path'" manually.
+    private static string BuildDeviceInfoText(DeviceInfo d)
+    {
+        if (d.LogicalDevice != null) return RawText(d.LogicalDevice);
+        var typeSql = d.DeviceType switch
+        {
+            DeviceType.Tape          => "TAPE",
+            DeviceType.Url           => "URL",
+            DeviceType.VirtualDevice => "VIRTUAL_DEVICE",
+            _                        => "DISK",
+        };
+        return $"{typeSql} = {(d.PhysicalDevice != null ? RawText(d.PhysicalDevice) : "")}";
+    }
+
+    // BackupOption raw text omits the option keyword for value-bearing options (e.g. "STATS = 10"
+    // gives raw "10"). Apply the same name-prepend pattern used for DatabaseOption.
+    private static string BackupOptionText(BackupOption o)
+    {
+        var name   = System.Text.RegularExpressions.Regex
+                         .Replace(o.OptionKind.ToString(), "(?<=[a-z])(?=[A-Z])", "_")
+                         .ToUpperInvariant();
+        var rawVal = o.Value != null ? RawText(o.Value).Trim() : RawText(o).Trim();
+        if (rawVal.Length == 0) return name;
+        if (rawVal.StartsWith(name, StringComparison.OrdinalIgnoreCase)) return rawVal;
+        return $"{name} = {rawVal}";
+    }
+
+    private static SqlNode BuildBackupStatement(string type, BackupStatement stmt) =>
+        Node(type, stmt, new Dictionary<string, object?>
+        {
+            ["database"] = stmt.DatabaseName != null ? RawText(stmt.DatabaseName) : null,
+            ["devices"]  = stmt.Devices?.Count > 0
+                           ? stmt.Devices.Select(d => (object?)BuildDeviceInfoText(d)).ToList()
+                           : null,
+            ["options"]  = stmt.Options?.Count > 0
+                           ? stmt.Options.Select(o => (object?)BackupOptionText(o)).ToList()
+                           : null,
+            ["mirrorTo"] = stmt.MirrorToClauses?.Count > 0
+                           ? stmt.MirrorToClauses.Select(m => (object?)RawText(m)).ToList()
+                           : null,
+        });
+
+    private static SqlNode BuildBackupDatabase(BackupDatabaseStatement stmt) =>
+        BuildBackupStatement("BackupDatabaseStatement", stmt);
+
+    private static SqlNode BuildBackupLog(BackupTransactionLogStatement stmt) =>
+        BuildBackupStatement("BackupTransactionLogStatement", stmt);
+
+    // DatabaseOption raw text omits the option keyword (e.g. "RECOVERY FULL" → raw is "FULL").
+    // Map the OptionKind enum name (PascalCase) to its SQL name (SCREAMING_SNAKE_CASE).
+    private static string DatabaseOptionKindToSql(DatabaseOptionKind kind)
+    {
+        return System.Text.RegularExpressions.Regex
+            .Replace(kind.ToString(), "(?<=[a-z])(?=[A-Z])", "_")
+            .ToUpperInvariant();
+    }
+
+    private static string RestoreKindToSql(RestoreStatementKind kind) => kind switch
+    {
+        RestoreStatementKind.TransactionLog => "LOG",
+        RestoreStatementKind.FileListOnly   => "FILELISTONLY",
+        RestoreStatementKind.VerifyOnly     => "VERIFYONLY",
+        RestoreStatementKind.LabelOnly      => "LABELONLY",
+        RestoreStatementKind.RewindOnly     => "REWINDONLY",
+        RestoreStatementKind.HeaderOnly     => "HEADERONLY",
+        _                                   => "DATABASE",
+    };
+
+    private static SqlNode BuildRestore(RestoreStatement stmt) =>
+        Node("RestoreStatement", stmt, new Dictionary<string, object?>
+        {
+            ["kind"]     = RestoreKindToSql(stmt.Kind),
+            ["database"] = stmt.DatabaseName != null ? RawText(stmt.DatabaseName) : null,
+            ["devices"]  = stmt.Devices?.Count > 0
+                           ? stmt.Devices.Select(d => (object?)BuildDeviceInfoText(d)).ToList()
+                           : null,
+            ["options"]  = stmt.Options?.Count > 0
+                           ? stmt.Options.Select(o => (object?)RawText(o)).ToList()
+                           : null,
+        });
+
+    private static SqlNode BuildCreateDatabase(CreateDatabaseStatement stmt) =>
+        Node("CreateDatabaseStatement", stmt, new Dictionary<string, object?>
+        {
+            ["name"]       = stmt.DatabaseName?.Value,
+            ["collation"]  = stmt.Collation?.Value,
+            ["snapshot"]   = stmt.DatabaseSnapshot?.Value,
+            ["copyOf"]     = stmt.CopyOf != null ? RawText(stmt.CopyOf) : null,
+            ["fileGroups"] = stmt.FileGroups?.Count > 0
+                             ? stmt.FileGroups.Select(fg => (object?)RawText(fg)).ToList()
+                             : null,
+            ["logOn"]      = stmt.LogOn?.Count > 0
+                             ? stmt.LogOn.Select(l => (object?)RawText(l)).ToList()
+                             : null,
+            ["options"]    = stmt.Options?.Count > 0
+                             ? stmt.Options.Select(o => (object?)RawText(o)).ToList()
+                             : null,
+        });
+
+    // Helper: produce "CURRENT" or the actual database name for ALTER DATABASE statements
+    private static string AlterDbName(AlterDatabaseStatement stmt) =>
+        stmt.UseCurrent ? "CURRENT" : (stmt.DatabaseName?.Value ?? "");
+
+    private static SqlNode BuildAlterDatabaseSet(AlterDatabaseSetStatement stmt) =>
+        Node("AlterDatabaseSetStatement", stmt, new Dictionary<string, object?>
+        {
+            ["database"]    = AlterDbName(stmt),
+            // DatabaseOption raw text sometimes omits the option keyword (e.g. "RECOVERY FULL"
+            // gives raw "FULL"), sometimes includes it (e.g. "QUERY_STORE = ON (...)" gives
+            // raw "QUERY_STORE = ON (...)"). Prepend only when the raw text lacks the keyword.
+            ["options"]     = stmt.Options?.Count > 0
+                              ? stmt.Options.Select(o =>
+                              {
+                                  var name = DatabaseOptionKindToSql(o.OptionKind);
+                                  var val  = RawText(o).Trim();
+                                  var text = val.StartsWith(name, StringComparison.OrdinalIgnoreCase)
+                                             ? val
+                                             : (val.Length > 0 ? $"{name} {val}" : name);
+                                  return (object?)text;
+                              }).ToList()
+                              : null,
+            ["termination"] = stmt.Termination != null ? RawText(stmt.Termination) : null,
+        });
+
+    private static SqlNode BuildAlterDatabaseCollate(AlterDatabaseCollateStatement stmt) =>
+        Node("AlterDatabaseCollateStatement", stmt, new Dictionary<string, object?>
+        {
+            ["database"]  = AlterDbName(stmt),
+            ["collation"] = stmt.Collation?.Value,
+        });
+
+    private static SqlNode BuildAlterDatabaseModifyName(AlterDatabaseModifyNameStatement stmt) =>
+        Node("AlterDatabaseModifyNameStatement", stmt, new Dictionary<string, object?>
+        {
+            ["database"] = AlterDbName(stmt),
+            ["newName"]  = stmt.NewDatabaseName?.Value,
+        });
+
+    // ScriptDom bug: AlterDatabaseScopedConfigurationSetStatement.FragmentLength excludes the
+    // option value (e.g. "= 4" in "SET MAXDOP = 4" lies outside the statement's fragment span).
+    // Collect tokens from the option start until the next semicolon or end-of-file.
+    private static string ScopedConfigOptionText(TSqlStatement stmt, TSqlFragment? option)
+    {
+        if (option == null) return "";
+        var stream = stmt.ScriptTokenStream;
+        if (stream == null || stream.Count == 0) return RawText(option);
+        int optStart = option.StartOffset;
+        var text = string.Concat(stream
+            .OrderBy(t => t.Offset)
+            .SkipWhile(t => t.Offset < optStart)
+            .TakeWhile(t => t.TokenType != TSqlTokenType.Semicolon &&
+                            t.TokenType != TSqlTokenType.EndOfFile)
+            .Select(t => t.Text));
+        return text.Trim();
+    }
+
+    private static SqlNode BuildAlterDatabaseScopedConfigSet(AlterDatabaseScopedConfigurationSetStatement stmt) =>
+        Node("AlterDatabaseScopedConfigurationSetStatement", stmt, new Dictionary<string, object?>
+        {
+            ["option"]    = ScopedConfigOptionText(stmt, stmt.Option),
+            ["secondary"] = stmt.Secondary,
+        });
+
+    private static SqlNode BuildAlterDatabaseScopedConfigClear(AlterDatabaseScopedConfigurationClearStatement stmt) =>
+        Node("AlterDatabaseScopedConfigurationClearStatement", stmt, new Dictionary<string, object?>
+        {
+            ["option"]    = ScopedConfigOptionText(stmt, stmt.Option),
+            ["secondary"] = stmt.Secondary,
+        });
+
+    private static SqlNode BuildAlterDatabaseAddFile(AlterDatabaseAddFileStatement stmt) =>
+        Node("AlterDatabaseAddFileStatement", stmt, new Dictionary<string, object?>
+        {
+            ["database"]  = AlterDbName(stmt),
+            ["fileGroup"] = stmt.FileGroup?.Value,
+            ["isLog"]     = stmt.IsLog,
+            ["files"]     = stmt.FileDeclarations?.Count > 0
+                            ? stmt.FileDeclarations.Select(f => (object?)RawText(f)).ToList()
+                            : null,
+        });
+
+    private static SqlNode BuildAlterDatabaseAddFileGroup(AlterDatabaseAddFileGroupStatement stmt) =>
+        Node("AlterDatabaseAddFileGroupStatement", stmt, new Dictionary<string, object?>
+        {
+            ["database"]               = AlterDbName(stmt),
+            ["fileGroup"]              = stmt.FileGroup?.Value,
+            ["containsFileStream"]     = stmt.ContainsFileStream,
+            ["containsMemoryOptimized"] = stmt.ContainsMemoryOptimizedData,
+        });
+
+    private static SqlNode BuildAlterDatabaseRemoveFile(AlterDatabaseRemoveFileStatement stmt) =>
+        Node("AlterDatabaseRemoveFileStatement", stmt, new Dictionary<string, object?>
+        {
+            ["database"] = AlterDbName(stmt),
+            ["file"]     = stmt.File?.Value,
+        });
+
+    private static SqlNode BuildAlterDatabaseRemoveFileGroup(AlterDatabaseRemoveFileGroupStatement stmt) =>
+        Node("AlterDatabaseRemoveFileGroupStatement", stmt, new Dictionary<string, object?>
+        {
+            ["database"]  = AlterDbName(stmt),
+            ["fileGroup"] = stmt.FileGroup?.Value,
+        });
+
+    private static SqlNode BuildAlterDatabaseModifyFile(AlterDatabaseModifyFileStatement stmt) =>
+        Node("AlterDatabaseModifyFileStatement", stmt, new Dictionary<string, object?>
+        {
+            ["database"] = AlterDbName(stmt),
+            ["file"]     = stmt.FileDeclaration != null ? RawText(stmt.FileDeclaration) : null,
+        });
+
+    private static string ModifyFileGroupOptionToSql(ModifyFileGroupOption opt) => opt switch
+    {
+        ModifyFileGroupOption.ReadOnly          => "READONLY",
+        ModifyFileGroupOption.ReadOnlyOld       => "READONLY",
+        ModifyFileGroupOption.ReadWrite         => "READWRITE",
+        ModifyFileGroupOption.ReadWriteOld      => "READWRITE",
+        ModifyFileGroupOption.AutogrowAllFiles  => "AUTOGROW_ALL_FILES",
+        ModifyFileGroupOption.AutogrowSingleFile => "AUTOGROW_SINGLE_FILE",
+        _                                        => opt.ToString().ToUpperInvariant(),
+    };
+
+    private static SqlNode BuildAlterDatabaseModifyFileGroup(AlterDatabaseModifyFileGroupStatement stmt) =>
+        Node("AlterDatabaseModifyFileGroupStatement", stmt, new Dictionary<string, object?>
+        {
+            ["database"]    = AlterDbName(stmt),
+            ["fileGroup"]   = stmt.FileGroup?.Value,
+            ["makeDefault"] = stmt.MakeDefault,
+            ["option"]      = !stmt.MakeDefault ? ModifyFileGroupOptionToSql(stmt.UpdatabilityOption) : null,
+        });
+
+    private static SqlNode BuildAlterDatabaseRebuildLog(AlterDatabaseRebuildLogStatement stmt) =>
+        Node("AlterDatabaseRebuildLogStatement", stmt, new Dictionary<string, object?>
+        {
+            ["database"] = AlterDbName(stmt),
+            ["file"]     = stmt.FileDeclaration != null ? RawText(stmt.FileDeclaration) : null,
         });
 
     private static SqlNode? BuildOutputClause(OutputClause? output)

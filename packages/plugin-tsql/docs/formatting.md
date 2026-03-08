@@ -1680,6 +1680,120 @@ go
 
 ---
 
+## Database administration
+
+### DROP DATABASE
+
+```sql
+drop database if exists OldDb;
+drop database Db1, Db2;
+```
+
+`IF EXISTS` and multiple database names are supported. All keywords respect `sqlKeywordCase`.
+
+### DBCC
+
+```sql
+dbcc freeproccache;
+dbcc checkdb('AdventureWorks') with no_infomsgs;
+dbcc shrinkfile(1, 10);
+```
+
+Arguments appear inside parentheses (when present), options after `WITH`. The command name
+(e.g. `checkdb`, `shrinkfile`) is treated as a keyword and respects `sqlKeywordCase`.
+
+### BACKUP DATABASE / BACKUP LOG
+
+```sql
+backup database AdventureWorks
+to DISK = N'C:\backup\AW.bak'
+with COMPRESSION, STATS = 10;
+
+backup log AdventureWorks
+to DISK = N'C:\backup\AW_log.bak';
+```
+
+`BACKUP DATABASE` / `BACKUP LOG` keywords are reformatted; device type (`DISK`, `TAPE`, `URL`)
+and option names (`COMPRESSION`, `STATS`) are emitted as raw text (original casing preserved).
+`TO` and `WITH` are on new lines; multiple devices or mirror-to clauses each on their own line.
+
+### RESTORE
+
+```sql
+restore database AdventureWorks
+from DISK = N'C:\backup\AW.bak'
+with NORECOVERY;
+
+restore database AdventureWorks
+from DISK = N'C:\backup\AW.bak'
+with RECOVERY, REPLACE;
+```
+
+`RESTORE DATABASE` / `RESTORE LOG` / `RESTORE FILELISTONLY` / `RESTORE HEADERONLY` /
+`RESTORE VERIFYONLY` are all supported. `FROM` and `WITH` are on new lines.
+
+### CREATE DATABASE
+
+```sql
+create database NewDb;
+create database NewDb2 collate Latin1_General_CI_AS;
+```
+
+For databases with file group or log-on clauses, the file spec raw text is preserved. The
+`COLLATE`, `AS SNAPSHOT OF`, and `AS COPY OF` sub-clauses are formatted as keywords.
+
+### ALTER DATABASE
+
+#### SET options
+
+```sql
+alter database AdventureWorks
+set RECOVERY FULL;
+
+alter database current
+set AUTO_CLOSE OFF with NO_WAIT;
+```
+
+Option names are reconstructed from the ScriptDom `OptionKind` enum (e.g. `Recovery` →
+`RECOVERY`). The option value, including nested clauses like `QUERY_STORE = ON (...)`, is
+preserved as raw text. `DATABASE CURRENT` is used when there is no explicit database name.
+
+#### COLLATE / MODIFY NAME
+
+```sql
+alter database AdventureWorks collate Latin1_General_CI_AS;
+alter database AdventureWorks modify name = AdventureWorks2;
+```
+
+#### SCOPED CONFIGURATION
+
+```sql
+alter database scoped configuration set MAXDOP = 4;
+alter database scoped configuration clear PROCEDURE_CACHE;
+alter database scoped configuration for secondary set MAXDOP = PRIMARY;
+```
+
+The full option text including the value is reconstructed even though ScriptDom omits the
+value from the fragment span (known ScriptDom quirk, fixed by token-stream scanning).
+
+#### File and filegroup operations
+
+```sql
+alter database AdventureWorks add filegroup FG2;
+alter database AdventureWorks add filegroup FG2 contains memory_optimized_data;
+alter database AdventureWorks remove filegroup FG2;
+alter database AdventureWorks remove file AW_Data2;
+alter database AdventureWorks modify filegroup FG2 readonly;
+alter database AdventureWorks modify filegroup FG2 default;
+alter database AdventureWorks modify file (NAME = AW_Data, SIZE = 100MB);
+alter database AdventureWorks add file (...);
+alter database AdventureWorks rebuild log on (...);
+```
+
+File spec parenthesised content is emitted as raw text.
+
+---
+
 ### Semicolons
 
 All statements are terminated with a semicolon. The plugin normalises statements that are missing them.

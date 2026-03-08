@@ -1167,6 +1167,215 @@ from openrowset('SQLNCLI', 'Server=(local);Trusted_Connection=yes;', 'select id,
     });
 });
 
+describe('Database administration', () => {
+    // DROP DATABASE
+    it('DROP DATABASE single', async () => {
+        expect(await fmt('DROP DATABASE OldDb')).toBe('drop database OldDb;');
+    });
+
+    it('DROP DATABASE IF EXISTS', async () => {
+        expect(await fmt('DROP DATABASE IF EXISTS OldDb')).toBe('drop database if exists OldDb;');
+    });
+
+    it('DROP DATABASE multiple', async () => {
+        expect(await fmt('DROP DATABASE Db1, Db2')).toBe('drop database Db1, Db2;');
+    });
+
+    // DBCC
+    it('DBCC no arguments', async () => {
+        expect(await fmt('DBCC FREEPROCCACHE')).toBe('dbcc freeproccache;');
+    });
+
+    it('DBCC with literal argument', async () => {
+        expect(await fmt("DBCC CHECKDB ('AdventureWorks')")).toBe("dbcc checkdb('AdventureWorks');");
+    });
+
+    it('DBCC with WITH options', async () => {
+        expect(await fmt("DBCC CHECKDB ('AdventureWorks') WITH NO_INFOMSGS")).toContain('with NO_INFOMSGS');
+    });
+
+    it('DBCC multiple literals', async () => {
+        expect(await fmt('DBCC SHRINKFILE (1, 10)')).toBe('dbcc shrinkfile(1, 10);');
+    });
+
+    it('DBCC keywords respect sqlKeywordCase upper', async () => {
+        const r = await fmt('DBCC FREEPROCCACHE', { sqlKeywordCase: 'upper' });
+        expect(r).toBe('DBCC FREEPROCCACHE;');
+    });
+
+    // BACKUP
+    it('BACKUP DATABASE simple', async () => {
+        const r = await fmt("BACKUP DATABASE AdventureWorks TO DISK = N'C:\\backup\\AW.bak'");
+        expect(r).toMatchInlineSnapshot(`
+"backup database AdventureWorks
+to DISK = N'C:\\backup\\AW.bak';"
+        `);
+    });
+
+    it('BACKUP DATABASE with options', async () => {
+        const r = await fmt("BACKUP DATABASE AdventureWorks TO DISK = N'C:\\backup\\AW.bak' WITH COMPRESSION, STATS = 10");
+        expect(r).toContain('backup database AdventureWorks');
+        expect(r).toContain("to DISK = N'C:\\backup\\AW.bak'");
+        expect(r).toContain('with COMPRESSION, STATS = 10');
+    });
+
+    it('BACKUP LOG', async () => {
+        const r = await fmt("BACKUP LOG AdventureWorks TO DISK = N'C:\\backup\\AW_log.bak'");
+        expect(r).toContain('backup log AdventureWorks');
+        expect(r).toContain("to DISK = N'C:\\backup\\AW_log.bak'");
+    });
+
+    it('BACKUP keywords respect sqlKeywordCase upper', async () => {
+        const r = await fmt("BACKUP DATABASE AdventureWorks TO DISK = N'C:\\bk.bak'", { sqlKeywordCase: 'upper' });
+        expect(r).toContain('BACKUP DATABASE');
+        expect(r).toContain('TO ');
+    });
+
+    // RESTORE
+    it('RESTORE DATABASE simple', async () => {
+        const r = await fmt("RESTORE DATABASE AdventureWorks FROM DISK = N'C:\\backup\\AW.bak'");
+        expect(r).toMatchInlineSnapshot(`
+"restore database AdventureWorks
+from DISK = N'C:\\backup\\AW.bak';"
+        `);
+    });
+
+    it('RESTORE DATABASE with options', async () => {
+        const r = await fmt("RESTORE DATABASE AdventureWorks FROM DISK = N'C:\\backup\\AW.bak' WITH NORECOVERY");
+        expect(r).toContain('restore database AdventureWorks');
+        expect(r).toContain('with NORECOVERY');
+    });
+
+    it('RESTORE LOG', async () => {
+        const r = await fmt("RESTORE LOG AdventureWorks FROM DISK = N'C:\\backup\\AW_log.bak' WITH RECOVERY");
+        expect(r).toContain('restore log AdventureWorks');
+    });
+
+    it('RESTORE keywords respect sqlKeywordCase upper', async () => {
+        const r = await fmt("RESTORE DATABASE Db FROM DISK = N'C:\\bk.bak'", { sqlKeywordCase: 'upper' });
+        expect(r).toContain('RESTORE DATABASE');
+        expect(r).toContain('FROM ');
+    });
+
+    // CREATE DATABASE
+    it('CREATE DATABASE minimal', async () => {
+        expect(await fmt('CREATE DATABASE NewDb')).toBe('create database NewDb;');
+    });
+
+    it('CREATE DATABASE with COLLATE', async () => {
+        expect(await fmt('CREATE DATABASE NewDb COLLATE Latin1_General_CI_AS')).toBe(
+            'create database NewDb collate Latin1_General_CI_AS;'
+        );
+    });
+
+    it('CREATE DATABASE keywords respect sqlKeywordCase upper', async () => {
+        const r = await fmt('CREATE DATABASE NewDb', { sqlKeywordCase: 'upper' });
+        expect(r).toBe('CREATE DATABASE NewDb;');
+    });
+
+    // ALTER DATABASE SET
+    it('ALTER DATABASE SET', async () => {
+        const r = await fmt('ALTER DATABASE AdventureWorks SET RECOVERY FULL');
+        expect(r).toMatchInlineSnapshot(`
+"alter database AdventureWorks
+set RECOVERY FULL;"
+        `);
+    });
+
+    it('ALTER DATABASE SET with termination', async () => {
+        const r = await fmt('ALTER DATABASE AdventureWorks SET AUTO_CLOSE ON WITH NO_WAIT');
+        expect(r).toContain('set AUTO_CLOSE ON WITH NO_WAIT');
+    });
+
+    it('ALTER DATABASE SET CURRENT', async () => {
+        const r = await fmt('ALTER DATABASE CURRENT SET QUERY_STORE = ON');
+        expect(r).toContain('alter database current');
+        expect(r).toContain('QUERY_STORE');
+    });
+
+    // ALTER DATABASE COLLATE
+    it('ALTER DATABASE COLLATE', async () => {
+        expect(await fmt('ALTER DATABASE AdventureWorks COLLATE Latin1_General_CI_AS')).toBe(
+            'alter database AdventureWorks collate Latin1_General_CI_AS;'
+        );
+    });
+
+    // ALTER DATABASE MODIFY NAME
+    it('ALTER DATABASE MODIFY NAME', async () => {
+        expect(await fmt('ALTER DATABASE AdventureWorks MODIFY NAME = AdventureWorks2')).toBe(
+            'alter database AdventureWorks modify name = AdventureWorks2;'
+        );
+    });
+
+    // ALTER DATABASE SCOPED CONFIGURATION
+    it('ALTER DATABASE SCOPED CONFIGURATION SET', async () => {
+        expect(await fmt('ALTER DATABASE SCOPED CONFIGURATION SET MAXDOP = 4')).toBe(
+            'alter database scoped configuration set MAXDOP = 4;'
+        );
+    });
+
+    it('ALTER DATABASE SCOPED CONFIGURATION CLEAR', async () => {
+        expect(await fmt('ALTER DATABASE SCOPED CONFIGURATION CLEAR PROCEDURE_CACHE')).toBe(
+            'alter database scoped configuration clear PROCEDURE_CACHE;'
+        );
+    });
+
+    it('ALTER DATABASE SCOPED CONFIGURATION keywords respect upper', async () => {
+        const r = await fmt('ALTER DATABASE SCOPED CONFIGURATION SET MAXDOP = 4', { sqlKeywordCase: 'upper' });
+        expect(r).toContain('ALTER DATABASE SCOPED CONFIGURATION');
+        expect(r).toContain('SET ');
+    });
+
+    // ALTER DATABASE file operations
+    it('ALTER DATABASE ADD FILEGROUP', async () => {
+        expect(await fmt('ALTER DATABASE AdventureWorks ADD FILEGROUP FG2')).toBe(
+            'alter database AdventureWorks add filegroup FG2;'
+        );
+    });
+
+    it('ALTER DATABASE REMOVE FILEGROUP', async () => {
+        expect(await fmt('ALTER DATABASE AdventureWorks REMOVE FILEGROUP FG2')).toBe(
+            'alter database AdventureWorks remove filegroup FG2;'
+        );
+    });
+
+    it('ALTER DATABASE REMOVE FILE', async () => {
+        expect(await fmt('ALTER DATABASE AdventureWorks REMOVE FILE AW_Data2')).toBe(
+            'alter database AdventureWorks remove file AW_Data2;'
+        );
+    });
+
+    it('ALTER DATABASE MODIFY FILEGROUP', async () => {
+        expect(await fmt('ALTER DATABASE AdventureWorks MODIFY FILEGROUP FG2 READONLY')).toBe(
+            'alter database AdventureWorks modify filegroup FG2 readonly;'
+        );
+    });
+
+    it('ALTER DATABASE MODIFY FILEGROUP DEFAULT', async () => {
+        expect(await fmt('ALTER DATABASE AdventureWorks MODIFY FILEGROUP FG2 DEFAULT')).toBe(
+            'alter database AdventureWorks modify filegroup FG2 default;'
+        );
+    });
+
+    it('ALTER DATABASE MODIFY FILE', async () => {
+        const r = await fmt("ALTER DATABASE AdventureWorks MODIFY FILE (NAME = AW_Data, SIZE = 100MB)");
+        expect(r).toContain('modify file');
+        expect(r).toContain('NAME = AW_Data');
+    });
+
+    it('ALTER DATABASE ADD FILE', async () => {
+        const r = await fmt("ALTER DATABASE AdventureWorks ADD FILE (NAME = N'AW_Data2', FILENAME = N'C:\\data\\AW2.ndf')");
+        expect(r).toContain('add file');
+        expect(r).toContain("NAME = N'AW_Data2'");
+    });
+
+    it('ALTER DATABASE keywords respect sqlKeywordCase upper', async () => {
+        const r = await fmt('ALTER DATABASE AdventureWorks SET RECOVERY FULL', { sqlKeywordCase: 'upper' });
+        expect(r).toContain('ALTER DATABASE');
+        expect(r).toContain('SET ');
+    });
+});
+
 describe('USE / SET / WAITFOR / ALTER PROC/FUNC', () => {
     it('USE statement', async () => {
         expect(await fmt('USE AdventureWorks2019')).toContain('use AdventureWorks2019;');

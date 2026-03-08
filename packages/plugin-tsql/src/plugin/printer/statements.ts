@@ -38,6 +38,17 @@ import {
     printCreateLogin, printAlterLogin, printDropLogin,
     printCreateRole, printAlterRole, printDropRole,
 } from './security.js';
+import {
+    printDropDatabase, printDbcc,
+    printBackupDatabase, printBackupLog, printRestore,
+    printCreateDatabase,
+    printAlterDatabaseSet, printAlterDatabaseCollate, printAlterDatabaseModifyName,
+    printAlterDatabaseScopedConfigSet, printAlterDatabaseScopedConfigClear,
+    printAlterDatabaseAddFile, printAlterDatabaseAddFileGroup,
+    printAlterDatabaseRemoveFile, printAlterDatabaseRemoveFileGroup,
+    printAlterDatabaseModifyFile, printAlterDatabaseModifyFileGroup,
+    printAlterDatabaseRebuildLog,
+} from './admin.js';
 
 // ---------------------------------------------------------------------------
 // Shared helpers — used here and re-exported for ddl.ts / procedural.ts
@@ -250,6 +261,28 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'CreateRoleStatement':  return printCreateRole(node, opts);
         case 'AlterRoleStatement':   return printAlterRole(node, opts);
         case 'DropRoleStatement':    return printDropRole(node, opts);
+
+        // Database admin — DROP DATABASE, DBCC, BACKUP, RESTORE, CREATE DATABASE
+        case 'DropDatabaseStatement':       return printDropDatabase(node, opts);
+        case 'DbccStatement':               return printDbcc(node, opts);
+        case 'BackupDatabaseStatement':     return printBackupDatabase(node, opts);
+        case 'BackupTransactionLogStatement': return printBackupLog(node, opts);
+        case 'RestoreStatement':            return printRestore(node, opts);
+        case 'CreateDatabaseStatement':     return printCreateDatabase(node, opts);
+
+        // ALTER DATABASE variants
+        case 'AlterDatabaseSetStatement':                          return printAlterDatabaseSet(node, opts);
+        case 'AlterDatabaseCollateStatement':                      return printAlterDatabaseCollate(node, opts);
+        case 'AlterDatabaseModifyNameStatement':                   return printAlterDatabaseModifyName(node, opts);
+        case 'AlterDatabaseScopedConfigurationSetStatement':       return printAlterDatabaseScopedConfigSet(node, opts);
+        case 'AlterDatabaseScopedConfigurationClearStatement':     return printAlterDatabaseScopedConfigClear(node, opts);
+        case 'AlterDatabaseAddFileStatement':                      return printAlterDatabaseAddFile(node, opts);
+        case 'AlterDatabaseAddFileGroupStatement':                 return printAlterDatabaseAddFileGroup(node, opts);
+        case 'AlterDatabaseRemoveFileStatement':                   return printAlterDatabaseRemoveFile(node, opts);
+        case 'AlterDatabaseRemoveFileGroupStatement':              return printAlterDatabaseRemoveFileGroup(node, opts);
+        case 'AlterDatabaseModifyFileStatement':                   return printAlterDatabaseModifyFile(node, opts);
+        case 'AlterDatabaseModifyFileGroupStatement':              return printAlterDatabaseModifyFileGroup(node, opts);
+        case 'AlterDatabaseRebuildLogStatement':                   return printAlterDatabaseRebuildLog(node, opts);
 
         default:
             return node.text ?? `/* unhandled statement: ${node.type} */`;

@@ -25,6 +25,15 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - `BULK INSERT … FROM … WITH (options)`
 - `CREATE TYPE … FROM …` (scalar UDDTs) and `CREATE TYPE … AS TABLE (…)` (table-valued parameters)
 - `DROP TABLE/PROCEDURE/VIEW/FUNCTION/INDEX/TRIGGER/SEQUENCE` (with `IF EXISTS`)
+- `DROP DATABASE` (with `IF EXISTS`, multiple databases)
+- `CREATE DATABASE` (with optional `COLLATE`, file group specs, snapshot)
+- `ALTER DATABASE` — `SET` (any option with proper keyword reconstruction), `COLLATE`, `MODIFY NAME`, `ADD/REMOVE FILE`, `ADD/REMOVE FILEGROUP`, `MODIFY FILE`, `MODIFY FILEGROUP`, `REBUILD LOG`, `SCOPED CONFIGURATION SET/CLEAR`
+
+**Database Administration**
+
+- `DBCC` commands — any command name, literal arguments, `WITH` options
+- `BACKUP DATABASE` / `BACKUP LOG` — `TO DISK/TAPE/URL`, `MIRROR TO`, `WITH` options
+- `RESTORE DATABASE` / `RESTORE LOG` / `RESTORE FILELISTONLY` / `RESTORE HEADERONLY` / `RESTORE VERIFYONLY` — `FROM DISK/TAPE/URL`, `WITH` options
 
 **Procedural / Control Flow**
 
@@ -43,18 +52,14 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 
 ## Pending implementation
 
-The constructs below are parsed correctly but not yet formatted — they pass through as-is. PRs welcome.
+The constructs below are parsed correctly but emitted as-is (original source text preserved). PRs welcome.
 
-**Specialised / lower priority**
-
-- `DBCC` commands
-- `BACKUP` / `RESTORE`
-- `CREATE/ALTER/DROP DATABASE`
-- Service Broker statements (`CREATE QUEUE`, `SEND`, `RECEIVE`, etc.)
-- Extended Events (`CREATE EVENT SESSION`, etc.)
-- Cryptography (`CREATE CERTIFICATE`, `CREATE SYMMETRIC KEY`, etc.)
-- Availability Group DDL
-- External data (`CREATE EXTERNAL TABLE`, `CREATE EXTERNAL DATA SOURCE`, etc.)
+- Service Broker statements (`CREATE QUEUE`, `SEND`, `RECEIVE`, `CREATE SERVICE`, etc.)
+- Extended Events (`CREATE EVENT SESSION`, `ALTER EVENT SESSION`, etc.)
+- Cryptography (`CREATE CERTIFICATE`, `CREATE SYMMETRIC KEY`, `CREATE ASYMMETRIC KEY`, `OPEN/CLOSE MASTER KEY`, etc.)
+- Availability Group DDL (`CREATE/ALTER/DROP AVAILABILITY GROUP`)
+- External data (`CREATE EXTERNAL TABLE`, `CREATE EXTERNAL DATA SOURCE`, `CREATE EXTERNAL FILE FORMAT`, etc.)
+- Database audit (`CREATE/ALTER SERVER AUDIT`, `CREATE/ALTER DATABASE AUDIT SPECIFICATION`, etc.)
 
 ## Requirements
 
