@@ -1,16 +1,16 @@
 {
   "default": true,
 
-  // MD013: line-length — disabled; prose and SQL examples intentionally exceed 80 chars
-  "MD013": false,
+  // line-length — disabled; prose and SQL examples intentionally exceed 80 chars
+  "line-length": false,
 
-  // MD024: no-duplicate-heading — siblings_only allows the same heading name
-  // under different parent sections (e.g. "### Examples" under each ## option,
+  // no-duplicate-heading — siblings_only allows the same heading name under
+  // different parent sections (e.g. "### Examples" under each ## option,
   // "### SELECT" under both ## DML and an index page)
-  "MD024": { "siblings_only": true },
+  "no-duplicate-heading": { "siblings_only": true },
 
-  // MD036: no-emphasis-as-heading — disabled; README uses **DML** / **DDL** /
+  // no-emphasis-as-heading — disabled; README uses **DML** / **DDL** /
   // **Procedural** / **Security** as bold category labels above feature lists,
   // not as structural headings
-  "MD036": false
+  "no-emphasis-as-heading": false
 }
