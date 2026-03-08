@@ -14,7 +14,7 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - Table-valued functions (TVFs) in `FROM` clauses; table hints (`WITH (NOLOCK)`, etc.)
 - Expression functions: `CAST`, `CONVERT`, `TRY_CAST`, `TRY_CONVERT` (with full data type including length/precision), `IIF`, `COALESCE`, `NULLIF`, `AT TIME ZONE`
 - Full-text predicates: `CONTAINS` / `FREETEXT` (single column, multi-column, wildcard, `LANGUAGE`); `CONTAINSTABLE` / `FREETEXTTABLE` as join sources
-- Rowset functions: `OPENJSON` and `OPENXML` with `WITH` schema declarations; `OPENJSON` row-path and `AS JSON` columns
+- Rowset functions: `OPENJSON` and `OPENXML` with `WITH` schema declarations; `OPENJSON` row-path and `AS JSON` columns; `OPENROWSET` provider form (single provider-string or three-part datasource/userid/password) and `OPENROWSET(BULK ...)` form
 
 **DDL**
 
@@ -40,12 +40,6 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - `CREATE/ALTER/DROP USER` — FOR LOGIN, WITHOUT LOGIN, FROM EXTERNAL PROVIDER, WITH options
 - `CREATE/ALTER/DROP LOGIN` — password (HASHED/MUST_CHANGE), FROM WINDOWS, FROM CERTIFICATE/ASYMMETRIC KEY, ENABLE/DISABLE, ADD/DROP CREDENTIAL
 - `CREATE/ALTER/DROP ROLE` — AUTHORIZATION owner, ADD/DROP MEMBER, WITH NAME rename
-
-## Passthrough constructs
-
-The following T-SQL constructs are recognised by the parser but emitted unchanged (their original source text is preserved):
-
-- `OPENROWSET` — complex provider/connection-string form
 
 ## Pending implementation
 

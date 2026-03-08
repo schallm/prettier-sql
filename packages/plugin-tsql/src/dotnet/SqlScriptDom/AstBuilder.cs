@@ -340,6 +340,8 @@ public class AstBuilder : TSqlFragmentVisitor
             FullTextTableReference ftt => BuildFullTextTableReference(ftt),
             OpenXmlTableReference openXml => BuildOpenXmlTableReference(openXml),
             OpenJsonTableReference openJson => BuildOpenJsonTableReference(openJson),
+            OpenRowsetTableReference or => BuildOpenRowsetTableReference(or),
+            BulkOpenRowset bulkOr => BuildBulkOpenRowset(bulkOr),
             _ => Leaf("TableReference", tableRef, RawText(tableRef)),
         };
     }
@@ -1718,6 +1720,37 @@ public class AstBuilder : TSqlFragmentVisitor
                              ? oj.SchemaDeclarationItems.Select(i => (object?)BuildSchemaItem(i)).ToList()
                              : null,
             ["alias"]      = oj.Alias?.Value,
+        });
+
+    // -------------------------------------------------------------------------
+    // Rowset functions: OPENROWSET (provider form) and OPENROWSET(BULK ...)
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildOpenRowsetTableReference(OpenRowsetTableReference or) =>
+        Node("OpenRowsetTableReference", or, new Dictionary<string, object?>
+        {
+            ["providerName"]   = or.ProviderName   != null ? RawText(or.ProviderName)   : null,
+            // Connection: either a single provider string or three-part datasource;userid;password
+            ["providerString"] = or.ProviderString != null ? RawText(or.ProviderString) : null,
+            ["dataSource"]     = or.DataSource     != null ? RawText(or.DataSource)     : null,
+            ["userId"]         = or.UserId         != null ? RawText(or.UserId)         : null,
+            ["password"]       = or.Password       != null ? RawText(or.Password)       : null,
+            // Third argument: either an ad-hoc query string or a remote schema object name
+            ["query"]          = or.Query          != null ? RawText(or.Query)          : null,
+            ["object"]         = or.Object         != null ? BuildSchemaObjectName(or.Object) : null,
+            ["alias"]          = or.Alias?.Value,
+        });
+
+    private static SqlNode BuildBulkOpenRowset(BulkOpenRowset bulk) =>
+        Node("BulkOpenRowset", bulk, new Dictionary<string, object?>
+        {
+            ["dataFiles"] = bulk.DataFiles?.Count > 0
+                            ? bulk.DataFiles.Select(f => (object?)RawText(f)).ToList()
+                            : null,
+            ["options"]   = bulk.Options?.Count > 0
+                            ? bulk.Options.Select(o => (object?)RawText(o)).ToList()
+                            : null,
+            ["alias"]     = bulk.Alias?.Value,
         });
 
     private static SqlNode? BuildOutputClause(OutputClause? output)

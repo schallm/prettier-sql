@@ -712,8 +712,10 @@ export function printTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode
         case 'QueryDerivedTable':           return printQueryDerivedTable(node, opts, printFn);
         case 'SchemaObjectFunctionTableReference': return printSchemaObjectFunctionTableRef(node, opts, printFn);
         case 'FullTextTableReference': return printFullTextTableRef(node, opts, printFn);
-        case 'OpenXmlTableReference':  return printOpenXmlTableRef(node, opts);
-        case 'OpenJsonTableReference': return printOpenJsonTableRef(node, opts);
+        case 'OpenXmlTableReference':        return printOpenXmlTableRef(node, opts);
+        case 'OpenJsonTableReference':       return printOpenJsonTableRef(node, opts);
+        case 'OpenRowsetTableReference':     return printOpenRowsetTableRef(node, opts);
+        case 'BulkOpenRowset':               return printBulkOpenRowset(node, opts);
         default:
             return node.text ?? `/* ${node.type} */`;
     }
@@ -946,6 +948,52 @@ function printOpenJsonTableRef(node: SqlNode, opts: Options): Doc {
     const withPart: Doc = withItems.length ? rowsetWithClause(withItems, opts) : '';
     const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
     return [keyword('OPENJSON', opts), '(', ...args, ')', withPart, aliasPart];
+}
+
+// ---------------------------------------------------------------------------
+// OPENROWSET — provider form and BULK form
+// ---------------------------------------------------------------------------
+
+function printOpenRowsetTableRef(node: SqlNode, opts: Options): Doc {
+    const providerName   = propStr(node, 'providerName') ?? '';
+    const providerString = propStr(node, 'providerString');
+    const dataSource     = propStr(node, 'dataSource');
+    const userId         = propStr(node, 'userId');
+    const password       = propStr(node, 'password');
+    const query          = propStr(node, 'query');
+    const obj            = prop(node, 'object');
+    const alias          = propStr(node, 'alias');
+
+    // Connection: either a single provider string or three-part datasource;userid;password
+    const connection: Doc = providerString
+        ? providerString
+        : [dataSource ?? '', ';', userId ?? '', ';', password ?? ''];
+
+    // Third argument: either an ad-hoc query string or a remote schema object name
+    const third: Doc = query ? query : schemaObjectName(obj);
+
+    const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
+    return [keyword('OPENROWSET', opts), '(', providerName, ', ', connection, ', ', third, ')', aliasPart];
+}
+
+function printBulkOpenRowset(node: SqlNode, opts: Options): Doc {
+    const dataFiles = node.props?.['dataFiles'] as string[] | undefined;
+    const options   = node.props?.['options']   as string[] | undefined;
+    const alias     = propStr(node, 'alias');
+
+    const dataFile = dataFiles?.[0] ?? '';
+    const optionsDocs: Doc = options?.length
+        ? [',', indent([hardline, join([',', hardline], options)])]
+        : '';
+
+    const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
+    return [
+        keyword('OPENROWSET', opts), '(',
+        keyword('BULK', opts), ' ', dataFile,
+        optionsDocs,
+        ')',
+        aliasPart,
+    ];
 }
 
 // ---------------------------------------------------------------------------

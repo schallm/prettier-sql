@@ -504,7 +504,7 @@ from
     b.book_id = ft.key;
 ```
 
-#### Rowset functions (OPENJSON / OPENXML)
+#### Rowset functions (OPENJSON / OPENXML / OPENROWSET)
 
 ##### OPENJSON
 
@@ -566,7 +566,46 @@ with (
 ```
 
 The column data types inside `WITH (...)` are emitted as raw text (original casing is
-preserved). `OPENROWSET` is not yet formatted and is emitted as-is.
+preserved).
+
+##### OPENROWSET — provider form
+
+`OPENROWSET` with an OLE DB provider name and a query string or remote object:
+
+```sql
+-- Single provider-string connection
+select
+  r.id,
+  r.name
+from openrowset('SQLNCLI', 'Server=(local);Trusted_Connection=yes;', 'select id, name from pubs.dbo.titles') as r;
+
+-- Three-part datasource;userid;password connection with a schema object
+select *
+from openrowset('SQLNCLI', 'server=(local)';'sa';'pass', pubs.dbo.titles) as r;
+```
+
+The three arguments (provider name, connection, query/object) are kept inline. All SQL
+keywords (`OPENROWSET`, `AS`) are subject to the `sqlKeywordCase` option.
+
+##### OPENROWSET — BULK form
+
+`OPENROWSET(BULK ...)` for importing file data:
+
+```sql
+-- With FORMATFILE and extra options, each option on its own indented line
+select *
+from openrowset(bulk 'C:\data\file.csv',
+  formatfile='C:\data\fmt.xml',
+  firstrow=2
+) as t;
+
+-- SINGLE_BLOB on one line when there is only one option
+select *
+from openrowset(bulk 'C:\data\data.json', single_blob) as j;
+```
+
+Options are emitted as raw text (original casing preserved). The `BULK` keyword respects
+`sqlKeywordCase`.
 
 #### SELECT @var = expr
 

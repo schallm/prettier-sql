@@ -1109,6 +1109,62 @@ with (
         expect(result).toContain('WITH (');
         expect(result).toContain('AS j');
     });
+
+    it('OPENROWSET provider form with provider string and query', async () => {
+        const result = await fmt(
+            "select r.id, r.name from openrowset('SQLNCLI', 'Server=(local);Trusted_Connection=yes;', 'select id, name from pubs.dbo.titles') as r;"
+        );
+        expect(result).toMatchInlineSnapshot(`
+"select
+  r.id,
+  r.name
+from openrowset('SQLNCLI', 'Server=(local);Trusted_Connection=yes;', 'select id, name from pubs.dbo.titles') as r;"
+        `);
+    });
+
+    it('OPENROWSET provider form with datasource/userid/password and schema object', async () => {
+        const result = await fmt(
+            "select * from openrowset('SQLNCLI', 'server=(local)';'sa';'pass', pubs.dbo.titles) as r;"
+        );
+        expect(result).toContain("openrowset('SQLNCLI', 'server=(local)';'sa';'pass', pubs.dbo.titles)");
+        expect(result).toContain('as r;');
+    });
+
+    it('OPENROWSET BULK form with FORMATFILE and options', async () => {
+        const result = await fmt(
+            "select * from openrowset(bulk 'C:\\data\\file.csv', formatfile='C:\\data\\fmt.xml', firstrow=2) as t;"
+        );
+        expect(result).toContain("openrowset(bulk 'C:\\data\\file.csv',");
+        expect(result).toContain("formatfile='C:\\data\\fmt.xml'");
+        expect(result).toContain('as t;');
+    });
+
+    it('OPENROWSET BULK form SINGLE_BLOB', async () => {
+        const result = await fmt(
+            "select * from openrowset(bulk 'C:\\data\\data.json', single_blob) as j;"
+        );
+        expect(result).toContain("openrowset(bulk 'C:\\data\\data.json',");
+        expect(result).toContain('single_blob)');
+        expect(result).toContain('as j;');
+    });
+
+    it('OPENROWSET keywords respect sqlKeywordCase upper', async () => {
+        const result = await fmt(
+            "select r.id from openrowset('SQLNCLI', 'Server=(local);Trusted_Connection=yes;', 'select 1') as r;",
+            { sqlKeywordCase: 'upper' }
+        );
+        expect(result).toContain('OPENROWSET(');
+        expect(result).toContain('AS r');
+    });
+
+    it('OPENROWSET BULK keywords respect sqlKeywordCase upper', async () => {
+        const result = await fmt(
+            "select * from openrowset(bulk 'C:\\data\\file.csv', single_blob) as t;",
+            { sqlKeywordCase: 'upper' }
+        );
+        expect(result).toContain('OPENROWSET(BULK ');
+        expect(result).toContain('AS t');
+    });
 });
 
 describe('USE / SET / WAITFOR / ALTER PROC/FUNC', () => {
