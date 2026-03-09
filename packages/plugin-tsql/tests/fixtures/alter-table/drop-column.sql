@@ -1,1 +1,1 @@
-alter table dbo.users drop column phone, bio
+alter table users drop column Phone, Bio

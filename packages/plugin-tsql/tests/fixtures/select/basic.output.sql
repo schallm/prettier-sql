@@ -1,11 +1,11 @@
 SELECT
     u.id,
-    u.name,
-    u.email
+    u.Name,
+    u.Email
 FROM
-    dbo.users AS u
-    INNER JOIN dbo.roles AS r ON u.role_id = r.id
+    users AS u
+    INNER JOIN roles AS r ON u.RoleId = r.id
 WHERE
-    u.active = 1
+    u.Active = 1
 ORDER BY
-    u.name ASC;
+    u.Name ASC;

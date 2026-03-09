@@ -1,1 +1,1 @@
-create function dbo.GetUsersByDepartment (@departmentId int) returns table as return select id, name, email from dbo.users where department_id = @departmentId and active = 1
+create function GetUsersByDepartment (@departmentId int) returns table as return select id, Name, Email from users where DepartmentId = @departmentId and Active = 1

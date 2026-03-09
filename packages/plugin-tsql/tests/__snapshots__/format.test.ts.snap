@@ -1,43 +1,43 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`ALTER INDEX > ALTER INDEX ALL REBUILD 1`] = `
-"alter index all on dbo.Books
+"alter index all on Books
 rebuild;"
 `;
 
 exports[`ALTER INDEX > ALTER INDEX DISABLE 1`] = `
-"alter index ix_Books_title on dbo.Books
+"alter index ix_Books_title on Books
 disable;"
 `;
 
 exports[`ALTER INDEX > ALTER INDEX REBUILD 1`] = `
-"alter index ix_Books_title on dbo.Books
+"alter index ix_Books_title on Books
 rebuild;"
 `;
 
 exports[`ALTER INDEX > ALTER INDEX REORGANIZE 1`] = `
-"alter index ix_Books_title on dbo.Books
+"alter index ix_Books_title on Books
 reorganize;"
 `;
 
 exports[`ALTER TABLE formatting > add column 1`] = `
-"alter table dbo.Books
+"alter table Books
 add
-  isbn nvarchar(20) null;"
+  Isbn nvarchar(20) null;"
 `;
 
 exports[`ALTER TABLE formatting > drop column 1`] = `
-"alter table dbo.Books
-drop column isbn;"
+"alter table Books
+drop column Isbn;"
 `;
 
 exports[`BULK INSERT > BULK INSERT basic 1`] = `
-"bulk insert dbo.Books
+"bulk insert Books
 from 'C:\\data\\books.csv';"
 `;
 
 exports[`BULK INSERT > BULK INSERT with WITH options 1`] = `
-"bulk insert dbo.Books
+"bulk insert Books
 from 'C:\\data\\books.csv'
 with (
   fieldterminator = ',',
@@ -47,21 +47,21 @@ with (
 `;
 
 exports[`CREATE PROCEDURE formatting > block comment after last parameter (before AS) stays between params and as 1`] = `
-"create procedure dbo.GetBookById
+"create procedure GetBookById
   @id int,
-  @active bit
+  @Active bit
 /*WITH ENCRYPTION*/
 as
 begin
-  select book_id
-  from dbo.Books
-  where book_id = @id;
+  select BookId
+  from Books
+  where BookId = @id;
 end;
 go"
 `;
 
-exports[`CREATE PROCEDURE formatting > block comment between procedure name and first parameter is preserved 1`] = `
-"create procedure dbo.GetBookById
+exports[`CREATE PROCEDURE formatting > block comment between procedure Name and first parameter is preserved 1`] = `
+"create procedure GetBookById
 /**********************
 ** Author: Jon
 ** Date:   2012-01-10
@@ -70,88 +70,88 @@ exports[`CREATE PROCEDURE formatting > block comment between procedure name and 
   @includeOutOfStock bit = 0
 as
 begin
-  select book_id
-  from dbo.Books
-  where book_id = @id;
+  select BookId
+  from Books
+  where BookId = @id;
 end;
 go"
 `;
 
 exports[`CREATE PROCEDURE formatting > line comment inside procedure body is preserved 1`] = `
-"create procedure dbo.GetAvailableBooks
+"create procedure GetAvailableBooks
 as
 begin
   -- fetch available books only
   select
-    book_id,
-    title
-  from dbo.Books
-  where in_stock = 1;
+    BookId,
+    Title
+  from Books
+  where InStock = 1;
 end;
 go"
 `;
 
 exports[`CREATE PROCEDURE formatting > procedure with parameters 1`] = `
-"create procedure dbo.GetBookById
+"create procedure GetBookById
   @id int,
   @includeOutOfStock bit = 0
 as
 begin
   select
-    book_id,
-    title
-  from dbo.Books
-  where book_id = @id;
+    BookId,
+    Title
+  from Books
+  where BookId = @id;
 end;
 go"
 `;
 
 exports[`CREATE PROCEDURE formatting > simple procedure 1`] = `
-"create procedure dbo.GetAvailableBooks
+"create procedure GetAvailableBooks
 as
 begin
   select
-    book_id,
-    title
-  from dbo.Books
-  where in_stock = 1;
+    BookId,
+    Title
+  from Books
+  where InStock = 1;
 end;
 go"
 `;
 
 exports[`CREATE TABLE formatting > basic table 1`] = `
-"create table dbo.Books (
-  book_id int identity(1, 1) not null,
-  title nvarchar(200) not null,
-  price decimal(10, 2) not null,
-  in_stock bit default 1 not null,
-  constraint pk_books primary key (book_id)
+"create table Books (
+  BookId int identity(1, 1) not null,
+  Title nvarchar(200) not null,
+  Price decimal(10, 2) not null,
+  InStock bit default 1 not null,
+  constraint pk_books primary key (BookId)
 );"
 `;
 
 exports[`CREATE TABLE formatting > table with foreign key constraint 1`] = `
-"create table dbo.Orders (
-  order_id int identity(1, 1) not null,
-  customer_id int not null,
-  total decimal(18, 2) not null,
-  constraint pk_orders primary key (order_id),
-  constraint fk_orders_customers foreign key (customer_id) references dbo.Customers (customer_id)
+"create table Orders (
+  OrderId int identity(1, 1) not null,
+  CustomerId int not null,
+  Total decimal(18, 2) not null,
+  constraint pk_orders primary key (OrderId),
+  constraint fk_orders_customers foreign key (CustomerId) references Customers (CustomerId)
 );"
 `;
 
-exports[`CREATE TYPE > CREATE TYPE scalar UDDT 1`] = `"create type dbo.BookTitle from nvarchar(200) not null;"`;
+exports[`CREATE TYPE > CREATE TYPE scalar UDDT 1`] = `"create type BookTitle from nvarchar(200) not null;"`;
 
 exports[`CREATE TYPE > CREATE TYPE table type 1`] = `
-"create type dbo.BookList as table (
-  book_id int not null,
-  title nvarchar(200),
-  price decimal(10, 2)
+"create type BookList as table (
+  BookId int not null,
+  Title nvarchar(200),
+  Price decimal(10, 2)
 );"
 `;
 
 exports[`CREATE/ALTER TRIGGER > ALTER TRIGGER 1`] = `
-"alter trigger dbo.trg_Books_AI
-on dbo.Books
+"alter trigger trg_Books_AI
+on Books
 after insert
 as
 begin
@@ -161,15 +161,15 @@ go"
 `;
 
 exports[`CREATE/ALTER TRIGGER > CREATE TRIGGER after insert 1`] = `
-"create trigger dbo.trg_Books_AI
-on dbo.Books
+"create trigger trg_Books_AI
+on Books
 after insert
 as
 begin
-  update dbo.Books
-  set price = price * 1.1
-  where book_id in (
-    select book_id
+  update Books
+  set Price = Price * 1.1
+  where BookId in (
+    select BookId
     from inserted
   );
 end;
@@ -177,8 +177,8 @@ go"
 `;
 
 exports[`CREATE/ALTER TRIGGER > CREATE TRIGGER instead of update/delete 1`] = `
-"create trigger dbo.trg_Books_IOD
-on dbo.Books
+"create trigger trg_Books_IOD
+on Books
 instead of update, delete
 as
 begin
@@ -188,20 +188,20 @@ go"
 `;
 
 exports[`CREATE/ALTER/DROP SEQUENCE > ALTER SEQUENCE restart 1`] = `
-"alter sequence dbo.OrderSeq
+"alter sequence OrderSeq
 restart with 100
 increment by 5;"
 `;
 
 exports[`CREATE/ALTER/DROP SEQUENCE > CREATE SEQUENCE minimal 1`] = `
-"create sequence dbo.OrderSeq
+"create sequence OrderSeq
 as int
 start with 1
 increment by 1;"
 `;
 
 exports[`CREATE/ALTER/DROP SEQUENCE > CREATE SEQUENCE with min/max/cycle/cache 1`] = `
-"create sequence dbo.Seq
+"create sequence Seq
 as bigint
 start with 1
 increment by 1
@@ -212,25 +212,25 @@ cache 20;"
 `;
 
 exports[`Control flow & DDL additions > CREATE OR ALTER PROCEDURE emits correct keyword and GO 1`] = `
-"create or alter procedure dbo.GetBooks
+"create or alter procedure GetBooks
 as
 begin
-  select book_id
-  from dbo.Books;
+  select BookId
+  from Books;
 end;
 go"
 `;
 
 exports[`Control flow & DDL additions > SELECT @var assignment in select list 1`] = `
-"select @total = sum(price)
-from dbo.Books
-where in_stock = 1;"
+"select @Total = sum(Price)
+from Books
+where InStock = 1;"
 `;
 
 exports[`Control flow & DDL additions > TRY/CATCH block 1`] = `
 "begin try
-  select book_id
-  from dbo.Books;
+  select BookId
+  from Books;
 end try
 begin catch
   throw;
@@ -241,16 +241,16 @@ exports[`Cursor operations > DECLARE CURSOR basic 1`] = `
 "declare book_cursor cursor
 for
 select
-  book_id,
-  title
-from dbo.Books
-where in_stock = 1;"
+  BookId,
+  Title
+from Books
+where InStock = 1;"
 `;
 
 exports[`Cursor operations > OPEN / FETCH NEXT / CLOSE / DEALLOCATE 1`] = `
 "open book_cursor;
 
-fetch next from book_cursor into @id, @title;
+fetch next from book_cursor into @id, @Title;
 
 close book_cursor;
 
@@ -258,87 +258,86 @@ deallocate book_cursor;"
 `;
 
 exports[`DELETE formatting > basic delete 1`] = `
-"delete from dbo.Books
+"delete from Books
 where
-  in_stock = 0
-  and published_date < dateadd(year, -10, getdate());"
+  InStock = 0
+  and PublishedDate < dateadd(year, -10, getdate());"
 `;
 
 exports[`Full-text predicates > CONTAINS with LANGUAGE 1`] = `
-"select book_id
-from dbo.Books
-where contains(title, 'query', language 1033);"
+"select BookId
+from Books
+where contains(Title, 'query', language 1033);"
 `;
 
 exports[`Full-text predicates > CONTAINS with multiple columns 1`] = `
-"select book_id
-from dbo.Books
-where contains((title, author_id), 'design');"
+"select BookId
+from Books
+where contains((Title, AuthorId), 'design');"
 `;
 
 exports[`Full-text predicates > CONTAINS with single column 1`] = `
 "select
-  book_id,
-  title
-from dbo.Books
-where contains(title, '"SQL Server"');"
+  BookId,
+  Title
+from Books
+where contains(Title, '"SQL Server"');"
 `;
 
 exports[`Full-text predicates > CONTAINS with wildcard * 1`] = `
-"select book_id
-from dbo.Books
+"select BookId
+from Books
 where contains(*, 'programming');"
 `;
 
 exports[`Full-text predicates > CONTAINSTABLE in FROM clause 1`] = `
 "select
-  b.book_id,
-  b.title,
+  b.BookId,
+  b.Title,
   ft.rank
 from
-  dbo.Books as b
-  inner join containstable(dbo.Books, title, '"SQL"') as ft on
-    b.book_id = ft.key;"
+  Books as b
+  inner join containstable(Books, Title, '"SQL"') as ft on b.BookId = ft.key;"
 `;
 
 exports[`Full-text predicates > FREETEXT with single column 1`] = `
 "select
-  book_id,
-  title
-from dbo.Books
-where freetext(title, 'database programming');"
+  BookId,
+  Title
+from Books
+where freetext(Title, 'database programming');"
 `;
 
 exports[`Full-text predicates > FREETEXTTABLE with wildcard and TOP N 1`] = `
 "select
-  b.book_id,
+  b.BookId,
   ft.rank
 from
-  dbo.Books as b
-  inner join freetexttable(dbo.Books, *, 'programming', 10) as ft on
-    b.book_id = ft.key;"
+  Books as b
+  inner join freetexttable(Books, *, 'programming', 10) as ft on
+    b.BookId = ft.key;"
 `;
 
 exports[`IN clause formatting > IN subquery is unaffected 1`] = `
-"select book_id
-from dbo.Books
-where book_id in (
-  select book_id
-  from dbo.OrderItems
-  where unit_price > 50
+"select BookId
+from Books
+where BookId in (
+  select BookId
+  from OrderItems
+  where UnitPrice > 50
 );"
 `;
 
 exports[`IN clause formatting > NOT IN short list stays inline 1`] = `
-"select book_id
-from dbo.Books
-where genre_id not in (1, 2);"
+"select BookId
+from Books
+where GenreId not in (1, 2);"
 `;
 
 exports[`IN clause formatting > long value list wraps each value to its own line 1`] = `
-"select author_id
-from dbo.Authors
-where country in (
+"select AuthorId
+from Authors
+where Country in (
   'United States',
   'United Kingdom',
   'Canada',
@@ -348,219 +347,219 @@ where country in (
 `;
 
 exports[`IN clause formatting > short value list stays on one line 1`] = `
-"select book_id
-from dbo.Books
-where genre_id in (1, 2, 3);"
+"select BookId
+from Books
+where GenreId in (1, 2, 3);"
 `;
 
 exports[`INSERT formatting > INSERT ... SELECT 1`] = `
-"insert into dbo.ArchivedBooks (
-  book_id,
-  title
+"insert into ArchivedBooks (
+  BookId,
+  Title
 )
 select
-  book_id,
-  title
-from dbo.Books
-where in_stock = 0;"
+  BookId,
+  Title
+from Books
+where InStock = 0;"
 `;
 
 exports[`INSERT formatting > VALUES insert 1`] = `
-"insert into dbo.Customers (
-  name,
-  email,
-  active
+"insert into Customers (
+  Name,
+  Email,
+  Active
 )
 values
   ('Jane Smith', 'jane@example.com', 1);"
 `;
 
 exports[`MERGE statement > MERGE with AND predicate on WHEN MATCHED 1`] = `
-"merge into dbo.Books as t
-using dbo.ArchivedBooks as s
-on t.book_id = s.book_id
-when matched and t.price <> s.price then
+"merge into Books as t
+using ArchivedBooks as s
+on t.BookId = s.BookId
+when matched and t.Price <> s.Price then
   update set
-    t.price = s.price;"
+    t.Price = s.Price;"
 `;
 
 exports[`MERGE statement > MERGE with subquery as source 1`] = `
-"merge into dbo.Books as t
+"merge into Books as t
 using (
   select
-    book_id,
-    title,
-    price
-  from dbo.ArchivedBooks
-  where price > 0
+    BookId,
+    Title,
+    Price
+  from ArchivedBooks
+  where Price > 0
 ) as s
-on t.book_id = s.book_id
+on t.BookId = s.BookId
 when matched then
   update set
-    t.title = s.title,
-    t.price = s.price;"
+    t.Title = s.Title,
+    t.Price = s.Price;"
 `;
 
 exports[`MERGE statement > full MERGE with all three clause types 1`] = `
-"merge into dbo.Books as t
-using dbo.ArchivedBooks as s
-on t.book_id = s.book_id
+"merge into Books as t
+using ArchivedBooks as s
+on t.BookId = s.BookId
 when matched then
   update set
-    t.title = s.title,
-    t.price = s.price
+    t.Title = s.Title,
+    t.Price = s.Price
 when not matched by target then
-  insert (book_id, title, price)
-  values (s.book_id, s.title, s.price)
+  insert (BookId, Title, Price)
+  values (s.BookId, s.Title, s.Price)
 when not matched by source then
   delete;"
 `;
 
 exports[`OPTION clause formatting > OPTION (RECOMPILE) is preserved on its own line 1`] = `
 "select
-  book_id,
-  title
-from dbo.Books
-where in_stock = 1
+  BookId,
+  Title
+from Books
+where InStock = 1
 option (recompile);"
 `;
 
 exports[`OPTION clause formatting > OPTION clause respects keyword case upper 1`] = `
-"SELECT book_id
-FROM dbo.Books
+"SELECT BookId
+FROM Books
 OPTION (RECOMPILE);"
 `;
 
 exports[`OPTION clause formatting > OPTION clause with ORDER BY appears after ORDER BY 1`] = `
 "select
-  book_id,
-  title
-from dbo.Books
-where in_stock = 1
-order by title asc
+  BookId,
+  Title
+from Books
+where InStock = 1
+order by Title asc
 option (recompile);"
 `;
 
 exports[`OUTPUT clause > DELETE with OUTPUT INTO 1`] = `
-"delete from dbo.Books
+"delete from Books
 output
-  deleted.book_id,
-  deleted.title
-into @removed (book_id, title)
-where in_stock = 0;"
+  deleted.BookId,
+  deleted.Title
+into @removed (BookId, Title)
+where InStock = 0;"
 `;
 
 exports[`OUTPUT clause > INSERT with OUTPUT inserted.* 1`] = `
-"insert into dbo.Books (
-  title,
-  price
+"insert into Books (
+  Title,
+  Price
 )
-output inserted.book_id, inserted.title
+output inserted.BookId, inserted.Title
 values
   ('New Book', 9.99);"
 `;
 
 exports[`OUTPUT clause > MERGE with OUTPUT $action and inserted/deleted columns 1`] = `
-"merge into dbo.Books as t
-using dbo.ArchivedBooks as s
-on t.book_id = s.book_id
+"merge into Books as t
+using ArchivedBooks as s
+on t.BookId = s.BookId
 when matched then
   update set
-    t.price = s.price
+    t.Price = s.Price
 when not matched by target then
-  insert (book_id, title, price)
-  values (s.book_id, s.title, s.price)
+  insert (BookId, Title, Price)
+  values (s.BookId, s.Title, s.Price)
 when not matched by source then
   delete
-output $action, inserted.book_id, deleted.price;"
+output $action, inserted.BookId, deleted.Price;"
 `;
 
 exports[`OUTPUT clause > MERGE with OUTPUT INTO table variable 1`] = `
-"merge into dbo.Books as t
-using dbo.ArchivedBooks as s
-on t.book_id = s.book_id
+"merge into Books as t
+using ArchivedBooks as s
+on t.BookId = s.BookId
 when matched then
   update set
-    t.price = s.price
+    t.Price = s.Price
 output
   $action,
-  inserted.book_id,
-  inserted.price
-into @changes (action, book_id, price);"
+  inserted.BookId,
+  inserted.Price
+into @changes (action, BookId, Price);"
 `;
 
 exports[`OUTPUT clause > UPDATE with OUTPUT 1`] = `
-"update dbo.Books
-set price = price * 1.1
-output inserted.book_id, deleted.price, inserted.price
-where in_stock = 1;"
+"update Books
+set Price = Price * 1.1
+output inserted.BookId, deleted.Price, inserted.Price
+where InStock = 1;"
 `;
 
 exports[`SELECT formatting > CTE 1`] = `
 "with available_books as (
   select
-    book_id,
-    title
-  from dbo.Books
-  where in_stock = 1
+    BookId,
+    Title
+  from Books
+  where InStock = 1
 )
-select b.title
+select b.Title
 from available_books as b
-order by b.title asc;"
+order by b.Title asc;"
 `;
 
 exports[`SELECT formatting > GROUP BY CUBE respects keyword case 1`] = `
 "SELECT
-  genre_id,
-  in_stock,
+  GenreId,
+  InStock,
   COUNT(*) AS cnt
-FROM dbo.Books
-GROUP BY CUBE(genre_id, in_stock);"
+FROM Books
+GROUP BY CUBE(GenreId, InStock);"
 `;
 
-exports[`SELECT formatting > GROUP BY GROUPING SETS with composite groups and grand total 1`] = `
+exports[`SELECT formatting > GROUP BY GROUPING SETS with composite groups and grand Total 1`] = `
 "select
-  genre_id,
-  author_id,
-  sum(price) as total
-from dbo.Books
-group by grouping sets((genre_id, author_id), (genre_id), ());"
+  GenreId,
+  AuthorId,
+  sum(Price) as Total
+from Books
+group by grouping sets((GenreId, AuthorId), (GenreId), ());"
 `;
 
 exports[`SELECT formatting > GROUP BY ROLLUP respects keyword case 1`] = `
 "select
-  genre_id,
-  author_id,
-  sum(price) as total
-from dbo.Books
-group by rollup(genre_id, author_id);"
+  GenreId,
+  AuthorId,
+  sum(Price) as Total
+from Books
+group by rollup(GenreId, AuthorId);"
 `;
 
 exports[`SELECT formatting > SELECT DISTINCT 1`] = `
-"select distinct genre_id
-from dbo.Books;"
+"select distinct GenreId
+from Books;"
 `;
 
 exports[`SELECT formatting > aggregate with GROUP BY / HAVING 1`] = `
 "select
-  genre_id,
+  GenreId,
   count(*) as cnt,
-  avg(price) as avg_price
-from dbo.Books
-group by genre_id
+  avg(Price) as avg_price
+from Books
+group by GenreId
 having count(*) > 5;"
 `;
 
 exports[`SELECT formatting > basic select with join and where 1`] = `
 "select
-  b.book_id,
-  b.title,
-  b.price
+  b.BookId,
+  b.Title,
+  b.Price
 from
-  dbo.Books as b
-  inner join dbo.Authors as a on b.author_id = a.author_id
-where b.in_stock = 1
-order by b.title asc;"
+  Books as b
+  inner join Authors as a on b.AuthorId = a.AuthorId
+where b.InStock = 1
+order by b.Title asc;"
 `;
 
 exports[`SELECT formatting > nested CASE in THEN branch indents inner case on new line 1`] = `
@@ -580,41 +579,41 @@ exports[`SELECT formatting > nested CASE in THEN branch indents inner case on ne
     end
   else -1
 end as AgencyCost
-from dbo.Content;"
+from Content;"
 `;
 
 exports[`SELECT formatting > searched CASE with AND condition 1`] = `
 "select case
   when
-    b.author_id is not null
-    and b.genre_id in (1, 2, 3)
+    b.AuthorId is not null
+    and b.GenreId in (1, 2, 3)
   then 1
   else 0
 end as IsAvailable
-from dbo.Books as b;"
+from Books as b;"
 `;
 
 exports[`SELECT formatting > subquery in WHERE 1`] = `
 "select
-  book_id,
-  title
-from dbo.Books
-where book_id in (
-  select book_id
-  from dbo.OrderItems
-  where unit_price > 50
+  BookId,
+  Title
+from Books
+where BookId in (
+  select BookId
+  from OrderItems
+  where UnitPrice > 50
 );"
 `;
 
 exports[`SELECT formatting > window functions 1`] = `
 "select
-  book_id,
-  price,
+  BookId,
+  Price,
   row_number() over (
-    partition by genre_id
-    order by price desc
+    partition by GenreId
+    order by Price desc
   ) as rn
-from dbo.Books;"
+from Books;"
 `;
 
 exports[`SET ROWCOUNT formatting > SET ROWCOUNT 0 resets to unlimited 1`] = `"set rowcount 0;"`;
@@ -624,75 +623,75 @@ exports[`SET ROWCOUNT formatting > SET ROWCOUNT respects keyword case 1`] = `"se
 exports[`SET ROWCOUNT formatting > SET ROWCOUNT with integer literal 1`] = `"set rowcount 10;"`;
 
 exports[`UNION / INTERSECT / EXCEPT formatting > UNION (distinct) has blank lines around the operator 1`] = `
-"select author_id
-from dbo.Books
+"select AuthorId
+from Books
 
 union
 
-select author_id
-from dbo.ArchivedBooks;"
+select AuthorId
+from ArchivedBooks;"
 `;
 
 exports[`UNION / INTERSECT / EXCEPT formatting > UNION ALL has blank lines before and after the operator 1`] = `
 "select
-  book_id,
-  title
-from dbo.Books
-where in_stock = 1
+  BookId,
+  Title
+from Books
+where InStock = 1
 
 union all
 
 select
-  book_id,
-  title
-from dbo.ArchivedBooks;"
+  BookId,
+  Title
+from ArchivedBooks;"
 `;
 
 exports[`UPDATE formatting > basic update 1`] = `
-"update dbo.Books
+"update Books
 set
-  title = 'Updated Title',
-  price = 29.99
-where book_id = 42;"
+  Title = 'Updated Title',
+  Price = 29.99
+where BookId = 42;"
 `;
 
 exports[`UPDATE formatting > update with join 1`] = `
 "update b
-set b.in_stock = 0
+set b.InStock = 0
 from
-  dbo.Books as b
-  inner join dbo.Publishers as p on b.publisher_id = p.publisher_id
-where p.country = 'UK';"
+  Books as b
+  inner join Publishers as p on b.PublisherId = p.PublisherId
+where p.Country = 'UK';"
 `;
 
 exports[`VIEW formatting > CREATE OR ALTER VIEW basic 1`] = `
-"create or alter view dbo.vw_available_books
+"create or alter view vw_available_books
 as
 select
-  book_id,
-  title
-from dbo.Books
-where in_stock = 1;
+  BookId,
+  Title
+from Books
+where InStock = 1;
 go"
 `;
 
-exports[`VIEW formatting > block comment between view name and AS is preserved in place 1`] = `
+exports[`VIEW formatting > block comment between view Name and AS is preserved in place 1`] = `
 "create or alter view dbo.vw_example
 /* with encryption */
 as
-select book_id
-from dbo.Books;
+select BookId
+from Books;
 go"
 `;
 
 exports[`VIEW formatting > block comment inside first view does not appear before second view 1`] = `
-"create or alter view dbo.vw_first
+"create or alter view vw_first
 /* with encryption */
 as
 select 1 as x;
 go
 
-create or alter view dbo.vw_second
+create or alter view vw_second
 as
 select 2 as y;
 go"
@@ -700,7 +699,7 @@ go"
 
 exports[`VIEW formatting > leading comment before CREATE VIEW attaches correctly 1`] = `
 "-- view description
-create or alter view dbo.vw_test
+create or alter view vw_test
 as
 select 1 as x;
 go"
@@ -708,247 +707,246 @@ go"
 
 exports[`comma style option > trailing commas (default) 1`] = `
 "select
-  book_id,
-  title,
-  price
-from dbo.Books;"
+  BookId,
+  Title,
+  Price
+from Books;"
 `;
 
 exports[`comment between JOIN clauses > line comment between two joins is preserved on its own line 1`] = `
 "select
-  b.book_id,
-  b.title
+  b.BookId,
+  b.Title
 from
-  dbo.Books as b
-  inner join dbo.Authors as a on b.author_id = a.author_id
+  Books as b
+  inner join Authors as a on b.AuthorId = a.AuthorId
   -- left join: publishers may not exist for all books
-  left join dbo.Publishers as p on b.publisher_id = p.publisher_id;"
+  left join Publishers as p on b.PublisherId = p.PublisherId;"
 `;
 
 exports[`comment between JOIN clauses > multiple comments between joins are all preserved 1`] = `
-"select b.book_id
+"select b.BookId
 from
-  dbo.Books as b
-  inner join dbo.Authors as a on b.author_id = a.author_id
+  Books as b
+  inner join Authors as a on b.AuthorId = a.AuthorId
   -- optional: genre
-  left join dbo.Genres as g on b.genre_id = g.genre_id
+  left join Genres as g on b.GenreId = g.GenreId
   -- optional: publisher
-  left join dbo.Publishers as p on b.publisher_id = p.publisher_id;"
+  left join Publishers as p on b.PublisherId = p.PublisherId;"
 `;
 
 exports[`comment preservation > block comment after last statement in file is not lost 1`] = `
-"select book_id
-from dbo.Books;
+"select BookId
+from Books;
 /* end of queries */"
 `;
 
 exports[`comment preservation > line comment after last statement in file is not lost 1`] = `
-"select book_id
-from dbo.Books; -- end of queries"
+"select BookId
+from Books; -- end of queries"
 `;
 
 exports[`density option > compact > join with ON inline 1`] = `
-"select b.book_id, b.title
-from dbo.Books as b inner join dbo.Authors as a on b.author_id = a.author_id
-where b.in_stock = 1
-order by b.title asc;"
+"select b.BookId, b.Title
+from Books as b inner join Authors as a on b.AuthorId = a.AuthorId
+where b.InStock = 1
+order by b.Title asc;"
 `;
 
-exports[`density option > compact > multiple predicates wrap at printWidth 1`] = `"select book_id from dbo.Books where in_stock = 1 and price < 100;"`;
+exports[`density option > compact > multiple predicates wrap at printWidth 1`] = `"select BookId from Books where InStock = 1 and Price < 100;"`;
 
-exports[`density option > compact > single-line query stays inline 1`] = `"select book_id from dbo.Books where in_stock = 1;"`;
+exports[`density option > compact > single-line query stays inline 1`] = `"select BookId from Books where InStock = 1;"`;
 
 exports[`density option > spacious > multiple ON predicates each on own line 1`] = `
 "select
-  b.book_id
+  b.BookId
 from
-  dbo.Books as b
-  inner join dbo.Authors as a on
-    b.author_id = a.author_id
-    and b.publisher_id = a.publisher_id;"
+  Books as b
+  inner join Authors as a on
+    b.AuthorId = a.AuthorId
+    and b.PublisherId = a.PublisherId;"
 `;
 
 exports[`density option > spacious > single ON predicate on own line 1`] = `
 "select
-  b.book_id,
-  b.title
+  b.BookId,
+  b.Title
 from
-  dbo.Books as b
-  inner join dbo.Authors as a on
-    b.author_id = a.author_id
+  Books as b
+  inner join Authors as a on
+    b.AuthorId = a.AuthorId
 where
-  b.in_stock = 1
+  b.InStock = 1
 order by
-  b.title asc;"
+  b.Title asc;"
 `;
 
 exports[`density option > spacious > single WHERE predicate on own line 1`] = `
 "select
-  book_id
+  BookId
 from
-  dbo.Books
+  Books
 where
-  in_stock = 1;"
+  InStock = 1;"
 `;
 
 exports[`density option > standard > multiple ON predicates each on own line 1`] = `
-"select b.book_id
+"select b.BookId
 from
-  dbo.Books as b
-  inner join dbo.Authors as a on
-    b.author_id = a.author_id
-    and b.publisher_id = a.publisher_id;"
+  Books as b
+  inner join Authors as a on
+    b.AuthorId = a.AuthorId
+    and b.PublisherId = a.PublisherId;"
 `;
 
 exports[`density option > standard > multiple WHERE predicates each on own line 1`] = `
-"select book_id
-from dbo.Books
+"select BookId
+from Books
 where
-  in_stock = 1
-  and price < 100;"
+  InStock = 1
+  and Price < 100;"
 `;
 
 exports[`density option > standard > single ON predicate stays inline 1`] = `
 "select
-  b.book_id,
-  b.title
+  b.BookId,
+  b.Title
 from
-  dbo.Books as b
-  inner join dbo.Authors as a on b.author_id = a.author_id
-where b.in_stock = 1
-order by b.title asc;"
+  Books as b
+  inner join Authors as a on b.AuthorId = a.AuthorId
+where b.InStock = 1
+order by b.Title asc;"
 `;
 
 exports[`derived table (subquery in FROM) > derived table joined to another table 1`] = `
 "select
-  b.title,
-  a.last_name
+  b.Title,
+  a.LastName
 from
   (
     select
-      book_id,
-      title,
-      author_id
-    from dbo.Books
-    where price > 20
+      BookId,
+      Title,
+      AuthorId
+    from Books
+    where Price > 20
   ) as b
-  inner join dbo.Authors as a on b.author_id = a.author_id;"
+  inner join Authors as a on b.AuthorId = a.AuthorId;"
 `;
 
 exports[`derived table (subquery in FROM) > simple derived table with alias 1`] = `
 "select
-  b.title,
-  b.price
+  b.Title,
+  b.Price
 from (
   select
-    title,
-    price
-  from dbo.Books
-  where in_stock = 1
+    Title,
+    Price
+  from Books
+  where InStock = 1
 ) as b;"
 `;
 
 exports[`expression functions > AT TIME ZONE expression 1`] = `
 "SELECT GETDATE() AT TIME ZONE 'UTC'
-FROM dbo.Books;"
+FROM Books;"
 `;
 
 exports[`expression functions > CAST preserves length 1`] = `
-"SELECT CAST(title AS NVARCHAR(100))
-FROM dbo.Books;"
+"SELECT CAST(Title AS NVARCHAR(100))
+FROM Books;"
 `;
 
 exports[`expression functions > COALESCE expression 1`] = `
-"SELECT COALESCE(price, 0.0)
-FROM dbo.Books;"
+"SELECT COALESCE(Price, 0.0)
+FROM Books;"
 `;
 
 exports[`expression functions > CONVERT preserves length and style 1`] = `
-"SELECT CONVERT(NVARCHAR(50), price, 1)
-FROM dbo.Books;"
+"SELECT CONVERT(NVARCHAR(50), Price, 1)
+FROM Books;"
 `;
 
 exports[`expression functions > IIF expression 1`] = `
-"SELECT IIF(in_stock = 1, 'yes', 'no')
-FROM dbo.Books;"
+"SELECT IIF(InStock = 1, 'yes', 'no')
+FROM Books;"
 `;
 
 exports[`expression functions > NULLIF expression 1`] = `
-"SELECT NULLIF(price, 0)
-FROM dbo.Books;"
+"SELECT NULLIF(Price, 0)
+FROM Books;"
 `;
 
 exports[`expression functions > TRY_CAST expression 1`] = `
-"SELECT TRY_CAST(title AS INT)
-FROM dbo.Books;"
+"SELECT TRY_CAST(Title AS INT)
+FROM Books;"
 `;
 
 exports[`expression functions > TRY_CONVERT expression 1`] = `
-"SELECT TRY_CONVERT(DECIMAL(10,2), price)
-FROM dbo.Books;"
+"SELECT TRY_CONVERT(DECIMAL(10,2), Price)
+FROM Books;"
 `;
 
 exports[`expression functions > TVF in FROM clause 1`] = `
 "select *
-from dbo.GetBooks(1) as b;"
+from GetBooks(1) as b;"
 `;
 
 exports[`expression functions > long string concatenation breaks before + not inside function args 1`] = `
 "select isnull(VID.LastNm, '') + ', ' + isnull(VID.FirstNm, '') + ' '
 + isnull(VID.MiddleNm, '') + ' ' + isnull(S.Suffix, '') as VisitorNm
 from
-  dbo.Visitors as VID
-  inner join dbo.Suffixes as S on VID.SuffixId = S.SuffixId;"
+  Visitors as VID
+  inner join Suffixes as S on VID.SuffixId = S.SuffixId;"
 `;
 
 exports[`expression functions > short string concatenation stays on one line 1`] = `
 "select isnull(last_nm, '') + ', ' + isnull(first_nm, '') as full_nm
-from dbo.Authors;"
+from Authors;"
 `;
 
-exports[`intra-WHERE comments > commented-out predicates are preserved between active predicates 1`] = `
-"select book_id
-from dbo.Books
+exports[`intra-WHERE comments > commented-out predicates are preserved between Active predicates 1`] = `
+"select BookId
+from Books
 where
   1 = 1
-  and Books.genre_id in (1)
-  --and Books.genre_id in (select genre_id from dbo.Genres where name = 'Fiction')
-  and Books.publisher_id in (4)
-  --and Books.publisher_id in (select publisher_id from dbo.Publishers where country = 'UK')
-  and Books.author_id in (101, 102);"
+  and Books.GenreId in (1)
+  --and Books.GenreId in (select GenreId from Genres where Name = 'Fiction')
+  and Books.PublisherId in (4)
+  --and Books.PublisherId in (select PublisherId from Publishers where Country = 'UK')
+  and Books.AuthorId in (101, 102);"
 `;
 
 exports[`nested join formatting > parenthesized nested join 1`] = `
-"select b.title
+"select b.Title
 from
-  dbo.Books as b
+  Books as b
   left join (
-    dbo.Authors as a
-    inner join dbo.Publishers as p on a.publisher_id = p.publisher_id
-  ) on b.author_id = a.author_id;"
+    Authors as a
+    inner join Publishers as p on a.PublisherId = p.PublisherId
+  ) on b.AuthorId = a.AuthorId;"
 `;
 
 exports[`table hints > NOLOCK on joined table 1`] = `
 "select
-  b.book_id,
-  p.name
+  b.BookId,
+  p.Name
 from
-  dbo.Books as b with (nolock)
-  inner join dbo.Publishers as p with (nolock) on
-    b.publisher_id = p.publisher_id;"
+  Books as b with (nolock)
+  inner join Publishers as p with (nolock) on b.PublisherId = p.PublisherId;"
 `;
 
 exports[`table hints > NOLOCK on single table 1`] = `
-"select book_id
-from dbo.Books as b with (nolock);"
+"select BookId
+from Books as b with (nolock);"
 `;
 
 exports[`table hints > hints respect keyword case upper 1`] = `
-"SELECT book_id
-FROM dbo.Books WITH (NOLOCK);"
+"SELECT BookId
+FROM Books WITH (NOLOCK);"
 `;
 
 exports[`table hints > multiple hints 1`] = `
-"select book_id
-from dbo.Books with (nolock, rowlock);"
+"select BookId
+from Books with (nolock, rowlock);"
 `;

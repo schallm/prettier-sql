@@ -1,1 +1,1 @@
-update dbo.users set name = 'Updated Name', email = 'updated@example.com', updated_at = getdate() where id = 42
+update users set Name = 'Updated Name', Email = 'updated@example.com', UpdatedAt = getdate() where id = 42

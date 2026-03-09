@@ -1,1 +1,1 @@
-delete from dbo.users where active = 0 and last_login < dateadd(year, -2, getdate())
+delete from users where Active = 0 and LastLogin < dateadd(year, -2, getdate())

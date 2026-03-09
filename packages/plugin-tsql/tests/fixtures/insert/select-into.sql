@@ -1,1 +1,1 @@
-insert into dbo.archive_users (id, name, email, archived_at) select id, name, email, getdate() from dbo.users where active = 0 and last_login < dateadd(year, -2, getdate())
+insert into archive_users (id, Name, Email, ArchivedAt) select id, Name, Email, getdate() from users where Active = 0 and LastLogin < dateadd(year, -2, getdate())

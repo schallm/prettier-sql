@@ -1,1 +1,1 @@
-update u set u.role_name = r.name, u.updated_at = getdate() from dbo.users u inner join dbo.roles r on u.role_id = r.id where r.is_admin = 1
+update u set u.RoleName = r.Name, u.UpdatedAt = getdate() from users u inner join roles r on u.RoleId = r.id where r.IsAdmin = 1

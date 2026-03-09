@@ -1,1 +1,1 @@
-select id, name, salary, row_number() over (partition by department_id order by salary desc) as rn, rank() over (partition by department_id order by salary desc) as rnk, sum(salary) over (partition by department_id) as dept_total from dbo.employees
+select id, Name, Salary, row_number() over (partition by DepartmentId order by Salary desc) as rn, rank() over (partition by DepartmentId order by Salary desc) as rnk, sum(Salary) over (partition by DepartmentId) as dept_total from employees

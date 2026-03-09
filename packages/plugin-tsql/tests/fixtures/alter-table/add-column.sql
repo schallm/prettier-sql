@@ -1,1 +1,1 @@
-alter table dbo.users add phone nvarchar(20) null, bio nvarchar(max) null
+alter table users add Phone nvarchar(20) null, Bio nvarchar(max) null

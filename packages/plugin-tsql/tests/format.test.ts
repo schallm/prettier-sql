@@ -3,14 +3,14 @@ import prettier from 'prettier';
 import plugin from '../src/plugin/index.js';
 
 // Schema used throughout these tests:
-//   dbo.Books        (book_id, title, author_id, publisher_id, genre_id, price, in_stock, published_date)
-//   dbo.Authors      (author_id, first_name, last_name, country, publisher_id)
-//   dbo.Publishers   (publisher_id, name, country)
-//   dbo.Genres       (genre_id, name)
-//   dbo.Customers    (customer_id, name, email, active, last_purchase_date)
-//   dbo.Orders       (order_id, customer_id, total, order_date, status)
-//   dbo.OrderItems   (order_item_id, order_id, book_id, quantity, unit_price)
-//   dbo.ArchivedBooks  (same columns as Books)
+//   Books        (Id, Title, AuthorId, PublisherId, GenreId, Price, InStock, PublishedDate)
+//   Authors      (Id, FirstName, LastName, Country, PublisherId)
+//   Publishers   (Id, Name, Country)
+//   Genres       (Id, Name)
+//   Customers    (Id, Name, Email, Active, LastPurchaseDate)
+//   Orders       (Id, CustomerId, Total, OrderDate, Status)
+//   OrderItems   (Id, OrderId, BookId, Quantity, UnitPrice)
+//   ArchivedBooks  (same columns as Books)
 
 async function fmt(sql: string, opts: Record<string, unknown> = {}): Promise<string> {
     return prettier.format(sql, {
@@ -24,14 +24,14 @@ async function fmt(sql: string, opts: Record<string, unknown> = {}): Promise<str
 describe('SELECT formatting', () => {
     it('basic select with join and where', async () => {
         const result = await fmt(
-            'select b.book_id,b.title,b.price from dbo.Books as b inner join dbo.Authors as a on b.author_id=a.author_id where b.in_stock=1 order by b.title asc'
+            'select b.BookId,b.Title,b.Price from Books as b inner join Authors as a on b.AuthorId=a.AuthorId where b.InStock=1 order by b.Title asc'
         );
         expect(result).toMatchSnapshot();
     });
 
     it('searched CASE with AND condition', async () => {
         const result = await fmt(
-            'select case when b.author_id is not null and b.genre_id in (1, 2, 3) then 1 else 0 end as IsAvailable from dbo.Books as b'
+            'select case when b.AuthorId is not null and b.GenreId in (1, 2, 3) then 1 else 0 end as IsAvailable from Books as b'
         );
         expect(result).toMatchSnapshot();
     });
@@ -50,7 +50,7 @@ select
     end
     else -1
   end as AgencyCost
-from dbo.Content`;
+from Content`;
         const result = await fmt(sql);
         // Inner case must start on its own line, not on the same line as THEN
         const lines = result.split('\n');
@@ -60,26 +60,26 @@ from dbo.Content`;
     });
 
     it('SELECT DISTINCT', async () => {
-        const result = await fmt('select distinct genre_id from dbo.Books');
+        const result = await fmt('select distinct GenreId from Books');
         expect(result).toMatchSnapshot();
     });
 
     it('aggregate with GROUP BY / HAVING', async () => {
         const result = await fmt(
-            'select genre_id, count(*) as cnt, avg(price) as avg_price from dbo.Books group by genre_id having count(*) > 5'
+            'select GenreId, count(*) as cnt, avg(Price) as avg_price from Books group by GenreId having count(*) > 5'
         );
         expect(result).toMatchSnapshot();
     });
 
     it('GROUP BY ROLLUP respects keyword case', async () => {
         const lower = await fmt(
-            'SELECT genre_id, author_id, SUM(price) AS total FROM dbo.Books GROUP BY ROLLUP (genre_id, author_id)'
+            'SELECT GenreId, AuthorId, SUM(Price) AS Total FROM Books GROUP BY ROLLUP (GenreId, AuthorId)'
         );
         expect(lower).toContain('rollup(');
         expect(lower).toMatchSnapshot();
 
         const upper = await fmt(
-            'SELECT genre_id, author_id, SUM(price) AS total FROM dbo.Books GROUP BY ROLLUP (genre_id, author_id)',
+            'SELECT GenreId, AuthorId, SUM(Price) AS Total FROM Books GROUP BY ROLLUP (GenreId, AuthorId)',
             { sqlKeywordCase: 'upper' }
         );
         expect(upper).toContain('ROLLUP(');
@@ -87,22 +87,22 @@ from dbo.Content`;
 
     it('GROUP BY CUBE respects keyword case', async () => {
         const result = await fmt(
-            'SELECT genre_id, in_stock, COUNT(*) AS cnt FROM dbo.Books GROUP BY CUBE (genre_id, in_stock)',
+            'SELECT GenreId, InStock, COUNT(*) AS cnt FROM Books GROUP BY CUBE (GenreId, InStock)',
             { sqlKeywordCase: 'upper' }
         );
         expect(result).toContain('CUBE(');
         expect(result).toMatchSnapshot();
     });
 
-    it('GROUP BY GROUPING SETS with composite groups and grand total', async () => {
+    it('GROUP BY GROUPING SETS with composite groups and grand Total', async () => {
         const lower = await fmt(
-            'SELECT genre_id, author_id, SUM(price) AS total FROM dbo.Books GROUP BY GROUPING SETS ((genre_id, author_id), (genre_id), ())'
+            'SELECT GenreId, AuthorId, SUM(Price) AS Total FROM Books GROUP BY GROUPING SETS ((GenreId, AuthorId), (GenreId), ())'
         );
         expect(lower).toContain('grouping sets(');
         expect(lower).toMatchSnapshot();
 
         const upper = await fmt(
-            'SELECT genre_id, author_id, SUM(price) AS total FROM dbo.Books GROUP BY GROUPING SETS ((genre_id, author_id), (genre_id), ())',
+            'SELECT GenreId, AuthorId, SUM(Price) AS Total FROM Books GROUP BY GROUPING SETS ((GenreId, AuthorId), (GenreId), ())',
             { sqlKeywordCase: 'upper' }
         );
         expect(upper).toContain('GROUPING SETS(');
@@ -110,27 +110,27 @@ from dbo.Content`;
 
     it('CTE', async () => {
         const result = await fmt(
-            'with available_books as (select book_id, title from dbo.Books where in_stock = 1) select b.title from available_books as b order by b.title asc'
+            'with available_books as (select BookId, Title from Books where InStock = 1) select b.Title from available_books as b order by b.Title asc'
         );
         expect(result).toMatchSnapshot();
     });
 
     it('window functions', async () => {
         const result = await fmt(
-            'select book_id, price, row_number() over (partition by genre_id order by price desc) as rn from dbo.Books'
+            'select BookId, Price, row_number() over (partition by GenreId order by Price desc) as rn from Books'
         );
         expect(result).toMatchSnapshot();
     });
 
     it('subquery in WHERE', async () => {
         const result = await fmt(
-            'select book_id, title from dbo.Books where book_id in (select book_id from dbo.OrderItems where unit_price > 50)'
+            'select BookId, Title from Books where BookId in (select BookId from OrderItems where UnitPrice > 50)'
         );
         expect(result).toMatchSnapshot();
     });
 
     it('keyword case: lower', async () => {
-        const result = await fmt('SELECT book_id FROM dbo.Books WHERE in_stock = 1', {
+        const result = await fmt('SELECT BookId FROM Books WHERE InStock = 1', {
             sqlKeywordCase: 'lower',
         });
         expect(result).toContain('select');
@@ -139,7 +139,7 @@ from dbo.Content`;
     });
 
     it('keyword case: lower (default)', async () => {
-        const result = await fmt('select book_id from dbo.Books where in_stock = 1');
+        const result = await fmt('select BookId from Books where InStock = 1');
         expect(result).toContain('select');
         expect(result).toContain('from');
         expect(result).toContain('where');
@@ -149,14 +149,14 @@ from dbo.Content`;
 describe('INSERT formatting', () => {
     it('VALUES insert', async () => {
         const result = await fmt(
-            "insert into dbo.Customers (name, email, active) values ('Jane Smith', 'jane@example.com', 1)"
+            "insert into Customers (Name, Email, Active) values ('Jane Smith', 'jane@example.com', 1)"
         );
         expect(result).toMatchSnapshot();
     });
 
     it('INSERT ... SELECT', async () => {
         const result = await fmt(
-            'insert into dbo.ArchivedBooks (book_id, title) select book_id, title from dbo.Books where in_stock = 0'
+            'insert into ArchivedBooks (BookId, Title) select BookId, Title from Books where InStock = 0'
         );
         expect(result).toMatchSnapshot();
     });
@@ -165,14 +165,14 @@ describe('INSERT formatting', () => {
 describe('UPDATE formatting', () => {
     it('basic update', async () => {
         const result = await fmt(
-            "update dbo.Books set title = 'Updated Title', price = 29.99 where book_id = 42"
+            "update Books set Title = 'Updated Title', Price = 29.99 where BookId = 42"
         );
         expect(result).toMatchSnapshot();
     });
 
     it('update with join', async () => {
         const result = await fmt(
-            'update b set b.in_stock = 0 from dbo.Books as b inner join dbo.Publishers as p on b.publisher_id = p.publisher_id where p.country = \'UK\''
+            'update b set b.InStock = 0 from Books as b inner join Publishers as p on b.PublisherId = p.PublisherId where p.Country = \'UK\''
         );
         expect(result).toMatchSnapshot();
     });
@@ -181,7 +181,7 @@ describe('UPDATE formatting', () => {
 describe('DELETE formatting', () => {
     it('basic delete', async () => {
         const result = await fmt(
-            'delete from dbo.Books where in_stock = 0 and published_date < dateadd(year, -10, getdate())'
+            'delete from Books where InStock = 0 and PublishedDate < dateadd(year, -10, getdate())'
         );
         expect(result).toMatchSnapshot();
     });
@@ -190,14 +190,14 @@ describe('DELETE formatting', () => {
 describe('CREATE TABLE formatting', () => {
     it('basic table', async () => {
         const result = await fmt(
-            'create table dbo.Books (book_id int not null identity(1,1), title nvarchar(200) not null, price decimal(10,2) not null, in_stock bit not null default 1, constraint pk_books primary key (book_id))'
+            'create table Books (BookId int not null identity(1,1), Title nvarchar(200) not null, Price decimal(10,2) not null, InStock bit not null default 1, constraint pk_books primary key (BookId))'
         );
         expect(result).toMatchSnapshot();
     });
 
     it('table with foreign key constraint', async () => {
         const result = await fmt(
-            'create table dbo.Orders (order_id int not null identity(1,1), customer_id int not null, total decimal(18,2) not null, constraint pk_orders primary key (order_id), constraint fk_orders_customers foreign key (customer_id) references dbo.Customers (customer_id))'
+            'create table Orders (OrderId int not null identity(1,1), CustomerId int not null, Total decimal(18,2) not null, constraint pk_orders primary key (OrderId), constraint fk_orders_customers foreign key (CustomerId) references Customers (CustomerId))'
         );
         expect(result).toMatchSnapshot();
     });
@@ -205,12 +205,12 @@ describe('CREATE TABLE formatting', () => {
 
 describe('ALTER TABLE formatting', () => {
     it('add column', async () => {
-        const result = await fmt('alter table dbo.Books add isbn nvarchar(20) null');
+        const result = await fmt('alter table Books add Isbn nvarchar(20) null');
         expect(result).toMatchSnapshot();
     });
 
     it('drop column', async () => {
-        const result = await fmt('alter table dbo.Books drop column isbn');
+        const result = await fmt('alter table Books drop column Isbn');
         expect(result).toMatchSnapshot();
     });
 });
@@ -218,27 +218,27 @@ describe('ALTER TABLE formatting', () => {
 describe('CREATE PROCEDURE formatting', () => {
     it('simple procedure', async () => {
         const result = await fmt(
-            'create procedure dbo.GetAvailableBooks as begin select book_id, title from dbo.Books where in_stock = 1 end'
+            'create procedure GetAvailableBooks as begin select BookId, Title from Books where InStock = 1 end'
         );
         expect(result).toMatchSnapshot();
     });
 
     it('procedure with parameters', async () => {
         const result = await fmt(
-            'create procedure dbo.GetBookById @id int, @includeOutOfStock bit = 0 as begin select book_id, title from dbo.Books where book_id = @id end'
+            'create procedure GetBookById @id int, @includeOutOfStock bit = 0 as begin select BookId, Title from Books where BookId = @id end'
         );
         expect(result).toMatchSnapshot();
     });
 
-    it('block comment between procedure name and first parameter is preserved', async () => {
+    it('block comment between procedure Name and first parameter is preserved', async () => {
         const result = await fmt(
-            'create procedure dbo.GetBookById\n' +
+            'create procedure GetBookById\n' +
             '/**********************\n' +
             '** Author: Jon\n' +
             '** Date:   2012-01-10\n' +
             '**********************/\n' +
             '@id int, @includeOutOfStock bit = 0\n' +
-            'as begin select book_id from dbo.Books where book_id = @id end'
+            'as begin select BookId from Books where BookId = @id end'
         );
         expect(result).toContain('**********************');
         expect(result).toContain('Author: Jon');
@@ -247,9 +247,9 @@ describe('CREATE PROCEDURE formatting', () => {
 
     it('line comment inside procedure body is preserved', async () => {
         const result = await fmt(
-            'create procedure dbo.GetAvailableBooks as begin\n' +
+            'create procedure GetAvailableBooks as begin\n' +
             '-- fetch available books only\n' +
-            'select book_id, title from dbo.Books where in_stock = 1 end'
+            'select BookId, Title from Books where InStock = 1 end'
         );
         expect(result).toContain('-- fetch available books only');
         expect(result).toMatchSnapshot();
@@ -257,11 +257,11 @@ describe('CREATE PROCEDURE formatting', () => {
 
     it('block comment after last parameter (before AS) stays between params and as', async () => {
         const result = await fmt(
-            'create procedure dbo.GetBookById\n' +
+            'create procedure GetBookById\n' +
             '@id int,\n' +
-            '@active bit\n' +
+            '@Active bit\n' +
             '/*WITH ENCRYPTION*/\n' +
-            'as begin select book_id from dbo.Books where book_id = @id end'
+            'as begin select BookId from Books where BookId = @id end'
         );
         expect(result).toContain('/*WITH ENCRYPTION*/');
         const lines = result.split('\n');
@@ -278,7 +278,7 @@ describe('CREATE PROCEDURE formatting', () => {
 describe('comment preservation', () => {
     it('block comment after last statement in file is not lost', async () => {
         const result = await fmt(
-            'select book_id from dbo.Books;\n/* end of queries */'
+            'select BookId from Books;\n/* end of queries */'
         );
         expect(result).toContain('/* end of queries */');
         expect(result).toMatchSnapshot();
@@ -286,7 +286,7 @@ describe('comment preservation', () => {
 
     it('line comment after last statement in file is not lost', async () => {
         const result = await fmt(
-            'select book_id from dbo.Books;\n-- end of queries'
+            'select BookId from Books;\n-- end of queries'
         );
         expect(result).toContain('-- end of queries');
         expect(result).toMatchSnapshot();
@@ -295,22 +295,22 @@ describe('comment preservation', () => {
 
 describe('comma style option', () => {
     it('trailing commas (default)', async () => {
-        const result = await fmt('select book_id, title, price from dbo.Books');
+        const result = await fmt('select BookId, Title, Price from Books');
         expect(result).toMatchSnapshot();
     });
 });
 
 describe('density option', () => {
     const multiJoinSql =
-        'select b.book_id, b.title from dbo.Books as b inner join dbo.Authors as a on b.author_id = a.author_id where b.in_stock = 1 order by b.title asc';
+        'select b.BookId, b.Title from Books as b inner join Authors as a on b.AuthorId = a.AuthorId where b.InStock = 1 order by b.Title asc';
     const multiWhereSql =
-        'select book_id from dbo.Books where in_stock = 1 and price < 100';
+        'select BookId from Books where InStock = 1 and Price < 100';
     const multiOnSql =
-        'select b.book_id from dbo.Books as b inner join dbo.Authors as a on b.author_id = a.author_id and b.publisher_id = a.publisher_id';
+        'select b.BookId from Books as b inner join Authors as a on b.AuthorId = a.AuthorId and b.PublisherId = a.PublisherId';
 
     describe('compact', () => {
         it('single-line query stays inline', async () => {
-            const result = await fmt('select book_id from dbo.Books where in_stock = 1', {
+            const result = await fmt('select BookId from Books where InStock = 1', {
                 sqlDensity: 'compact',
             });
             expect(result).toMatchSnapshot();
@@ -329,15 +329,15 @@ describe('density option', () => {
 
     describe('standard', () => {
         it('single WHERE predicate stays inline with keyword', async () => {
-            const result = await fmt('select book_id from dbo.Books where in_stock = 1', {
+            const result = await fmt('select BookId from Books where InStock = 1', {
                 sqlDensity: 'standard',
             });
-            expect(result).toContain('where in_stock = 1');
+            expect(result).toContain('where InStock = 1');
         });
 
         it('multiple WHERE predicates each on own line', async () => {
             const result = await fmt(multiWhereSql, { sqlDensity: 'standard' });
-            expect(result).toContain('and price');
+            expect(result).toContain('and Price');
             expect(result).toMatchSnapshot();
         });
 
@@ -353,22 +353,22 @@ describe('density option', () => {
 
         it('single ORDER BY stays inline', async () => {
             const result = await fmt(multiJoinSql, { sqlDensity: 'standard' });
-            expect(result).toContain('order by b.title asc');
+            expect(result).toContain('order by b.Title asc');
         });
     });
 
     describe('spacious', () => {
         it('single WHERE predicate on own line', async () => {
-            const result = await fmt('select book_id from dbo.Books where in_stock = 1', {
+            const result = await fmt('select BookId from Books where InStock = 1', {
                 sqlDensity: 'spacious',
             });
-            expect(result).not.toContain('where in_stock');
+            expect(result).not.toContain('where InStock');
             expect(result).toMatchSnapshot();
         });
 
         it('single ON predicate on own line', async () => {
             const result = await fmt(multiJoinSql, { sqlDensity: 'spacious' });
-            expect(result).not.toContain('on b.author_id');
+            expect(result).not.toContain('on b.AuthorId');
             expect(result).toMatchSnapshot();
         });
 
@@ -382,22 +382,22 @@ describe('density option', () => {
 describe('VIEW formatting', () => {
     it('CREATE OR ALTER VIEW basic', async () => {
         const result = await fmt(
-            'create or alter view dbo.vw_available_books as select book_id, title from dbo.Books where in_stock = 1',
+            'create or alter view vw_available_books as select BookId, Title from Books where InStock = 1',
             { sqlKeywordCase: 'lower' }
         );
         expect(result).toMatchSnapshot();
     });
 
-    it('block comment between view name and AS is preserved in place', async () => {
-        // A block comment between the view name and AS must stay there.
+    it('block comment between view Name and AS is preserved in place', async () => {
+        // A block comment between the view Name and AS must stay there.
         const sql = [
             'create or alter view [dbo].[vw_example]',
             '/* with encryption */',
             'as',
-            'select book_id from dbo.Books;',
+            'select BookId from Books;',
         ].join('\n');
         const result = await fmt(sql, { sqlKeywordCase: 'lower' });
-        // Comment must appear after the view name, not before the create keyword
+        // Comment must appear after the view Name, not before the create keyword
         expect(result).not.toMatch(/^\/\*/);
         const createIdx = result.indexOf('create or alter view');
         const commentIdx = result.indexOf('/* with encryption */');
@@ -408,17 +408,17 @@ describe('VIEW formatting', () => {
     it('block comment inside first view does not appear before second view', async () => {
         // A block comment internal to one batch must not bleed into the next batch.
         const sql = [
-            'create or alter view [dbo].[vw_first]',
+            'create or alter view vw_first',
             '/* with encryption */',
             'as',
             'select 1 as x;',
             'go',
-            'create or alter view [dbo].[vw_second]',
+            'create or alter view vw_second',
             'as',
             'select 2 as y;',
         ].join('\n');
         const result = await fmt(sql, { sqlKeywordCase: 'lower' });
-        const secondViewIdx = result.indexOf('create or alter view dbo.vw_second');
+        const secondViewIdx = result.indexOf('create or alter view vw_second');
         const commentIdx = result.indexOf('/* with encryption */');
         expect(commentIdx).toBeLessThan(secondViewIdx);
         expect(result).toMatchSnapshot();
@@ -428,7 +428,7 @@ describe('VIEW formatting', () => {
         // A standalone comment on its own line before CREATE VIEW should be kept.
         const sql = [
             '-- view description',
-            'create or alter view dbo.vw_test as select 1 as x;',
+            'create or alter view vw_test as select 1 as x;',
         ].join('\n');
         const result = await fmt(sql, { sqlKeywordCase: 'lower' });
         expect(result.trimStart()).toMatch(/^-- view description/);
@@ -456,27 +456,27 @@ describe('SET ROWCOUNT formatting', () => {
 
 describe('table hints', () => {
     it('NOLOCK on single table', async () => {
-        const result = await fmt('select book_id from dbo.Books as b with (nolock)');
+        const result = await fmt('select BookId from Books as b with (nolock)');
         expect(result).toContain('with (nolock)');
         expect(result).toMatchSnapshot();
     });
 
     it('multiple hints', async () => {
-        const result = await fmt('select book_id from dbo.Books with (nolock, rowlock)');
+        const result = await fmt('select BookId from Books with (nolock, rowlock)');
         expect(result).toContain('with (nolock, rowlock)');
         expect(result).toMatchSnapshot();
     });
 
     it('NOLOCK on joined table', async () => {
         const result = await fmt(
-            'select b.book_id, p.name from dbo.Books as b with (nolock) inner join dbo.Publishers as p with (nolock) on b.publisher_id = p.publisher_id'
+            'select b.BookId, p.Name from Books as b with (nolock) inner join Publishers as p with (nolock) on b.PublisherId = p.PublisherId'
         );
         expect(result).toContain('with (nolock)');
         expect(result).toMatchSnapshot();
     });
 
     it('hints respect keyword case upper', async () => {
-        const result = await fmt('select book_id from dbo.Books with (nolock)', { sqlKeywordCase: 'upper' });
+        const result = await fmt('select BookId from Books with (nolock)', { sqlKeywordCase: 'upper' });
         expect(result).toContain('WITH (NOLOCK)');
         expect(result).toMatchSnapshot();
     });
@@ -485,7 +485,7 @@ describe('table hints', () => {
 describe('nested join formatting', () => {
     it('parenthesized nested join', async () => {
         const result = await fmt(
-            'select b.title from dbo.Books as b left join (dbo.Authors as a inner join dbo.Publishers as p on a.publisher_id = p.publisher_id) on b.author_id = a.author_id'
+            'select b.Title from Books as b left join (Authors as a inner join Publishers as p on a.PublisherId = p.PublisherId) on b.AuthorId = a.AuthorId'
         );
         expect(result).toMatchSnapshot();
     });
@@ -493,14 +493,14 @@ describe('nested join formatting', () => {
 
 describe('IN clause formatting', () => {
     it('short value list stays on one line', async () => {
-        const result = await fmt('select book_id from dbo.Books where genre_id in (1, 2, 3)');
+        const result = await fmt('select BookId from Books where GenreId in (1, 2, 3)');
         expect(result).toContain('in (1, 2, 3)');
         expect(result).toMatchSnapshot();
     });
 
     it('long value list wraps each value to its own line', async () => {
         const result = await fmt(
-            "select author_id from dbo.Authors where country in ('United States', 'United Kingdom', 'Canada', 'Australia', 'Germany')"
+            "select AuthorId from Authors where Country in ('United States', 'United Kingdom', 'Canada', 'Australia', 'Germany')"
         );
         const lines = result.split('\n');
         // ) should be on its own line (not sharing a line with the last value)
@@ -510,40 +510,40 @@ describe('IN clause formatting', () => {
     });
 
     it('NOT IN short list stays inline', async () => {
-        const result = await fmt('select book_id from dbo.Books where genre_id not in (1, 2)');
+        const result = await fmt('select BookId from Books where GenreId not in (1, 2)');
         expect(result).toContain('not in (1, 2)');
         expect(result).toMatchSnapshot();
     });
 
     it('IN subquery is unaffected', async () => {
         const result = await fmt(
-            'select book_id from dbo.Books where book_id in (select book_id from dbo.OrderItems where unit_price > 50)'
+            'select BookId from Books where BookId in (select BookId from OrderItems where UnitPrice > 50)'
         );
         expect(result).toMatchSnapshot();
     });
 });
 
 describe('intra-WHERE comments', () => {
-    it('commented-out predicates are preserved between active predicates', async () => {
+    it('commented-out predicates are preserved between Active predicates', async () => {
         const sql = [
-            'select book_id from dbo.Books',
+            'select BookId from Books',
             'where 1 = 1',
-            '    and Books.genre_id in (1)',
-            "    --and Books.genre_id in (select genre_id from dbo.Genres where name = 'Fiction')",
-            '    and Books.publisher_id in (4)',
-            '    --and Books.publisher_id in (select publisher_id from dbo.Publishers where country = \'UK\')',
-            '    and Books.author_id in (101, 102)',
+            '    and Books.GenreId in (1)',
+            "    --and Books.GenreId in (select GenreId from Genres where Name = 'Fiction')",
+            '    and Books.PublisherId in (4)',
+            '    --and Books.PublisherId in (select PublisherId from Publishers where Country = \'UK\')',
+            '    and Books.AuthorId in (101, 102)',
         ].join('\n');
         const result = await fmt(sql);
         // Both commented-out predicates must appear in output
-        expect(result).toContain('--and Books.genre_id');
-        expect(result).toContain('--and Books.publisher_id');
-        // They must appear between their neighbouring active predicates
+        expect(result).toContain('--and Books.GenreId');
+        expect(result).toContain('--and Books.PublisherId');
+        // They must appear between their neighbouring Active predicates
         const lines = result.split('\n');
-        const idxGenreActive   = lines.findIndex(l => l.includes('genre_id in (1)'));
-        const idxGenreComment  = lines.findIndex(l => l.includes('--and Books.genre_id'));
-        const idxPubActive     = lines.findIndex(l => l.includes('publisher_id in (4)'));
-        const idxPubComment    = lines.findIndex(l => l.includes('--and Books.publisher_id'));
+        const idxGenreActive   = lines.findIndex(l => l.includes('GenreId in (1)'));
+        const idxGenreComment  = lines.findIndex(l => l.includes('--and Books.GenreId'));
+        const idxPubActive     = lines.findIndex(l => l.includes('PublisherId in (4)'));
+        const idxPubComment    = lines.findIndex(l => l.includes('--and Books.PublisherId'));
         expect(idxGenreComment).toBeGreaterThan(idxGenreActive);
         expect(idxPubActive).toBeGreaterThan(idxGenreComment);
         expect(idxPubComment).toBeGreaterThan(idxPubActive);
@@ -554,7 +554,7 @@ describe('intra-WHERE comments', () => {
 describe('UNION / INTERSECT / EXCEPT formatting', () => {
     it('UNION ALL has blank lines before and after the operator', async () => {
         const result = await fmt(
-            'select book_id, title from dbo.Books where in_stock = 1 union all select book_id, title from dbo.ArchivedBooks'
+            'select BookId, Title from Books where InStock = 1 union all select BookId, Title from ArchivedBooks'
         );
         // blank line before and after "union all"
         const lines = result.split('\n');
@@ -567,7 +567,7 @@ describe('UNION / INTERSECT / EXCEPT formatting', () => {
 
     it('UNION (distinct) has blank lines around the operator', async () => {
         const result = await fmt(
-            'select author_id from dbo.Books union select author_id from dbo.ArchivedBooks'
+            'select AuthorId from Books union select AuthorId from ArchivedBooks'
         );
         const lines = result.split('\n');
         const idxOp = lines.findIndex(l => l.trim() === 'union');
@@ -580,7 +580,7 @@ describe('UNION / INTERSECT / EXCEPT formatting', () => {
 describe('OPTION clause formatting', () => {
     it('OPTION (RECOMPILE) is preserved on its own line', async () => {
         const result = await fmt(
-            'select book_id, title from dbo.Books where in_stock = 1 option (recompile)'
+            'select BookId, Title from Books where InStock = 1 option (recompile)'
         );
         expect(result).toContain('option (recompile)');
         expect(result).toMatchSnapshot();
@@ -588,7 +588,7 @@ describe('OPTION clause formatting', () => {
 
     it('OPTION clause respects keyword case upper', async () => {
         const result = await fmt(
-            'select book_id from dbo.Books option (recompile)',
+            'select BookId from Books option (recompile)',
             { sqlKeywordCase: 'upper' }
         );
         expect(result).toContain('OPTION');
@@ -597,7 +597,7 @@ describe('OPTION clause formatting', () => {
 
     it('OPTION clause with ORDER BY appears after ORDER BY', async () => {
         const result = await fmt(
-            'select book_id, title from dbo.Books where in_stock = 1 order by title asc option (recompile)'
+            'select BookId, Title from Books where InStock = 1 order by Title asc option (recompile)'
         );
         const lines = result.split('\n');
         const idxOption = lines.findIndex(l => l.trim().startsWith('option'));
@@ -610,11 +610,11 @@ describe('OPTION clause formatting', () => {
 describe('comment between JOIN clauses', () => {
     it('line comment between two joins is preserved on its own line', async () => {
         const sql = `
-select b.book_id, b.title
-from dbo.Books as b
-inner join dbo.Authors as a on b.author_id = a.author_id
+select b.BookId, b.Title
+from Books as b
+inner join Authors as a on b.AuthorId = a.AuthorId
 -- left join: publishers may not exist for all books
-left join dbo.Publishers as p on b.publisher_id = p.publisher_id`;
+left join Publishers as p on b.PublisherId = p.PublisherId`;
         const result = await fmt(sql);
         expect(result).toContain('-- left join: publishers may not exist for all books');
         const lines = result.split('\n');
@@ -628,12 +628,12 @@ left join dbo.Publishers as p on b.publisher_id = p.publisher_id`;
 
     it('multiple comments between joins are all preserved', async () => {
         const sql = `
-select b.book_id from dbo.Books as b
-inner join dbo.Authors as a on b.author_id = a.author_id
+select b.BookId from Books as b
+inner join Authors as a on b.AuthorId = a.AuthorId
 -- optional: genre
-left join dbo.Genres as g on b.genre_id = g.genre_id
+left join Genres as g on b.GenreId = g.GenreId
 -- optional: publisher
-left join dbo.Publishers as p on b.publisher_id = p.publisher_id`;
+left join Publishers as p on b.PublisherId = p.PublisherId`;
         const result = await fmt(sql);
         expect(result).toContain('-- optional: genre');
         expect(result).toContain('-- optional: publisher');
@@ -644,14 +644,14 @@ left join dbo.Publishers as p on b.publisher_id = p.publisher_id`;
 describe('derived table (subquery in FROM)', () => {
     it('simple derived table with alias', async () => {
         const result = await fmt(
-            'select b.title, b.price from (select title, price from dbo.Books where in_stock = 1) as b'
+            'select b.Title, b.Price from (select Title, Price from Books where InStock = 1) as b'
         );
         expect(result).toMatchSnapshot();
     });
 
     it('derived table joined to another table', async () => {
         const result = await fmt(
-            'select b.title, a.last_name from (select book_id, title, author_id from dbo.Books where price > 20) as b inner join dbo.Authors as a on b.author_id = a.author_id'
+            'select b.Title, a.LastName from (select BookId, Title, AuthorId from Books where Price > 20) as b inner join Authors as a on b.AuthorId = a.AuthorId'
         );
         expect(result).toMatchSnapshot();
     });
@@ -659,66 +659,66 @@ describe('derived table (subquery in FROM)', () => {
 
 describe('expression functions', () => {
     it('CAST preserves length', async () => {
-        const result = await fmt("select cast(title as nvarchar(100)) from dbo.Books", { sqlKeywordCase: 'upper' });
+        const result = await fmt("select cast(Title as nvarchar(100)) from Books", { sqlKeywordCase: 'upper' });
         expect(result).toContain('NVARCHAR(100)');
         expect(result).toMatchSnapshot();
     });
 
     it('CONVERT preserves length and style', async () => {
-        const result = await fmt("select convert(nvarchar(50), price, 1) from dbo.Books", { sqlKeywordCase: 'upper' });
+        const result = await fmt("select convert(nvarchar(50), Price, 1) from Books", { sqlKeywordCase: 'upper' });
         expect(result).toContain('NVARCHAR(50)');
         expect(result).toMatchSnapshot();
     });
 
     it('IIF expression', async () => {
-        const result = await fmt("select iif(in_stock = 1, 'yes', 'no') from dbo.Books", { sqlKeywordCase: 'upper' });
+        const result = await fmt("select iif(InStock = 1, 'yes', 'no') from Books", { sqlKeywordCase: 'upper' });
         expect(result).toContain('IIF(');
         expect(result).toMatchSnapshot();
     });
 
     it('COALESCE expression', async () => {
-        const result = await fmt("select coalesce(price, 0.0) from dbo.Books", { sqlKeywordCase: 'upper' });
+        const result = await fmt("select coalesce(Price, 0.0) from Books", { sqlKeywordCase: 'upper' });
         expect(result).toContain('COALESCE(');
         expect(result).toMatchSnapshot();
     });
 
     it('NULLIF expression', async () => {
-        const result = await fmt("select nullif(price, 0) from dbo.Books", { sqlKeywordCase: 'upper' });
+        const result = await fmt("select nullif(Price, 0) from Books", { sqlKeywordCase: 'upper' });
         expect(result).toContain('NULLIF(');
         expect(result).toMatchSnapshot();
     });
 
     it('TRY_CAST expression', async () => {
-        const result = await fmt("select try_cast(title as int) from dbo.Books", { sqlKeywordCase: 'upper' });
+        const result = await fmt("select try_cast(Title as int) from Books", { sqlKeywordCase: 'upper' });
         expect(result).toContain('TRY_CAST(');
         expect(result).toMatchSnapshot();
     });
 
     it('TRY_CONVERT expression', async () => {
-        const result = await fmt("select try_convert(decimal(10,2), price) from dbo.Books", { sqlKeywordCase: 'upper' });
+        const result = await fmt("select try_convert(decimal(10,2), Price) from Books", { sqlKeywordCase: 'upper' });
         expect(result).toContain('TRY_CONVERT(');
         expect(result).toMatchSnapshot();
     });
 
     it('AT TIME ZONE expression', async () => {
-        const result = await fmt("select getdate() at time zone 'UTC' from dbo.Books", { sqlKeywordCase: 'upper' });
+        const result = await fmt("select getdate() at time zone 'UTC' from Books", { sqlKeywordCase: 'upper' });
         expect(result).toContain('AT TIME ZONE');
         expect(result).toMatchSnapshot();
     });
 
     it('TVF in FROM clause', async () => {
-        const result = await fmt("select * from dbo.GetBooks(1) as b");
+        const result = await fmt("select * from GetBooks(1) as b");
         expect(result).toContain('GetBooks(');
         expect(result).toMatchSnapshot();
     });
 
     it('short string concatenation stays on one line', async () => {
-        const result = await fmt("select isnull(last_nm, '') + ', ' + isnull(first_nm, '') as full_nm from dbo.Authors");
+        const result = await fmt("select isnull(last_nm, '') + ', ' + isnull(first_nm, '') as full_nm from Authors");
         expect(result).toMatchSnapshot();
     });
 
     it('long string concatenation breaks before + not inside function args', async () => {
-        const sql = "select isnull(VID.LastNm, '') + ', ' + isnull(VID.FirstNm, '') + ' ' + isnull(VID.MiddleNm, '') + ' ' + isnull(S.Suffix, '') as VisitorNm from dbo.Visitors as VID inner join dbo.Suffixes as S on VID.SuffixId = S.SuffixId";
+        const sql = "select isnull(VID.LastNm, '') + ', ' + isnull(VID.FirstNm, '') + ' ' + isnull(VID.MiddleNm, '') + ' ' + isnull(S.Suffix, '') as VisitorNm from Visitors as VID inner join Suffixes as S on VID.SuffixId = S.SuffixId";
         const result = await fmt(sql);
         // breaks at + operators, never inside a function call's args
         expect(result).not.toMatch(/isnull\(\s*\n/);
@@ -728,13 +728,13 @@ describe('expression functions', () => {
 
 describe('Control flow & DDL additions', () => {
     it('TRUNCATE TABLE', async () => {
-        const result = await fmt('truncate table dbo.Books');
-        expect(result).toMatchInlineSnapshot(`"truncate table dbo.Books;"`);
+        const result = await fmt('truncate table Books');
+        expect(result).toMatchInlineSnapshot(`"truncate table Books;"`);
     });
 
     it('TRUNCATE TABLE uppercase', async () => {
-        const result = await fmt('TRUNCATE TABLE dbo.Books', { sqlKeywordCase: 'upper' });
-        expect(result).toMatchInlineSnapshot(`"TRUNCATE TABLE dbo.Books;"`);
+        const result = await fmt('TRUNCATE TABLE Books', { sqlKeywordCase: 'upper' });
+        expect(result).toMatchInlineSnapshot(`"TRUNCATE TABLE Books;"`);
     });
 
     it('BREAK statement', async () => {
@@ -776,7 +776,7 @@ describe('Control flow & DDL additions', () => {
     it('TRY/CATCH block', async () => {
         const sql = `
 begin try
-  select book_id from dbo.Books;
+  select BookId from Books;
 end try
 begin catch
   throw;
@@ -790,37 +790,37 @@ end catch`;
     });
 
     it('DROP TABLE', async () => {
-        const result = await fmt('drop table dbo.Books');
-        expect(result).toMatchInlineSnapshot(`"drop table dbo.Books;"`);
+        const result = await fmt('drop table Books');
+        expect(result).toMatchInlineSnapshot(`"drop table Books;"`);
     });
 
     it('DROP TABLE IF EXISTS', async () => {
-        const result = await fmt('drop table if exists dbo.Books');
-        expect(result).toMatchInlineSnapshot(`"drop table if exists dbo.Books;"`);
+        const result = await fmt('drop table if exists Books');
+        expect(result).toMatchInlineSnapshot(`"drop table if exists Books;"`);
     });
 
     it('DROP PROCEDURE', async () => {
-        const result = await fmt('drop procedure dbo.GetBooks');
-        expect(result).toMatchInlineSnapshot(`"drop procedure dbo.GetBooks;"`);
+        const result = await fmt('drop procedure GetBooks');
+        expect(result).toMatchInlineSnapshot(`"drop procedure GetBooks;"`);
     });
 
     it('DROP VIEW', async () => {
-        const result = await fmt('drop view dbo.vw_available_books');
-        expect(result).toMatchInlineSnapshot(`"drop view dbo.vw_available_books;"`);
+        const result = await fmt('drop view vw_available_books');
+        expect(result).toMatchInlineSnapshot(`"drop view vw_available_books;"`);
     });
 
     it('DROP FUNCTION', async () => {
-        const result = await fmt('drop function dbo.GetBookPrice');
-        expect(result).toMatchInlineSnapshot(`"drop function dbo.GetBookPrice;"`);
+        const result = await fmt('drop function GetBookPrice');
+        expect(result).toMatchInlineSnapshot(`"drop function GetBookPrice;"`);
     });
 
     it('DROP INDEX', async () => {
-        const result = await fmt('drop index ix_title on dbo.Books');
-        expect(result).toMatchInlineSnapshot(`"drop index ix_title on dbo.Books;"`);
+        const result = await fmt('drop index ix_title on Books');
+        expect(result).toMatchInlineSnapshot(`"drop index ix_title on Books;"`);
     });
 
     it('CREATE OR ALTER PROCEDURE emits correct keyword and GO', async () => {
-        const sql = `create or alter procedure dbo.GetBooks as begin select book_id from dbo.Books; end`;
+        const sql = `create or alter procedure GetBooks as begin select BookId from Books; end`;
         const result = await fmt(sql);
         expect(result).toContain('create or alter procedure');
         expect(result).toContain('go');
@@ -828,8 +828,8 @@ end catch`;
     });
 
     it('SELECT @var assignment in select list', async () => {
-        const result = await fmt('select @total = sum(price) from dbo.Books where in_stock = 1');
-        expect(result).toContain('@total');
+        const result = await fmt('select @Total = sum(Price) from Books where InStock = 1');
+        expect(result).toContain('@Total');
         expect(result).toMatchSnapshot();
     });
 });
@@ -837,13 +837,13 @@ end catch`;
 describe('MERGE statement', () => {
     it('full MERGE with all three clause types', async () => {
         const result = await fmt(`
-            merge into dbo.Books as t
-            using dbo.ArchivedBooks as s
-            on t.book_id = s.book_id
+            merge into Books as t
+            using ArchivedBooks as s
+            on t.BookId = s.BookId
             when matched then
-                update set t.title = s.title, t.price = s.price
+                update set t.Title = s.Title, t.Price = s.Price
             when not matched by target then
-                insert (book_id, title, price) values (s.book_id, s.title, s.price)
+                insert (BookId, Title, Price) values (s.BookId, s.Title, s.Price)
             when not matched by source then
                 delete;
         `);
@@ -860,11 +860,11 @@ describe('MERGE statement', () => {
 
     it('MERGE with AND predicate on WHEN MATCHED', async () => {
         const result = await fmt(`
-            merge into dbo.Books as t
-            using dbo.ArchivedBooks as s
-            on t.book_id = s.book_id
-            when matched and t.price <> s.price then
-                update set t.price = s.price;
+            merge into Books as t
+            using ArchivedBooks as s
+            on t.BookId = s.BookId
+            when matched and t.Price <> s.Price then
+                update set t.Price = s.Price;
         `);
         expect(result).toContain('when matched and');
         expect(result).toContain('update set');
@@ -873,11 +873,11 @@ describe('MERGE statement', () => {
 
     it('MERGE respects sqlKeywordCase upper', async () => {
         const result = await fmt(`
-            merge into dbo.Books as t
-            using dbo.ArchivedBooks as s
-            on t.book_id = s.book_id
+            merge into Books as t
+            using ArchivedBooks as s
+            on t.BookId = s.BookId
             when matched then
-                update set t.price = s.price;
+                update set t.Price = s.Price;
         `, { sqlKeywordCase: 'upper' });
         expect(result).toContain('MERGE INTO');
         expect(result).toContain('WHEN MATCHED THEN');
@@ -886,11 +886,11 @@ describe('MERGE statement', () => {
 
     it('MERGE with subquery as source', async () => {
         const result = await fmt(`
-            merge into dbo.Books as t
-            using (select book_id, title, price from dbo.ArchivedBooks where price > 0) as s
-            on t.book_id = s.book_id
+            merge into Books as t
+            using (select BookId, Title, Price from ArchivedBooks where Price > 0) as s
+            on t.BookId = s.BookId
             when matched then
-                update set t.title = s.title, t.price = s.price;
+                update set t.Title = s.Title, t.Price = s.Price;
         `);
         expect(result).toContain('using');
         expect(result).toContain('select');
@@ -902,27 +902,27 @@ describe('MERGE statement', () => {
 describe('OUTPUT clause', () => {
     it('MERGE with OUTPUT $action and inserted/deleted columns', async () => {
         const result = await fmt(`
-            merge into dbo.Books as t
-            using dbo.ArchivedBooks as s on t.book_id = s.book_id
-            when matched then update set t.price = s.price
-            when not matched by target then insert (book_id, title, price) values (s.book_id, s.title, s.price)
+            merge into Books as t
+            using ArchivedBooks as s on t.BookId = s.BookId
+            when matched then update set t.Price = s.Price
+            when not matched by target then insert (BookId, Title, Price) values (s.BookId, s.Title, s.Price)
             when not matched by source then delete
-            output $action, inserted.book_id, deleted.price;
+            output $action, inserted.BookId, deleted.Price;
         `);
         expect(result).toContain('output');
         expect(result).toContain('$action');
-        expect(result).toContain('inserted.book_id');
-        expect(result).toContain('deleted.price');
+        expect(result).toContain('inserted.BookId');
+        expect(result).toContain('deleted.Price');
         expect(result).toMatchSnapshot();
     });
 
     it('MERGE with OUTPUT INTO table variable', async () => {
         const result = await fmt(`
-            merge into dbo.Books as t
-            using dbo.ArchivedBooks as s on t.book_id = s.book_id
-            when matched then update set t.price = s.price
-            output $action, inserted.book_id, inserted.price
-            into @changes (action, book_id, price);
+            merge into Books as t
+            using ArchivedBooks as s on t.BookId = s.BookId
+            when matched then update set t.Price = s.Price
+            output $action, inserted.BookId, inserted.Price
+            into @changes (action, BookId, Price);
         `);
         expect(result).toContain('output');
         expect(result).toContain('into @changes');
@@ -931,18 +931,18 @@ describe('OUTPUT clause', () => {
 
     it('INSERT with OUTPUT inserted.*', async () => {
         const result = await fmt(
-            'insert into dbo.Books (title, price) output inserted.book_id, inserted.title values (\'New Book\', 9.99)'
+            'insert into Books (Title, Price) output inserted.BookId, inserted.Title values (\'New Book\', 9.99)'
         );
         expect(result).toContain('output');
-        expect(result).toContain('inserted.book_id');
+        expect(result).toContain('inserted.BookId');
         expect(result).toMatchSnapshot();
     });
 
     it('DELETE with OUTPUT INTO', async () => {
         const result = await fmt(`
-            delete from dbo.Books
-            output deleted.book_id, deleted.title into @removed (book_id, title)
-            where in_stock = 0
+            delete from Books
+            output deleted.BookId, deleted.Title into @removed (BookId, Title)
+            where InStock = 0
         `);
         expect(result).toContain('output');
         expect(result).toContain('into @removed');
@@ -951,19 +951,19 @@ describe('OUTPUT clause', () => {
 
     it('UPDATE with OUTPUT', async () => {
         const result = await fmt(
-            'update dbo.Books set price = price * 1.1 output inserted.book_id, deleted.price, inserted.price where in_stock = 1'
+            'update Books set Price = Price * 1.1 output inserted.BookId, deleted.Price, inserted.Price where InStock = 1'
         );
         expect(result).toContain('output');
-        expect(result).toContain('deleted.price');
+        expect(result).toContain('deleted.Price');
         expect(result).toMatchSnapshot();
     });
 
     it('OUTPUT respects keyword casing upper', async () => {
         const result = await fmt(`
-            merge into dbo.Books as t
-            using dbo.ArchivedBooks as s on t.book_id = s.book_id
-            when matched then update set t.price = s.price
-            output $action, inserted.book_id;
+            merge into Books as t
+            using ArchivedBooks as s on t.BookId = s.BookId
+            when matched then update set t.Price = s.Price
+            output $action, inserted.BookId;
         `, { sqlKeywordCase: 'upper' });
         expect(result).toContain('OUTPUT');
         expect(result).toContain('MERGE INTO');
@@ -973,16 +973,16 @@ describe('OUTPUT clause', () => {
 describe('Full-text predicates', () => {
     it('CONTAINS with single column', async () => {
         const result = await fmt(
-            "select book_id, title from dbo.Books where contains(title, '\"SQL Server\"')"
+            "select BookId, Title from Books where contains(Title, '\"SQL Server\"')"
         );
         expect(result).toContain('contains(');
-        expect(result).toContain('title');
+        expect(result).toContain('Title');
         expect(result).toMatchSnapshot();
     });
 
     it('FREETEXT with single column', async () => {
         const result = await fmt(
-            "select book_id, title from dbo.Books where freetext(title, 'database programming')"
+            "select BookId, Title from Books where freetext(Title, 'database programming')"
         );
         expect(result).toContain('freetext(');
         expect(result).toMatchSnapshot();
@@ -990,7 +990,7 @@ describe('Full-text predicates', () => {
 
     it('CONTAINS with wildcard *', async () => {
         const result = await fmt(
-            "select book_id from dbo.Books where contains(*, 'programming')"
+            "select BookId from Books where contains(*, 'programming')"
         );
         expect(result).toContain('contains(*, ');
         expect(result).toMatchSnapshot();
@@ -998,15 +998,15 @@ describe('Full-text predicates', () => {
 
     it('CONTAINS with multiple columns', async () => {
         const result = await fmt(
-            "select book_id from dbo.Books where contains((title, author_id), 'design')"
+            "select BookId from Books where contains((Title, AuthorId), 'design')"
         );
-        expect(result).toContain('contains((title, author_id)');
+        expect(result).toContain('contains((Title, AuthorId)');
         expect(result).toMatchSnapshot();
     });
 
     it('CONTAINS with LANGUAGE', async () => {
         const result = await fmt(
-            "select book_id from dbo.Books where contains(title, 'query', language 1033)"
+            "select BookId from Books where contains(Title, 'query', language 1033)"
         );
         expect(result).toContain('language');
         expect(result).toContain('1033');
@@ -1015,16 +1015,16 @@ describe('Full-text predicates', () => {
 
     it('CONTAINSTABLE in FROM clause', async () => {
         const result = await fmt(
-            "select b.book_id, b.title, ft.[rank] from dbo.Books as b inner join containstable(dbo.Books, title, '\"SQL\"') as ft on b.book_id = ft.[key]"
+            "select b.BookId, b.Title, ft.[rank] from Books as b inner join containstable(Books, Title, '\"SQL\"') as ft on b.BookId = ft.[key]"
         );
         expect(result).toContain('containstable(');
-        expect(result).toContain('dbo.Books');
+        expect(result).toContain('Books');
         expect(result).toMatchSnapshot();
     });
 
     it('FREETEXTTABLE with wildcard and TOP N', async () => {
         const result = await fmt(
-            "select b.book_id, ft.[rank] from dbo.Books as b inner join freetexttable(dbo.Books, *, 'programming', 10) as ft on b.book_id = ft.[key]"
+            "select b.BookId, ft.[rank] from Books as b inner join freetexttable(Books, *, 'programming', 10) as ft on b.BookId = ft.[key]"
         );
         expect(result).toContain('freetexttable(');
         expect(result).toMatchSnapshot();
@@ -1032,7 +1032,7 @@ describe('Full-text predicates', () => {
 
     it('full-text keywords respect sqlKeywordCase upper', async () => {
         const result = await fmt(
-            "select book_id from dbo.Books where contains(title, 'SQL')",
+            "select BookId from Books where contains(Title, 'SQL')",
             { sqlKeywordCase: 'upper' }
         );
         expect(result).toContain('CONTAINS(');
@@ -1044,32 +1044,32 @@ describe('Full-text predicates', () => {
 describe('Rowset functions', () => {
     it('OPENJSON without WITH clause', async () => {
         const result = await fmt(
-            "select j.[key], j.[value] from dbo.Orders as o cross apply openjson(o.json_data) as j where o.id = 1;"
+            "select j.[key], j.[value] from Orders as o cross apply openjson(o.JsonData) as j where o.id = 1;"
         );
         expect(result).toMatchInlineSnapshot(`
 "select
   j.key,
   j.value
 from
-  dbo.Orders as o
-  cross apply openjson(o.json_data) as j
+  Orders as o
+  cross apply openjson(o.JsonData) as j
 where o.id = 1;"
         `);
     });
 
     it('OPENJSON with row path and WITH clause', async () => {
         const result = await fmt(
-            "select j.order_id, j.amount from dbo.Orders as o cross apply openjson(o.json_data, '$.items') with (order_id int '$.id', amount decimal(10,2) '$.amount', notes nvarchar(500) '$.notes') as j;"
+            "select j.OrderId, j.amount from Orders as o cross apply openjson(o.JsonData, '$.items') with (OrderId int '$.id', amount decimal(10,2) '$.amount', notes nvarchar(500) '$.notes') as j;"
         );
         expect(result).toMatchInlineSnapshot(`
 "select
-  j.order_id,
+  j.OrderId,
   j.amount
 from
-  dbo.Orders as o
-  cross apply openjson(o.json_data, '$.items')
+  Orders as o
+  cross apply openjson(o.JsonData, '$.items')
   with (
-    order_id int '$.id',
+    OrderId int '$.id',
     amount decimal(10,2) '$.amount',
     notes nvarchar(500) '$.notes'
   ) as j;"
@@ -1086,16 +1086,16 @@ from
 
     it('OPENXML with WITH schema declaration', async () => {
         const result = await fmt(
-            "select x.id, x.name from openxml(@hDoc, '/root/item', 2) with (id int '@id', name varchar(100) 'name') as x;"
+            "select x.id, x.Name from openxml(@hDoc, '/root/item', 2) with (id int '@id', Name varchar(100) 'Name') as x;"
         );
         expect(result).toMatchInlineSnapshot(`
 "select
   x.id,
-  x.name
+  x.Name
 from openxml(@hDoc, '/root/item', 2)
 with (
   id int '@id',
-  name varchar(100) 'name'
+  Name varchar(100) 'Name'
 ) as x;"
         `);
     });
@@ -1112,21 +1112,21 @@ with (
 
     it('OPENROWSET provider form with provider string and query', async () => {
         const result = await fmt(
-            "select r.id, r.name from openrowset('SQLNCLI', 'Server=(local);Trusted_Connection=yes;', 'select id, name from pubs.dbo.titles') as r;"
+            "select r.id, r.Name from openrowset('SQLNCLI', 'Server=(local);Trusted_Connection=yes;', 'select id, Name from pubs.titles') as r;"
         );
         expect(result).toMatchInlineSnapshot(`
 "select
   r.id,
-  r.name
-from openrowset('SQLNCLI', 'Server=(local);Trusted_Connection=yes;', 'select id, name from pubs.dbo.titles') as r;"
+  r.Name
+from openrowset('SQLNCLI', 'Server=(local);Trusted_Connection=yes;', 'select id, Name from pubs.titles') as r;"
         `);
     });
 
     it('OPENROWSET provider form with datasource/userid/password and schema object', async () => {
         const result = await fmt(
-            "select * from openrowset('SQLNCLI', 'server=(local)';'sa';'pass', pubs.dbo.titles) as r;"
+            "select * from openrowset('SQLNCLI', 'server=(local)';'sa';'pass', pubs.titles) as r;"
         );
-        expect(result).toContain("openrowset('SQLNCLI', 'server=(local)';'sa';'pass', pubs.dbo.titles)");
+        expect(result).toContain("openrowset('SQLNCLI', 'server=(local)';'sa';'pass', pubs.titles)");
         expect(result).toContain('as r;');
     });
 
@@ -1398,7 +1398,7 @@ describe('USE / SET / WAITFOR / ALTER PROC/FUNC', () => {
     });
 
     it('SET IDENTITY_INSERT table ON', async () => {
-        expect(await fmt('SET IDENTITY_INSERT dbo.Books ON')).toContain('set identity_insert dbo.Books on;');
+        expect(await fmt('SET IDENTITY_INSERT Books ON')).toContain('set identity_insert Books on;');
     });
 
     it('SET TRANSACTION ISOLATION LEVEL READ COMMITTED', async () => {
@@ -1431,18 +1431,18 @@ describe('USE / SET / WAITFOR / ALTER PROC/FUNC', () => {
 
     it('ALTER PROCEDURE', async () => {
         const result = await fmt(
-            'alter procedure dbo.GetBooks @genre nvarchar(100) as begin select book_id from dbo.Books where genre = @genre; end'
+            'alter procedure GetBooks @genre nvarchar(100) as begin select BookId from Books where genre = @genre; end'
         );
-        expect(result).toContain('alter procedure dbo.GetBooks');
+        expect(result).toContain('alter procedure GetBooks');
         expect(result).toContain('@genre nvarchar(100)');
         expect(result).toContain('go');
     });
 
     it('ALTER FUNCTION scalar', async () => {
         const result = await fmt(
-            'alter function dbo.GetCount(@genre nvarchar(100)) returns int as begin return (select count(*) from dbo.Books where genre = @genre); end'
+            'alter function GetCount(@genre nvarchar(100)) returns int as begin return (select count(*) from Books where genre = @genre); end'
         );
-        expect(result).toContain('alter function dbo.GetCount');
+        expect(result).toContain('alter function GetCount');
         expect(result).toContain('@genre nvarchar(100)');
         expect(result).toContain('returns int');
         expect(result).toContain('go');
@@ -1450,9 +1450,9 @@ describe('USE / SET / WAITFOR / ALTER PROC/FUNC', () => {
 
     it('CREATE OR ALTER FUNCTION', async () => {
         const result = await fmt(
-            'create or alter function dbo.GetCount(@genre nvarchar(100)) returns int as begin return (select count(*) from dbo.Books where genre = @genre); end'
+            'create or alter function GetCount(@genre nvarchar(100)) returns int as begin return (select count(*) from Books where genre = @genre); end'
         );
-        expect(result).toContain('create or alter function dbo.GetCount');
+        expect(result).toContain('create or alter function GetCount');
         expect(result).toContain('go');
     });
 });
@@ -1460,10 +1460,10 @@ describe('USE / SET / WAITFOR / ALTER PROC/FUNC', () => {
 describe('CREATE/ALTER TRIGGER', () => {
     it('CREATE TRIGGER after insert', async () => {
         const result = await fmt(
-            'create trigger dbo.trg_Books_AI on dbo.Books after insert as begin update dbo.Books set price = price * 1.1 where book_id in (select book_id from inserted); end'
+            'create trigger trg_Books_AI on Books after insert as begin update Books set Price = Price * 1.1 where BookId in (select BookId from inserted); end'
         );
-        expect(result).toContain('create trigger dbo.trg_Books_AI');
-        expect(result).toContain('on dbo.Books');
+        expect(result).toContain('create trigger trg_Books_AI');
+        expect(result).toContain('on Books');
         expect(result).toContain('after insert');
         expect(result).toContain('as');
         expect(result).toContain('begin');
@@ -1474,7 +1474,7 @@ describe('CREATE/ALTER TRIGGER', () => {
 
     it('CREATE TRIGGER instead of update/delete', async () => {
         const result = await fmt(
-            'create trigger dbo.trg_Books_IOD on dbo.Books instead of update, delete as begin print \'blocked\'; end'
+            'create trigger trg_Books_IOD on Books instead of update, delete as begin print \'blocked\'; end'
         );
         expect(result).toContain('instead of update, delete');
         expect(result).toMatchSnapshot();
@@ -1482,7 +1482,7 @@ describe('CREATE/ALTER TRIGGER', () => {
 
     it('ALTER TRIGGER', async () => {
         const result = await fmt(
-            'alter trigger dbo.trg_Books_AI on dbo.Books after insert as begin return; end'
+            'alter trigger trg_Books_AI on Books after insert as begin return; end'
         );
         expect(result).toContain('alter trigger');
         expect(result).toContain('go');
@@ -1490,54 +1490,54 @@ describe('CREATE/ALTER TRIGGER', () => {
     });
 
     it('DROP TRIGGER', async () => {
-        expect(await fmt('drop trigger dbo.trg_Books_AI')).toContain('drop trigger dbo.trg_Books_AI;');
+        expect(await fmt('drop trigger trg_Books_AI')).toContain('drop trigger trg_Books_AI;');
     });
 
     it('DROP TRIGGER IF EXISTS', async () => {
-        expect(await fmt('drop trigger if exists dbo.trg_Books_AI')).toContain('drop trigger if exists dbo.trg_Books_AI;');
+        expect(await fmt('drop trigger if exists trg_Books_AI')).toContain('drop trigger if exists trg_Books_AI;');
     });
 
     it('trigger keywords respect sqlKeywordCase upper', async () => {
         const result = await fmt(
-            'create trigger dbo.trg on dbo.Books after insert as begin return; end',
+            'create trigger trg on Books after insert as begin return; end',
             { sqlKeywordCase: 'upper' }
         );
         expect(result).toContain('CREATE TRIGGER');
-        expect(result).toContain('ON dbo.Books');
+        expect(result).toContain('ON Books');
         expect(result).toContain('AFTER INSERT');
     });
 });
 
 describe('ALTER INDEX', () => {
     it('ALTER INDEX REBUILD', async () => {
-        const result = await fmt('alter index ix_Books_title on dbo.Books rebuild');
-        expect(result).toContain('alter index ix_Books_title on dbo.Books');
+        const result = await fmt('alter index ix_Books_title on Books rebuild');
+        expect(result).toContain('alter index ix_Books_title on Books');
         expect(result).toContain('rebuild;');
         expect(result).toMatchSnapshot();
     });
 
     it('ALTER INDEX ALL REBUILD', async () => {
-        const result = await fmt('alter index all on dbo.Books rebuild');
-        expect(result).toContain('alter index all on dbo.Books');
+        const result = await fmt('alter index all on Books rebuild');
+        expect(result).toContain('alter index all on Books');
         expect(result).toContain('rebuild;');
         expect(result).toMatchSnapshot();
     });
 
     it('ALTER INDEX REORGANIZE', async () => {
-        const result = await fmt('alter index ix_Books_title on dbo.Books reorganize');
+        const result = await fmt('alter index ix_Books_title on Books reorganize');
         expect(result).toContain('reorganize;');
         expect(result).toMatchSnapshot();
     });
 
     it('ALTER INDEX DISABLE', async () => {
-        const result = await fmt('alter index ix_Books_title on dbo.Books disable');
+        const result = await fmt('alter index ix_Books_title on Books disable');
         expect(result).toContain('disable;');
         expect(result).toMatchSnapshot();
     });
 
     it('alter index keywords respect sqlKeywordCase upper', async () => {
-        const result = await fmt('alter index ix_Books_title on dbo.Books rebuild', { sqlKeywordCase: 'upper' });
-        expect(result).toContain('ALTER INDEX ix_Books_title ON dbo.Books');
+        const result = await fmt('alter index ix_Books_title on Books rebuild', { sqlKeywordCase: 'upper' });
+        expect(result).toContain('ALTER INDEX ix_Books_title ON Books');
         expect(result).toContain('REBUILD;');
     });
 });
@@ -1545,25 +1545,25 @@ describe('ALTER INDEX', () => {
 describe('Cursor operations', () => {
     it('DECLARE CURSOR basic', async () => {
         const result = await fmt(
-            'declare book_cursor cursor for select book_id, title from dbo.Books where in_stock = 1'
+            'declare book_cursor cursor for select BookId, Title from Books where InStock = 1'
         );
         expect(result).toContain('declare book_cursor cursor');
         expect(result).toContain('for');
         expect(result).toContain('select');
-        expect(result).toContain('dbo.Books');
+        expect(result).toContain('Books');
         expect(result).toMatchSnapshot();
     });
 
     it('OPEN / FETCH NEXT / CLOSE / DEALLOCATE', async () => {
         const sql = `
 open book_cursor;
-fetch next from book_cursor into @id, @title;
+fetch next from book_cursor into @id, @Title;
 close book_cursor;
 deallocate book_cursor;`;
         const result = await fmt(sql);
         expect(result).toContain('open book_cursor;');
         expect(result).toContain('fetch next from book_cursor');
-        expect(result).toContain('@id, @title');
+        expect(result).toContain('@id, @Title');
         expect(result).toContain('close book_cursor;');
         expect(result).toContain('deallocate book_cursor;');
         expect(result).toMatchSnapshot();
@@ -1578,7 +1578,7 @@ deallocate book_cursor;`;
 
     it('cursor keywords respect sqlKeywordCase upper', async () => {
         const result = await fmt(
-            'declare c cursor for select book_id from dbo.Books; open c; fetch next from c into @id; close c; deallocate c;',
+            'declare c cursor for select BookId from Books; open c; fetch next from c into @id; close c; deallocate c;',
             { sqlKeywordCase: 'upper' }
         );
         expect(result).toContain('DECLARE c CURSOR');
@@ -1592,8 +1592,8 @@ deallocate book_cursor;`;
 
 describe('CREATE/ALTER/DROP SEQUENCE', () => {
     it('CREATE SEQUENCE minimal', async () => {
-        const result = await fmt('create sequence dbo.OrderSeq as int start with 1 increment by 1');
-        expect(result).toContain('create sequence dbo.OrderSeq');
+        const result = await fmt('create sequence OrderSeq as int start with 1 increment by 1');
+        expect(result).toContain('create sequence OrderSeq');
         expect(result).toContain('as int');
         expect(result).toContain('start with 1');
         expect(result).toContain('increment by 1');
@@ -1602,7 +1602,7 @@ describe('CREATE/ALTER/DROP SEQUENCE', () => {
 
     it('CREATE SEQUENCE with min/max/cycle/cache', async () => {
         const result = await fmt(
-            'create sequence dbo.Seq as bigint start with 1 increment by 1 minvalue 1 maxvalue 9999 cycle cache 20'
+            'create sequence Seq as bigint start with 1 increment by 1 minvalue 1 maxvalue 9999 cycle cache 20'
         );
         expect(result).toContain('minvalue 1');
         expect(result).toContain('maxvalue 9999');
@@ -1613,7 +1613,7 @@ describe('CREATE/ALTER/DROP SEQUENCE', () => {
 
     it('CREATE SEQUENCE with NO options', async () => {
         const result = await fmt(
-            'create sequence dbo.Seq as int start with 1 no minvalue no maxvalue no cycle no cache'
+            'create sequence Seq as int start with 1 no minvalue no maxvalue no cycle no cache'
         );
         expect(result).toContain('no minvalue');
         expect(result).toContain('no maxvalue');
@@ -1622,24 +1622,24 @@ describe('CREATE/ALTER/DROP SEQUENCE', () => {
     });
 
     it('ALTER SEQUENCE restart', async () => {
-        const result = await fmt('alter sequence dbo.OrderSeq restart with 100 increment by 5');
-        expect(result).toContain('alter sequence dbo.OrderSeq');
+        const result = await fmt('alter sequence OrderSeq restart with 100 increment by 5');
+        expect(result).toContain('alter sequence OrderSeq');
         expect(result).toContain('restart with 100');
         expect(result).toContain('increment by 5');
         expect(result).toMatchSnapshot();
     });
 
     it('DROP SEQUENCE', async () => {
-        expect(await fmt('drop sequence dbo.OrderSeq')).toContain('drop sequence dbo.OrderSeq;');
+        expect(await fmt('drop sequence OrderSeq')).toContain('drop sequence OrderSeq;');
     });
 
     it('DROP SEQUENCE IF EXISTS', async () => {
-        expect(await fmt('drop sequence if exists dbo.OrderSeq')).toContain('drop sequence if exists dbo.OrderSeq;');
+        expect(await fmt('drop sequence if exists OrderSeq')).toContain('drop sequence if exists OrderSeq;');
     });
 
     it('sequence keywords respect sqlKeywordCase upper', async () => {
-        const result = await fmt('create sequence dbo.S as int start with 1 increment by 1', { sqlKeywordCase: 'upper' });
-        expect(result).toContain('CREATE SEQUENCE dbo.S');
+        const result = await fmt('create sequence S as int start with 1 increment by 1', { sqlKeywordCase: 'upper' });
+        expect(result).toContain('CREATE SEQUENCE S');
         expect(result).toContain('AS INT');
         expect(result).toContain('START WITH 1');
         expect(result).toContain('INCREMENT BY 1');
@@ -1648,57 +1648,57 @@ describe('CREATE/ALTER/DROP SEQUENCE', () => {
 
 describe('BULK INSERT', () => {
     it('BULK INSERT basic', async () => {
-        const result = await fmt("bulk insert dbo.Books from 'C:\\data\\books.csv'");
-        expect(result).toContain('bulk insert dbo.Books');
+        const result = await fmt("bulk insert Books from 'C:\\data\\books.csv'");
+        expect(result).toContain('bulk insert Books');
         expect(result).toContain("from 'C:\\data\\books.csv'");
         expect(result).toMatchSnapshot();
     });
 
     it('BULK INSERT with WITH options', async () => {
         const result = await fmt(
-            "bulk insert dbo.Books from 'C:\\data\\books.csv' with (fieldterminator = ',', rowterminator = '\\n', firstrow = 2)"
+            "bulk insert Books from 'C:\\data\\books.csv' with (fieldterminator = ',', rowterminator = '\\n', firstrow = 2)"
         );
-        expect(result).toContain('bulk insert dbo.Books');
+        expect(result).toContain('bulk insert Books');
         expect(result).toContain('with (');
         expect(result).toMatchSnapshot();
     });
 
     it('BULK INSERT keywords respect sqlKeywordCase upper', async () => {
-        const result = await fmt("bulk insert dbo.Books from 'C:\\data\\books.csv'", { sqlKeywordCase: 'upper' });
-        expect(result).toContain('BULK INSERT dbo.Books');
+        const result = await fmt("bulk insert Books from 'C:\\data\\books.csv'", { sqlKeywordCase: 'upper' });
+        expect(result).toContain('BULK INSERT Books');
         expect(result).toContain('FROM');
     });
 });
 
 describe('CREATE TYPE', () => {
     it('CREATE TYPE scalar UDDT', async () => {
-        const result = await fmt('create type dbo.BookTitle from nvarchar(200) not null');
-        expect(result).toContain('create type dbo.BookTitle');
+        const result = await fmt('create type BookTitle from nvarchar(200) not null');
+        expect(result).toContain('create type BookTitle');
         expect(result).toContain('from nvarchar(200)');
         expect(result).toContain('not null');
         expect(result).toMatchSnapshot();
     });
 
     it('CREATE TYPE scalar UDDT nullable', async () => {
-        const result = await fmt('create type dbo.OptionalText from nvarchar(500) null');
+        const result = await fmt('create type OptionalText from nvarchar(500) null');
         expect(result).toContain('from nvarchar(500)');
         expect(result).toContain('null;');
     });
 
     it('CREATE TYPE table type', async () => {
         const result = await fmt(
-            'create type dbo.BookList as table (book_id int not null, title nvarchar(200), price decimal(10,2))'
+            'create type BookList as table (BookId int not null, Title nvarchar(200), Price decimal(10,2))'
         );
-        expect(result).toContain('create type dbo.BookList');
+        expect(result).toContain('create type BookList');
         expect(result).toContain('as table (');
-        expect(result).toContain('book_id int');
-        expect(result).toContain('title nvarchar');
+        expect(result).toContain('BookId int');
+        expect(result).toContain('Title nvarchar');
         expect(result).toMatchSnapshot();
     });
 
     it('type keywords respect sqlKeywordCase upper', async () => {
-        const result = await fmt('create type dbo.BookTitle from nvarchar(200) not null', { sqlKeywordCase: 'upper' });
-        expect(result).toContain('CREATE TYPE dbo.BookTitle');
+        const result = await fmt('create type BookTitle from nvarchar(200) not null', { sqlKeywordCase: 'upper' });
+        expect(result).toContain('CREATE TYPE BookTitle');
         expect(result).toContain('FROM NVARCHAR(200)');
         expect(result).toContain('NOT NULL');
     });
@@ -1706,20 +1706,20 @@ describe('CREATE TYPE', () => {
 
 describe('GRANT / DENY / REVOKE', () => {
     it('GRANT multiple permissions ON object TO principal', async () => {
-        expect(await fmt('grant select, insert on object::dbo.Books to AppUser')).toBe(
-            'grant\n  select,\n  insert\non object::dbo.Books\nto AppUser;'
+        expect(await fmt('grant select, insert on object::Books to AppUser')).toBe(
+            'grant\n  select,\n  insert\non object::Books\nto AppUser;'
         );
     });
 
     it('GRANT single permission ON object TO principal', async () => {
-        expect(await fmt('grant execute on dbo.GetBooks to AppUser')).toBe(
-            'grant execute\non dbo.GetBooks\nto AppUser;'
+        expect(await fmt('grant execute on GetBooks to AppUser')).toBe(
+            'grant execute\non GetBooks\nto AppUser;'
         );
     });
 
     it('GRANT with column list', async () => {
-        expect(await fmt('grant select (title, price) on dbo.Books to AppUser with grant option')).toBe(
-            'grant select (title, price)\non dbo.Books\nto AppUser\nwith grant option;'
+        expect(await fmt('grant select (Title, Price) on Books to AppUser with grant option')).toBe(
+            'grant select (Title, Price)\non Books\nto AppUser\nwith grant option;'
         );
     });
 
@@ -1742,26 +1742,26 @@ describe('GRANT / DENY / REVOKE', () => {
     });
 
     it('GRANT TO multiple principals', async () => {
-        expect(await fmt('grant execute on dbo.GetBooks to AppUser, GuestUser')).toBe(
-            'grant execute\non dbo.GetBooks\nto AppUser, GuestUser;'
+        expect(await fmt('grant execute on GetBooks to AppUser, GuestUser')).toBe(
+            'grant execute\non GetBooks\nto AppUser, GuestUser;'
         );
     });
 
     it('DENY with CASCADE', async () => {
-        expect(await fmt('deny delete on object::dbo.Books to GuestUser')).toBe(
-            'deny delete\non object::dbo.Books\nto GuestUser;'
+        expect(await fmt('deny delete on object::Books to GuestUser')).toBe(
+            'deny delete\non object::Books\nto GuestUser;'
         );
     });
 
     it('REVOKE FROM principal', async () => {
-        expect(await fmt('revoke select on object::dbo.Books from AppUser')).toBe(
-            'revoke select\non object::dbo.Books\nfrom AppUser;'
+        expect(await fmt('revoke select on object::Books from AppUser')).toBe(
+            'revoke select\non object::Books\nfrom AppUser;'
         );
     });
 
     it('REVOKE GRANT OPTION FOR with CASCADE', async () => {
-        expect(await fmt('revoke grant option for select on object::dbo.Books from AppUser cascade')).toBe(
-            'revoke grant option for select\non object::dbo.Books\nfrom AppUser\ncascade;'
+        expect(await fmt('revoke grant option for select on object::Books from AppUser cascade')).toBe(
+            'revoke grant option for select\non object::Books\nfrom AppUser\ncascade;'
         );
     });
 });

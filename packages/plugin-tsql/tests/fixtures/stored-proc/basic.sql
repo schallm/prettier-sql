@@ -1,1 +1,1 @@
-create procedure dbo.GetActiveUsers as begin select id, name, email from dbo.users where active = 1 order by name asc end
+create procedure GetActiveUsers as begin select id, Name, Email from users where Active = 1 order by Name asc end
