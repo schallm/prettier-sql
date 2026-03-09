@@ -563,33 +563,35 @@ order by b.Title asc;"
 `;
 
 exports[`SELECT formatting > nested CASE in THEN branch indents inner case on new line 1`] = `
-"select case
-  when ContentType = 'movie' then
-    case
-      when
-        BoxOfficeTotal is null
-        or BoxOfficeTotal < 250000000
-      then 2.78
-      else 3.69
-    end
-  when ContentType = 'tv-episode' then
-    case
-      when ContentLength < 30 * 60 then 0.61
-      else 0.91
-    end
-  else -1
-end as AgencyCost
+"select
+  case
+    when ContentType = 'movie' then
+      case
+        when
+          BoxOfficeTotal is null
+          or BoxOfficeTotal < 250000000
+        then 2.78
+        else 3.69
+      end
+    when ContentType = 'tv-episode' then
+      case
+        when ContentLength < 30 * 60 then 0.61
+        else 0.91
+      end
+    else -1
+  end as AgencyCost
 from Content;"
 `;
 
 exports[`SELECT formatting > searched CASE with AND condition 1`] = `
-"select case
-  when
-    b.AuthorId is not null
-    and b.GenreId in (1, 2, 3)
-  then 1
-  else 0
-end as IsAvailable
+"select
+  case
+    when
+      b.AuthorId is not null
+      and b.GenreId in (1, 2, 3)
+    then 1
+    else 0
+  end as IsAvailable
 from Books as b;"
 `;
 

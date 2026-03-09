@@ -455,9 +455,11 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
         return group(parts);
     }
 
-    // Standard / Spacious: single column stays inline; multiple each on own line
+    // Standard / Spacious: single column stays inline; multiple each on own line.
+    // A CASE expression always expands to multiple lines, so force it onto its own indented line.
+    const singleExprType = (prop(selectElements[0], 'expression') ?? selectElements[0])?.type;
     const colList: Doc =
-        density === 'standard' && colDocs.length === 1
+        density === 'standard' && colDocs.length === 1 && singleExprType !== 'CaseExpression'
             ? [' ', colDocs[0]!]
             : indent([hardline, join([',', hardline], colDocs)]);
     const parts: Doc[] = [selectKw, ...(topDoc ? [' ', topDoc] : []), colList];

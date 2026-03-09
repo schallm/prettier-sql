@@ -247,35 +247,38 @@ order by
 Single-predicate `when` conditions stay inline:
 
 ```sql
-select case
-  when Price > 50 then 'premium'
-  when Price > 20 then 'standard'
-  else 'budget'
-end as PriceTier
+select
+  case
+    when Price > 50 then 'premium'
+    when Price > 20 then 'standard'
+    else 'budget'
+  end as PriceTier
 from Books;
 ```
 
 When a `when` condition is a compound boolean expression (`and` / `or`), the predicates break to indented lines and `then` returns to the `when` indent level:
 
 ```sql
-select case
-  when
-    AuthorId is not null
-    and GenreId in (1, 2, 3)
-  then 1
-  else 0
-end as IsFeatured
+select
+  case
+    when
+      AuthorId is not null
+      and GenreId in (1, 2, 3)
+    then 1
+    else 0
+  end as IsFeatured
 from Books;
 ```
 
 ##### Simple CASE
 
 ```sql
-select case GenreId
-  when 1 then 'Fiction'
-  when 2 then 'Non-Fiction'
-  else 'Other'
-end as GenreName
+select
+  case GenreId
+    when 1 then 'Fiction'
+    when 2 then 'Non-Fiction'
+    else 'Other'
+  end as GenreName
 from Books;
 ```
 
