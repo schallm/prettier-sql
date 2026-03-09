@@ -1,1 +1,1 @@
-select id, Name, Salary, row_number() over (partition by DepartmentId order by Salary desc) as rn, rank() over (partition by DepartmentId order by Salary desc) as rnk, sum(Salary) over (partition by DepartmentId) as dept_total from employees
+select Id, Title, Price, row_number() over (partition by GenreId order by Price desc) as rn, rank() over (partition by GenreId order by Price desc) as rnk, sum(Price) over (partition by GenreId) as genre_total from Books

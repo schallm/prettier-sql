@@ -8,7 +8,7 @@ describe('parse()', () => {
     });
 
     it('parses a basic SELECT into correct node types', () => {
-        const ast = parse('SELECT id, name FROM dbo.users WHERE active = 1');
+        const ast = parse('SELECT Id, Title FROM Books WHERE InStock = 1');
         expect(ast.type).toBe('TSqlScript');
 
         const batches = ast.props?.['batches'] as typeof ast[];
@@ -20,35 +20,35 @@ describe('parse()', () => {
     });
 
     it('parses INSERT statement', () => {
-        const ast = parse("INSERT INTO dbo.t (a, b) VALUES (1, 'x')");
+        const ast = parse("INSERT INTO Books (Title, Price) VALUES ('Test', 9.99)");
         const batch = (ast.props?.['batches'] as typeof ast[])[0]!;
         const stmt = (batch.props?.['statements'] as typeof ast[])[0]!;
         expect(stmt.type).toBe('InsertStatement');
     });
 
     it('parses UPDATE statement', () => {
-        const ast = parse('UPDATE dbo.t SET a = 1 WHERE id = 2');
+        const ast = parse('UPDATE Books SET Price = 9.99 WHERE Id = 2');
         const batch = (ast.props?.['batches'] as typeof ast[])[0]!;
         const stmt = (batch.props?.['statements'] as typeof ast[])[0]!;
         expect(stmt.type).toBe('UpdateStatement');
     });
 
     it('parses DELETE statement', () => {
-        const ast = parse('DELETE FROM dbo.t WHERE id = 1');
+        const ast = parse('DELETE FROM Books WHERE Id = 1');
         const batch = (ast.props?.['batches'] as typeof ast[])[0]!;
         const stmt = (batch.props?.['statements'] as typeof ast[])[0]!;
         expect(stmt.type).toBe('DeleteStatement');
     });
 
     it('parses CREATE TABLE statement', () => {
-        const ast = parse('CREATE TABLE dbo.t (id INT NOT NULL, name NVARCHAR(100) NULL)');
+        const ast = parse('CREATE TABLE Books (Id INT NOT NULL, Title NVARCHAR(200) NULL)');
         const batch = (ast.props?.['batches'] as typeof ast[])[0]!;
         const stmt = (batch.props?.['statements'] as typeof ast[])[0]!;
         expect(stmt.type).toBe('CreateTableStatement');
     });
 
     it('parses CREATE PROCEDURE statement', () => {
-        const ast = parse('CREATE PROCEDURE dbo.GetAll AS BEGIN SELECT * FROM dbo.t END');
+        const ast = parse('CREATE PROCEDURE GetAvailableBooks AS BEGIN SELECT * FROM Books END');
         const batch = (ast.props?.['batches'] as typeof ast[])[0]!;
         const stmt = (batch.props?.['statements'] as typeof ast[])[0]!;
         expect(stmt.type).toBe('CreateProcedureStatement');
@@ -75,7 +75,7 @@ describe('parse()', () => {
     });
 
     it('parses window functions', () => {
-        const ast = parse('SELECT ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC) AS rn FROM dbo.emp');
+        const ast = parse('SELECT ROW_NUMBER() OVER (PARTITION BY GenreId ORDER BY Price DESC) AS rn FROM Books');
         expect(ast.type).toBe('TSqlScript');
         // Just verify it parses without error
     });
@@ -84,7 +84,7 @@ describe('parse()', () => {
         // bodyStart = StatementList.StartOffset which ScriptDom places at BEGIN.
         // This is the boundary used by comment-attachment to separate
         // preBodyComments (before BEGIN) from inner-body comments (after BEGIN).
-        const sql = 'CREATE PROCEDURE dbo.Foo\n@p1 int\n/*c1*/\nAS\nBEGIN\n  /*c2*/\n  SELECT 1\nEND';
+        const sql = 'CREATE PROCEDURE GetBookById\n@p1 int\n/*c1*/\nAS\nBEGIN\n  /*c2*/\n  SELECT 1\nEND';
         const ast = parse(sql);
         const stmt = ((ast.props!['batches'] as any[])[0].props['statements'] as any[])[0];
         const bodyStart = stmt.props['bodyStart'] as number;

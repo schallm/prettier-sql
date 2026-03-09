@@ -1,11 +1,11 @@
 SELECT
-    u.id,
-    u.Name,
-    u.Email
+    Books.Id,
+    Books.Title,
+    Authors.FirstName
 FROM
-    users AS u
-    INNER JOIN roles AS r ON u.RoleId = r.id
+    Books
+    INNER JOIN Authors ON Books.AuthorId = Authors.Id
 WHERE
-    u.Active = 1
+    Books.InStock = 1
 ORDER BY
-    u.Name ASC;
+    Books.Title ASC;

@@ -1,1 +1,1 @@
-create function GetUsersByDepartment (@departmentId int) returns table as return select id, Name, Email from users where DepartmentId = @departmentId and Active = 1
+create function GetBooksByGenre (@genreId int) returns table as return select Id, Title, Price from Books where GenreId = @genreId and InStock = 1

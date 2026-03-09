@@ -1,1 +1,1 @@
-update users set Name = 'Updated Name', Email = 'updated@example.com', UpdatedAt = getdate() where id = 42
+update Books set Title = 'Updated Title', Price = 29.99 where Id = 42

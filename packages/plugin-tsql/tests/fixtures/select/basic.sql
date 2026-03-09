@@ -1,1 +1,1 @@
-select u.id,u.Name,u.Email from users u inner join roles r on u.RoleId=r.id where u.Active=1 order by u.Name asc
+select Books.Id,Books.Title,Authors.FirstName from Books inner join Authors on Books.AuthorId=Authors.Id where Books.InStock=1 order by Books.Title asc

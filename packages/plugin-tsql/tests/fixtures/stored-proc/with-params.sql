@@ -1,1 +1,1 @@
-create procedure GetUserById @userId int, @includeInactive bit = 0 as begin select id, Name, Email, Active from users where id = @userId and (Active = 1 or @includeInactive = 1) end
+create procedure GetBookById @bookId int, @includeOutOfStock bit = 0 as begin select Id, Title, Price, InStock from Books where Id = @bookId and (InStock = 1 or @includeOutOfStock = 1) end

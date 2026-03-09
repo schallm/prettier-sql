@@ -1,1 +1,1 @@
-delete from users where Active = 0 and LastLogin < dateadd(year, -2, getdate())
+delete from Books where InStock = 0 and PublishedDate < dateadd(year, -10, getdate())

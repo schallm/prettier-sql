@@ -1,1 +1,1 @@
-select id, Name from users where id in (select UserId from orders where Total > 1000) and DepartmentId = (select id from departments where Name = 'Engineering')
+select Id, Title from Books where Id in (select BookId from OrderItems where UnitPrice > 50) and GenreId = (select Id from Genres where Name = 'Fiction')

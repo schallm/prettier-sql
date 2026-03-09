@@ -1,1 +1,1 @@
-alter table users drop column Phone, Bio
+alter table Books drop column Isbn, Summary

@@ -1,1 +1,1 @@
-create table users (id int not null identity(1,1), Name nvarchar(100) not null, Email nvarchar(255) not null, Active bit not null default 1, CreatedAt datetime2 not null default getdate(), constraint pk_users primary key (id))
+create table Books (Id int not null identity(1,1), Title nvarchar(200) not null, Price decimal(10,2) not null, InStock bit not null default 1, PublishedDate datetime2 not null default getdate(), constraint PK_Books primary key (Id))

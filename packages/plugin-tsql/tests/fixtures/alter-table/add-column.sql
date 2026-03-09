@@ -1,1 +1,1 @@
-alter table users add Phone nvarchar(20) null, Bio nvarchar(max) null
+alter table Books add Isbn nvarchar(20) null, Summary nvarchar(max) null

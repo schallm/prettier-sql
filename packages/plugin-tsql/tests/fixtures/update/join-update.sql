@@ -1,1 +1,1 @@
-update u set u.RoleName = r.Name, u.UpdatedAt = getdate() from users u inner join roles r on u.RoleId = r.id where r.IsAdmin = 1
+update Books set InStock = 0 from Books inner join Publishers on Books.PublisherId = Publishers.Id where Publishers.Country = 'UK'

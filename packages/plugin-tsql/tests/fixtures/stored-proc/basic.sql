@@ -1,1 +1,1 @@
-create procedure GetActiveUsers as begin select id, Name, Email from users where Active = 1 order by Name asc end
+create procedure GetAvailableBooks as begin select Id, Title, Price from Books where InStock = 1 order by Title asc end
