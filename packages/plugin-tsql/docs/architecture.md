@@ -11,12 +11,26 @@ The plugin is a three-layer stack:
 ```mermaid
 flowchart TD
     A([SQL text])
-    A --> B["C# Parser — src/dotnet/SqlScriptDom/<br/>TSql160Parser → AstBuilder → SqlParser.Parse()"]
-    B -->|"JSON { ast, comments } via node-api-dotnet"| C
-    C["Parser Bridge — src/plugin/parser/<br/>Load DLL · Call Parse() · 3-pass comment attachment"]
-    C -->|SqlNode tree| D
-    D["Prettier Printer — src/plugin/printer/<br/>statements · ddl · procedural · security · expressions"]
-    D --> E([Formatted SQL text])
+
+    subgraph cs ["Layer 1 — C# Parser"]
+        direction LR
+        CS1["TSql160Parser"] --> CS2["AstBuilder"] --> CS3["SqlParser.Parse()"]
+    end
+
+    subgraph bridge ["Layer 2 — Parser Bridge"]
+        direction LR
+        BR1["Load DLL<br/>node-api-dotnet"] --> BR2["Call Parse()"] --> BR3["3-pass comment<br/>attachment"]
+    end
+
+    subgraph printer ["Layer 3 — Prettier Printer"]
+        direction LR
+        PR1["statements.ts<br/>DML"] --- PR2["ddl.ts<br/>DDL"] --- PR3["procedural.ts<br/>Control flow"] --- PR4["security.ts<br/>Grants"] --- PR5["expressions.ts<br/>Expressions"]
+    end
+
+    A --> cs
+    cs -->|"JSON { ast, comments }"| bridge
+    bridge -->|"SqlNode tree"| printer
+    printer --> E([Formatted SQL text])
 ```
 
 ---
