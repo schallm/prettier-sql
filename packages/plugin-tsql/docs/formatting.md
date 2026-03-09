@@ -47,7 +47,7 @@ from Books;
 Multiple tables or any join forces `from` onto its own line with the table list indented:
 
 ```sql
-select Id
+select *
 from
   Books
   inner join Authors on Books.AuthorId = Authors.Id
