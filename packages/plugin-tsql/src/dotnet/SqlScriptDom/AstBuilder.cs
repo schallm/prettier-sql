@@ -21,8 +21,8 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static string RawText(TSqlFragment f) {
         var stream = f.ScriptTokenStream;
         if (stream == null || stream.Count == 0) return f.GetType().Name;
-        int start = f.StartOffset;
-        int end = start + f.FragmentLength;
+        var start = f.StartOffset;
+        var end = start + f.FragmentLength;
         return string.Concat(stream
             .Where(t => t.Offset >= start && t.Offset < end)
             .Select(t => t.Text))
@@ -877,7 +877,7 @@ public class AstBuilder : TSqlFragmentVisitor {
 
     private static SqlNode BuildColumnDefinition(ColumnDefinition col) {
         var dt = col.DataType;
-        string? dataTypeName = dt?.Name?.BaseIdentifier?.Value;
+        var dataTypeName = dt?.Name?.BaseIdentifier?.Value;
 
         return new SqlNode(
             "ColumnDefinition",
@@ -943,7 +943,7 @@ public class AstBuilder : TSqlFragmentVisitor {
     // -------------------------------------------------------------------------
 
     private static SqlNode BuildAlterTableStatement(AlterTableStatement at) {
-        string alterType = at.GetType().Name;
+        var alterType = at.GetType().Name;
         var props = new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(at.SchemaObjectName),
             ["alterType"] = alterType,
@@ -1726,7 +1726,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         if (option == null) return "";
         var stream = stmt.ScriptTokenStream;
         if (stream == null || stream.Count == 0) return RawText(option);
-        int optStart = option.StartOffset;
+        var optStart = option.StartOffset;
         var text = string.Concat(stream
             .OrderBy(t => t.Offset)
             .SkipWhile(t => t.Offset < optStart)
