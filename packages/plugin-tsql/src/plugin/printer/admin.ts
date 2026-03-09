@@ -10,7 +10,7 @@ import { propStr, propBool } from './helpers.js';
 
 export function printDropDatabase(node: SqlNode, opts: Options): Doc {
     const databases = node.props?.['databases'] as string[] | undefined;
-    const ifExists  = propBool(node, 'ifExists');
+    const ifExists = propBool(node, 'ifExists');
 
     const ifExistsPart: Doc = ifExists ? [' ', keyword('IF EXISTS', opts)] : '';
     const dbList: Doc = databases?.length ? join([', '], databases) : '';
@@ -22,19 +22,15 @@ export function printDropDatabase(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printDbcc(node: SqlNode, opts: Options): Doc {
-    const command        = propStr(node, 'command') ?? '';
-    const literals       = node.props?.['literals'] as string[] | undefined;
-    const options        = node.props?.['options']  as string[] | undefined;
+    const command = propStr(node, 'command') ?? '';
+    const literals = node.props?.['literals'] as string[] | undefined;
+    const options = node.props?.['options'] as string[] | undefined;
     const optionsUseJoin = propBool(node, 'optionsUseJoin');
 
-    const argPart: Doc = literals?.length
-        ? ['(', join([', '], literals), ')']
-        : '';
+    const argPart: Doc = literals?.length ? ['(', join([', '], literals), ')'] : '';
 
     const optSep = optionsUseJoin ? ' JOIN ' : ', ';
-    const withPart: Doc = options?.length
-        ? [' ', keyword('WITH', opts), ' ', join([optSep], options)]
-        : '';
+    const withPart: Doc = options?.length ? [' ', keyword('WITH', opts), ' ', join([optSep], options)] : '';
 
     return [keyword('DBCC', opts), ' ', keyword(command, opts), argPart, withPart, ';'];
 }
@@ -45,19 +41,15 @@ export function printDbcc(node: SqlNode, opts: Options): Doc {
 
 function printBackupBase(verb: Doc, node: SqlNode, opts: Options): Doc {
     const database = propStr(node, 'database') ?? '';
-    const devices  = node.props?.['devices']  as string[] | undefined;
-    const options  = node.props?.['options']  as string[] | undefined;
+    const devices = node.props?.['devices'] as string[] | undefined;
+    const options = node.props?.['options'] as string[] | undefined;
     const mirrorTo = node.props?.['mirrorTo'] as string[] | undefined;
 
-    const toPart: Doc = devices?.length
-        ? [hardline, keyword('TO', opts), ' ', join([',', hardline], devices)]
-        : '';
+    const toPart: Doc = devices?.length ? [hardline, keyword('TO', opts), ' ', join([',', hardline], devices)] : '';
 
-    const mirrorParts: Doc[] = mirrorTo?.map(m => [hardline, keyword('MIRROR TO', opts), ' ', m] as Doc) ?? [];
+    const mirrorParts: Doc[] = mirrorTo?.map((m) => [hardline, keyword('MIRROR TO', opts), ' ', m] as Doc) ?? [];
 
-    const withPart: Doc = options?.length
-        ? [hardline, keyword('WITH', opts), ' ', join([', '], options)]
-        : '';
+    const withPart: Doc = options?.length ? [hardline, keyword('WITH', opts), ' ', join([', '], options)] : '';
 
     return group([verb, ' ', database, toPart, ...mirrorParts, withPart, ';']);
 }
@@ -75,20 +67,16 @@ export function printBackupLog(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printRestore(node: SqlNode, opts: Options): Doc {
-    const kind     = propStr(node, 'kind') ?? 'DATABASE';
+    const kind = propStr(node, 'kind') ?? 'DATABASE';
     const database = propStr(node, 'database');
-    const devices  = node.props?.['devices'] as string[] | undefined;
-    const options  = node.props?.['options'] as string[] | undefined;
+    const devices = node.props?.['devices'] as string[] | undefined;
+    const options = node.props?.['options'] as string[] | undefined;
 
     const dbPart: Doc = database ? [' ', database] : '';
 
-    const fromPart: Doc = devices?.length
-        ? [hardline, keyword('FROM', opts), ' ', join([',', hardline], devices)]
-        : '';
+    const fromPart: Doc = devices?.length ? [hardline, keyword('FROM', opts), ' ', join([',', hardline], devices)] : '';
 
-    const withPart: Doc = options?.length
-        ? [hardline, keyword('WITH', opts), ' ', join([', '], options)]
-        : '';
+    const withPart: Doc = options?.length ? [hardline, keyword('WITH', opts), ' ', join([', '], options)] : '';
 
     return group([keyword('RESTORE', opts), ' ', keyword(kind, opts), dbPart, fromPart, withPart, ';']);
 }
@@ -98,22 +86,19 @@ export function printRestore(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printCreateDatabase(node: SqlNode, opts: Options): Doc {
-    const name       = propStr(node, 'name') ?? '';
-    const collation  = propStr(node, 'collation');
-    const snapshot   = propStr(node, 'snapshot');
-    const copyOf     = propStr(node, 'copyOf');
+    const name = propStr(node, 'name') ?? '';
+    const collation = propStr(node, 'collation');
+    const snapshot = propStr(node, 'snapshot');
+    const copyOf = propStr(node, 'copyOf');
     const fileGroups = node.props?.['fileGroups'] as string[] | undefined;
-    const logOn      = node.props?.['logOn']      as string[] | undefined;
-    const options    = node.props?.['options']    as string[] | undefined;
+    const logOn = node.props?.['logOn'] as string[] | undefined;
+    const options = node.props?.['options'] as string[] | undefined;
 
     const parts: Doc[] = [keyword('CREATE DATABASE', opts), ' ', name];
 
-    if (collation)
-        parts.push(' ', keyword('COLLATE', opts), ' ', collation);
-    if (snapshot)
-        parts.push(hardline, keyword('AS SNAPSHOT OF', opts), ' ', snapshot);
-    if (copyOf)
-        parts.push(hardline, keyword('AS COPY OF', opts), ' ', copyOf);
+    if (collation) parts.push(' ', keyword('COLLATE', opts), ' ', collation);
+    if (snapshot) parts.push(hardline, keyword('AS SNAPSHOT OF', opts), ' ', snapshot);
+    if (copyOf) parts.push(hardline, keyword('AS COPY OF', opts), ' ', copyOf);
     if (fileGroups?.length) {
         parts.push(hardline, keyword('ON', opts), ' ');
         parts.push(indent([hardline, join([',', hardline], fileGroups)]));
@@ -122,8 +107,7 @@ export function printCreateDatabase(node: SqlNode, opts: Options): Doc {
         parts.push(hardline, keyword('LOG ON', opts), ' ');
         parts.push(indent([hardline, join([',', hardline], logOn)]));
     }
-    if (options?.length)
-        parts.push(hardline, join([',', hardline], options));
+    if (options?.length) parts.push(hardline, join([',', hardline], options));
 
     parts.push(';');
     return group(parts);
@@ -147,16 +131,13 @@ function alterDbHeader(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printAlterDatabaseSet(node: SqlNode, opts: Options): Doc {
-    const options     = node.props?.['options']     as string[] | undefined;
+    const options = node.props?.['options'] as string[] | undefined;
     const termination = propStr(node, 'termination');
 
     const optPart: Doc = options?.length ? join([', '], options) : '';
     const termPart: Doc = termination ? [' ', termination] : '';
 
-    return group([
-        alterDbHeader(node, opts),
-        hardline, keyword('SET', opts), ' ', optPart, termPart, ';',
-    ]);
+    return group([alterDbHeader(node, opts), hardline, keyword('SET', opts), ' ', optPart, termPart, ';']);
 }
 
 // ---------------------------------------------------------------------------
@@ -182,22 +163,24 @@ export function printAlterDatabaseModifyName(node: SqlNode, opts: Options): Doc 
 // ---------------------------------------------------------------------------
 
 export function printAlterDatabaseScopedConfigSet(node: SqlNode, opts: Options): Doc {
-    const option    = propStr(node, 'option') ?? '';
+    const option = propStr(node, 'option') ?? '';
     const secondary = propBool(node, 'secondary');
     const forSec: Doc = secondary ? [keyword('FOR SECONDARY', opts), ' '] : '';
-    return [
-        keyword('ALTER DATABASE SCOPED CONFIGURATION', opts), ' ',
-        forSec, keyword('SET', opts), ' ', option, ';',
-    ];
+    return [keyword('ALTER DATABASE SCOPED CONFIGURATION', opts), ' ', forSec, keyword('SET', opts), ' ', option, ';'];
 }
 
 export function printAlterDatabaseScopedConfigClear(node: SqlNode, opts: Options): Doc {
-    const option    = propStr(node, 'option') ?? '';
+    const option = propStr(node, 'option') ?? '';
     const secondary = propBool(node, 'secondary');
     const forSec: Doc = secondary ? [keyword('FOR SECONDARY', opts), ' '] : '';
     return [
-        keyword('ALTER DATABASE SCOPED CONFIGURATION', opts), ' ',
-        forSec, keyword('CLEAR', opts), ' ', option, ';',
+        keyword('ALTER DATABASE SCOPED CONFIGURATION', opts),
+        ' ',
+        forSec,
+        keyword('CLEAR', opts),
+        ' ',
+        option,
+        ';',
     ];
 }
 
@@ -207,26 +190,26 @@ export function printAlterDatabaseScopedConfigClear(node: SqlNode, opts: Options
 
 export function printAlterDatabaseAddFile(node: SqlNode, opts: Options): Doc {
     const fileGroup = propStr(node, 'fileGroup');
-    const isLog     = propBool(node, 'isLog');
-    const files     = node.props?.['files'] as string[] | undefined;
+    const isLog = propBool(node, 'isLog');
+    const files = node.props?.['files'] as string[] | undefined;
 
     const clause: Doc = isLog ? keyword('ADD LOG FILE', opts) : keyword('ADD FILE', opts);
-    const toFg: Doc   = fileGroup ? [' ', keyword('TO FILEGROUP', opts), ' ', fileGroup] : '';
-    const filesDoc: Doc = files?.length
-        ? ['(', indent([hardline, join([',', hardline], files)]), hardline, ')']
-        : '()';
+    const toFg: Doc = fileGroup ? [' ', keyword('TO FILEGROUP', opts), ' ', fileGroup] : '';
+    const filesDoc: Doc = files?.length ? ['(', indent([hardline, join([',', hardline], files)]), hardline, ')'] : '()';
 
     return group([alterDbHeader(node, opts), hardline, clause, ' ', filesDoc, toFg, ';']);
 }
 
 export function printAlterDatabaseAddFileGroup(node: SqlNode, opts: Options): Doc {
-    const fileGroup            = propStr(node, 'fileGroup') ?? '';
-    const containsFileStream   = propBool(node, 'containsFileStream');
+    const fileGroup = propStr(node, 'fileGroup') ?? '';
+    const containsFileStream = propBool(node, 'containsFileStream');
     const containsMemOptimized = propBool(node, 'containsMemoryOptimized');
 
-    const suffix: Doc = containsFileStream    ? [' ', keyword('CONTAINS FILESTREAM', opts)]
-                      : containsMemOptimized  ? [' ', keyword('CONTAINS MEMORY_OPTIMIZED_DATA', opts)]
-                      : '';
+    const suffix: Doc = containsFileStream
+        ? [' ', keyword('CONTAINS FILESTREAM', opts)]
+        : containsMemOptimized
+          ? [' ', keyword('CONTAINS MEMORY_OPTIMIZED_DATA', opts)]
+          : '';
 
     return [alterDbHeader(node, opts), ' ', keyword('ADD FILEGROUP', opts), ' ', fileGroup, suffix, ';'];
 }
@@ -247,9 +230,9 @@ export function printAlterDatabaseModifyFile(node: SqlNode, opts: Options): Doc 
 }
 
 export function printAlterDatabaseModifyFileGroup(node: SqlNode, opts: Options): Doc {
-    const fileGroup   = propStr(node, 'fileGroup') ?? '';
+    const fileGroup = propStr(node, 'fileGroup') ?? '';
     const makeDefault = propBool(node, 'makeDefault');
-    const option      = propStr(node, 'option');
+    const option = propStr(node, 'option');
 
     const action: Doc = makeDefault ? keyword('DEFAULT', opts) : keyword(option ?? '', opts);
     return [alterDbHeader(node, opts), ' ', keyword('MODIFY FILEGROUP', opts), ' ', fileGroup, ' ', action, ';'];

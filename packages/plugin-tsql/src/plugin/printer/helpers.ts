@@ -36,14 +36,14 @@ export function propBool(node: SqlNode, key: string): boolean {
 export function schemaObjectName(nameNode: SqlNode | null): string {
     if (!nameNode) return '';
     const parts: string[] = [];
-    const srv    = propStr(nameNode, 'server');
-    const db     = propStr(nameNode, 'database');
+    const srv = propStr(nameNode, 'server');
+    const db = propStr(nameNode, 'database');
     const schema = propStr(nameNode, 'schema');
-    const nm     = propStr(nameNode, 'name');
-    if (srv)    parts.push(srv);
-    if (db)     parts.push(db);
+    const nm = propStr(nameNode, 'name');
+    if (srv) parts.push(srv);
+    if (db) parts.push(db);
     if (schema) parts.push(schema);
-    if (nm)     parts.push(nm);
+    if (nm) parts.push(nm);
     return parts.join('.');
 }
 
@@ -52,8 +52,8 @@ export function schemaObjectName(nameNode: SqlNode | null): string {
  * Covers the compound assignment operators used in SET and UPDATE.
  */
 export function assignmentOp(op: string): string {
-    if (op === 'Equals')          return '=';
-    if (op === 'AddEquals')       return '+=';
-    if (op === 'SubtractEquals')  return '-=';
+    if (op === 'Equals') return '=';
+    if (op === 'AddEquals') return '+=';
+    if (op === 'SubtractEquals') return '-=';
     return op;
 }

@@ -9,37 +9,37 @@ import { propStr } from './helpers.js';
 // ---------------------------------------------------------------------------
 
 const securityObjectKindMap: Record<string, string> = {
-    NotSpecified:         '',
-    Object:               'OBJECT',
-    Database:             'DATABASE',
-    Schema:               'SCHEMA',
-    Login:                'LOGIN',
-    User:                 'USER',
-    Role:                 'ROLE',
-    ServerRole:           'SERVER ROLE',
-    Server:               'SERVER',
-    Assembly:             'ASSEMBLY',
-    AsymmetricKey:        'ASYMMETRIC KEY',
-    Certificate:          'CERTIFICATE',
-    Contract:             'CONTRACT',
-    Endpoint:             'ENDPOINT',
-    FullTextCatalog:      'FULLTEXT CATALOG',
-    FullTextStopList:     'FULLTEXT STOPLIST',
-    MessageType:          'MESSAGE TYPE',
+    NotSpecified: '',
+    Object: 'OBJECT',
+    Database: 'DATABASE',
+    Schema: 'SCHEMA',
+    Login: 'LOGIN',
+    User: 'USER',
+    Role: 'ROLE',
+    ServerRole: 'SERVER ROLE',
+    Server: 'SERVER',
+    Assembly: 'ASSEMBLY',
+    AsymmetricKey: 'ASYMMETRIC KEY',
+    Certificate: 'CERTIFICATE',
+    Contract: 'CONTRACT',
+    Endpoint: 'ENDPOINT',
+    FullTextCatalog: 'FULLTEXT CATALOG',
+    FullTextStopList: 'FULLTEXT STOPLIST',
+    MessageType: 'MESSAGE TYPE',
     RemoteServiceBinding: 'REMOTE SERVICE BINDING',
-    Route:                'ROUTE',
-    SearchPropertyList:   'SEARCH PROPERTY LIST',
-    Service:              'SERVICE',
-    SymmetricKey:         'SYMMETRIC KEY',
-    Type:                 'TYPE',
-    XmlSchemaCollection:  'XML SCHEMA COLLECTION',
-    AvailabilityGroup:    'AVAILABILITY GROUP',
+    Route: 'ROUTE',
+    SearchPropertyList: 'SEARCH PROPERTY LIST',
+    Service: 'SERVICE',
+    SymmetricKey: 'SYMMETRIC KEY',
+    Type: 'TYPE',
+    XmlSchemaCollection: 'XML SCHEMA COLLECTION',
+    AvailabilityGroup: 'AVAILABILITY GROUP',
 };
 
 function printSecurityTarget(target: Record<string, unknown>, opts: Options): Doc {
-    const kind    = (target['objectKind'] as string) ?? 'NotSpecified';
+    const kind = (target['objectKind'] as string) ?? 'NotSpecified';
     const objName = target['objectName'] as string | undefined;
-    const cols    = target['columns']    as string[] | undefined;
+    const cols = target['columns'] as string[] | undefined;
 
     if (kind === 'Server') return keyword('SERVER', opts);
 
@@ -65,25 +65,24 @@ function printPermission(p: Record<string, unknown>, opts: Options): Doc {
 }
 
 export function printGrantDenyRevoke(node: SqlNode, verb: string, opts: Options): Doc {
-    const perms       = (node.props?.['permissions'] as Record<string, unknown>[]) ?? [];
-    const target      = node.props?.['target']         as Record<string, unknown> | undefined;
-    const principals  = (node.props?.['principals']    as Record<string, unknown>[]) ?? [];
-    const asClause    = node.props?.['asClause']        as string | undefined;
-    const withGrant   = node.props?.['withGrantOption'] as boolean | undefined;
-    const cascade     = node.props?.['cascade']         as boolean | undefined;
-    const grantOptFor = node.props?.['grantOptionFor']  as boolean | undefined;
+    const perms = (node.props?.['permissions'] as Record<string, unknown>[]) ?? [];
+    const target = node.props?.['target'] as Record<string, unknown> | undefined;
+    const principals = (node.props?.['principals'] as Record<string, unknown>[]) ?? [];
+    const asClause = node.props?.['asClause'] as string | undefined;
+    const withGrant = node.props?.['withGrantOption'] as boolean | undefined;
+    const cascade = node.props?.['cascade'] as boolean | undefined;
+    const grantOptFor = node.props?.['grantOptionFor'] as boolean | undefined;
 
-    const permDocs      = perms.map(p => printPermission(p, opts));
-    const principalDocs = principals.map(p => printSecurityPrincipal(p, opts));
+    const permDocs = perms.map((p) => printPermission(p, opts));
+    const principalDocs = principals.map((p) => printSecurityPrincipal(p, opts));
 
     // Verb + optional "GRANT OPTION FOR" prefix (REVOKE only)
     const verbParts: Doc[] = [keyword(verb, opts)];
     if (grantOptFor) verbParts.push(' ', keyword('GRANT OPTION FOR', opts));
 
     // Permissions: single stays inline, multiple break one-per-line
-    const permPart: Doc = permDocs.length === 1
-        ? [' ', permDocs[0]]
-        : indent([hardline, join([',', hardline], permDocs)]);
+    const permPart: Doc =
+        permDocs.length === 1 ? [' ', permDocs[0]] : indent([hardline, join([',', hardline], permDocs)]);
 
     const parts: Doc[] = [...verbParts, permPart];
 
@@ -93,8 +92,8 @@ export function printGrantDenyRevoke(node: SqlNode, verb: string, opts: Options)
     parts.push([hardline, keyword(direction, opts), ' ', join(', ', principalDocs)]);
 
     if (withGrant) parts.push([hardline, keyword('WITH GRANT OPTION', opts)]);
-    if (cascade)   parts.push([hardline, keyword('CASCADE', opts)]);
-    if (asClause)  parts.push([hardline, keyword('AS', opts), ' ', asClause]);
+    if (cascade) parts.push([hardline, keyword('CASCADE', opts)]);
+    if (asClause) parts.push([hardline, keyword('AS', opts), ' ', asClause]);
 
     parts.push(';');
     return parts;
@@ -106,20 +105,20 @@ export function printGrantDenyRevoke(node: SqlNode, verb: string, opts: Options)
 
 /** Map PrincipalOptionKind → SQL keyword (uppercase; keyword() applies casing). */
 const principalOptionKindMap: Record<string, string> = {
-    DefaultDatabase:                    'DEFAULT_DATABASE',
-    DefaultLanguage:                    'DEFAULT_LANGUAGE',
-    DefaultSchema:                      'DEFAULT_SCHEMA',
-    Sid:                                'SID',
-    AllowEncryptedValueModifications:   'ALLOW_ENCRYPTED_VALUE_MODIFICATIONS',
-    CheckExpiration:                    'CHECK_EXPIRATION',
-    CheckPolicy:                        'CHECK_POLICY',
-    Name:                               'NAME',
-    Password:                           'PASSWORD',
-    DefaultDomain:                      'DEFAULT_DOMAIN',
-    MustChange:                         'MUST_CHANGE',
-    Credential:                         'CREDENTIAL',
-    OldPassword:                        'OLD_PASSWORD',
-    Unlock:                             'UNLOCK',
+    DefaultDatabase: 'DEFAULT_DATABASE',
+    DefaultLanguage: 'DEFAULT_LANGUAGE',
+    DefaultSchema: 'DEFAULT_SCHEMA',
+    Sid: 'SID',
+    AllowEncryptedValueModifications: 'ALLOW_ENCRYPTED_VALUE_MODIFICATIONS',
+    CheckExpiration: 'CHECK_EXPIRATION',
+    CheckPolicy: 'CHECK_POLICY',
+    Name: 'NAME',
+    Password: 'PASSWORD',
+    DefaultDomain: 'DEFAULT_DOMAIN',
+    MustChange: 'MUST_CHANGE',
+    Credential: 'CREDENTIAL',
+    OldPassword: 'OLD_PASSWORD',
+    Unlock: 'UNLOCK',
 };
 
 function principalOptionKw(kind: string, opts: Options): Doc {
@@ -128,18 +127,18 @@ function principalOptionKw(kind: string, opts: Options): Doc {
 }
 
 function printPrincipalOption(o: Record<string, unknown>, opts: Options): Doc {
-    const kind = o['kind'] as string ?? '';
+    const kind = (o['kind'] as string) ?? '';
     if (kind === 'Password') {
-        const pw         = o['password']    as string | undefined;
-        const old        = o['oldPassword'] as string | undefined;
-        const hashed     = o['hashed']      as boolean | undefined;
-        const mustChange = o['mustChange']  as boolean | undefined;
-        const unlock     = o['unlock']      as boolean | undefined;
+        const pw = o['password'] as string | undefined;
+        const old = o['oldPassword'] as string | undefined;
+        const hashed = o['hashed'] as boolean | undefined;
+        const mustChange = o['mustChange'] as boolean | undefined;
+        const unlock = o['unlock'] as boolean | undefined;
         const parts: Doc[] = [keyword('PASSWORD', opts), ' = ', pw ?? ''];
-        if (hashed)     parts.push(' ', keyword('HASHED', opts));
+        if (hashed) parts.push(' ', keyword('HASHED', opts));
         if (mustChange) parts.push(' ', keyword('MUST_CHANGE', opts));
-        if (old)        parts.push([',', hardline, keyword('OLD_PASSWORD', opts), ' = ', old]);
-        if (unlock)     parts.push([',', hardline, keyword('UNLOCK', opts)]);
+        if (old) parts.push([',', hardline, keyword('OLD_PASSWORD', opts), ' = ', old]);
+        if (unlock) parts.push([',', hardline, keyword('UNLOCK', opts)]);
         return parts;
     }
     if ('onOff' in o) {
@@ -157,7 +156,7 @@ function printPrincipalOption(o: Record<string, unknown>, opts: Options): Doc {
 function printPrincipalOptions(node: SqlNode, opts: Options): Doc {
     const options = node.props?.['options'];
     if (!Array.isArray(options) || options.length === 0) return '';
-    const parts = (options as Record<string, unknown>[]).map(o => printPrincipalOption(o, opts));
+    const parts = (options as Record<string, unknown>[]).map((o) => printPrincipalOption(o, opts));
     return [keyword('WITH', opts), indent([hardline, join([',', hardline], parts)])];
 }
 
@@ -166,17 +165,17 @@ function printPrincipalOptions(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printCreateUser(node: SqlNode, opts: Options): Doc {
-    const name      = propStr(node, 'name') ?? '';
+    const name = propStr(node, 'name') ?? '';
     const loginType = propStr(node, 'loginOptionType') ?? '';
-    const loginId   = propStr(node, 'loginOptionId');
+    const loginId = propStr(node, 'loginOptionId');
     const optionsDoc = printPrincipalOptions(node, opts);
 
     const loginTypeMap: Record<string, string> = {
-        Login:         'FOR LOGIN',
-        Certificate:   'FOR CERTIFICATE',
+        Login: 'FOR LOGIN',
+        Certificate: 'FOR CERTIFICATE',
         AsymmetricKey: 'FOR ASYMMETRIC KEY',
-        WithoutLogin:  'WITHOUT LOGIN',
-        External:      'FROM EXTERNAL PROVIDER',
+        WithoutLogin: 'WITHOUT LOGIN',
+        External: 'FROM EXTERNAL PROVIDER',
     };
     const loginClause = loginTypeMap[loginType];
 
@@ -196,13 +195,9 @@ export function printAlterUser(node: SqlNode, opts: Options): Doc {
 }
 
 export function printDropUser(node: SqlNode, opts: Options): Doc {
-    const name     = propStr(node, 'name') ?? '';
+    const name = propStr(node, 'name') ?? '';
     const ifExists = node.props?.['ifExists'];
-    return [
-        keyword('DROP USER', opts),
-        ifExists ? [' ', keyword('IF EXISTS', opts)] : '',
-        ' ', name, ';',
-    ];
+    return [keyword('DROP USER', opts), ifExists ? [' ', keyword('IF EXISTS', opts)] : '', ' ', name, ';'];
 }
 
 // ---------------------------------------------------------------------------
@@ -210,20 +205,20 @@ export function printDropUser(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printCreateLogin(node: SqlNode, opts: Options): Doc {
-    const name       = propStr(node, 'name') ?? '';
+    const name = propStr(node, 'name') ?? '';
     const sourceType = propStr(node, 'sourceType') ?? '';
     const parts: Doc[] = [keyword('CREATE LOGIN', opts), ' ', name];
 
     if (sourceType === 'Password') {
-        const pw         = propStr(node, 'password') ?? '';
-        const hashed     = node.props?.['hashed']     as boolean | undefined;
+        const pw = propStr(node, 'password') ?? '';
+        const hashed = node.props?.['hashed'] as boolean | undefined;
         const mustChange = node.props?.['mustChange'] as boolean | undefined;
         const pwParts: Doc[] = [keyword('PASSWORD', opts), ' = ', pw];
-        if (hashed)     pwParts.push(' ', keyword('HASHED', opts));
+        if (hashed) pwParts.push(' ', keyword('HASHED', opts));
         if (mustChange) pwParts.push(' ', keyword('MUST_CHANGE', opts));
         const options = node.props?.['options'];
         const optDocs: Doc[] = Array.isArray(options)
-            ? (options as Record<string, unknown>[]).map(o => printPrincipalOption(o, opts))
+            ? (options as Record<string, unknown>[]).map((o) => printPrincipalOption(o, opts))
             : [];
         parts.push([hardline, keyword('WITH', opts), indent([hardline, join([',', hardline], [pwParts, ...optDocs])])]);
     } else if (sourceType === 'Windows') {
@@ -242,11 +237,11 @@ export function printCreateLogin(node: SqlNode, opts: Options): Doc {
 }
 
 export function printAlterLogin(node: SqlNode, opts: Options): Doc {
-    const name   = propStr(node, 'name') ?? '';
+    const name = propStr(node, 'name') ?? '';
     const action = propStr(node, 'action') ?? '';
     const base: Doc = [keyword('ALTER LOGIN', opts), ' ', name];
 
-    if (action === 'Enable')  return [base, ' ', keyword('ENABLE', opts), ';'];
+    if (action === 'Enable') return [base, ' ', keyword('ENABLE', opts), ';'];
     if (action === 'Disable') return [base, ' ', keyword('DISABLE', opts), ';'];
     if (action === 'AddCredential') {
         return [base, hardline, keyword('ADD CREDENTIAL', opts), ' ', propStr(node, 'credentialName') ?? '', ';'];
@@ -257,7 +252,7 @@ export function printAlterLogin(node: SqlNode, opts: Options): Doc {
     if (action === 'WithOptions') {
         const options = node.props?.['options'];
         const optDocs: Doc[] = Array.isArray(options)
-            ? (options as Record<string, unknown>[]).map(o => printPrincipalOption(o, opts))
+            ? (options as Record<string, unknown>[]).map((o) => printPrincipalOption(o, opts))
             : [];
         return [base, hardline, keyword('WITH', opts), indent([hardline, join([',', hardline], optDocs)]), ';'];
     }
@@ -265,13 +260,9 @@ export function printAlterLogin(node: SqlNode, opts: Options): Doc {
 }
 
 export function printDropLogin(node: SqlNode, opts: Options): Doc {
-    const name     = propStr(node, 'name') ?? '';
+    const name = propStr(node, 'name') ?? '';
     const ifExists = node.props?.['ifExists'];
-    return [
-        keyword('DROP LOGIN', opts),
-        ifExists ? [' ', keyword('IF EXISTS', opts)] : '',
-        ' ', name, ';',
-    ];
+    return [keyword('DROP LOGIN', opts), ifExists ? [' ', keyword('IF EXISTS', opts)] : '', ' ', name, ';'];
 }
 
 // ---------------------------------------------------------------------------
@@ -279,32 +270,33 @@ export function printDropLogin(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printCreateRole(node: SqlNode, opts: Options): Doc {
-    const name  = propStr(node, 'name')  ?? '';
+    const name = propStr(node, 'name') ?? '';
     const owner = propStr(node, 'owner');
     return [
-        keyword('CREATE ROLE', opts), ' ', name,
+        keyword('CREATE ROLE', opts),
+        ' ',
+        name,
         owner ? [hardline, keyword('AUTHORIZATION', opts), ' ', owner] : '',
         ';',
     ];
 }
 
 export function printAlterRole(node: SqlNode, opts: Options): Doc {
-    const name   = propStr(node, 'name')   ?? '';
+    const name = propStr(node, 'name') ?? '';
     const action = propStr(node, 'action') ?? '';
     const base: Doc = [keyword('ALTER ROLE', opts), ' ', name];
 
-    if (action === 'AddMember')  return [base, hardline, keyword('ADD MEMBER', opts),  ' ', propStr(node, 'member') ?? '', ';'];
-    if (action === 'DropMember') return [base, hardline, keyword('DROP MEMBER', opts), ' ', propStr(node, 'member') ?? '', ';'];
-    if (action === 'Rename')     return [base, hardline, keyword('WITH NAME', opts), ' = ', propStr(node, 'newName') ?? '', ';'];
+    if (action === 'AddMember')
+        return [base, hardline, keyword('ADD MEMBER', opts), ' ', propStr(node, 'member') ?? '', ';'];
+    if (action === 'DropMember')
+        return [base, hardline, keyword('DROP MEMBER', opts), ' ', propStr(node, 'member') ?? '', ';'];
+    if (action === 'Rename')
+        return [base, hardline, keyword('WITH NAME', opts), ' = ', propStr(node, 'newName') ?? '', ';'];
     return [base, ';'];
 }
 
 export function printDropRole(node: SqlNode, opts: Options): Doc {
-    const name     = propStr(node, 'name') ?? '';
+    const name = propStr(node, 'name') ?? '';
     const ifExists = node.props?.['ifExists'];
-    return [
-        keyword('DROP ROLE', opts),
-        ifExists ? [' ', keyword('IF EXISTS', opts)] : '',
-        ' ', name, ';',
-    ];
+    return [keyword('DROP ROLE', opts), ifExists ? [' ', keyword('IF EXISTS', opts)] : '', ' ', name, ';'];
 }

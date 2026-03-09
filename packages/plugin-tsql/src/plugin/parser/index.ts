@@ -27,8 +27,7 @@ function loadDotnet(): DotnetModule {
     //   compiled:  dist/parser/index.js  → ../../bin/dotnet
     //   source:    src/plugin/parser/index.ts → ../../../bin/dotnet
     const thisDir = path.dirname(fileURLToPath(import.meta.url));
-    const isCompiled = thisDir.endsWith(path.join('dist', 'parser'))
-        || thisDir.endsWith('dist/parser');
+    const isCompiled = thisDir.endsWith(path.join('dist', 'parser')) || thisDir.endsWith('dist/parser');
     const dllPath = isCompiled
         ? path.resolve(thisDir, '../../bin/dotnet/SqlScriptDom.dll')
         : path.resolve(thisDir, '../../../bin/dotnet/SqlScriptDom.dll');
@@ -96,7 +95,7 @@ export function parse(text: string): SqlNode {
 function attachComments(ast: SqlNode, comments: CommentToken[], text: string): void {
     const used = new Set<CommentToken>();
     const batches = (ast.props?.['batches'] ?? []) as SqlNode[];
-    const allStatements = batches.flatMap(b => (b.props?.['statements'] ?? []) as SqlNode[]);
+    const allStatements = batches.flatMap((b) => (b.props?.['statements'] ?? []) as SqlNode[]);
 
     attachSameLineTrailing(batches, comments, text, used);
     attachLeadingAndPreBody(allStatements, comments, used);
@@ -119,32 +118,30 @@ function attachSameLineTrailing(
                 if (source?.type === 'ValuesSource') {
                     for (const row of (source.props?.['rows'] ?? []) as SqlNode[]) {
                         const c = findTrailingLineComment(row, comments, text, used);
-                        if (c) { row.trailingComment = c.text; used.add(c); }
+                        if (c) {
+                            row.trailingComment = c.text;
+                            used.add(c);
+                        }
                     }
                 }
             }
             const c = findTrailingLineComment(stmt, comments, text, used);
-            if (c) { stmt.trailingComment = c.text; used.add(c); }
+            if (c) {
+                stmt.trailingComment = c.text;
+                used.add(c);
+            }
         }
     }
 }
 
 // Pass 2: leading comments (standalone lines before a statement) and
 // pre-body comments (inside a statement but before its body start).
-function attachLeadingAndPreBody(
-    allStatements: SqlNode[],
-    comments: CommentToken[],
-    used: Set<CommentToken>,
-): void {
-    const unusedSorted = comments
-        .filter(c => !used.has(c))
-        .sort((a, b) => a.startOffset - b.startOffset);
+function attachLeadingAndPreBody(allStatements: SqlNode[], comments: CommentToken[], used: Set<CommentToken>): void {
+    const unusedSorted = comments.filter((c) => !used.has(c)).sort((a, b) => a.startOffset - b.startOffset);
 
     for (const c of unusedSorted) {
         // Check whether the comment is physically inside a statement's span.
-        const container = allStatements.find(
-            s => c.startOffset > s.startOffset && c.endOffset <= s.endOffset,
-        );
+        const container = allStatements.find((s) => c.startOffset > s.startOffset && c.endOffset <= s.endOffset);
 
         if (container) {
             // The comment is inside a statement. Route it to preBodyComments or
@@ -156,18 +153,19 @@ function attachLeadingAndPreBody(
             // the body node's own startOffset.
             const bodyStartProp = container.props?.['bodyStart'];
             const bodyProp = container.props?.['body'];
-            const bodyNode = !Array.isArray(bodyProp) && bodyProp != null
-                && typeof bodyProp === 'object' && 'startOffset' in (bodyProp as object)
-                ? bodyProp as SqlNode
-                : undefined;
-            const beforePoint = typeof bodyStartProp === 'number'
-                ? bodyStartProp
-                : bodyNode?.startOffset;
+            const bodyNode =
+                !Array.isArray(bodyProp) &&
+                bodyProp != null &&
+                typeof bodyProp === 'object' &&
+                'startOffset' in (bodyProp as object)
+                    ? (bodyProp as SqlNode)
+                    : undefined;
+            const beforePoint = typeof bodyStartProp === 'number' ? bodyStartProp : bodyNode?.startOffset;
 
             if (beforePoint !== undefined && c.endOffset <= beforePoint) {
                 // Distinguish "before parameter list" from "after last parameter".
                 const paramsProp = container.props?.['parameters'];
-                const params = Array.isArray(paramsProp) ? paramsProp as SqlNode[] : [];
+                const params = Array.isArray(paramsProp) ? (paramsProp as SqlNode[]) : [];
                 const lastParam = params.at(-1);
                 if (lastParam && c.startOffset > lastParam.endOffset) {
                     // e.g. /*WITH ENCRYPTION*/ after params but before AS
@@ -186,7 +184,7 @@ function attachLeadingAndPreBody(
 
         // Not inside any statement — attach to the first statement that starts
         // after this comment.
-        const target = allStatements.find(s => s.startOffset >= c.endOffset);
+        const target = allStatements.find((s) => s.startOffset >= c.endOffset);
         if (target) {
             target.leadingComments = target.leadingComments ?? [];
             target.leadingComments.push(c.text);
@@ -196,9 +194,7 @@ function attachLeadingAndPreBody(
             // Attach to the last statement so it is never silently dropped.
             const last = allStatements.at(-1);
             if (last) {
-                last.trailingComment = last.trailingComment
-                    ? last.trailingComment + '\n' + c.text
-                    : c.text;
+                last.trailingComment = last.trailingComment ? last.trailingComment + '\n' + c.text : c.text;
                 used.add(c);
             }
         }
@@ -206,19 +202,13 @@ function attachLeadingAndPreBody(
 }
 
 // Pass 3: intra-statement comments (e.g. commented-out WHERE predicates).
-function attachIntraStatement(
-    batches: SqlNode[],
-    comments: CommentToken[],
-    used: Set<CommentToken>,
-): void {
+function attachIntraStatement(batches: SqlNode[], comments: CommentToken[], used: Set<CommentToken>): void {
     for (const batch of batches) {
         const statements = (batch.props?.['statements'] ?? []) as SqlNode[];
         for (const stmt of statements) {
-            const internal = comments.filter(
-                c => !used.has(c)
-                    && c.startOffset >= stmt.startOffset
-                    && c.endOffset <= stmt.endOffset,
-            ).sort((a, b) => a.startOffset - b.startOffset);
+            const internal = comments
+                .filter((c) => !used.has(c) && c.startOffset >= stmt.startOffset && c.endOffset <= stmt.endOffset)
+                .sort((a, b) => a.startOffset - b.startOffset);
             if (internal.length === 0) continue;
 
             const descendants: SqlNode[] = [];
@@ -246,9 +236,7 @@ function attachIntraStatement(
                     bestForward.leadingComments.push(c.text);
                     used.add(c);
                 } else if (best) {
-                    best.trailingComment = best.trailingComment
-                        ? best.trailingComment + '\n' + c.text
-                        : c.text;
+                    best.trailingComment = best.trailingComment ? best.trailingComment + '\n' + c.text : c.text;
                     used.add(c);
                 } else {
                     // No suitable neighbour — fall back to the containing statement.
@@ -294,11 +282,12 @@ function findTrailingLineComment(
     text: string,
     used: Set<CommentToken>,
 ): CommentToken | undefined {
-    return comments.find(c =>
-        c.type === 'line'
-        && !used.has(c)
-        && c.startOffset >= node.endOffset
-        && !text.substring(node.endOffset, c.startOffset).includes('\n'),
+    return comments.find(
+        (c) =>
+            c.type === 'line' &&
+            !used.has(c) &&
+            c.startOffset >= node.endOffset &&
+            !text.substring(node.endOffset, c.startOffset).includes('\n'),
     );
 }
 

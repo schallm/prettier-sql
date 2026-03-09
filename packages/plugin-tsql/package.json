@@ -32,6 +32,9 @@
     "build:ts": "tsc -p tsconfig.json",
     "build:ts:watch": "tsc -p tsconfig.json --watch",
     "build": "npm run build:dotnet && npm run build:ts",
+    "format:ts": "prettier --write \"src/plugin/**/*.ts\"",
+    "format:cs": "dotnet format src/dotnet/SqlScriptDom/SqlScriptDom.csproj",
+    "format": "npm run format:ts && npm run format:cs",
     "test": "vitest run",
     "test:watch": "vitest"
   }

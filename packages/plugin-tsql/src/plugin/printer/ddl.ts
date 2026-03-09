@@ -26,39 +26,44 @@ function qexpr(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printCreateTable(node: SqlNode, opts: Options): Doc {
-    const columns    = propArr(node, 'columns');
+    const columns = propArr(node, 'columns');
     const constraints = propArr(node, 'constraints');
     const allDefs = [
-        ...columns.map(col => printColumnDef(col, opts)),
-        ...constraints.map(c => printConstraintDef(c, opts)),
+        ...columns.map((col) => printColumnDef(col, opts)),
+        ...constraints.map((c) => printConstraintDef(c, opts)),
     ];
     return group([
-        keyword('CREATE TABLE', opts), ' ', schemaObjectName(prop(node, 'name')), ' (',
+        keyword('CREATE TABLE', opts),
+        ' ',
+        schemaObjectName(prop(node, 'name')),
+        ' (',
         indent([hardline, join([',', hardline], allDefs)]),
-        hardline, ');',
+        hardline,
+        ');',
     ]);
 }
 
 export function printColumnDef(node: SqlNode, opts: Options): Doc {
-    const name     = propStr(node, 'name') ?? 'col';
+    const name = propStr(node, 'name') ?? 'col';
     const dataType = propStr(node, 'dataType') ?? 'INT';
-    const params   = node.props?.['dataTypeParams'];
+    const params = node.props?.['dataTypeParams'];
     // Read nullable as a tristate (true/false/undefined) — propBool only returns true/false.
-    const isNullable       = node.props?.['nullable'];
-    const isIdentity       = propBool(node, 'identity');
-    const identitySeed     = propStr(node, 'identitySeed');
+    const isNullable = node.props?.['nullable'];
+    const isIdentity = propBool(node, 'identity');
+    const identitySeed = propStr(node, 'identitySeed');
     const identityIncrement = propStr(node, 'identityIncrement');
-    const defaultValue     = prop(node, 'defaultValue');
+    const defaultValue = prop(node, 'defaultValue');
 
-    const typeStr: Doc = Array.isArray(params) && params.length > 0
-        ? [keyword(dataType, opts), `(${(params as string[]).join(', ')})`]
-        : keyword(dataType, opts);
+    const typeStr: Doc =
+        Array.isArray(params) && params.length > 0
+            ? [keyword(dataType, opts), `(${(params as string[]).join(', ')})`]
+            : keyword(dataType, opts);
 
     const parts: Doc[] = [name, ' ', typeStr];
 
     if (isIdentity) {
         const seed = identitySeed ?? '1';
-        const inc  = identityIncrement ?? '1';
+        const inc = identityIncrement ?? '1';
         parts.push(' ', keyword('IDENTITY', opts), `(${seed}, ${inc})`);
     }
     if (defaultValue) parts.push(' ', keyword('DEFAULT', opts), ' ', printNode(defaultValue, opts));
@@ -70,16 +75,14 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
 
 export function printConstraintDef(node: SqlNode, opts: Options): Doc {
     const constraintName = propStr(node, 'constraintName');
-    const namePrefix: Doc = constraintName
-        ? [keyword('CONSTRAINT', opts), ' ', constraintName, ' ']
-        : '';
+    const namePrefix: Doc = constraintName ? [keyword('CONSTRAINT', opts), ' ', constraintName, ' '] : '';
 
     switch (node.type) {
         case 'UniqueConstraint': {
-            const isPK    = propBool(node, 'isPrimaryKey');
-            const cols    = node.props?.['columns'];
+            const isPK = propBool(node, 'isPrimaryKey');
+            const cols = node.props?.['columns'];
             const colList = Array.isArray(cols) ? (cols as string[]).join(', ') : '';
-            const kw      = isPK ? keyword('PRIMARY KEY', opts) : keyword('UNIQUE', opts);
+            const kw = isPK ? keyword('PRIMARY KEY', opts) : keyword('UNIQUE', opts);
             return [namePrefix, kw, ' (', colList, ')'];
         }
         case 'CheckConstraint': {
@@ -87,17 +90,26 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
             return [namePrefix, keyword('CHECK', opts), ' (', expr ? printBool(expr, opts) : '', ')'];
         }
         case 'ForeignKeyConstraint': {
-            const cols       = node.props?.['columns'];
-            const refTable   = prop(node, 'refTable');
-            const refCols    = node.props?.['refColumns'];
-            const colList    = Array.isArray(cols) ? (cols as string[]).join(', ') : '';
+            const cols = node.props?.['columns'];
+            const refTable = prop(node, 'refTable');
+            const refCols = node.props?.['refColumns'];
+            const colList = Array.isArray(cols) ? (cols as string[]).join(', ') : '';
             const refColList = Array.isArray(refCols) ? (refCols as string[]).join(', ') : '';
-            const refName    = refTable
+            const refName = refTable
                 ? [propStr(refTable, 'schema'), propStr(refTable, 'name')].filter(Boolean).join('.')
                 : '';
             return [
-                namePrefix, keyword('FOREIGN KEY', opts), ' (', colList, ') ',
-                keyword('REFERENCES', opts), ' ', refName, ' (', refColList, ')',
+                namePrefix,
+                keyword('FOREIGN KEY', opts),
+                ' (',
+                colList,
+                ') ',
+                keyword('REFERENCES', opts),
+                ' ',
+                refName,
+                ' (',
+                refColList,
+                ')',
             ];
         }
         default:
@@ -111,27 +123,35 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
 
 export function printAlterTable(node: SqlNode, opts: Options): Doc {
     const alterType = propStr(node, 'alterType') ?? '';
-    const name      = schemaObjectName(prop(node, 'name'));
+    const name = schemaObjectName(prop(node, 'name'));
 
     if (alterType === 'AlterTableAddTableElementStatement') {
         const defs = [
-            ...propArr(node, 'columns').map(c => printColumnDef(c, opts)),
-            ...propArr(node, 'constraints').map(c => printConstraintDef(c, opts)),
+            ...propArr(node, 'columns').map((c) => printColumnDef(c, opts)),
+            ...propArr(node, 'constraints').map((c) => printConstraintDef(c, opts)),
         ];
         return group([
-            keyword('ALTER TABLE', opts), ' ', name,
-            hardline, keyword('ADD', opts),
+            keyword('ALTER TABLE', opts),
+            ' ',
+            name,
+            hardline,
+            keyword('ADD', opts),
             indent([hardline, join([',', hardline], defs)]),
             ';',
         ]);
     }
 
     if (alterType === 'AlterTableDropTableElementStatement') {
-        const elements  = node.props?.['elements'];
-        const elemList  = Array.isArray(elements) ? (elements as string[]).join(', ') : '';
+        const elements = node.props?.['elements'];
+        const elemList = Array.isArray(elements) ? (elements as string[]).join(', ') : '';
         return group([
-            keyword('ALTER TABLE', opts), ' ', name,
-            hardline, keyword('DROP COLUMN', opts), ' ', elemList,
+            keyword('ALTER TABLE', opts),
+            ' ',
+            name,
+            hardline,
+            keyword('DROP COLUMN', opts),
+            ' ',
+            elemList,
             ';',
         ]);
     }
@@ -144,29 +164,39 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printCreateIndex(node: SqlNode, opts: Options): Doc {
-    const indexName      = propStr(node, 'indexName') ?? 'idx';
-    const isUnique       = propBool(node, 'unique');
-    const isClustered    = propBool(node, 'clustered');
-    const table          = prop(node, 'table');
-    const columns        = propArr(node, 'columns');
+    const indexName = propStr(node, 'indexName') ?? 'idx';
+    const isUnique = propBool(node, 'unique');
+    const isClustered = propBool(node, 'clustered');
+    const table = prop(node, 'table');
+    const columns = propArr(node, 'columns');
     const includeColumns = node.props?.['includeColumns'];
 
-    const colDocs = columns.map(c => {
+    const colDocs = columns.map((c) => {
         const colName = propStr(c, 'name') ?? c.text ?? '';
-        const sort    = propStr(c, 'sortOrder') ?? 'Ascending';
+        const sort = propStr(c, 'sortOrder') ?? 'Ascending';
         return sort === 'Descending'
-            ? [colName, ' ', keyword('DESC', opts)] as Doc
-            : [colName, ' ', keyword('ASC', opts)]  as Doc;
+            ? ([colName, ' ', keyword('DESC', opts)] as Doc)
+            : ([colName, ' ', keyword('ASC', opts)] as Doc);
     });
 
-    const uniqueKw    = isUnique    ? keyword('UNIQUE ', opts) : '';
+    const uniqueKw = isUnique ? keyword('UNIQUE ', opts) : '';
     const clusteredKw = isClustered ? keyword('CLUSTERED ', opts) : keyword('NONCLUSTERED ', opts);
 
     const parts: Doc[] = [
-        keyword('CREATE ', opts), uniqueKw, clusteredKw,
-        keyword('INDEX', opts), ' ', indexName,
-        hardline, keyword('ON', opts), ' ', schemaObjectName(table),
-        ' (', indent([softline, join([',', line], colDocs)]), softline, ')',
+        keyword('CREATE ', opts),
+        uniqueKw,
+        clusteredKw,
+        keyword('INDEX', opts),
+        ' ',
+        indexName,
+        hardline,
+        keyword('ON', opts),
+        ' ',
+        schemaObjectName(table),
+        ' (',
+        indent([softline, join([',', line], colDocs)]),
+        softline,
+        ')',
     ];
 
     if (Array.isArray(includeColumns) && includeColumns.length > 0) {
@@ -183,20 +213,26 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
 
 export function printAlterIndex(node: SqlNode, opts: Options): Doc {
     const indexName = propStr(node, 'indexName');
-    const table     = prop(node, 'table');
+    const table = prop(node, 'table');
     const alterType = propStr(node, 'alterType') ?? 'Rebuild';
     const typeKwMap: Record<string, string> = {
-        Rebuild:    'REBUILD',
+        Rebuild: 'REBUILD',
         Reorganize: 'REORGANIZE',
-        Disable:    'DISABLE',
-        Set:        'SET',
+        Disable: 'DISABLE',
+        Set: 'SET',
     };
     const typeKw = keyword(typeKwMap[alterType] ?? alterType.toUpperCase(), opts);
     return [
-        keyword('ALTER INDEX', opts), ' ',
+        keyword('ALTER INDEX', opts),
+        ' ',
         indexName ? indexName : keyword('ALL', opts),
-        ' ', keyword('ON', opts), ' ', schemaObjectName(table),
-        hardline, typeKw, ';',
+        ' ',
+        keyword('ON', opts),
+        ' ',
+        schemaObjectName(table),
+        hardline,
+        typeKw,
+        ';',
     ];
 }
 
@@ -206,22 +242,22 @@ export function printAlterIndex(node: SqlNode, opts: Options): Doc {
 
 export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
     const parameters = propArr(node, 'parameters');
-    const body       = propArr(node, 'body');
+    const body = propArr(node, 'body');
 
-    const paramDocs = parameters.map(p => {
-        const pName     = propStr(p, 'name') ?? '@p';
-        const dt        = propStr(p, 'dataType') ?? 'INT';
-        const isOutput  = propBool(p, 'output');
+    const paramDocs = parameters.map((p) => {
+        const pName = propStr(p, 'name') ?? '@p';
+        const dt = propStr(p, 'dataType') ?? 'INT';
+        const isOutput = propBool(p, 'output');
         const isReadonly = propBool(p, 'readonly');
         const defaultVal = prop(p, 'defaultValue');
         const parts: Doc[] = [pName, ' ', keyword(dt, opts)];
         if (defaultVal) parts.push(' = ', printNode(defaultVal, opts));
-        if (isOutput)   parts.push(' ', keyword('OUTPUT', opts));
+        if (isOutput) parts.push(' ', keyword('OUTPUT', opts));
         if (isReadonly) parts.push(' ', keyword('READONLY', opts));
         return parts as Doc;
     });
 
-    const bodyDocs = body.map(s => printStatementWithComments(s, opts));
+    const bodyDocs = body.map((s) => printStatementWithComments(s, opts));
 
     const preBody: Doc = node.preBodyComments?.length
         ? (node.preBodyComments as string[]).flatMap((c): Doc[] => [hardline, c])
@@ -231,21 +267,27 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
         : '';
 
     const procKw =
-        node.type === 'CreateOrAlterProcedureStatement' ? keyword('CREATE OR ALTER PROCEDURE', opts) :
-        node.type === 'AlterProcedureStatement'         ? keyword('ALTER PROCEDURE', opts) :
-                                                          keyword('CREATE PROCEDURE', opts);
+        node.type === 'CreateOrAlterProcedureStatement'
+            ? keyword('CREATE OR ALTER PROCEDURE', opts)
+            : node.type === 'AlterProcedureStatement'
+              ? keyword('ALTER PROCEDURE', opts)
+              : keyword('CREATE PROCEDURE', opts);
 
     return group([
-        procKw, ' ', schemaObjectName(prop(node, 'name')),
+        procKw,
+        ' ',
+        schemaObjectName(prop(node, 'name')),
         preBody,
-        parameters.length > 0
-            ? indent([hardline, join([',', hardline], paramDocs)])
-            : '',
+        parameters.length > 0 ? indent([hardline, join([',', hardline], paramDocs)]) : '',
         postParam,
-        hardline, keyword('AS', opts),
-        hardline, keyword('BEGIN', opts),
+        hardline,
+        keyword('AS', opts),
+        hardline,
+        keyword('BEGIN', opts),
         indent([hardline, join([hardline, hardline], bodyDocs)]),
-        hardline, keyword('END', opts), ';',
+        hardline,
+        keyword('END', opts),
+        ';',
     ]);
 }
 
@@ -255,23 +297,21 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
 
 export function printCreateFunction(node: SqlNode, opts: Options): Doc {
     const parameters = propArr(node, 'parameters');
-    const bodyType   = propStr(node, 'bodyType') ?? 'scalar';
+    const bodyType = propStr(node, 'bodyType') ?? 'scalar';
     const returnType = propStr(node, 'returnType') ?? '';
-    const body       = node.props?.['body'];
+    const body = node.props?.['body'];
 
-    const paramDocs = parameters.map(p => {
+    const paramDocs = parameters.map((p) => {
         const pName = propStr(p, 'name') ?? '@p';
-        const dt    = propStr(p, 'dataType') ?? 'INT';
+        const dt = propStr(p, 'dataType') ?? 'INT';
         return [pName, ' ', keyword(dt, opts)] as Doc;
     });
 
     let bodyDoc: Doc;
     if (bodyType === 'table' || bodyType === 'inline-table') {
-        bodyDoc = body && typeof body === 'object'
-            ? qexpr(body as SqlNode, opts)
-            : '/* table body */';
+        bodyDoc = body && typeof body === 'object' ? qexpr(body as SqlNode, opts) : '/* table body */';
     } else {
-        const stmts = Array.isArray(body) ? (body as SqlNode[]).map(s => printStatementWithComments(s, opts)) : [];
+        const stmts = Array.isArray(body) ? (body as SqlNode[]).map((s) => printStatementWithComments(s, opts)) : [];
         bodyDoc = join([hardline, hardline], stmts);
     }
 
@@ -283,24 +323,33 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
         : '';
 
     const fnKw =
-        node.type === 'CreateOrAlterFunctionStatement' ? keyword('CREATE OR ALTER FUNCTION', opts) :
-        node.type === 'AlterFunctionStatement'         ? keyword('ALTER FUNCTION', opts) :
-                                                         keyword('CREATE FUNCTION', opts);
+        node.type === 'CreateOrAlterFunctionStatement'
+            ? keyword('CREATE OR ALTER FUNCTION', opts)
+            : node.type === 'AlterFunctionStatement'
+              ? keyword('ALTER FUNCTION', opts)
+              : keyword('CREATE FUNCTION', opts);
 
     return group([
-        fnKw, ' ', schemaObjectName(prop(node, 'name')),
+        fnKw,
+        ' ',
+        schemaObjectName(prop(node, 'name')),
         preBody,
         '(',
-        parameters.length > 0
-            ? [indent([softline, join([',', line], paramDocs)]), softline]
-            : '',
+        parameters.length > 0 ? [indent([softline, join([',', line], paramDocs)]), softline] : '',
         ')',
         postParam,
-        hardline, keyword('RETURNS', opts), ' ', keyword(returnType, opts),
-        hardline, keyword('AS', opts),
-        hardline, keyword('BEGIN', opts),
+        hardline,
+        keyword('RETURNS', opts),
+        ' ',
+        keyword(returnType, opts),
+        hardline,
+        keyword('AS', opts),
+        hardline,
+        keyword('BEGIN', opts),
         indent([hardline, bodyDoc]),
-        hardline, keyword('END', opts), ';',
+        hardline,
+        keyword('END', opts),
+        ';',
     ]);
 }
 
@@ -309,20 +358,29 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printCreateView(node: SqlNode, opts: Options): Doc {
-    const columns    = node.props?.['columns'] as string[] | undefined;
+    const columns = node.props?.['columns'] as string[] | undefined;
     const withOptions = node.props?.['withOptions'] as string[] | undefined;
-    const body       = prop(node, 'body');
+    const body = prop(node, 'body');
 
-    const kw = node.type === 'CreateOrAlterViewStatement' ? keyword('CREATE OR ALTER VIEW', opts)
-             : node.type === 'AlterViewStatement'         ? keyword('ALTER VIEW', opts)
-             :                                              keyword('CREATE VIEW', opts);
+    const kw =
+        node.type === 'CreateOrAlterViewStatement'
+            ? keyword('CREATE OR ALTER VIEW', opts)
+            : node.type === 'AlterViewStatement'
+              ? keyword('ALTER VIEW', opts)
+              : keyword('CREATE VIEW', opts);
 
-    const colsPart: Doc = columns?.length
-        ? [' (', join(', ', columns), ')']
-        : '';
+    const colsPart: Doc = columns?.length ? [' (', join(', ', columns), ')'] : '';
 
     const withPart: Doc = withOptions?.length
-        ? [hardline, keyword('WITH', opts), ' ', join(', ', withOptions.map(o => keyword(o, opts)))]
+        ? [
+              hardline,
+              keyword('WITH', opts),
+              ' ',
+              join(
+                  ', ',
+                  withOptions.map((o) => keyword(o, opts)),
+              ),
+          ]
         : '';
 
     const preBodyPart: Doc = node.preBodyComments?.length
@@ -330,10 +388,16 @@ export function printCreateView(node: SqlNode, opts: Options): Doc {
         : '';
 
     return group([
-        kw, ' ', schemaObjectName(prop(node, 'name')),
-        colsPart, withPart, preBodyPart,
-        hardline, keyword('AS', opts),
-        hardline, body ? qexpr(body, opts) : '',
+        kw,
+        ' ',
+        schemaObjectName(prop(node, 'name')),
+        colsPart,
+        withPart,
+        preBodyPart,
+        hardline,
+        keyword('AS', opts),
+        hardline,
+        body ? qexpr(body, opts) : '',
         ';',
     ]);
 }
@@ -343,29 +407,44 @@ export function printCreateView(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printCreateTrigger(node: SqlNode, opts: Options): Doc {
-    const kw = node.type === 'AlterTriggerStatement'
-        ? keyword('ALTER TRIGGER', opts)
-        : keyword('CREATE TRIGGER', opts);
+    const kw = node.type === 'AlterTriggerStatement' ? keyword('ALTER TRIGGER', opts) : keyword('CREATE TRIGGER', opts);
 
     const triggerType = propStr(node, 'triggerType') ?? 'After';
     const typeMap: Record<string, string> = {
-        For: 'FOR', After: 'AFTER', InsteadOf: 'INSTEAD OF',
+        For: 'FOR',
+        After: 'AFTER',
+        InsteadOf: 'INSTEAD OF',
     };
-    const typeKw   = keyword(typeMap[triggerType] ?? triggerType.toUpperCase(), opts);
-    const actions  = node.props?.['actions'];
+    const typeKw = keyword(typeMap[triggerType] ?? triggerType.toUpperCase(), opts);
+    const actions = node.props?.['actions'];
     const actionList: Doc = Array.isArray(actions)
-        ? join(', ', (actions as string[]).map(a => keyword(a.toUpperCase(), opts)))
+        ? join(
+              ', ',
+              (actions as string[]).map((a) => keyword(a.toUpperCase(), opts)),
+          )
         : '';
-    const bodyDocs = propArr(node, 'body').map(s => printStatementWithComments(s, opts));
+    const bodyDocs = propArr(node, 'body').map((s) => printStatementWithComments(s, opts));
 
     return [
-        kw, ' ', schemaObjectName(prop(node, 'name')),
-        hardline, keyword('ON', opts), ' ', schemaObjectName(prop(node, 'onName')),
-        hardline, typeKw, ' ', actionList,
-        hardline, keyword('AS', opts),
-        hardline, keyword('BEGIN', opts),
+        kw,
+        ' ',
+        schemaObjectName(prop(node, 'name')),
+        hardline,
+        keyword('ON', opts),
+        ' ',
+        schemaObjectName(prop(node, 'onName')),
+        hardline,
+        typeKw,
+        ' ',
+        actionList,
+        hardline,
+        keyword('AS', opts),
+        hardline,
+        keyword('BEGIN', opts),
         indent([hardline, join([hardline, hardline], bodyDocs)]),
-        hardline, keyword('END', opts), ';',
+        hardline,
+        keyword('END', opts),
+        ';',
     ];
 }
 
@@ -383,35 +462,41 @@ function printSequenceOptions(node: SqlNode, opts: Options): Doc[] {
     if (restartWith != null) parts.push(hardline, keyword('RESTART WITH', opts), ' ', restartWith);
     const incrementBy = propStr(node, 'incrementBy');
     if (incrementBy != null) parts.push(hardline, keyword('INCREMENT BY', opts), ' ', incrementBy);
-    const minValue   = propStr(node, 'minValue');
+    const minValue = propStr(node, 'minValue');
     const noMinValue = node.props?.['noMinValue'];
     if (minValue != null) parts.push(hardline, keyword('MINVALUE', opts), ' ', minValue);
-    else if (noMinValue)  parts.push(hardline, keyword('NO MINVALUE', opts));
-    const maxValue   = propStr(node, 'maxValue');
+    else if (noMinValue) parts.push(hardline, keyword('NO MINVALUE', opts));
+    const maxValue = propStr(node, 'maxValue');
     const noMaxValue = node.props?.['noMaxValue'];
     if (maxValue != null) parts.push(hardline, keyword('MAXVALUE', opts), ' ', maxValue);
-    else if (noMaxValue)  parts.push(hardline, keyword('NO MAXVALUE', opts));
+    else if (noMaxValue) parts.push(hardline, keyword('NO MAXVALUE', opts));
     const cycle = node.props?.['cycle'];
-    if (cycle === true)  parts.push(hardline, keyword('CYCLE', opts));
+    if (cycle === true) parts.push(hardline, keyword('CYCLE', opts));
     else if (cycle === false) parts.push(hardline, keyword('NO CYCLE', opts));
-    const cache   = propStr(node, 'cache');
+    const cache = propStr(node, 'cache');
     const noCache = node.props?.['noCache'];
     if (cache != null) parts.push(hardline, keyword('CACHE', opts), ' ', cache);
-    else if (noCache)  parts.push(hardline, keyword('NO CACHE', opts));
+    else if (noCache) parts.push(hardline, keyword('NO CACHE', opts));
     return parts;
 }
 
 export function printCreateSequence(node: SqlNode, opts: Options): Doc {
     return group([
-        keyword('CREATE SEQUENCE', opts), ' ', schemaObjectName(prop(node, 'name')),
-        ...printSequenceOptions(node, opts), ';',
+        keyword('CREATE SEQUENCE', opts),
+        ' ',
+        schemaObjectName(prop(node, 'name')),
+        ...printSequenceOptions(node, opts),
+        ';',
     ]);
 }
 
 export function printAlterSequence(node: SqlNode, opts: Options): Doc {
     return group([
-        keyword('ALTER SEQUENCE', opts), ' ', schemaObjectName(prop(node, 'name')),
-        ...printSequenceOptions(node, opts), ';',
+        keyword('ALTER SEQUENCE', opts),
+        ' ',
+        schemaObjectName(prop(node, 'name')),
+        ...printSequenceOptions(node, opts),
+        ';',
     ]);
 }
 
@@ -420,20 +505,30 @@ export function printAlterSequence(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printBulkInsert(node: SqlNode, opts: Options): Doc {
-    const table   = prop(node, 'table');
-    const from    = propStr(node, 'from');
+    const table = prop(node, 'table');
+    const from = propStr(node, 'from');
     const options = node.props?.['options'];
-    const optDocs: Doc = Array.isArray(options) && options.length > 0
-        ? [
-            hardline, keyword('WITH', opts), ' (',
-            indent([hardline, join([',', hardline], options as string[])]),
-            hardline, ')',
-          ]
-        : '';
+    const optDocs: Doc =
+        Array.isArray(options) && options.length > 0
+            ? [
+                  hardline,
+                  keyword('WITH', opts),
+                  ' (',
+                  indent([hardline, join([',', hardline], options as string[])]),
+                  hardline,
+                  ')',
+              ]
+            : '';
     return group([
-        keyword('BULK INSERT', opts), ' ', schemaObjectName(table),
-        hardline, keyword('FROM', opts), ' ', from ?? '',
-        optDocs, ';',
+        keyword('BULK INSERT', opts),
+        ' ',
+        schemaObjectName(table),
+        hardline,
+        keyword('FROM', opts),
+        ' ',
+        from ?? '',
+        optDocs,
+        ';',
     ]);
 }
 
@@ -443,26 +538,36 @@ export function printBulkInsert(node: SqlNode, opts: Options): Doc {
 
 export function printCreateTypeUddt(node: SqlNode, opts: Options): Doc {
     const nullable = node.props?.['nullable'];
-    const nullablePart: Doc = nullable === false ? [' ', keyword('NOT NULL', opts)]
-                            : nullable === true  ? [' ', keyword('NULL', opts)]
-                            : '';
+    const nullablePart: Doc =
+        nullable === false ? [' ', keyword('NOT NULL', opts)] : nullable === true ? [' ', keyword('NULL', opts)] : '';
     return [
-        keyword('CREATE TYPE', opts), ' ', schemaObjectName(prop(node, 'name')),
-        ' ', keyword('FROM', opts), ' ', keyword(propStr(node, 'dataType') ?? '', opts),
-        nullablePart, ';',
+        keyword('CREATE TYPE', opts),
+        ' ',
+        schemaObjectName(prop(node, 'name')),
+        ' ',
+        keyword('FROM', opts),
+        ' ',
+        keyword(propStr(node, 'dataType') ?? '', opts),
+        nullablePart,
+        ';',
     ];
 }
 
 export function printCreateTypeTable(node: SqlNode, opts: Options): Doc {
     const allDefs = [
-        ...propArr(node, 'columns').map(c => printColumnDef(c, opts)),
-        ...propArr(node, 'constraints').map(c => printConstraintDef(c, opts)),
+        ...propArr(node, 'columns').map((c) => printColumnDef(c, opts)),
+        ...propArr(node, 'constraints').map((c) => printConstraintDef(c, opts)),
     ];
     return group([
-        keyword('CREATE TYPE', opts), ' ', schemaObjectName(prop(node, 'name')),
-        ' ', keyword('AS TABLE', opts), ' (',
+        keyword('CREATE TYPE', opts),
+        ' ',
+        schemaObjectName(prop(node, 'name')),
+        ' ',
+        keyword('AS TABLE', opts),
+        ' (',
         indent([hardline, join([',', hardline], allDefs)]),
-        hardline, ');',
+        hardline,
+        ');',
     ]);
 }
 
@@ -471,26 +576,28 @@ export function printCreateTypeTable(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printDropObjects(objType: string, node: SqlNode, opts: Options): Doc {
-    const names     = propArr(node, 'names');
-    const ifExists  = propBool(node, 'ifExists');
+    const names = propArr(node, 'names');
+    const ifExists = propBool(node, 'ifExists');
     const ifExistsPart: Doc = ifExists ? [' ', keyword('IF EXISTS', opts)] : '';
     return [
-        keyword('DROP', opts), ' ', keyword(objType, opts),
-        ifExistsPart, ' ',
-        join(', ', names.map(n => schemaObjectName(n))),
+        keyword('DROP', opts),
+        ' ',
+        keyword(objType, opts),
+        ifExistsPart,
+        ' ',
+        join(
+            ', ',
+            names.map((n) => schemaObjectName(n)),
+        ),
         ';',
     ];
 }
 
 export function printDropIndex(node: SqlNode, opts: Options): Doc {
-    const indices  = propArr(node, 'indices');
-    const indexDocs = indices.map(idx => [
-        propStr(idx, 'name') ?? '', ' ',
-        keyword('ON', opts), ' ', schemaObjectName(prop(idx, 'table')),
-    ] as Doc);
-    return group([
-        keyword('DROP INDEX', opts), ' ',
-        join([',', hardline], indexDocs),
-        ';',
-    ]);
+    const indices = propArr(node, 'indices');
+    const indexDocs = indices.map(
+        (idx) =>
+            [propStr(idx, 'name') ?? '', ' ', keyword('ON', opts), ' ', schemaObjectName(prop(idx, 'table'))] as Doc,
+    );
+    return group([keyword('DROP INDEX', opts), ' ', join([',', hardline], indexDocs), ';']);
 }

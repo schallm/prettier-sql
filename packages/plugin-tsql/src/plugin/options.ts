@@ -18,7 +18,7 @@ export const options: Record<string, SupportOption> = {
         default: 'standard',
         description: 'Controls how spread out the formatting is',
         choices: [
-            { value: 'compact',  description: 'Fits as much as possible on each line, wrapping at printWidth' },
+            { value: 'compact', description: 'Fits as much as possible on each line, wrapping at printWidth' },
             { value: 'standard', description: 'One clause per line; single predicates stay inline' },
             { value: 'spacious', description: 'Every predicate on its own line, even single ones' },
         ],

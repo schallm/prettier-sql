@@ -10,41 +10,76 @@ import { prop, propArr, propStr, propBool, schemaObjectName, assignmentOp } from
 
 export function printExpression(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
     switch (node.type) {
-        case 'WildcardColumn':    return '*';
-        case 'ColumnReference':   return printColumnRef(node);
-        case 'IntegerLiteral':    return node.text ?? '0';
-        case 'NumericLiteral':    return node.text ?? '0';
-        case 'RealLiteral':       return node.text ?? '0';
-        case 'MoneyLiteral':      return node.text ?? '0';
-        case 'StringLiteral':     return `'${node.text ?? ''}'`;
-        case 'BinaryLiteral':     return `0x${node.text ?? ''}`;
-        case 'NullLiteral':       return keyword('NULL', opts);
-        case 'BooleanLiteral':    return node.text?.toUpperCase() ?? 'TRUE';
-        case 'VariableReference': return node.text ?? '@var';
-        case 'GlobalVariable':    return node.text ?? '@@var';
-        case 'SelectStar':        return node.text ?? '*';
-        case 'SelectScalar':      return printSelectScalar(node, opts, printFn);
-        case 'SelectSetVariable': return printSelectSetVariable(node, opts, printFn);
-        case 'FunctionCall':      return printFunctionCall(node, opts, printFn);
-        case 'BinaryExpression':  return printBinaryExpr(node, opts, printFn);
-        case 'UnaryExpression':   return printUnaryExpr(node, opts, printFn);
-        case 'ParenthesisExpression': return printParenExpr(node, opts, printFn);
-        case 'CaseExpression':    return printCaseExpr(node, opts, printFn);
-        case 'CastCall':          return printCastCall(node, opts, printFn);
-        case 'ConvertCall':       return printConvertCall(node, opts, printFn);
-        case 'IIfCall':           return printIIfCall(node, opts, printFn);
-        case 'CoalesceExpression': return printCoalesceExpr(node, opts, printFn);
-        case 'NullIfExpression':  return printNullIfExpr(node, opts, printFn);
-        case 'TryCastCall':       return printTryCastCall(node, opts, printFn);
-        case 'TryConvertCall':    return printTryConvertCall(node, opts, printFn);
-        case 'AtTimeZoneCall':    return printAtTimeZone(node, opts, printFn);
-        case 'ScalarSubquery':    return printScalarSubquery(node, opts, printFn);
-        case 'OverClause':        return printOverClause(node, opts, printFn);
-        case 'RollupSpec':           return printGroupingSet('ROLLUP', node, opts, printFn);
-        case 'CubeSpec':             return printGroupingSet('CUBE', node, opts, printFn);
-        case 'GroupingSetsSpec':     return printGroupingSets(node, opts, printFn);
-        case 'CompositeGroupingSpec': return printCompositeGroup(node, opts, printFn);
-        case 'GrandTotalSpec':       return '()';
+        case 'WildcardColumn':
+            return '*';
+        case 'ColumnReference':
+            return printColumnRef(node);
+        case 'IntegerLiteral':
+            return node.text ?? '0';
+        case 'NumericLiteral':
+            return node.text ?? '0';
+        case 'RealLiteral':
+            return node.text ?? '0';
+        case 'MoneyLiteral':
+            return node.text ?? '0';
+        case 'StringLiteral':
+            return `'${node.text ?? ''}'`;
+        case 'BinaryLiteral':
+            return `0x${node.text ?? ''}`;
+        case 'NullLiteral':
+            return keyword('NULL', opts);
+        case 'BooleanLiteral':
+            return node.text?.toUpperCase() ?? 'TRUE';
+        case 'VariableReference':
+            return node.text ?? '@var';
+        case 'GlobalVariable':
+            return node.text ?? '@@var';
+        case 'SelectStar':
+            return node.text ?? '*';
+        case 'SelectScalar':
+            return printSelectScalar(node, opts, printFn);
+        case 'SelectSetVariable':
+            return printSelectSetVariable(node, opts, printFn);
+        case 'FunctionCall':
+            return printFunctionCall(node, opts, printFn);
+        case 'BinaryExpression':
+            return printBinaryExpr(node, opts, printFn);
+        case 'UnaryExpression':
+            return printUnaryExpr(node, opts, printFn);
+        case 'ParenthesisExpression':
+            return printParenExpr(node, opts, printFn);
+        case 'CaseExpression':
+            return printCaseExpr(node, opts, printFn);
+        case 'CastCall':
+            return printCastCall(node, opts, printFn);
+        case 'ConvertCall':
+            return printConvertCall(node, opts, printFn);
+        case 'IIfCall':
+            return printIIfCall(node, opts, printFn);
+        case 'CoalesceExpression':
+            return printCoalesceExpr(node, opts, printFn);
+        case 'NullIfExpression':
+            return printNullIfExpr(node, opts, printFn);
+        case 'TryCastCall':
+            return printTryCastCall(node, opts, printFn);
+        case 'TryConvertCall':
+            return printTryConvertCall(node, opts, printFn);
+        case 'AtTimeZoneCall':
+            return printAtTimeZone(node, opts, printFn);
+        case 'ScalarSubquery':
+            return printScalarSubquery(node, opts, printFn);
+        case 'OverClause':
+            return printOverClause(node, opts, printFn);
+        case 'RollupSpec':
+            return printGroupingSet('ROLLUP', node, opts, printFn);
+        case 'CubeSpec':
+            return printGroupingSet('CUBE', node, opts, printFn);
+        case 'GroupingSetsSpec':
+            return printGroupingSets(node, opts, printFn);
+        case 'CompositeGroupingSpec':
+            return printCompositeGroup(node, opts, printFn);
+        case 'GrandTotalSpec':
+            return '()';
         // Query nodes — appear as subqueries inside expressions
         case 'QuerySpecification':
         case 'BinaryQueryExpression':
@@ -56,7 +91,7 @@ export function printExpression(node: SqlNode, opts: Options, printFn: (n: SqlNo
 }
 
 function printColumnRef(node: SqlNode): Doc {
-    return node.text ?? (propArr(node, 'parts').join('.'));
+    return node.text ?? propArr(node, 'parts').join('.');
 }
 
 function printSelectScalar(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
@@ -106,10 +141,7 @@ function collectConcatChain(node: SqlNode): SqlNode[] {
     }
     const left = prop(node, 'left');
     const right = prop(node, 'right');
-    return [
-        ...(left ? collectConcatChain(left) : []),
-        ...(right ? [right] : []),
-    ];
+    return [...(left ? collectConcatChain(left) : []), ...(right ? [right] : [])];
 }
 
 function printBinaryExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
@@ -135,15 +167,23 @@ function printBinaryExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode) => 
     const opStr = mapBinaryOp(op);
     return group([
         left ? printExpression(left, opts, printFn) : '',
-        ' ', opStr, ' ',
+        ' ',
+        opStr,
+        ' ',
         right ? printExpression(right, opts, printFn) : '',
     ]);
 }
 
 function mapBinaryOp(op: string): string {
     const map: Record<string, string> = {
-        Add: '+', Subtract: '-', Multiply: '*', Divide: '/', Modulo: '%',
-        BitwiseAnd: '&', BitwiseOr: '|', BitwiseXor: '^',
+        Add: '+',
+        Subtract: '-',
+        Multiply: '*',
+        Divide: '/',
+        Modulo: '%',
+        BitwiseAnd: '&',
+        BitwiseOr: '|',
+        BitwiseXor: '^',
         Concatenate: '+',
     };
     return map[op] ?? op;
@@ -172,14 +212,18 @@ function printCaseExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Do
         const whenExpr = prop(w, 'when');
         const thenExpr = prop(w, 'then');
         const isSearched = caseType === 'searched';
-        const whenPart = isSearched && whenExpr
-            ? printBoolExpr(whenExpr, opts, printFn)
-            : whenExpr ? printExpression(whenExpr, opts, printFn) : keyword('NULL', opts);
+        const whenPart =
+            isSearched && whenExpr
+                ? printBoolExpr(whenExpr, opts, printFn)
+                : whenExpr
+                  ? printExpression(whenExpr, opts, printFn)
+                  : keyword('NULL', opts);
         const thenPart = thenExpr ? printExpression(thenExpr, opts, printFn) : keyword('NULL', opts);
         // Nested CASE: break after THEN and indent the inner case block.
-        const thenDoc: Doc = thenExpr?.type === 'CaseExpression'
-            ? [keyword('THEN', opts), indent([hardline, thenPart])]
-            : [keyword('THEN', opts), ' ', thenPart];
+        const thenDoc: Doc =
+            thenExpr?.type === 'CaseExpression'
+                ? [keyword('THEN', opts), indent([hardline, thenPart])]
+                : [keyword('THEN', opts), ' ', thenPart];
         const inline = isSearched && density !== 'spacious' && whenExpr?.type !== 'BooleanBinary';
         if (!isSearched || inline) {
             return [keyword('WHEN', opts), ' ', whenPart, ' ', thenDoc];
@@ -199,10 +243,7 @@ function printCaseExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Do
     return group([
         keyword('CASE', opts),
         ...inputPart,
-        indent([
-            ...whenDocs.map((w) => [hardline, ...w] as Doc),
-            ...elsePart,
-        ]),
+        indent([...whenDocs.map((w) => [hardline, ...w] as Doc), ...elsePart]),
         hardline,
         keyword('END', opts),
     ]);
@@ -243,57 +284,85 @@ function printConvertCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) =>
 
 function printIIfCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
     const condition = prop(node, 'condition');
-    const trueVal   = prop(node, 'trueVal');
-    const falseVal  = prop(node, 'falseVal');
-    return [keyword('IIF', opts), '(',
-        condition ? printBoolExpr(condition, opts, printFn) : '', ', ',
-        trueVal   ? printExpression(trueVal, opts, printFn)  : '', ', ',
-        falseVal  ? printExpression(falseVal, opts, printFn) : '',
-    ')'];
+    const trueVal = prop(node, 'trueVal');
+    const falseVal = prop(node, 'falseVal');
+    return [
+        keyword('IIF', opts),
+        '(',
+        condition ? printBoolExpr(condition, opts, printFn) : '',
+        ', ',
+        trueVal ? printExpression(trueVal, opts, printFn) : '',
+        ', ',
+        falseVal ? printExpression(falseVal, opts, printFn) : '',
+        ')',
+    ];
 }
 
 function printCoalesceExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
     const args = propArr(node, 'args');
-    return [keyword('COALESCE', opts), '(',
-        join(', ', args.map((a) => printExpression(a, opts, printFn))),
-    ')'];
+    return [
+        keyword('COALESCE', opts),
+        '(',
+        join(
+            ', ',
+            args.map((a) => printExpression(a, opts, printFn)),
+        ),
+        ')',
+    ];
 }
 
 function printNullIfExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
-    const first  = prop(node, 'first');
+    const first = prop(node, 'first');
     const second = prop(node, 'second');
-    return [keyword('NULLIF', opts), '(',
-        first  ? printExpression(first, opts, printFn)  : '', ', ',
+    return [
+        keyword('NULLIF', opts),
+        '(',
+        first ? printExpression(first, opts, printFn) : '',
+        ', ',
         second ? printExpression(second, opts, printFn) : '',
-    ')'];
+        ')',
+    ];
 }
 
 function printTryCastCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
-    const expr     = prop(node, 'expr');
+    const expr = prop(node, 'expr');
     const dataType = propStr(node, 'dataType') ?? 'INT';
-    return [keyword('TRY_CAST', opts), '(',
+    return [
+        keyword('TRY_CAST', opts),
+        '(',
         expr ? printExpression(expr, opts, printFn) : '',
-        ' ', keyword('AS', opts), ' ', keyword(dataType, opts),
-    ')'];
+        ' ',
+        keyword('AS', opts),
+        ' ',
+        keyword(dataType, opts),
+        ')',
+    ];
 }
 
 function printTryConvertCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
-    const expr     = prop(node, 'expr');
+    const expr = prop(node, 'expr');
     const dataType = propStr(node, 'dataType') ?? 'INT';
-    const style    = prop(node, 'style');
-    const parts: Doc[] = [keyword('TRY_CONVERT', opts), '(', keyword(dataType, opts), ', ',
-        expr ? printExpression(expr, opts, printFn) : ''];
+    const style = prop(node, 'style');
+    const parts: Doc[] = [
+        keyword('TRY_CONVERT', opts),
+        '(',
+        keyword(dataType, opts),
+        ', ',
+        expr ? printExpression(expr, opts, printFn) : '',
+    ];
     if (style) parts.push(', ', printExpression(style, opts, printFn));
     parts.push(')');
     return parts;
 }
 
 function printAtTimeZone(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
-    const source   = prop(node, 'source');
+    const source = prop(node, 'source');
     const timeZone = prop(node, 'timeZone');
     return [
-        source   ? printExpression(source, opts, printFn)   : '',
-        ' ', keyword('AT TIME ZONE', opts), ' ',
+        source ? printExpression(source, opts, printFn) : '',
+        ' ',
+        keyword('AT TIME ZONE', opts),
+        ' ',
         timeZone ? printExpression(timeZone, opts, printFn) : '',
     ];
 }
@@ -311,8 +380,10 @@ function printScalarSubquery(node: SqlNode, opts: Options, printFn: (n: SqlNode)
 
 export function printQueryExpression(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
     switch (node.type) {
-        case 'QuerySpecification':    return printQuerySpec(node, opts, printFn);
-        case 'BinaryQueryExpression': return printBinaryQuery(node, opts, printFn);
+        case 'QuerySpecification':
+            return printQuerySpec(node, opts, printFn);
+        case 'BinaryQueryExpression':
+            return printBinaryQuery(node, opts, printFn);
         case 'QueryParenthesis': {
             const q = prop(node, 'query');
             return q ? ['(', indent([hardline, printQueryExpression(q, opts, printFn)]), hardline, ')'] : '()';
@@ -341,9 +412,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
     const having = prop(node, 'having');
     const orderBy = prop(node, 'orderBy');
 
-    const selectKw = uniqueRowFilter === 'Distinct'
-        ? keyword('SELECT DISTINCT', opts)
-        : keyword('SELECT', opts);
+    const selectKw = uniqueRowFilter === 'Distinct' ? keyword('SELECT DISTINCT', opts) : keyword('SELECT', opts);
 
     const topDoc = top ? printTop(top, opts, printFn) : null;
     const colDocs = selectElements.map((se) => printExpression(se, opts, printFn));
@@ -371,7 +440,12 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
         }
 
         if (having) {
-            parts.push(line, keyword('HAVING', opts), ' ', boolWithTrailing(having, printBoolExpr(having, opts, printFn)));
+            parts.push(
+                line,
+                keyword('HAVING', opts),
+                ' ',
+                boolWithTrailing(having, printBoolExpr(having, opts, printFn)),
+            );
         }
 
         if (orderBy) {
@@ -382,19 +456,21 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
     }
 
     // Standard / Spacious: single column stays inline; multiple each on own line
-    const colList: Doc = density === 'standard' && colDocs.length === 1
-        ? [' ', colDocs[0]!]
-        : indent([hardline, join([',', hardline], colDocs)]);
+    const colList: Doc =
+        density === 'standard' && colDocs.length === 1
+            ? [' ', colDocs[0]!]
+            : indent([hardline, join([',', hardline], colDocs)]);
     const parts: Doc[] = [selectKw, ...(topDoc ? [' ', topDoc] : []), colList];
 
     if (from) {
         const tableRefs = propArr(from, 'tableReferences');
         const fromDocs = tableRefs.map((tr) => printTableRef(tr, opts, printFn));
         // standard: single table (no joins) stays inline; multiple/joins each on own line
-        const singleTable = density === 'standard'
-            && tableRefs.length === 1
-            && tableRefs[0]!.type !== 'QualifiedJoin'
-            && tableRefs[0]!.type !== 'UnqualifiedJoin';
+        const singleTable =
+            density === 'standard' &&
+            tableRefs.length === 1 &&
+            tableRefs[0]!.type !== 'QualifiedJoin' &&
+            tableRefs[0]!.type !== 'UnqualifiedJoin';
         if (singleTable) {
             parts.push(hardline, keyword('FROM', opts), ' ', fromDocs[0]!);
         } else {
@@ -407,9 +483,18 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
         // spacious: always indented
         const inline = density === 'standard' && where.type !== 'BooleanBinary';
         if (inline) {
-            parts.push(hardline, keyword('WHERE', opts), ' ', boolWithTrailing(where, printBoolExpr(where, opts, printFn)));
+            parts.push(
+                hardline,
+                keyword('WHERE', opts),
+                ' ',
+                boolWithTrailing(where, printBoolExpr(where, opts, printFn)),
+            );
         } else {
-            parts.push(hardline, keyword('WHERE', opts), indent([hardline, boolWithTrailing(where, printBoolExpr(where, opts, printFn))]));
+            parts.push(
+                hardline,
+                keyword('WHERE', opts),
+                indent([hardline, boolWithTrailing(where, printBoolExpr(where, opts, printFn))]),
+            );
         }
     }
 
@@ -427,9 +512,18 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
     if (having) {
         const inline = density === 'standard' && having.type !== 'BooleanBinary';
         if (inline) {
-            parts.push(hardline, keyword('HAVING', opts), ' ', boolWithTrailing(having, printBoolExpr(having, opts, printFn)));
+            parts.push(
+                hardline,
+                keyword('HAVING', opts),
+                ' ',
+                boolWithTrailing(having, printBoolExpr(having, opts, printFn)),
+            );
         } else {
-            parts.push(hardline, keyword('HAVING', opts), indent([hardline, boolWithTrailing(having, printBoolExpr(having, opts, printFn))]));
+            parts.push(
+                hardline,
+                keyword('HAVING', opts),
+                indent([hardline, boolWithTrailing(having, printBoolExpr(having, opts, printFn))]),
+            );
         }
     }
 
@@ -457,11 +551,7 @@ function printGroupingSet(kw: string, node: SqlNode, opts: Options, printFn: (n:
 
 function printGroupingSets(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
     const sets = propArr(node, 'sets').map((s) => printExpression(s, opts, printFn));
-    return group([
-        keyword('GROUPING SETS', opts), '(',
-        indent([softline, join([',', line], sets)]),
-        softline, ')',
-    ]);
+    return group([keyword('GROUPING SETS', opts), '(', indent([softline, join([',', line], sets)]), softline, ')']);
 }
 
 function printCompositeGroup(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
@@ -475,16 +565,21 @@ function printBinaryQuery(node: SqlNode, opts: Options, printFn: (n: SqlNode) =>
     const op = propStr(node, 'operator') ?? 'Union';
     const isAll = propBool(node, 'all');
 
-    const opKw = op === 'Union' ? keyword('UNION', opts)
-        : op === 'Intersect' ? keyword('INTERSECT', opts)
-        : keyword('EXCEPT', opts);
+    const opKw =
+        op === 'Union'
+            ? keyword('UNION', opts)
+            : op === 'Intersect'
+              ? keyword('INTERSECT', opts)
+              : keyword('EXCEPT', opts);
 
     return [
         left ? printQueryExpression(left, opts, printFn) : '',
-        hardline, hardline,
+        hardline,
+        hardline,
         opKw,
         isAll ? [' ', keyword('ALL', opts)] : '',
-        hardline, hardline,
+        hardline,
+        hardline,
         right ? printQueryExpression(right, opts, printFn) : '',
     ];
 }
@@ -499,7 +594,10 @@ export function printOverClause(node: SqlNode, opts: Options, printFn: (n: SqlNo
         parts.push(
             keyword('PARTITION BY', opts),
             ' ',
-            join([',', line], partitions.map((p) => printExpression(p, opts, printFn)))
+            join(
+                [',', line],
+                partitions.map((p) => printExpression(p, opts, printFn)),
+            ),
         );
     }
 
@@ -517,16 +615,26 @@ export function printOverClause(node: SqlNode, opts: Options, printFn: (n: SqlNo
 
 export function printBoolExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
     switch (node.type) {
-        case 'BooleanComparison':  return printBoolComparison(node, opts, printFn);
-        case 'BooleanBinary':      return printBoolBinary(node, opts, printFn);
-        case 'BooleanNot':         return printBoolNot(node, opts, printFn);
-        case 'BooleanParenthesis': return printBoolParen(node, opts, printFn);
-        case 'IsNullExpression':   return printIsNull(node, opts, printFn);
-        case 'InPredicate':        return printInPredicate(node, opts, printFn);
-        case 'LikePredicate':      return printLikePredicate(node, opts, printFn);
-        case 'ExistsPredicate':    return printExistsPredicate(node, opts, printFn);
-        case 'BetweenExpression':  return printBetween(node, opts, printFn);
-        case 'FullTextPredicate':  return printFullTextPredicate(node, opts, printFn);
+        case 'BooleanComparison':
+            return printBoolComparison(node, opts, printFn);
+        case 'BooleanBinary':
+            return printBoolBinary(node, opts, printFn);
+        case 'BooleanNot':
+            return printBoolNot(node, opts, printFn);
+        case 'BooleanParenthesis':
+            return printBoolParen(node, opts, printFn);
+        case 'IsNullExpression':
+            return printIsNull(node, opts, printFn);
+        case 'InPredicate':
+            return printInPredicate(node, opts, printFn);
+        case 'LikePredicate':
+            return printLikePredicate(node, opts, printFn);
+        case 'ExistsPredicate':
+            return printExistsPredicate(node, opts, printFn);
+        case 'BetweenExpression':
+            return printBetween(node, opts, printFn);
+        case 'FullTextPredicate':
+            return printFullTextPredicate(node, opts, printFn);
         default:
             return node.text ?? `/* ${node.type} */`;
     }
@@ -534,11 +642,17 @@ export function printBoolExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode
 
 function cmpOp(op: string): string {
     const map: Record<string, string> = {
-        Equals: '=', NotEqualToBrackets: '<>', NotEqualToExclamation: '!=',
-        GreaterThan: '>', LessThan: '<',
-        GreaterThanOrEqualTo: '>=', LessThanOrEqualTo: '<=',
-        LeftOuterJoin: '*=', RightOuterJoin: '=*',
-        NotLessThan: '!<', NotGreaterThan: '!>',
+        Equals: '=',
+        NotEqualToBrackets: '<>',
+        NotEqualToExclamation: '!=',
+        GreaterThan: '>',
+        LessThan: '<',
+        GreaterThanOrEqualTo: '>=',
+        LessThanOrEqualTo: '<=',
+        LeftOuterJoin: '*=',
+        RightOuterJoin: '=*',
+        NotLessThan: '!<',
+        NotGreaterThan: '!>',
     };
     return map[op] ?? op;
 }
@@ -549,7 +663,9 @@ function printBoolComparison(node: SqlNode, opts: Options, printFn: (n: SqlNode)
     const op = cmpOp(propStr(node, 'operator') ?? '=');
     return group([
         left ? printExpression(left, opts, printFn) : '',
-        ' ', op, ' ',
+        ' ',
+        op,
+        ' ',
         right ? printExpression(right, opts, printFn) : '',
     ]);
 }
@@ -630,27 +746,13 @@ function printInPredicate(node: SqlNode, opts: Options, printFn: (n: SqlNode) =>
 
     if (subquery) {
         // Subquery: keep existing softline/indent behaviour
-        return [
-            ...lhs,
-            ' (',
-            indent([softline, printQueryExpression(subquery, opts, printFn)]),
-            softline,
-            ')',
-        ];
+        return [...lhs, ' (', indent([softline, printQueryExpression(subquery, opts, printFn)]), softline, ')'];
     }
 
     // Value list: all inline when it fits; when it doesn't, each value on its
     // own indented line with ) dropping back to the indentation of the IN line.
     const valueDocs = values.map((v) => printExpression(v, opts, printFn));
-    return [
-        ...lhs,
-        group([
-            ' (',
-            indent([softline, join([',', line], valueDocs)]),
-            softline,
-            ')',
-        ]),
-    ];
+    return [...lhs, group([' (', indent([softline, join([',', line], valueDocs)]), softline, ')'])];
 }
 
 function printLikePredicate(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
@@ -676,7 +778,13 @@ function printLikePredicate(node: SqlNode, opts: Options, printFn: (n: SqlNode) 
 function printExistsPredicate(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
     const subquery = prop(node, 'subquery');
     if (!subquery) return keyword('EXISTS', opts) + '()';
-    return [keyword('EXISTS', opts), ' (', indent([hardline, printQueryExpression(subquery, opts, printFn)]), hardline, ')'];
+    return [
+        keyword('EXISTS', opts),
+        ' (',
+        indent([hardline, printQueryExpression(subquery, opts, printFn)]),
+        hardline,
+        ')',
+    ];
 }
 
 function printBetween(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
@@ -704,18 +812,30 @@ function printBetween(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc
 
 export function printTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
     switch (node.type) {
-        case 'NamedTableReference':    return printNamedTableRef(node, opts);
-        case 'VariableTableReference': return node.text ?? '/* unknown table var */';
-        case 'QualifiedJoin':               return printQualifiedJoin(node, opts, printFn);
-        case 'UnqualifiedJoin':             return printUnqualifiedJoin(node, opts, printFn);
-        case 'JoinParenthesisTableReference': return printJoinParenthesis(node, opts, printFn);
-        case 'QueryDerivedTable':           return printQueryDerivedTable(node, opts, printFn);
-        case 'SchemaObjectFunctionTableReference': return printSchemaObjectFunctionTableRef(node, opts, printFn);
-        case 'FullTextTableReference': return printFullTextTableRef(node, opts, printFn);
-        case 'OpenXmlTableReference':        return printOpenXmlTableRef(node, opts);
-        case 'OpenJsonTableReference':       return printOpenJsonTableRef(node, opts);
-        case 'OpenRowsetTableReference':     return printOpenRowsetTableRef(node, opts);
-        case 'BulkOpenRowset':               return printBulkOpenRowset(node, opts);
+        case 'NamedTableReference':
+            return printNamedTableRef(node, opts);
+        case 'VariableTableReference':
+            return node.text ?? '/* unknown table var */';
+        case 'QualifiedJoin':
+            return printQualifiedJoin(node, opts, printFn);
+        case 'UnqualifiedJoin':
+            return printUnqualifiedJoin(node, opts, printFn);
+        case 'JoinParenthesisTableReference':
+            return printJoinParenthesis(node, opts, printFn);
+        case 'QueryDerivedTable':
+            return printQueryDerivedTable(node, opts, printFn);
+        case 'SchemaObjectFunctionTableReference':
+            return printSchemaObjectFunctionTableRef(node, opts, printFn);
+        case 'FullTextTableReference':
+            return printFullTextTableRef(node, opts, printFn);
+        case 'OpenXmlTableReference':
+            return printOpenXmlTableRef(node, opts);
+        case 'OpenJsonTableReference':
+            return printOpenJsonTableRef(node, opts);
+        case 'OpenRowsetTableReference':
+            return printOpenRowsetTableRef(node, opts);
+        case 'BulkOpenRowset':
+            return printBulkOpenRowset(node, opts);
         default:
             return node.text ?? `/* ${node.type} */`;
     }
@@ -727,7 +847,16 @@ function printNamedTableRef(node: SqlNode, opts: Options): Doc {
     const nameDoc: Doc = schemaObjectName(prop(node, 'name'));
     const aliasDoc: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
     const hintsDoc: Doc = hints?.length
-        ? [' ', keyword('WITH', opts), ' (', join(', ', hints.map((h) => keyword(h, opts))), ')']
+        ? [
+              ' ',
+              keyword('WITH', opts),
+              ' (',
+              join(
+                  ', ',
+                  hints.map((h) => keyword(h, opts)),
+              ),
+              ')',
+          ]
         : '';
     return [nameDoc, aliasDoc, hintsDoc];
 }
@@ -802,14 +931,17 @@ function printQualifiedJoin(node: SqlNode, opts: Options, printFn: (n: SqlNode) 
     // nodes whose endOffset == left.endOffset so subsequent joins don't
     // re-discover the same comment from an ancestor.
     const betweenComment = left ? rightmostTrailingComment(left, left.endOffset) : undefined;
-    const commentLines: Doc[] = betweenComment
-        ? betweenComment.split('\n').flatMap((c): Doc[] => [hardline, c])
-        : [];
-    const separator: Doc = commentLines.length > 0
-        ? [...commentLines, hardline]
-        : joinBreak;
+    const commentLines: Doc[] = betweenComment ? betweenComment.split('\n').flatMap((c): Doc[] => [hardline, c]) : [];
+    const separator: Doc = commentLines.length > 0 ? [...commentLines, hardline] : joinBreak;
 
-    return [leftDoc, separator, joinTypeKeyword(jt, opts), ' ', right ? printTableRef(right, opts, printFn) : '', onDoc];
+    return [
+        leftDoc,
+        separator,
+        joinTypeKeyword(jt, opts),
+        ' ',
+        right ? printTableRef(right, opts, printFn) : '',
+        onDoc,
+    ];
 }
 
 function printUnqualifiedJoin(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
@@ -821,12 +953,8 @@ function printUnqualifiedJoin(node: SqlNode, opts: Options, printFn: (n: SqlNode
     const leftDoc = left ? printTableRef(left, opts, printFn) : '';
     // Unqualified joins have no condition; comment lands on left node itself.
     const betweenComment = left ? rightmostTrailingComment(left, left.endOffset) : undefined;
-    const commentLines: Doc[] = betweenComment
-        ? betweenComment.split('\n').flatMap((c): Doc[] => [hardline, c])
-        : [];
-    const separator: Doc = commentLines.length > 0
-        ? [...commentLines, hardline]
-        : hardline;
+    const commentLines: Doc[] = betweenComment ? betweenComment.split('\n').flatMap((c): Doc[] => [hardline, c]) : [];
+    const separator: Doc = commentLines.length > 0 ? [...commentLines, hardline] : hardline;
 
     return [leftDoc, separator, kw, ' ', right ? printTableRef(right, opts, printFn) : ''];
 }
@@ -848,9 +976,12 @@ function printQueryDerivedTable(node: SqlNode, opts: Options, printFn: (n: SqlNo
 }
 
 function printSchemaObjectFunctionTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
-    const args  = propArr(node, 'args');
+    const args = propArr(node, 'args');
     const alias = propStr(node, 'alias');
-    const argsDoc: Doc = join(', ', args.map((a) => printExpression(a, opts, printFn)));
+    const argsDoc: Doc = join(
+        ', ',
+        args.map((a) => printExpression(a, opts, printFn)),
+    );
     const aliasDoc: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
     return [schemaObjectName(prop(node, 'name')), '(', argsDoc, ')', aliasDoc];
 }
@@ -874,7 +1005,11 @@ function printFullTextPredicate(node: SqlNode, opts: Options, printFn: (n: SqlNo
     const value = prop(node, 'value');
     const language = propStr(node, 'language');
 
-    const args: Doc[] = [fullTextColumnsPart(columns, printFn), ', ', value ? printExpression(value, opts, printFn) : ''];
+    const args: Doc[] = [
+        fullTextColumnsPart(columns, printFn),
+        ', ',
+        value ? printExpression(value, opts, printFn) : '',
+    ];
     if (language) args.push(', ', keyword('LANGUAGE', opts), ' ', language);
 
     return [fnKw, '(', ...args, ')'];
@@ -909,38 +1044,44 @@ function rowsetWithClause(items: SqlNode[], opts: Options): Doc {
         hardline,
         keyword('WITH', opts),
         ' (',
-        indent([hardline, join([',', hardline], items.map((i) => i.text ?? ''))]),
+        indent([
+            hardline,
+            join(
+                [',', hardline],
+                items.map((i) => i.text ?? ''),
+            ),
+        ]),
         hardline,
         ')',
     ];
 }
 
 function printOpenXmlTableRef(node: SqlNode, opts: Options): Doc {
-    const variable   = propStr(node, 'variable') ?? '';
+    const variable = propStr(node, 'variable') ?? '';
     const rowPattern = propStr(node, 'rowPattern');
-    const flags      = propStr(node, 'flags');
-    const withItems  = propArr(node, 'withItems');
-    const tableName  = prop(node, 'tableName');
-    const alias      = propStr(node, 'alias');
+    const flags = propStr(node, 'flags');
+    const withItems = propArr(node, 'withItems');
+    const tableName = prop(node, 'tableName');
+    const alias = propStr(node, 'alias');
 
     const args: Doc[] = [variable];
     if (rowPattern) args.push(', ', rowPattern);
-    if (flags)      args.push(', ', flags);
+    if (flags) args.push(', ', flags);
 
     const withPart: Doc = withItems.length
         ? rowsetWithClause(withItems, opts)
         : tableName
-            ? [hardline, keyword('WITH', opts), ' ', schemaObjectName(tableName)]
-            : '';
+          ? [hardline, keyword('WITH', opts), ' ', schemaObjectName(tableName)]
+          : '';
     const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
     return [keyword('OPENXML', opts), '(', ...args, ')', withPart, aliasPart];
 }
 
 function printOpenJsonTableRef(node: SqlNode, opts: Options): Doc {
-    const variable   = propStr(node, 'variable') ?? '';
+    const variable = propStr(node, 'variable') ?? '';
     const rowPattern = propStr(node, 'rowPattern');
-    const withItems  = propArr(node, 'withItems');
-    const alias      = propStr(node, 'alias');
+    const withItems = propArr(node, 'withItems');
+    const alias = propStr(node, 'alias');
 
     const args: Doc[] = [variable];
     if (rowPattern) args.push(', ', rowPattern);
@@ -955,14 +1096,14 @@ function printOpenJsonTableRef(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 function printOpenRowsetTableRef(node: SqlNode, opts: Options): Doc {
-    const providerName   = propStr(node, 'providerName') ?? '';
+    const providerName = propStr(node, 'providerName') ?? '';
     const providerString = propStr(node, 'providerString');
-    const dataSource     = propStr(node, 'dataSource');
-    const userId         = propStr(node, 'userId');
-    const password       = propStr(node, 'password');
-    const query          = propStr(node, 'query');
-    const obj            = prop(node, 'object');
-    const alias          = propStr(node, 'alias');
+    const dataSource = propStr(node, 'dataSource');
+    const userId = propStr(node, 'userId');
+    const password = propStr(node, 'password');
+    const query = propStr(node, 'query');
+    const obj = prop(node, 'object');
+    const alias = propStr(node, 'alias');
 
     // Connection: either a single provider string or three-part datasource;userid;password
     const connection: Doc = providerString
@@ -978,22 +1119,14 @@ function printOpenRowsetTableRef(node: SqlNode, opts: Options): Doc {
 
 function printBulkOpenRowset(node: SqlNode, opts: Options): Doc {
     const dataFiles = node.props?.['dataFiles'] as string[] | undefined;
-    const options   = node.props?.['options']   as string[] | undefined;
-    const alias     = propStr(node, 'alias');
+    const options = node.props?.['options'] as string[] | undefined;
+    const alias = propStr(node, 'alias');
 
     const dataFile = dataFiles?.[0] ?? '';
-    const optionsDocs: Doc = options?.length
-        ? [',', indent([hardline, join([',', hardline], options)])]
-        : '';
+    const optionsDocs: Doc = options?.length ? [',', indent([hardline, join([',', hardline], options)])] : '';
 
     const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
-    return [
-        keyword('OPENROWSET', opts), '(',
-        keyword('BULK', opts), ' ', dataFile,
-        optionsDocs,
-        ')',
-        aliasPart,
-    ];
+    return [keyword('OPENROWSET', opts), '(', keyword('BULK', opts), ' ', dataFile, optionsDocs, ')', aliasPart];
 }
 
 // ---------------------------------------------------------------------------
