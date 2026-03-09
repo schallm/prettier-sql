@@ -6,13 +6,13 @@ The examples use a Books domain:
 
 | Table        | Key columns                                                                                   |
 | ------------ | --------------------------------------------------------------------------------------------- |
-| `Books`      | `id`, `title`, `author_id`, `publisher_id`, `genre_id`, `price`, `in_stock`, `published_date` |
-| `Authors`    | `id`, `first_name`, `last_name`, `country`, `publisher_id`                                    |
-| `Publishers` | `id`, `name`, `country`                                                                       |
-| `Genres`     | `id`, `name`                                                                                  |
-| `Customers`  | `id`, `name`, `email`, `active`                                                               |
-| `Orders`     | `id`, `customer_id`, `total`, `order_date`                                                    |
-| `OrderItems` | `id`, `order_id`, `book_id`, `quantity`, `unit_price`                                         |
+| `Books`      | `Id`, `Title`, `AuthorId`, `PublisherId`, `GenreId`, `Price`, `InStock`, `PublishedDate` |
+| `Authors`    | `Id`, `FirstName`, `LastName`, `Country`, `PublisherId`                                    |
+| `Publishers` | `Id`, `Name`, `Country`                                                                       |
+| `Genres`     | `Id`, `Name`                                                                                  |
+| `Customers`  | `Id`, `Name`, `Email`, `Active`                                                               |
+| `Orders`     | `Id`, `CustomerId`, `Total`, `OrderDate`                                                    |
+| `OrderItems` | `Id`, `OrderId`, `BookId`, `Quantity`, `UnitPrice`                                         |
 
 ---
 
@@ -24,21 +24,21 @@ Column lists are always one column per line when there are multiple columns. A s
 
 ```sql
 -- single column: stays inline
-select id
+select Id
 from Books;
 
 -- multiple columns: one per line
 select
-  id,
-  title,
-  price
+  Id,
+  Title,
+  Price
 from Books;
 ```
 
 `SELECT DISTINCT` keeps `distinct` immediately after `select`:
 
 ```sql
-select distinct genre_id
+select distinct GenreId
 from Books;
 ```
 
@@ -47,19 +47,19 @@ from Books;
 Multiple tables or any join forces `from` onto its own line with the table list indented:
 
 ```sql
-select id
+select Id
 from
   Books
-  inner join Authors on Books.author_id = Authors.id
-  left join Publishers on Books.publisher_id = Publishers.id;
+  inner join Authors on Books.AuthorId = Authors.id
+  left join Publishers on Books.PublisherId = Publishers.id;
 ```
 
 A single table with no joins stays inline with `from`:
 
 ```sql
 select
-  id,
-  title
+  Id,
+  Title
 from Books;
 ```
 
@@ -70,8 +70,8 @@ select *
 from
   Books
   inner join Authors on
-    Books.author_id = Authors.id
-    and Books.publisher_id = Authors.publisher_id;
+    Books.AuthorId = Authors.id
+    and Books.PublisherId = Authors.PublisherId;
 ```
 
 ##### Nested (parenthesized) joins
@@ -79,13 +79,13 @@ from
 A join whose right-hand side is itself a parenthesized join group opens a block after `join (`, indents the inner joins one level, and closes with `) on`:
 
 ```sql
-select title
+select Title
 from
   Books
   left join (
     Authors
-    inner join Publishers on Authors.publisher_id = Publishers.id
-  ) on Books.author_id = Authors.id;
+    inner join Publishers on Authors.PublisherId = Publishers.id
+  ) on Books.AuthorId = Authors.id;
 ```
 
 ##### Table hints
@@ -93,14 +93,14 @@ from
 `WITH (...)` hints are kept on the same line as the table reference:
 
 ```sql
-select id
+select Id
 from Books with (nolock);
 ```
 
 Multiple hints stay inline, comma-separated:
 
 ```sql
-select id
+select Id
 from Books with (nolock, rowlock);
 ```
 
@@ -110,8 +110,8 @@ A TVF used as a row source in `from` is written as `schema.function(args)` with 
 
 ```sql
 select
-  title,
-  price
+  Title,
+  Price
 from dbo.GetAvailableBooks(1);
 ```
 
@@ -119,11 +119,11 @@ TVFs can be joined like regular tables:
 
 ```sql
 select
-  title,
-  Genres.name
+  Title,
+  Genres.Name
 from
   dbo.GetAvailableBooks(1) as b
-  inner join Genres on b.genre_id = Genres.id;
+  inner join Genres on b.GenreId = Genres.id;
 ```
 
 #### WHERE
@@ -131,20 +131,20 @@ from
 A single predicate stays inline with `where` (standard density):
 
 ```sql
-select id
+select Id
 from Books
-where in_stock = 1;
+where InStock = 1;
 ```
 
 Multiple predicates each get their own line:
 
 ```sql
-select id
+select Id
 from Books
 where
-  in_stock = 1
-  and price < 50
-  and genre_id in (1, 2, 3);
+  InStock = 1
+  and Price < 50
+  and GenreId in (1, 2, 3);
 ```
 
 ##### IN / NOT IN
@@ -152,17 +152,17 @@ where
 Short value lists stay on one line with `in`:
 
 ```sql
-select id
+select Id
 from Books
-where genre_id in (1, 2, 3);
+where GenreId in (1, 2, 3);
 ```
 
 Long lists that would exceed `printWidth` wrap with each value on its own line:
 
 ```sql
-select id
+select Id
 from Authors
-where country in (
+where Country in (
   'United States',
   'United Kingdom',
   'Canada',
@@ -174,12 +174,12 @@ where country in (
 `not in` follows the same rule. Subquery form is indented like any other subquery:
 
 ```sql
-select id
+select Id
 from Books
-where id not in (
-  select book_id
+where Id not in (
+  select BookId
   from OrderItems
-  where unit_price < 5
+  where UnitPrice < 5
 );
 ```
 
@@ -187,11 +187,11 @@ where id not in (
 
 ```sql
 select
-  genre_id,
+  GenreId,
   count(*) as cnt,
-  avg(price) as avg_price
+  avg(Price) as avg_price
 from Books
-group by genre_id
+group by GenreId
 having count(*) > 5;
 ```
 
@@ -201,43 +201,43 @@ having count(*) > 5;
 
 ```sql
 select
-  genre_id,
-  author_id,
-  sum(price) as total
+  GenreId,
+  AuthorId,
+  sum(Price) as Total
 from Books
-group by rollup(genre_id, author_id);
+group by rollup(GenreId, AuthorId);
 ```
 
 ```sql
 select
-  genre_id,
-  in_stock,
+  GenreId,
+  InStock,
   count(*) as cnt
 from Books
-group by cube(genre_id, in_stock);
+group by cube(GenreId, InStock);
 ```
 
 `grouping sets` supports composite groups `(col1, col2)` and the grand-total empty set `()`:
 
 ```sql
 select
-  genre_id,
-  author_id,
-  sum(price) as total
+  GenreId,
+  AuthorId,
+  sum(Price) as Total
 from Books
-group by grouping sets((genre_id, author_id), (genre_id), ());
+group by grouping sets((GenreId, AuthorId), (GenreId), ());
 ```
 
 #### ORDER BY
 
 ```sql
 select
-  id,
-  title
+  Id,
+  Title
 from Books
 order by
-  published_date desc,
-  title asc;
+  PublishedDate desc,
+  Title asc;
 ```
 
 #### CASE expressions
@@ -248,8 +248,8 @@ Single-predicate `when` conditions stay inline:
 
 ```sql
 select case
-  when price > 50 then 'premium'
-  when price > 20 then 'standard'
+  when Price > 50 then 'premium'
+  when Price > 20 then 'standard'
   else 'budget'
 end as price_tier
 from Books;
@@ -260,8 +260,8 @@ When a `when` condition is a compound boolean expression (`and` / `or`), the pre
 ```sql
 select case
   when
-    author_id is not null
-    and genre_id in (1, 2, 3)
+    AuthorId is not null
+    and GenreId in (1, 2, 3)
   then 1
   else 0
 end as is_featured
@@ -271,7 +271,7 @@ from Books;
 ##### Simple CASE
 
 ```sql
-select case genre_id
+select case GenreId
   when 1 then 'Fiction'
   when 2 then 'Non-Fiction'
   else 'Other'
@@ -287,8 +287,8 @@ The full data type — including length, precision, and scale — is preserved a
 
 ```sql
 select
-  cast(title as nvarchar(100)),
-  convert(decimal(10, 2), price, 1)
+  cast(Title as nvarchar(100)),
+  convert(decimal(10, 2), Price, 1)
 from Books;
 ```
 
@@ -296,8 +296,8 @@ from Books;
 
 ```sql
 select
-  try_cast(title as int),
-  try_convert(decimal(10, 2), price)
+  try_cast(Title as int),
+  try_convert(decimal(10, 2), Price)
 from Books;
 ```
 
@@ -306,7 +306,7 @@ from Books;
 `iif` is formatted with its condition and two result expressions inline, comma-separated:
 
 ```sql
-select iif(in_stock = 1, 'available', 'out of stock') as availability
+select iif(InStock = 1, 'available', 'out of stock') as availability
 from Books;
 ```
 
@@ -316,8 +316,8 @@ Arguments are comma-separated and stay inline when they fit within `printWidth`:
 
 ```sql
 select
-  coalesce(price, 0.00) as price,
-  nullif(genre_id, 0) as genre_id
+  coalesce(Price, 0.00) as Price,
+  nullif(GenreId, 0) as GenreId
 from Books;
 ```
 
@@ -326,7 +326,7 @@ from Books;
 The `at time zone` operator keeps the source expression and timezone string on one line:
 
 ```sql
-select published_date at time zone 'UTC' as published_utc
+select PublishedDate at time zone 'UTC' as published_utc
 from Books;
 ```
 
@@ -336,28 +336,28 @@ Each query branch is separated from the set operator by a blank line:
 
 ```sql
 select
-  id,
-  title
+  Id,
+  Title
 from Books
-where in_stock = 1
+where InStock = 1
 
 union all
 
 select
-  id,
-  title
+  Id,
+  Title
 from ArchivedBooks;
 ```
 
 `union` (distinct) follows the same pattern:
 
 ```sql
-select author_id
+select AuthorId
 from Books
 
 union
 
-select author_id
+select AuthorId
 from ArchivedBooks;
 ```
 
@@ -368,14 +368,14 @@ Each CTE body is indented inside parentheses:
 ```sql
 with available_books as (
   select
-    id,
-    title
+    Id,
+    Title
   from Books
-  where in_stock = 1
+  where InStock = 1
 )
-select title
+select Title
 from available_books
-order by title asc;
+order by Title asc;
 ```
 
 #### Window Functions
@@ -384,11 +384,11 @@ The `over(...)` clause wraps when it doesn't fit on one line:
 
 ```sql
 select
-  id,
-  price,
+  Id,
+  Price,
   row_number() over (
-    partition by genre_id
-    order by price desc
+    partition by GenreId
+    order by Price desc
   ) as rn
 from Books;
 ```
@@ -399,14 +399,14 @@ A subquery used as a table in the `from` clause is indented inside parentheses a
 
 ```sql
 select
-  genre_id,
+  GenreId,
   avg_price
 from (
   select
-    genre_id,
-    avg(price) as avg_price
+    GenreId,
+    avg(Price) as avg_price
   from Books
-  group by genre_id
+  group by GenreId
 ) as t
 where avg_price > 25;
 ```
@@ -417,13 +417,13 @@ Subqueries inside `where` are indented inside parentheses:
 
 ```sql
 select
-  id,
-  title
+  Id,
+  Title
 from Books
-where id in (
-  select book_id
+where Id in (
+  select BookId
   from OrderItems
-  where unit_price > 50
+  where UnitPrice > 50
 );
 ```
 
@@ -437,16 +437,16 @@ Single column — bare column name, no extra parentheses:
 
 ```sql
 select
-  id,
-  title
+  Id,
+  Title
 from Books
-where contains(title, '"SQL Server"');
+where contains(Title, '"SQL Server"');
 ```
 
 Wildcard — all full-text indexed columns:
 
 ```sql
-select id
+select Id
 from Books
 where contains(*, 'programming');
 ```
@@ -454,27 +454,27 @@ where contains(*, 'programming');
 Multiple columns — inner parentheses around the column list:
 
 ```sql
-select id
+select Id
 from Books
-where contains((title, author_id), 'design');
+where contains((Title, AuthorId), 'design');
 ```
 
 With `LANGUAGE`:
 
 ```sql
-select id
+select Id
 from Books
-where contains(title, 'query', language 1033);
+where contains(Title, 'query', language 1033);
 ```
 
 `freetext` follows the same layout:
 
 ```sql
 select
-  id,
-  title
+  Id,
+  Title
 from Books
-where freetext(title, 'database programming');
+where freetext(Title, 'database programming');
 ```
 
 ##### CONTAINSTABLE / FREETEXTTABLE
@@ -484,11 +484,11 @@ These table-valued functions appear in `FROM` / `JOIN` clauses and are formatted
 ```sql
 select
   Books.id,
-  Books.title,
+  Books.Title,
   ft.rank
 from
   Books
-  inner join containstable(Books, title, '"SQL"') as ft on
+  inner join containstable(Books, Title, '"SQL"') as ft on
     Books.id = ft.key;
 ```
 
@@ -517,7 +517,7 @@ select
   j.value
 from
   Orders
-  cross apply openjson(json_data) as j;
+  cross apply openjson(JsonData) as j;
 ```
 
 With a row-path and `WITH` schema declaration, each column definition is on its own indented
@@ -525,13 +525,13 @@ line inside the parentheses:
 
 ```sql
 select
-  j.order_id,
+  j.OrderId,
   j.amount
 from
   Orders
-  cross apply openjson(json_data, '$.items')
+  cross apply openjson(JsonData, '$.items')
   with (
-    order_id int '$.id',
+    OrderId int '$.id',
     amount decimal(10, 2) '$.amount',
     notes nvarchar(500) '$.notes'
   ) as j;
@@ -541,11 +541,11 @@ from
 
 ```sql
 select
-  id,
+  Id,
   data
 from openjson(@json)
 with (
-  id int '$.id',
+  Id int '$.id',
   data nvarchar(max) '$.data' as json
 );
 ```
@@ -556,12 +556,12 @@ with (
 
 ```sql
 select
-  id,
-  name
+  Id,
+  Name
 from openxml(@hDoc, '/root/item', 2)
 with (
-  id int '@id',
-  name varchar(100) 'name'
+  Id int '@Id',
+  Name varchar(100) 'Name'
 );
 ```
 
@@ -575,9 +575,9 @@ preserved).
 ```sql
 -- Single provider-string connection
 select
-  id,
-  name
-from openrowset('SQLNCLI', 'Server=(local);Trusted_Connection=yes;', 'select id, name from pubs..titles');
+  Id,
+  Name
+from openrowset('SQLNCLI', 'Server=(local);Trusted_Connection=yes;', 'select Id, Name from pubs..titles');
 
 -- Three-part datasource;userid;password connection with a schema object
 select *
@@ -612,9 +612,9 @@ Options are emitted as raw text (original casing preserved). The `BULK` keyword 
 Variable assignment in the select list:
 
 ```sql
-select @total = sum(price)
+select @Total = sum(Price)
 from Books
-where in_stock = 1;
+where InStock = 1;
 ```
 
 ---
@@ -625,9 +625,9 @@ Column list and values list are each indented:
 
 ```sql
 insert into Customers (
-  name,
-  email,
-  active
+  Name,
+  Email,
+  Active
 )
 values
   ('Jane Smith', 'jane@example.com', 1);
@@ -637,8 +637,8 @@ Multiple rows stay on one line each (wrapping only if a single row exceeds `prin
 
 ```sql
 insert into Genres (
-  id,
-  name
+  Id,
+  Name
 )
 values
   (1, 'Fiction'),
@@ -649,24 +649,24 @@ INSERT ... SELECT:
 
 ```sql
 insert into ArchivedBooks (
-  id,
-  title
+  Id,
+  Title
 )
 select
-  id,
-  title
+  Id,
+  Title
 from Books
-where in_stock = 0;
+where InStock = 0;
 ```
 
 INSERT with OUTPUT (see [OUTPUT clause](#output-clause) below):
 
 ```sql
 insert into Books (
-  title,
-  price
+  Title,
+  Price
 )
-output inserted.id, inserted.title
+output inserted.id, inserted.Title
 values
   ('New Book', 9.99);
 ```
@@ -678,37 +678,37 @@ values
 ```sql
 update Books
 set
-  title = 'Updated Title',
-  price = 29.99
-where id = 42;
+  Title = 'Updated Title',
+  Price = 29.99
+where Id = 42;
 ```
 
 A single `set` assignment stays inline:
 
 ```sql
 update Books
-set in_stock = 0
-where id = 42;
+set InStock = 0
+where Id = 42;
 ```
 
 UPDATE with a JOIN uses a `from` clause:
 
 ```sql
 update Books
-set in_stock = 0
+set InStock = 0
 from
   Books
-  inner join Publishers on Books.publisher_id = Publishers.id
-where Publishers.country = 'UK';
+  inner join Publishers on Books.PublisherId = Publishers.id
+where Publishers.Country = 'UK';
 ```
 
 UPDATE with OUTPUT:
 
 ```sql
 update Books
-set price = price * 1.1
-output inserted.id, deleted.price, inserted.price
-where in_stock = 1;
+set Price = Price * 1.1
+output inserted.id, deleted.Price, inserted.Price
+where InStock = 1;
 ```
 
 ---
@@ -718,8 +718,8 @@ where in_stock = 1;
 ```sql
 delete from Books
 where
-  in_stock = 0
-  and published_date < dateadd(year, -10, getdate());
+  InStock = 0
+  and PublishedDate < dateadd(year, -10, getdate());
 ```
 
 DELETE with OUTPUT INTO:
@@ -728,9 +728,9 @@ DELETE with OUTPUT INTO:
 delete from Books
 output
   deleted.id,
-  deleted.title
-into @removed (id, title)
-where in_stock = 0;
+  deleted.Title
+into @removed (Id, Title)
+where InStock = 0;
 ```
 
 ---
@@ -745,11 +745,11 @@ using ArchivedBooks
 on Books.id = ArchivedBooks.id
 when matched then
   update set
-    title = ArchivedBooks.title,
-    price = ArchivedBooks.price
+    Title = ArchivedBooks.Title,
+    Price = ArchivedBooks.Price
 when not matched by target then
-  insert (id, title, price)
-  values (ArchivedBooks.id, ArchivedBooks.title, ArchivedBooks.price)
+  insert (Id, Title, Price)
+  values (ArchivedBooks.id, ArchivedBooks.Title, ArchivedBooks.Price)
 when not matched by source then
   delete;
 ```
@@ -760,9 +760,9 @@ An optional `and` predicate on a `when` clause stays inline with the condition k
 merge into Books
 using ArchivedBooks
 on Books.id = ArchivedBooks.id
-when matched and Books.price <> ArchivedBooks.price then
+when matched and Books.Price <> ArchivedBooks.Price then
   update set
-    price = ArchivedBooks.price;
+    Price = ArchivedBooks.Price;
 ```
 
 A subquery source is indented inside parentheses:
@@ -771,17 +771,17 @@ A subquery source is indented inside parentheses:
 merge into Books
 using (
   select
-    id,
-    title,
-    price
+    Id,
+    Title,
+    Price
   from ArchivedBooks
-  where price > 0
+  where Price > 0
 ) as src
 on Books.id = src.id
 when matched then
   update set
-    title = src.title,
-    price = src.price;
+    Title = src.Title,
+    Price = src.Price;
 ```
 
 MERGE with OUTPUT:
@@ -792,8 +792,8 @@ using ArchivedBooks
 on Books.id = ArchivedBooks.id
 when matched then
   update set
-    price = ArchivedBooks.price
-output $action, inserted.id, deleted.price;
+    Price = ArchivedBooks.Price
+output $action, inserted.id, deleted.Price;
 ```
 
 ---
@@ -806,9 +806,9 @@ Short list — stays inline:
 
 ```sql
 update Books
-set price = price * 1.1
-output inserted.id, deleted.price, inserted.price
-where in_stock = 1;
+set Price = Price * 1.1
+output inserted.id, deleted.Price, inserted.Price
+where InStock = 1;
 ```
 
 Longer list with `into` — breaks to indented lines before `into`:
@@ -817,9 +817,9 @@ Longer list with `into` — breaks to indented lines before `into`:
 delete from Books
 output
   deleted.id,
-  deleted.title
-into @removed (id, title)
-where in_stock = 0;
+  deleted.Title
+into @removed (Id, Title)
+where InStock = 0;
 ```
 
 `$action`, `inserted.*`, and `deleted.*` are preserved exactly as written since they are pseudo-columns, not SQL keywords (keyword casing does not apply to them).
@@ -834,11 +834,11 @@ Columns are indented inside parentheses, one per line. Constraints follow the co
 
 ```sql
 create table Books (
-  id int identity(1, 1) not null,
-  title nvarchar(200) not null,
-  price decimal(10, 2) not null,
-  in_stock bit default 1 not null,
-  constraint pk_books primary key (id)
+  Id int identity(1, 1) not null,
+  Title nvarchar(200) not null,
+  Price decimal(10, 2) not null,
+  InStock bit default 1 not null,
+  constraint pk_books primary key (Id)
 );
 ```
 
@@ -846,11 +846,11 @@ With a foreign key:
 
 ```sql
 create table Orders (
-  id int identity(1, 1) not null,
-  customer_id int not null,
-  total decimal(18, 2) not null,
-  constraint pk_orders primary key (id),
-  constraint fk_orders_customers foreign key (customer_id) references Customers (id)
+  Id int identity(1, 1) not null,
+  CustomerId int not null,
+  Total decimal(18, 2) not null,
+  constraint pk_orders primary key (Id),
+  constraint fk_orders_customers foreign key (CustomerId) references Customers (Id)
 );
 ```
 
@@ -862,11 +862,11 @@ create table Orders (
 -- Add column
 alter table Books
 add
-  isbn nvarchar(20) null;
+  Isbn nvarchar(20) null;
 
 -- Drop column
 alter table Books
-drop column isbn;
+drop column Isbn;
 ```
 
 ---
@@ -876,22 +876,22 @@ drop column isbn;
 `CREATE INDEX` places the index name on the same line as the verb, then `ON table (columns)` on its own line with the column list indented. Each column includes an explicit `ASC` or `DESC` direction. An optional `INCLUDE` clause goes on a further line.
 
 ```sql
-create nonclustered index ix_title
+create nonclustered index IX_Books_Title
 on Books (
-  title asc
+  Title asc
 );
 
-create unique clustered index ix_book_id
+create unique clustered index IX_Books_Id
 on Books (
-  id asc
+  Id asc
 );
 
-create nonclustered index ix_author_price
+create nonclustered index IX_Books_AuthorId_Price
 on Books (
-  author_id asc,
-  price desc
+  AuthorId asc,
+  Price desc
 )
-include (title, in_stock);
+include (Title, InStock);
 ```
 
 ---
@@ -901,16 +901,16 @@ include (title, in_stock);
 `alter index` reformats the index name (or `all`), table, and operation on separate lines:
 
 ```sql
-alter index ix_Books_title on Books
+alter index IX_Books_Title on Books
 rebuild;
 
 alter index all on Books
 rebuild;
 
-alter index ix_Books_title on Books
+alter index IX_Books_Title on Books
 reorganize;
 
-alter index ix_Books_title on Books
+alter index IX_Books_Title on Books
 disable;
 ```
 
@@ -937,7 +937,7 @@ drop sequence OrderSeq;
 
 drop sequence if exists OrderSeq;
 
-drop index ix_title on Books;
+drop index IX_Books_Title on Books;
 
 drop user AppUser;
 
@@ -960,10 +960,10 @@ create procedure GetAvailableBooks
 as
 begin
   select
-    id,
-    title
+    Id,
+    Title
   from Books
-  where in_stock = 1;
+  where InStock = 1;
 end;
 go
 ```
@@ -972,15 +972,15 @@ With parameters (each on its own indented line):
 
 ```sql
 create procedure GetBookById
-  @id int,
+  @Id int,
   @includeOutOfStock bit = 0
 as
 begin
   select
-    id,
-    title
+    Id,
+    Title
   from Books
-  where id = @id;
+  where Id = @Id;
 end;
 go
 ```
@@ -990,16 +990,16 @@ Comments between the procedure name and the parameter list are preserved before 
 ```sql
 create procedure GetBookById
 /* Returns a single book by its ID */
-  @id int,
-  @active bit = 1
+  @Id int,
+  @Active bit = 1
 /* WITH ENCRYPTION */
 as
 begin
   select
-    id,
-    title
+    Id,
+    Title
   from Books
-  where id = @id;
+  where Id = @Id;
 end;
 go
 ```
@@ -1033,10 +1033,10 @@ go
 create or alter view vw_available_books
 as
 select
-  id,
-  title
+  Id,
+  Title
 from Books
-where in_stock = 1;
+where InStock = 1;
 go
 ```
 
@@ -1047,8 +1047,8 @@ create or alter view vw_sensitive_prices
 /* with encryption */
 as
 select
-  id,
-  price
+  Id,
+  Price
 from Books;
 go
 ```
@@ -1068,9 +1068,9 @@ after insert
 as
 begin
   update Books
-  set price = price * 1.1
-  where id in (
-    select id
+  set Price = Price * 1.1
+  where Id in (
+    select Id
     from inserted
   );
 end;
@@ -1181,9 +1181,9 @@ The column list follows the same rules as `CREATE TABLE`:
 
 ```sql
 create type BookList as table (
-  book_id int not null,
-  title nvarchar(200) not null,
-  price decimal(10, 2)
+  BookId int not null,
+  Title nvarchar(200) not null,
+  Price decimal(10, 2)
 );
 ```
 
@@ -1306,8 +1306,8 @@ raiserror ('Book not found', 16, 1);
 ```sql
 begin try
   insert into Books (
-    title,
-    price
+    Title,
+    Price
   )
   values
     ('New Book', 29.99);
@@ -1327,10 +1327,10 @@ end catch
 declare book_cursor cursor
 for
 select
-  id,
-  title
+  Id,
+  Title
 from Books
-where in_stock = 1;
+where InStock = 1;
 ```
 
 Cursor options (e.g. `SCROLL`, `READ_ONLY`) appear between the cursor name and the `cursor` keyword:
@@ -1338,7 +1338,7 @@ Cursor options (e.g. `SCROLL`, `READ_ONLY`) appear between the cursor name and t
 ```sql
 declare book_cursor SCROLL cursor
 for
-select id
+select Id
 from Books;
 ```
 
@@ -1347,13 +1347,13 @@ The remaining cursor operations are single-line statements:
 ```sql
 open book_cursor;
 
-fetch next from book_cursor into @id, @title;
+fetch next from book_cursor into @Id, @Title;
 
 fetch prior from book_cursor;
 
-fetch first from book_cursor into @id, @title;
+fetch first from book_cursor into @Id, @Title;
 
-fetch last from book_cursor into @id;
+fetch last from book_cursor into @Id;
 
 close book_cursor;
 
@@ -1381,7 +1381,7 @@ grant
 on object::Books
 to AppUser, GuestUser;
 
-grant select (title, price)
+grant select (Title, Price)
 on Books
 to AppUser
 with grant option;
@@ -1460,7 +1460,7 @@ with
 ```sql
 alter user AppUser
 with
-  name = NewUser,
+  Name = NewUser,
   default_schema = reports;
 ```
 
@@ -1554,7 +1554,7 @@ alter role db_reader
 drop member AppUser;
 
 alter role db_reader
-with name = db_reader_v2;
+with Name = db_reader_v2;
 ```
 
 #### DROP ROLE
@@ -1577,8 +1577,8 @@ Line comments at the end of a statement or VALUES row are kept on the same line:
 
 ```sql
 insert into Genres (
-  id,
-  name
+  Id,
+  Name
 )
 values
   (1, 'Fiction'), -- primary genre
@@ -1592,10 +1592,10 @@ Standalone comment lines before a statement are attached to that statement:
 ```sql
 -- Returns all available books
 select
-  id,
-  title
+  Id,
+  Title
 from Books
-where in_stock = 1;
+where InStock = 1;
 ```
 
 #### Block comments
@@ -1616,11 +1616,11 @@ go
 Line or block comments inside a `where` clause (e.g. a temporarily disabled predicate) are preserved between the surrounding predicates:
 
 ```sql
-select id
+select Id
 from Books
 where
-  in_stock = 1
-  and genre_id = 1;
+  InStock = 1
+  and GenreId = 1;
 ```
 
 #### Comments inside procedure bodies
@@ -1633,15 +1633,15 @@ as
 begin
   -- Step 1: mark unavailable books
   update Books
-  set in_stock = 0
-  where published_date < '2000-01-01';
+  set InStock = 0
+  where PublishedDate < '2000-01-01';
 
   -- Step 2: return the remaining stock
   select
-    id,
-    title
+    Id,
+    Title
   from Books
-  where in_stock = 1;
+  where InStock = 1;
 end;
 go
 ```
@@ -1663,17 +1663,17 @@ When multiple such statements appear in a file (separated by `go` in the input),
 create or alter view vw_books
 as
 select
-  id,
-  title
+  Id,
+  Title
 from Books;
 go
 
 create or alter view vw_authors
 as
 select
-  id,
-  first_name,
-  last_name
+  Id,
+  FirstName,
+  LastName
 from Authors;
 go
 ```
@@ -1762,7 +1762,7 @@ preserved as raw text. `DATABASE CURRENT` is used when there is no explicit data
 
 ```sql
 alter database AdventureWorks collate Latin1_General_CI_AS;
-alter database AdventureWorks modify name = AdventureWorks2;
+alter database AdventureWorks modify Name = AdventureWorks2;
 ```
 
 #### SCOPED CONFIGURATION
