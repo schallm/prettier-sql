@@ -24,7 +24,7 @@ async function fmt(sql: string, opts: Record<string, unknown> = {}): Promise<str
 describe('SELECT formatting', () => {
     it('basic select with join and where', async () => {
         const result = await fmt(
-            'select b.BookId,b.Title,b.Price from Books as b inner join Authors as a on b.AuthorId=a.AuthorId where b.InStock=1 order by b.Title asc'
+            'select b.BookId,b.Title,b.Price from Books as b inner join Authors as a on b.AuthorId=a.Id where b.InStock=1 order by b.Title asc'
         );
         expect(result).toMatchSnapshot();
     });
@@ -172,7 +172,7 @@ describe('UPDATE formatting', () => {
 
     it('update with join', async () => {
         const result = await fmt(
-            'update b set b.InStock = 0 from Books as b inner join Publishers as p on b.PublisherId = p.PublisherId where p.Country = \'UK\''
+            'update b set b.InStock = 0 from Books as b inner join Publishers as p on b.PublisherId = p.Id where p.Country = \'UK\''
         );
         expect(result).toMatchSnapshot();
     });
@@ -302,11 +302,11 @@ describe('comma style option', () => {
 
 describe('density option', () => {
     const multiJoinSql =
-        'select b.BookId, b.Title from Books as b inner join Authors as a on b.AuthorId = a.AuthorId where b.InStock = 1 order by b.Title asc';
+        'select b.BookId, b.Title from Books as b inner join Authors as a on b.AuthorId = a.Id where b.InStock = 1 order by b.Title asc';
     const multiWhereSql =
         'select BookId from Books where InStock = 1 and Price < 100';
     const multiOnSql =
-        'select b.BookId from Books as b inner join Authors as a on b.AuthorId = a.AuthorId and b.PublisherId = a.PublisherId';
+        'select b.BookId from Books as b inner join Authors as a on b.AuthorId = a.Id and b.PublisherId = a.PublisherId';
 
     describe('compact', () => {
         it('single-line query stays inline', async () => {
@@ -469,7 +469,7 @@ describe('table hints', () => {
 
     it('NOLOCK on joined table', async () => {
         const result = await fmt(
-            'select b.BookId, p.Name from Books as b with (nolock) inner join Publishers as p with (nolock) on b.PublisherId = p.PublisherId'
+            'select b.BookId, p.Name from Books as b with (nolock) inner join Publishers as p with (nolock) on b.PublisherId = p.Id'
         );
         expect(result).toContain('with (nolock)');
         expect(result).toMatchSnapshot();
@@ -485,7 +485,7 @@ describe('table hints', () => {
 describe('nested join formatting', () => {
     it('parenthesized nested join', async () => {
         const result = await fmt(
-            'select b.Title from Books as b left join (Authors as a inner join Publishers as p on a.PublisherId = p.PublisherId) on b.AuthorId = a.AuthorId'
+            'select b.Title from Books as b left join (Authors as a inner join Publishers as p on a.PublisherId = p.Id) on b.AuthorId = a.Id'
         );
         expect(result).toMatchSnapshot();
     });
@@ -612,9 +612,9 @@ describe('comment between JOIN clauses', () => {
         const sql = `
 select b.BookId, b.Title
 from Books as b
-inner join Authors as a on b.AuthorId = a.AuthorId
+inner join Authors as a on b.AuthorId = a.Id
 -- left join: publishers may not exist for all books
-left join Publishers as p on b.PublisherId = p.PublisherId`;
+left join Publishers as p on b.PublisherId = p.Id`;
         const result = await fmt(sql);
         expect(result).toContain('-- left join: publishers may not exist for all books');
         const lines = result.split('\n');
@@ -629,11 +629,11 @@ left join Publishers as p on b.PublisherId = p.PublisherId`;
     it('multiple comments between joins are all preserved', async () => {
         const sql = `
 select b.BookId from Books as b
-inner join Authors as a on b.AuthorId = a.AuthorId
+inner join Authors as a on b.AuthorId = a.Id
 -- optional: genre
-left join Genres as g on b.GenreId = g.GenreId
+left join Genres as g on b.GenreId = g.Id
 -- optional: publisher
-left join Publishers as p on b.PublisherId = p.PublisherId`;
+left join Publishers as p on b.PublisherId = p.Id`;
         const result = await fmt(sql);
         expect(result).toContain('-- optional: genre');
         expect(result).toContain('-- optional: publisher');
@@ -651,7 +651,7 @@ describe('derived table (subquery in FROM)', () => {
 
     it('derived table joined to another table', async () => {
         const result = await fmt(
-            'select b.Title, a.LastName from (select BookId, Title, AuthorId from Books where Price > 20) as b inner join Authors as a on b.AuthorId = a.AuthorId'
+            'select b.Title, a.LastName from (select BookId, Title, AuthorId from Books where Price > 20) as b inner join Authors as a on b.AuthorId = a.Id'
         );
         expect(result).toMatchSnapshot();
     });

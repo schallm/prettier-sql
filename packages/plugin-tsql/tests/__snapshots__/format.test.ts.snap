@@ -557,7 +557,7 @@ exports[`SELECT formatting > basic select with join and where 1`] = `
   b.Price
 from
   Books as b
-  inner join Authors as a on b.AuthorId = a.AuthorId
+  inner join Authors as a on b.AuthorId = a.Id
 where b.InStock = 1
 order by b.Title asc;"
 `;
@@ -660,7 +660,7 @@ exports[`UPDATE formatting > update with join 1`] = `
 set b.InStock = 0
 from
   Books as b
-  inner join Publishers as p on b.PublisherId = p.PublisherId
+  inner join Publishers as p on b.PublisherId = p.Id
 where p.Country = 'UK';"
 `;
 
@@ -719,20 +719,20 @@ exports[`comment between JOIN clauses > line comment between two joins is preser
   b.Title
 from
   Books as b
-  inner join Authors as a on b.AuthorId = a.AuthorId
+  inner join Authors as a on b.AuthorId = a.Id
   -- left join: publishers may not exist for all books
-  left join Publishers as p on b.PublisherId = p.PublisherId;"
+  left join Publishers as p on b.PublisherId = p.Id;"
 `;
 
 exports[`comment between JOIN clauses > multiple comments between joins are all preserved 1`] = `
 "select b.BookId
 from
   Books as b
-  inner join Authors as a on b.AuthorId = a.AuthorId
+  inner join Authors as a on b.AuthorId = a.Id
   -- optional: genre
-  left join Genres as g on b.GenreId = g.GenreId
+  left join Genres as g on b.GenreId = g.Id
   -- optional: publisher
-  left join Publishers as p on b.PublisherId = p.PublisherId;"
+  left join Publishers as p on b.PublisherId = p.Id;"
 `;
 
 exports[`comment preservation > block comment after last statement in file is not lost 1`] = `
@@ -748,7 +748,7 @@ from Books; -- end of queries"
 
 exports[`density option > compact > join with ON inline 1`] = `
 "select b.BookId, b.Title
-from Books as b inner join Authors as a on b.AuthorId = a.AuthorId
+from Books as b inner join Authors as a on b.AuthorId = a.Id
 where b.InStock = 1
 order by b.Title asc;"
 `;
@@ -763,7 +763,7 @@ exports[`density option > spacious > multiple ON predicates each on own line 1`]
 from
   Books as b
   inner join Authors as a on
-    b.AuthorId = a.AuthorId
+    b.AuthorId = a.Id
     and b.PublisherId = a.PublisherId;"
 `;
 
@@ -774,7 +774,7 @@ exports[`density option > spacious > single ON predicate on own line 1`] = `
 from
   Books as b
   inner join Authors as a on
-    b.AuthorId = a.AuthorId
+    b.AuthorId = a.Id
 where
   b.InStock = 1
 order by
@@ -795,7 +795,7 @@ exports[`density option > standard > multiple ON predicates each on own line 1`]
 from
   Books as b
   inner join Authors as a on
-    b.AuthorId = a.AuthorId
+    b.AuthorId = a.Id
     and b.PublisherId = a.PublisherId;"
 `;
 
@@ -813,7 +813,7 @@ exports[`density option > standard > single ON predicate stays inline 1`] = `
   b.Title
 from
   Books as b
-  inner join Authors as a on b.AuthorId = a.AuthorId
+  inner join Authors as a on b.AuthorId = a.Id
 where b.InStock = 1
 order by b.Title asc;"
 `;
@@ -831,7 +831,7 @@ from
     from Books
     where Price > 20
   ) as b
-  inner join Authors as a on b.AuthorId = a.AuthorId;"
+  inner join Authors as a on b.AuthorId = a.Id;"
 `;
 
 exports[`derived table (subquery in FROM) > simple derived table with alias 1`] = `
@@ -923,8 +923,8 @@ from
   Books as b
   left join (
     Authors as a
-    inner join Publishers as p on a.PublisherId = p.PublisherId
-  ) on b.AuthorId = a.AuthorId;"
+    inner join Publishers as p on a.PublisherId = p.Id
+  ) on b.AuthorId = a.Id;"
 `;
 
 exports[`table hints > NOLOCK on joined table 1`] = `
@@ -933,7 +933,7 @@ exports[`table hints > NOLOCK on joined table 1`] = `
   p.Name
 from
   Books as b with (nolock)
-  inner join Publishers as p with (nolock) on b.PublisherId = p.PublisherId;"
+  inner join Publishers as p with (nolock) on b.PublisherId = p.Id;"
 `;
 
 exports[`table hints > NOLOCK on single table 1`] = `

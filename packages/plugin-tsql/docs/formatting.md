@@ -50,8 +50,8 @@ Multiple tables or any join forces `from` onto its own line with the table list 
 select Id
 from
   Books
-  inner join Authors on Books.AuthorId = Authors.id
-  left join Publishers on Books.PublisherId = Publishers.id;
+  inner join Authors on Books.AuthorId = Authors.Id
+  left join Publishers on Books.PublisherId = Publishers.Id;
 ```
 
 A single table with no joins stays inline with `from`:
@@ -70,7 +70,7 @@ select *
 from
   Books
   inner join Authors on
-    Books.AuthorId = Authors.id
+    Books.AuthorId = Authors.Id
     and Books.PublisherId = Authors.PublisherId;
 ```
 
@@ -84,8 +84,8 @@ from
   Books
   left join (
     Authors
-    inner join Publishers on Authors.PublisherId = Publishers.id
-  ) on Books.AuthorId = Authors.id;
+    inner join Publishers on Authors.PublisherId = Publishers.Id
+  ) on Books.AuthorId = Authors.Id;
 ```
 
 ##### Table hints
@@ -123,7 +123,7 @@ select
   Genres.Name
 from
   dbo.GetAvailableBooks(1) as b
-  inner join Genres on b.GenreId = Genres.id;
+  inner join Genres on b.GenreId = Genres.Id;
 ```
 
 #### WHERE
@@ -483,25 +483,25 @@ These table-valued functions appear in `FROM` / `JOIN` clauses and are formatted
 
 ```sql
 select
-  Books.id,
+  Books.Id,
   Books.Title,
   ft.rank
 from
   Books
   inner join containstable(Books, Title, '"SQL"') as ft on
-    Books.id = ft.key;
+    Books.Id = ft.key;
 ```
 
 With wildcard and TOP N limit:
 
 ```sql
 select
-  Books.id,
+  Books.Id,
   ft.rank
 from
   Books
   inner join freetexttable(Books, *, 'programming', 10) as ft on
-    Books.id = ft.key;
+    Books.Id = ft.key;
 ```
 
 #### Rowset functions (OPENJSON / OPENXML / OPENROWSET)
@@ -531,7 +531,7 @@ from
   Orders
   cross apply openjson(JsonData, '$.items')
   with (
-    OrderId int '$.id',
+    OrderId int '$.Id',
     amount decimal(10, 2) '$.amount',
     notes nvarchar(500) '$.notes'
   ) as j;
@@ -545,7 +545,7 @@ select
   data
 from openjson(@json)
 with (
-  Id int '$.id',
+  Id int '$.Id',
   data nvarchar(max) '$.data' as json
 );
 ```
@@ -666,7 +666,7 @@ insert into Books (
   Title,
   Price
 )
-output inserted.id, inserted.Title
+output inserted.Id, inserted.Title
 values
   ('New Book', 9.99);
 ```
@@ -698,7 +698,7 @@ update Books
 set InStock = 0
 from
   Books
-  inner join Publishers on Books.PublisherId = Publishers.id
+  inner join Publishers on Books.PublisherId = Publishers.Id
 where Publishers.Country = 'UK';
 ```
 
@@ -707,7 +707,7 @@ UPDATE with OUTPUT:
 ```sql
 update Books
 set Price = Price * 1.1
-output inserted.id, deleted.Price, inserted.Price
+output inserted.Id, deleted.Price, inserted.Price
 where InStock = 1;
 ```
 
@@ -727,7 +727,7 @@ DELETE with OUTPUT INTO:
 ```sql
 delete from Books
 output
-  deleted.id,
+  deleted.Id,
   deleted.Title
 into @removed (Id, Title)
 where InStock = 0;
@@ -742,14 +742,14 @@ where InStock = 0;
 ```sql
 merge into Books
 using ArchivedBooks
-on Books.id = ArchivedBooks.id
+on Books.Id = ArchivedBooks.Id
 when matched then
   update set
     Title = ArchivedBooks.Title,
     Price = ArchivedBooks.Price
 when not matched by target then
   insert (Id, Title, Price)
-  values (ArchivedBooks.id, ArchivedBooks.Title, ArchivedBooks.Price)
+  values (ArchivedBooks.Id, ArchivedBooks.Title, ArchivedBooks.Price)
 when not matched by source then
   delete;
 ```
@@ -759,7 +759,7 @@ An optional `and` predicate on a `when` clause stays inline with the condition k
 ```sql
 merge into Books
 using ArchivedBooks
-on Books.id = ArchivedBooks.id
+on Books.Id = ArchivedBooks.Id
 when matched and Books.Price <> ArchivedBooks.Price then
   update set
     Price = ArchivedBooks.Price;
@@ -777,7 +777,7 @@ using (
   from ArchivedBooks
   where Price > 0
 ) as src
-on Books.id = src.id
+on Books.Id = src.Id
 when matched then
   update set
     Title = src.Title,
@@ -789,11 +789,11 @@ MERGE with OUTPUT:
 ```sql
 merge into Books
 using ArchivedBooks
-on Books.id = ArchivedBooks.id
+on Books.Id = ArchivedBooks.Id
 when matched then
   update set
     Price = ArchivedBooks.Price
-output $action, inserted.id, deleted.Price;
+output $action, inserted.Id, deleted.Price;
 ```
 
 ---
@@ -807,7 +807,7 @@ Short list — stays inline:
 ```sql
 update Books
 set Price = Price * 1.1
-output inserted.id, deleted.Price, inserted.Price
+output inserted.Id, deleted.Price, inserted.Price
 where InStock = 1;
 ```
 
@@ -816,7 +816,7 @@ Longer list with `into` — breaks to indented lines before `into`:
 ```sql
 delete from Books
 output
-  deleted.id,
+  deleted.Id,
   deleted.Title
 into @removed (Id, Title)
 where InStock = 0;
