@@ -188,8 +188,8 @@ where Id not in (
 ```sql
 select
   GenreId,
-  count(*) as cnt,
-  avg(Price) as avg_price
+  count(*) as BookCount,
+  avg(Price) as AvgPrice
 from Books
 group by GenreId
 having count(*) > 5;
@@ -212,7 +212,7 @@ group by rollup(GenreId, AuthorId);
 select
   GenreId,
   InStock,
-  count(*) as cnt
+  count(*) as BookCount
 from Books
 group by cube(GenreId, InStock);
 ```
@@ -251,7 +251,7 @@ select case
   when Price > 50 then 'premium'
   when Price > 20 then 'standard'
   else 'budget'
-end as price_tier
+end as PriceTier
 from Books;
 ```
 
@@ -264,7 +264,7 @@ select case
     and GenreId in (1, 2, 3)
   then 1
   else 0
-end as is_featured
+end as IsFeatured
 from Books;
 ```
 
@@ -275,7 +275,7 @@ select case GenreId
   when 1 then 'Fiction'
   when 2 then 'Non-Fiction'
   else 'Other'
-end as genre_name
+end as GenreName
 from Books;
 ```
 
@@ -326,7 +326,7 @@ from Books;
 The `at time zone` operator keeps the source expression and timezone string on one line:
 
 ```sql
-select PublishedDate at time zone 'UTC' as published_utc
+select PublishedDate at time zone 'UTC' as PublishedUtc
 from Books;
 ```
 
@@ -400,15 +400,15 @@ A subquery used as a table in the `from` clause is indented inside parentheses a
 ```sql
 select
   GenreId,
-  avg_price
+  AvgPrice
 from (
   select
     GenreId,
-    avg(Price) as avg_price
+    avg(Price) as AvgPrice
   from Books
   group by GenreId
 ) as t
-where avg_price > 25;
+where AvgPrice > 25;
 ```
 
 #### Subqueries

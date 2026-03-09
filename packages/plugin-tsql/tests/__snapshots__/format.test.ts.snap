@@ -512,7 +512,7 @@ exports[`SELECT formatting > GROUP BY CUBE respects keyword case 1`] = `
 "SELECT
   GenreId,
   InStock,
-  COUNT(*) AS cnt
+  COUNT(*) AS BookCount
 FROM Books
 GROUP BY CUBE(GenreId, InStock);"
 `;
@@ -543,8 +543,8 @@ from Books;"
 exports[`SELECT formatting > aggregate with GROUP BY / HAVING 1`] = `
 "select
   GenreId,
-  count(*) as cnt,
-  avg(Price) as avg_price
+  count(*) as BookCount,
+  avg(Price) as AvgPrice
 from Books
 group by GenreId
 having count(*) > 5;"
@@ -901,7 +901,7 @@ from
 `;
 
 exports[`expression functions > short string concatenation stays on one line 1`] = `
-"select isnull(last_nm, '') + ', ' + isnull(first_nm, '') as full_nm
+"select isnull(LastName, '') + ', ' + isnull(FirstName, '') as FullName
 from Authors;"
 `;
 

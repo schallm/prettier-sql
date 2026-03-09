@@ -1,1 +1,1 @@
-select Id, Title, Price, row_number() over (partition by GenreId order by Price desc) as rn, rank() over (partition by GenreId order by Price desc) as rnk, sum(Price) over (partition by GenreId) as genre_total from Books
+select Id, Title, Price, row_number() over (partition by GenreId order by Price desc) as Rn, rank() over (partition by GenreId order by Price desc) as Rnk, sum(Price) over (partition by GenreId) as GenreTotal from Books

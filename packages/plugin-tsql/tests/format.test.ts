@@ -66,7 +66,7 @@ from Content`;
 
     it('aggregate with GROUP BY / HAVING', async () => {
         const result = await fmt(
-            'select GenreId, count(*) as cnt, avg(Price) as avg_price from Books group by GenreId having count(*) > 5'
+            'select GenreId, count(*) as BookCount, avg(Price) as AvgPrice from Books group by GenreId having count(*) > 5'
         );
         expect(result).toMatchSnapshot();
     });
@@ -87,7 +87,7 @@ from Content`;
 
     it('GROUP BY CUBE respects keyword case', async () => {
         const result = await fmt(
-            'SELECT GenreId, InStock, COUNT(*) AS cnt FROM Books GROUP BY CUBE (GenreId, InStock)',
+            'SELECT GenreId, InStock, COUNT(*) AS BookCount FROM Books GROUP BY CUBE (GenreId, InStock)',
             { sqlKeywordCase: 'upper' }
         );
         expect(result).toContain('CUBE(');
@@ -713,7 +713,7 @@ describe('expression functions', () => {
     });
 
     it('short string concatenation stays on one line', async () => {
-        const result = await fmt("select isnull(last_nm, '') + ', ' + isnull(first_nm, '') as full_nm from Authors");
+        const result = await fmt("select isnull(LastName, '') + ', ' + isnull(FirstName, '') as FullName from Authors");
         expect(result).toMatchSnapshot();
     });
 
