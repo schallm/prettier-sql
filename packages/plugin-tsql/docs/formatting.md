@@ -928,13 +928,13 @@ drop table if exists Books;
 
 drop procedure GetBooks;
 
-drop view vw_available_books;
+drop view VwAvailableBooks;
 
 drop function GetBookPrice;
 
-drop trigger trg_Books_AI;
+drop trigger TrgBooksAfterInsert;
 
-drop trigger if exists trg_Books_AI;
+drop trigger if exists TrgBooksAfterInsert;
 
 drop sequence OrderSeq;
 
@@ -1033,7 +1033,7 @@ go
 ### CREATE / ALTER VIEW
 
 ```sql
-create or alter view vw_available_books
+create or alter view VwAvailableBooks
 as
 select
   Id,
@@ -1046,7 +1046,7 @@ go
 Block comments between the view name and `as` are preserved in place:
 
 ```sql
-create or alter view vw_sensitive_prices
+create or alter view VwSensitivePrices
 /* with encryption */
 as
 select
@@ -1065,7 +1065,7 @@ go
 The trigger name, `on` clause, timing/events, and body each appear on their own line:
 
 ```sql
-create trigger trg_Books_AI
+create trigger TrgBooksAfterInsert
 on Books
 after insert
 as
@@ -1083,7 +1083,7 @@ go
 Multiple DML events are comma-separated on the event line:
 
 ```sql
-create trigger trg_Books_IUD
+create trigger TrgBooksAfterIUD
 on Books
 after insert, update, delete
 as
@@ -1096,7 +1096,7 @@ go
 `instead of` triggers use the same layout:
 
 ```sql
-create trigger trg_Books_IOD
+create trigger TrgBooksInsteadOfDelete
 on Books
 instead of update, delete
 as
@@ -1327,7 +1327,7 @@ end catch
 `declare … cursor for` puts the cursor name and `cursor` keyword on the first line. The `for` keyword and the query each appear on their own line:
 
 ```sql
-declare book_cursor cursor
+declare BookCursor cursor
 for
 select
   Id,
@@ -1339,7 +1339,7 @@ where InStock = 1;
 Cursor options (e.g. `SCROLL`, `READ_ONLY`) appear between the cursor name and the `cursor` keyword:
 
 ```sql
-declare book_cursor SCROLL cursor
+declare BookCursor SCROLL cursor
 for
 select Id
 from Books;
@@ -1348,19 +1348,19 @@ from Books;
 The remaining cursor operations are single-line statements:
 
 ```sql
-open book_cursor;
+open BookCursor;
 
-fetch next from book_cursor into @Id, @Title;
+fetch next from BookCursor into @Id, @Title;
 
-fetch prior from book_cursor;
+fetch prior from BookCursor;
 
-fetch first from book_cursor into @Id, @Title;
+fetch first from BookCursor into @Id, @Title;
 
-fetch last from book_cursor into @Id;
+fetch last from BookCursor into @Id;
 
-close book_cursor;
+close BookCursor;
 
-deallocate book_cursor;
+deallocate BookCursor;
 ```
 
 ---
@@ -1607,7 +1607,7 @@ Block comments are preserved in their original relative position. A block commen
 
 ```sql
 /* legacy view — do not remove */
-create or alter view vw_legacy
+create or alter view VwLegacy
 as
 select *
 from Books;
@@ -1664,7 +1664,7 @@ The following statement types must be alone in a batch and automatically get a `
 When multiple such statements appear in a file (separated by `go` in the input), each batch is separated by a blank line in the output:
 
 ```sql
-create or alter view vw_books
+create or alter view VwBooks
 as
 select
   Id,
@@ -1672,7 +1672,7 @@ select
 from Books;
 go
 
-create or alter view vw_authors
+create or alter view VwAuthors
 as
 select
   Id,

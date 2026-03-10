@@ -20,20 +20,20 @@ Controls the casing of SQL keywords (`select`, `from`, `where`, `join`, data typ
 
 ```sql
 select
-  b.book_id,
-  b.title
-from dbo.Books as b
-where b.in_stock = 1;
+  Books.Id,
+  Books.Title
+from Books
+where Books.InStock = 1;
 ```
 
 **`upper`**
 
 ```sql
-select
-  b.book_id,
-  b.title
-from dbo.Books as b
-where b.in_stock = 1;
+SELECT
+  Books.Id,
+  Books.Title
+FROM Books
+WHERE Books.InStock = 1;
 ```
 
 **`preserve`**
@@ -57,24 +57,24 @@ One clause keyword per line. Single WHERE/ON predicates stay on the same line as
 
 ```sql
 select
-  b.book_id,
-  b.title,
-  b.price
+  Books.BookId,
+  Books.Title,
+  Books.Price
 from
-  dbo.Books as b
-  inner join dbo.Authors as a on b.author_id = a.author_id
-where b.in_stock = 1
-order by b.title asc;
+  Books
+  inner join Authors on Books.AuthorId = Authors.Id
+where Books.InStock = 1
+order by Books.Title asc;
 ```
 
 With multiple WHERE predicates:
 
 ```sql
-select book_id
-from dbo.Books
+select Id
+from Books
 where
-  in_stock = 1
-  and price < 50;
+  InStock = 1
+  and Price < 50;
 ```
 
 ### `compact`
@@ -82,15 +82,10 @@ where
 Tries to keep everything on as few lines as possible, wrapping only when a line would exceed `printWidth`.
 
 ```sql
-select
-  b.book_id,
-  b.title,
-  b.price
-from
-  dbo.Books as b
-  inner join dbo.Authors as a on b.author_id = a.author_id
-where b.in_stock = 1
-order by b.title asc;
+select Books.BookId, Books.Title, Books.Price
+from Books inner join Authors on Books.AuthorId = Authors.Id
+where Books.InStock = 1
+order by Books.Title asc;
 ```
 
 ### `spacious`
@@ -99,14 +94,15 @@ Every predicate gets its own indented line, even when there is only one. Maximis
 
 ```sql
 select
-  b.book_id,
-  b.title,
-  b.price
+  Books.BookId,
+  Books.Title,
+  Books.Price
 from
-  dbo.Books as b
-  inner join dbo.Authors as a on b.author_id = a.author_id
-where b.in_stock = 1
-order by b.title asc;
+  Books
+  inner join Authors on Books.AuthorId = Authors.Id
+where
+  Books.InStock = 1
+order by Books.Title asc;
 ```
 
 ---
@@ -126,10 +122,10 @@ Controls where commas appear in column and value lists.
 
 ```sql
 select
-  book_id,
-  title,
-  price
-from dbo.Books;
+  Id,
+  Title,
+  Price
+from Books;
 ```
 
 ---
