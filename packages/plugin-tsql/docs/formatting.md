@@ -1772,9 +1772,9 @@ alter database AdventureWorks modify Name = AdventureWorks2;
 #### SCOPED CONFIGURATION
 
 ```sql
-alter database scoped configuration set MAXDOP = 4;
-alter database scoped configuration clear PROCEDURE_CACHE;
-alter database scoped configuration for secondary set MAXDOP = PRIMARY;
+alter database scoped configuration set maxdop = 4;
+alter database scoped configuration clear procedure_cache;
+alter database scoped configuration for secondary set maxdop = primary;
 ```
 
 The full option text including the value is reconstructed even though ScriptDom omits the

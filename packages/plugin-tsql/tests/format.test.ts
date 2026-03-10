@@ -1324,13 +1324,13 @@ from DISK = N'C:\\backup\\AW.bak';"
     // ALTER DATABASE SCOPED CONFIGURATION
     it('ALTER DATABASE SCOPED CONFIGURATION SET', async () => {
         expect(await fmt('ALTER DATABASE SCOPED CONFIGURATION SET MAXDOP = 4')).toBe(
-            'alter database scoped configuration set MAXDOP = 4;'
+            'alter database scoped configuration set maxdop = 4;'
         );
     });
 
     it('ALTER DATABASE SCOPED CONFIGURATION CLEAR', async () => {
         expect(await fmt('ALTER DATABASE SCOPED CONFIGURATION CLEAR PROCEDURE_CACHE')).toBe(
-            'alter database scoped configuration clear PROCEDURE_CACHE;'
+            'alter database scoped configuration clear procedure_cache;'
         );
     });
 
@@ -1338,6 +1338,7 @@ from DISK = N'C:\\backup\\AW.bak';"
         const r = await fmt('ALTER DATABASE SCOPED CONFIGURATION SET MAXDOP = 4', { sqlKeywordCase: 'upper' });
         expect(r).toContain('ALTER DATABASE SCOPED CONFIGURATION');
         expect(r).toContain('SET ');
+        expect(r).toContain('MAXDOP = 4');
     });
 
     // ALTER DATABASE file operations

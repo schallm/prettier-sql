@@ -171,7 +171,15 @@ export function printAlterDatabaseScopedConfigSet(node: SqlNode, opts: Options):
     const option = propStr(node, 'option') ?? '';
     const secondary = propBool(node, 'secondary');
     const forSec: Doc = secondary ? [keyword('FOR SECONDARY', opts), ' '] : '';
-    return [keyword('ALTER DATABASE SCOPED CONFIGURATION', opts), ' ', forSec, keyword('SET', opts), ' ', option, ';'];
+    return [
+        keyword('ALTER DATABASE SCOPED CONFIGURATION', opts),
+        ' ',
+        forSec,
+        keyword('SET', opts),
+        ' ',
+        keyword(option, opts),
+        ';',
+    ];
 }
 
 export function printAlterDatabaseScopedConfigClear(node: SqlNode, opts: Options): Doc {
@@ -184,7 +192,7 @@ export function printAlterDatabaseScopedConfigClear(node: SqlNode, opts: Options
         forSec,
         keyword('CLEAR', opts),
         ' ',
-        option,
+        keyword(option, opts),
         ';',
     ];
 }
