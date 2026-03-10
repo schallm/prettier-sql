@@ -48,14 +48,14 @@ with (
 
 exports[`CREATE PROCEDURE formatting > block comment after last parameter (before AS) stays between params and as 1`] = `
 "create procedure GetBookById
-  @id int,
+  @Id int,
   @Active bit
 /*WITH ENCRYPTION*/
 as
 begin
   select BookId
   from Books
-  where BookId = @id;
+  where BookId = @Id;
 end;
 go"
 `;
@@ -66,13 +66,13 @@ exports[`CREATE PROCEDURE formatting > block comment between procedure Name and 
 ** Author: Jon
 ** Date:   2012-01-10
 **********************/
-  @id int,
-  @includeOutOfStock bit = 0
+  @Id int,
+  @IncludeOutOfStock bit = 0
 as
 begin
   select BookId
   from Books
-  where BookId = @id;
+  where BookId = @Id;
 end;
 go"
 `;
@@ -93,15 +93,15 @@ go"
 
 exports[`CREATE PROCEDURE formatting > procedure with parameters 1`] = `
 "create procedure GetBookById
-  @id int,
-  @includeOutOfStock bit = 0
+  @Id int,
+  @IncludeOutOfStock bit = 0
 as
 begin
   select
     BookId,
     Title
   from Books
-  where BookId = @id;
+  where BookId = @Id;
 end;
 go"
 `;
@@ -222,7 +222,7 @@ go"
 `;
 
 exports[`Control flow & DDL additions > SELECT @var assignment in select list 1`] = `
-"select @Total = sum(Price)
+"select @total = sum(Price)
 from Books
 where InStock = 1;"
 `;
@@ -250,7 +250,7 @@ where InStock = 1;"
 exports[`Cursor operations > OPEN / FETCH NEXT / CLOSE / DEALLOCATE 1`] = `
 "open BookCursor;
 
-fetch next from BookCursor into @Id, @Title;
+fetch next from BookCursor into @id, @title;
 
 close BookCursor;
 

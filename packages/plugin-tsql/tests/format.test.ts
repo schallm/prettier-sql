@@ -225,7 +225,7 @@ describe('CREATE PROCEDURE formatting', () => {
 
     it('procedure with parameters', async () => {
         const result = await fmt(
-            'create procedure GetBookById @id int, @includeOutOfStock bit = 0 as begin select BookId, Title from Books where BookId = @id end'
+            'create procedure GetBookById @Id int, @IncludeOutOfStock bit = 0 as begin select BookId, Title from Books where BookId = @Id end'
         );
         expect(result).toMatchSnapshot();
     });
@@ -237,8 +237,8 @@ describe('CREATE PROCEDURE formatting', () => {
             '** Author: Jon\n' +
             '** Date:   2012-01-10\n' +
             '**********************/\n' +
-            '@id int, @includeOutOfStock bit = 0\n' +
-            'as begin select BookId from Books where BookId = @id end'
+            '@Id int, @IncludeOutOfStock bit = 0\n' +
+            'as begin select BookId from Books where BookId = @Id end'
         );
         expect(result).toContain('**********************');
         expect(result).toContain('Author: Jon');
@@ -258,10 +258,10 @@ describe('CREATE PROCEDURE formatting', () => {
     it('block comment after last parameter (before AS) stays between params and as', async () => {
         const result = await fmt(
             'create procedure GetBookById\n' +
-            '@id int,\n' +
+            '@Id int,\n' +
             '@Active bit\n' +
             '/*WITH ENCRYPTION*/\n' +
-            'as begin select BookId from Books where BookId = @id end'
+            'as begin select BookId from Books where BookId = @Id end'
         );
         expect(result).toContain('/*WITH ENCRYPTION*/');
         const lines = result.split('\n');
@@ -842,8 +842,8 @@ end catch`;
     });
 
     it('SELECT @var assignment in select list', async () => {
-        const result = await fmt('select @Total = sum(Price) from Books where InStock = 1');
-        expect(result).toContain('@Total');
+        const result = await fmt('select @total = sum(Price) from Books where InStock = 1');
+        expect(result).toContain('@total');
         expect(result).toMatchSnapshot();
     });
 });
@@ -1445,26 +1445,26 @@ describe('USE / SET / WAITFOR / ALTER PROC/FUNC', () => {
 
     it('ALTER PROCEDURE', async () => {
         const result = await fmt(
-            'alter procedure GetBooks @genre nvarchar(100) as begin select BookId from Books where genre = @genre; end'
+            'alter procedure GetBooks @Genre nvarchar(100) as begin select BookId from Books where genre = @Genre; end'
         );
         expect(result).toContain('alter procedure GetBooks');
-        expect(result).toContain('@genre nvarchar(100)');
+        expect(result).toContain('@Genre nvarchar(100)');
         expect(result).toContain('go');
     });
 
     it('ALTER FUNCTION scalar', async () => {
         const result = await fmt(
-            'alter function GetCount(@genre nvarchar(100)) returns int as begin return (select count(*) from Books where genre = @genre); end'
+            'alter function GetCount(@Genre nvarchar(100)) returns int as begin return (select count(*) from Books where genre = @Genre); end'
         );
         expect(result).toContain('alter function GetCount');
-        expect(result).toContain('@genre nvarchar(100)');
+        expect(result).toContain('@Genre nvarchar(100)');
         expect(result).toContain('returns int');
         expect(result).toContain('go');
     });
 
     it('CREATE OR ALTER FUNCTION', async () => {
         const result = await fmt(
-            'create or alter function GetCount(@genre nvarchar(100)) returns int as begin return (select count(*) from Books where genre = @genre); end'
+            'create or alter function GetCount(@Genre nvarchar(100)) returns int as begin return (select count(*) from Books where genre = @Genre); end'
         );
         expect(result).toContain('create or alter function GetCount');
         expect(result).toContain('go');
@@ -1571,13 +1571,13 @@ describe('Cursor operations', () => {
     it('OPEN / FETCH NEXT / CLOSE / DEALLOCATE', async () => {
         const sql = `
 open BookCursor;
-fetch next from BookCursor into @Id, @Title;
+fetch next from BookCursor into @id, @title;
 close BookCursor;
 deallocate BookCursor;`;
         const result = await fmt(sql);
         expect(result).toContain('open BookCursor;');
         expect(result).toContain('fetch next from BookCursor');
-        expect(result).toContain('@Id, @Title');
+        expect(result).toContain('@id, @title');
         expect(result).toContain('close BookCursor;');
         expect(result).toContain('deallocate BookCursor;');
         expect(result).toMatchSnapshot();
@@ -1592,7 +1592,7 @@ deallocate BookCursor;`;
 
     it('cursor keywords respect sqlKeywordCase upper', async () => {
         const result = await fmt(
-            'declare c cursor for select BookId from Books; open c; fetch next from c into @Id; close c; deallocate c;',
+            'declare c cursor for select BookId from Books; open c; fetch next from c into @id; close c; deallocate c;',
             { sqlKeywordCase: 'upper' }
         );
         expect(result).toContain('DECLARE c CURSOR');

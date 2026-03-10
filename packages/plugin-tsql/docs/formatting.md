@@ -615,7 +615,7 @@ Options are emitted as raw text (original casing preserved). The `BULK` keyword 
 Variable assignment in the select list:
 
 ```sql
-select @Total = sum(Price)
+select @total = sum(Price)
 from Books
 where InStock = 1;
 ```
@@ -976,7 +976,7 @@ With parameters (each on its own indented line):
 ```sql
 create procedure GetBookById
   @Id int,
-  @includeOutOfStock bit = 0
+  @IncludeOutOfStock bit = 0
 as
 begin
   select
@@ -1017,13 +1017,13 @@ Scalar function:
 
 ```sql
 create function GetAuthorFullName(
-  @first nvarchar(50),
-  @last nvarchar(50)
+  @First nvarchar(50),
+  @Last nvarchar(50)
 )
 returns nvarchar(101)
 as
 begin
-  return @first + ' ' + @last;
+  return @First + ' ' + @Last;
 end;
 go
 ```
@@ -1350,13 +1350,13 @@ The remaining cursor operations are single-line statements:
 ```sql
 open BookCursor;
 
-fetch next from BookCursor into @Id, @Title;
+fetch next from BookCursor into @id, @title;
 
 fetch prior from BookCursor;
 
-fetch first from BookCursor into @Id, @Title;
+fetch first from BookCursor into @id, @title;
 
-fetch last from BookCursor into @Id;
+fetch last from BookCursor into @id;
 
 close BookCursor;
 
