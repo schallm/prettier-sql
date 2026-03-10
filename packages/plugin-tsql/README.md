@@ -115,29 +115,22 @@ See [docs/options.md](docs/options.md) for full details and examples.
 **Input**
 
 ```sql
-select
-  b.book_id,
-  b.title,
-  b.price
-from
-  dbo.Books as b
-  inner join dbo.Authors as a on b.author_id = a.author_id
-where b.in_stock = 1
-order by b.title asc;
+SELECT Books.BookId,Books.Title,Books.Price,Authors.LastName FROM Books INNER JOIN Authors ON Books.AuthorId=Authors.Id WHERE Books.InStock=1 ORDER BY Books.Title ASC;
 ```
 
 **Output** (default options)
 
 ```sql
 select
-  b.book_id,
-  b.title,
-  b.price
+  Books.BookId,
+  Books.Title,
+  Books.Price,
+  Authors.LastName
 from
-  dbo.Books as b
-  inner join dbo.Authors as a on b.author_id = a.author_id
-where b.in_stock = 1
-order by b.title asc;
+  Books
+  inner join Authors on Books.AuthorId = Authors.Id
+where Books.InStock = 1
+order by Books.Title asc;
 ```
 
 ## Documentation
