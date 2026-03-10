@@ -291,6 +291,20 @@ describe('comment preservation', () => {
         expect(result).toContain('-- end of queries');
         expect(result).toMatchSnapshot();
     });
+
+    it('commented-out predicate in WHERE is preserved between surrounding predicates', async () => {
+        const result = await fmt(
+            ['select Id from Books', 'where InStock = 1', '-- and Price < 20', 'and GenreId = 1'].join('\n')
+        );
+        expect(result).toContain('-- and Price < 20');
+        const lines = result.split('\n');
+        const commentIdx = lines.findIndex(l => l.includes('-- and Price < 20'));
+        const inStockIdx = lines.findIndex(l => l.includes('InStock = 1'));
+        const genreIdx = lines.findIndex(l => l.includes('GenreId = 1'));
+        expect(commentIdx).toBeGreaterThan(inStockIdx);
+        expect(commentIdx).toBeLessThan(genreIdx);
+        expect(result).toMatchSnapshot();
+    });
 });
 
 describe('comma style option', () => {

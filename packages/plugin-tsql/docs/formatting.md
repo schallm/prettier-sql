@@ -1623,6 +1623,7 @@ select Id
 from Books
 where
   InStock = 1
+  -- and Price < 20
   and GenreId = 1;
 ```
 

@@ -743,6 +743,15 @@ from Books;
 /* end of queries */"
 `;
 
+exports[`comment preservation > commented-out predicate in WHERE is preserved between surrounding predicates 1`] = `
+"select Id
+from Books
+where
+  InStock = 1
+  -- and Price < 20
+  and GenreId = 1;"
+`;
+
 exports[`comment preservation > line comment after last statement in file is not lost 1`] = `
 "select BookId
 from Books; -- end of queries"

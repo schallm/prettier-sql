@@ -681,7 +681,8 @@ function rightmostPred(node: SqlNode | null | undefined): SqlNode | null {
 
 // Append any trailing comment on the rightmost predicate leaf to the doc.
 function boolWithTrailing(node: SqlNode, doc: Doc): Doc {
-    const trailing = rightmostPred(node)?.trailingComment;
+    const rp = rightmostPred(node);
+    const trailing = rp ? rightmostTrailingComment(rp, rp.endOffset) : undefined;
     if (!trailing) return doc;
     return [doc, ...trailing.split('\n').flatMap((c): Doc[] => [hardline, c])];
 }
@@ -700,7 +701,11 @@ function printBoolBinary(node: SqlNode, opts: Options, printFn: (n: SqlNode) => 
     // commented-out predicate sits between left and right in the source.
     // The parent BooleanBinary always handles it — never the level that holds
     // the predicate as its own right child — so no double-printing occurs.
-    const betweenComment = rightmostPred(left)?.trailingComment;
+    // Use rightmostTrailingComment to also find comments attached to scalar
+    // children of the predicate (e.g. the literal in "col = 1") since those
+    // share the same endOffset as the predicate itself.
+    const rp = rightmostPred(left);
+    const betweenComment = rp ? rightmostTrailingComment(rp, rp.endOffset) : undefined;
     if (betweenComment) {
         const commentLines: Doc[] = betweenComment.split('\n').flatMap((c): Doc[] => [hardline, c]);
         return group([leftDoc, ...commentLines, hardline, op, ' ', rightDoc]);
