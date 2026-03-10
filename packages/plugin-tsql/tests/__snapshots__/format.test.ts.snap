@@ -150,7 +150,7 @@ exports[`CREATE TYPE > CREATE TYPE table type 1`] = `
 `;
 
 exports[`CREATE/ALTER TRIGGER > ALTER TRIGGER 1`] = `
-"alter trigger trg_Books_AI
+"alter trigger BooksAfterInsertTrigger
 on Books
 after insert
 as
@@ -161,7 +161,7 @@ go"
 `;
 
 exports[`CREATE/ALTER TRIGGER > CREATE TRIGGER after insert 1`] = `
-"create trigger trg_Books_AI
+"create trigger BooksAfterInsertTrigger
 on Books
 after insert
 as
@@ -177,7 +177,7 @@ go"
 `;
 
 exports[`CREATE/ALTER TRIGGER > CREATE TRIGGER instead of update/delete 1`] = `
-"create trigger trg_Books_IOD
+"create trigger BooksInsteadOfDeleteTrigger
 on Books
 instead of update, delete
 as
@@ -238,7 +238,7 @@ end catch"
 `;
 
 exports[`Cursor operations > DECLARE CURSOR basic 1`] = `
-"declare book_cursor cursor
+"declare BookCursor cursor
 for
 select
   BookId,
@@ -248,13 +248,13 @@ where InStock = 1;"
 `;
 
 exports[`Cursor operations > OPEN / FETCH NEXT / CLOSE / DEALLOCATE 1`] = `
-"open book_cursor;
+"open BookCursor;
 
-fetch next from book_cursor into @id, @Title;
+fetch next from BookCursor into @Id, @Title;
 
-close book_cursor;
+close BookCursor;
 
-deallocate book_cursor;"
+deallocate BookCursor;"
 `;
 
 exports[`DELETE formatting > basic delete 1`] = `
@@ -667,7 +667,7 @@ where p.Country = 'UK';"
 `;
 
 exports[`VIEW formatting > CREATE OR ALTER VIEW basic 1`] = `
-"create or alter view vw_available_books
+"create or alter view AvailableBooksView
 as
 select
   BookId,
@@ -678,7 +678,7 @@ go"
 `;
 
 exports[`VIEW formatting > block comment between view Name and AS is preserved in place 1`] = `
-"create or alter view dbo.vw_example
+"create or alter view dbo.ExampleView
 /* with encryption */
 as
 select BookId
@@ -687,13 +687,13 @@ go"
 `;
 
 exports[`VIEW formatting > block comment inside first view does not appear before second view 1`] = `
-"create or alter view vw_first
+"create or alter view BooksView
 /* with encryption */
 as
 select 1 as x;
 go
 
-create or alter view vw_second
+create or alter view AuthorsView
 as
 select 2 as y;
 go"
@@ -701,7 +701,7 @@ go"
 
 exports[`VIEW formatting > leading comment before CREATE VIEW attaches correctly 1`] = `
 "-- view description
-create or alter view vw_test
+create or alter view TestBooksView
 as
 select 1 as x;
 go"

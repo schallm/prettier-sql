@@ -396,7 +396,7 @@ describe('density option', () => {
 describe('VIEW formatting', () => {
     it('CREATE OR ALTER VIEW basic', async () => {
         const result = await fmt(
-            'create or alter view vw_available_books as select BookId, Title from Books where InStock = 1',
+            'create or alter view AvailableBooksView as select BookId, Title from Books where InStock = 1',
             { sqlKeywordCase: 'lower' }
         );
         expect(result).toMatchSnapshot();
@@ -405,7 +405,7 @@ describe('VIEW formatting', () => {
     it('block comment between view Name and AS is preserved in place', async () => {
         // A block comment between the view Name and AS must stay there.
         const sql = [
-            'create or alter view [dbo].[vw_example]',
+            'create or alter view [dbo].[ExampleView]',
             '/* with encryption */',
             'as',
             'select BookId from Books;',
@@ -422,17 +422,17 @@ describe('VIEW formatting', () => {
     it('block comment inside first view does not appear before second view', async () => {
         // A block comment internal to one batch must not bleed into the next batch.
         const sql = [
-            'create or alter view vw_first',
+            'create or alter view BooksView',
             '/* with encryption */',
             'as',
             'select 1 as x;',
             'go',
-            'create or alter view vw_second',
+            'create or alter view AuthorsView',
             'as',
             'select 2 as y;',
         ].join('\n');
         const result = await fmt(sql, { sqlKeywordCase: 'lower' });
-        const secondViewIdx = result.indexOf('create or alter view vw_second');
+        const secondViewIdx = result.indexOf('create or alter view AuthorsView');
         const commentIdx = result.indexOf('/* with encryption */');
         expect(commentIdx).toBeLessThan(secondViewIdx);
         expect(result).toMatchSnapshot();
@@ -442,7 +442,7 @@ describe('VIEW formatting', () => {
         // A standalone comment on its own line before CREATE VIEW should be kept.
         const sql = [
             '-- view description',
-            'create or alter view vw_test as select 1 as x;',
+            'create or alter view TestBooksView as select 1 as x;',
         ].join('\n');
         const result = await fmt(sql, { sqlKeywordCase: 'lower' });
         expect(result.trimStart()).toMatch(/^-- view description/);
@@ -819,8 +819,8 @@ end catch`;
     });
 
     it('DROP VIEW', async () => {
-        const result = await fmt('drop view vw_available_books');
-        expect(result).toMatchInlineSnapshot(`"drop view vw_available_books;"`);
+        const result = await fmt('drop view AvailableBooksView');
+        expect(result).toMatchInlineSnapshot(`"drop view AvailableBooksView;"`);
     });
 
     it('DROP FUNCTION', async () => {
@@ -1474,9 +1474,9 @@ describe('USE / SET / WAITFOR / ALTER PROC/FUNC', () => {
 describe('CREATE/ALTER TRIGGER', () => {
     it('CREATE TRIGGER after insert', async () => {
         const result = await fmt(
-            'create trigger trg_Books_AI on Books after insert as begin update Books set Price = Price * 1.1 where BookId in (select BookId from inserted); end'
+            'create trigger BooksAfterInsertTrigger on Books after insert as begin update Books set Price = Price * 1.1 where BookId in (select BookId from inserted); end'
         );
-        expect(result).toContain('create trigger trg_Books_AI');
+        expect(result).toContain('create trigger BooksAfterInsertTrigger');
         expect(result).toContain('on Books');
         expect(result).toContain('after insert');
         expect(result).toContain('as');
@@ -1488,7 +1488,7 @@ describe('CREATE/ALTER TRIGGER', () => {
 
     it('CREATE TRIGGER instead of update/delete', async () => {
         const result = await fmt(
-            'create trigger trg_Books_IOD on Books instead of update, delete as begin print \'blocked\'; end'
+            'create trigger BooksInsteadOfDeleteTrigger on Books instead of update, delete as begin print \'blocked\'; end'
         );
         expect(result).toContain('instead of update, delete');
         expect(result).toMatchSnapshot();
@@ -1496,7 +1496,7 @@ describe('CREATE/ALTER TRIGGER', () => {
 
     it('ALTER TRIGGER', async () => {
         const result = await fmt(
-            'alter trigger trg_Books_AI on Books after insert as begin return; end'
+            'alter trigger BooksAfterInsertTrigger on Books after insert as begin return; end'
         );
         expect(result).toContain('alter trigger');
         expect(result).toContain('go');
@@ -1504,11 +1504,11 @@ describe('CREATE/ALTER TRIGGER', () => {
     });
 
     it('DROP TRIGGER', async () => {
-        expect(await fmt('drop trigger trg_Books_AI')).toContain('drop trigger trg_Books_AI;');
+        expect(await fmt('drop trigger BooksAfterInsertTrigger')).toContain('drop trigger BooksAfterInsertTrigger;');
     });
 
     it('DROP TRIGGER IF EXISTS', async () => {
-        expect(await fmt('drop trigger if exists trg_Books_AI')).toContain('drop trigger if exists trg_Books_AI;');
+        expect(await fmt('drop trigger if exists BooksAfterInsertTrigger')).toContain('drop trigger if exists BooksAfterInsertTrigger;');
     });
 
     it('trigger keywords respect sqlKeywordCase upper', async () => {
@@ -1559,9 +1559,9 @@ describe('ALTER INDEX', () => {
 describe('Cursor operations', () => {
     it('DECLARE CURSOR basic', async () => {
         const result = await fmt(
-            'declare book_cursor cursor for select BookId, Title from Books where InStock = 1'
+            'declare BookCursor cursor for select BookId, Title from Books where InStock = 1'
         );
-        expect(result).toContain('declare book_cursor cursor');
+        expect(result).toContain('declare BookCursor cursor');
         expect(result).toContain('for');
         expect(result).toContain('select');
         expect(result).toContain('Books');
@@ -1570,16 +1570,16 @@ describe('Cursor operations', () => {
 
     it('OPEN / FETCH NEXT / CLOSE / DEALLOCATE', async () => {
         const sql = `
-open book_cursor;
-fetch next from book_cursor into @id, @Title;
-close book_cursor;
-deallocate book_cursor;`;
+open BookCursor;
+fetch next from BookCursor into @Id, @Title;
+close BookCursor;
+deallocate BookCursor;`;
         const result = await fmt(sql);
-        expect(result).toContain('open book_cursor;');
-        expect(result).toContain('fetch next from book_cursor');
-        expect(result).toContain('@id, @Title');
-        expect(result).toContain('close book_cursor;');
-        expect(result).toContain('deallocate book_cursor;');
+        expect(result).toContain('open BookCursor;');
+        expect(result).toContain('fetch next from BookCursor');
+        expect(result).toContain('@Id, @Title');
+        expect(result).toContain('close BookCursor;');
+        expect(result).toContain('deallocate BookCursor;');
         expect(result).toMatchSnapshot();
     });
 
@@ -1592,7 +1592,7 @@ deallocate book_cursor;`;
 
     it('cursor keywords respect sqlKeywordCase upper', async () => {
         const result = await fmt(
-            'declare c cursor for select BookId from Books; open c; fetch next from c into @id; close c; deallocate c;',
+            'declare c cursor for select BookId from Books; open c; fetch next from c into @Id; close c; deallocate c;',
             { sqlKeywordCase: 'upper' }
         );
         expect(result).toContain('DECLARE c CURSOR');
