@@ -928,13 +928,13 @@ drop table if exists Books;
 
 drop procedure GetBooks;
 
-drop view VwAvailableBooks;
+drop view AvailableBooksView;
 
 drop function GetBookPrice;
 
-drop trigger TrgBooksAfterInsert;
+drop trigger BooksAfterInsertTrigger;
 
-drop trigger if exists TrgBooksAfterInsert;
+drop trigger if exists BooksAfterInsertTrigger;
 
 drop sequence OrderSeq;
 
@@ -1033,7 +1033,7 @@ go
 ### CREATE / ALTER VIEW
 
 ```sql
-create or alter view VwAvailableBooks
+create or alter view AvailableBooksView
 as
 select
   Id,
@@ -1046,7 +1046,7 @@ go
 Block comments between the view name and `as` are preserved in place:
 
 ```sql
-create or alter view VwSensitivePrices
+create or alter view SensitivePricesView
 /* with encryption */
 as
 select
@@ -1065,7 +1065,7 @@ go
 The trigger name, `on` clause, timing/events, and body each appear on their own line:
 
 ```sql
-create trigger TrgBooksAfterInsert
+create trigger BooksAfterInsertTrigger
 on Books
 after insert
 as
@@ -1083,7 +1083,7 @@ go
 Multiple DML events are comma-separated on the event line:
 
 ```sql
-create trigger TrgBooksAfterIUD
+create trigger BooksAfterInsertUpdateDeleteTrigger
 on Books
 after insert, update, delete
 as
@@ -1096,7 +1096,7 @@ go
 `instead of` triggers use the same layout:
 
 ```sql
-create trigger TrgBooksInsteadOfDelete
+create trigger BooksInsteadOfDeleteTrigger
 on Books
 instead of update, delete
 as
@@ -1607,7 +1607,7 @@ Block comments are preserved in their original relative position. A block commen
 
 ```sql
 /* legacy view — do not remove */
-create or alter view VwLegacy
+create or alter view LegacyBooksView
 as
 select *
 from Books;
@@ -1664,7 +1664,7 @@ The following statement types must be alone in a batch and automatically get a `
 When multiple such statements appear in a file (separated by `go` in the input), each batch is separated by a blank line in the output:
 
 ```sql
-create or alter view VwBooks
+create or alter view BooksView
 as
 select
   Id,
@@ -1672,7 +1672,7 @@ select
 from Books;
 go
 
-create or alter view VwAuthors
+create or alter view AuthorsView
 as
 select
   Id,
