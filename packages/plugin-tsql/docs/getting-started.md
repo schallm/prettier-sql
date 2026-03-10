@@ -23,7 +23,7 @@ Create or update your Prettier config to include the plugin:
 ```js
 // prettier.config.js
 export default {
-  plugins: ["prettier-plugin-tsql"],
+    plugins: ['prettier-plugin-tsql'],
 };
 ```
 
@@ -37,10 +37,10 @@ To format on save, add to your VS Code settings:
 
 ```json
 {
-  "editor.formatOnSave": true,
-  "[sql]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  }
+    "editor.formatOnSave": true,
+    "[sql]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    }
 }
 ```
 
@@ -92,7 +92,7 @@ Point your Prettier config at the local `dist/index.js`:
 ```js
 // prettier.config.js
 export default {
-  plugins: ["./path/to/prettier-plugin-tsql/dist/index.js"],
+    plugins: ['./path/to/prettier-plugin-tsql/dist/index.js'],
 };
 ```
 
@@ -101,7 +101,9 @@ export default {
 Create a test file `test.sql`:
 
 ```sql
-SELECT Books.BookId,Books.Title,Books.Price FROM Books INNER JOIN Authors ON Books.AuthorId=Authors.Id WHERE Books.InStock=1 ORDER BY Books.Title ASC;
+SELECT Books.BookId,Books.Title,Books.Price,Authors.LastName
+FROM Books INNER JOIN Authors ON Books.AuthorId=Authors.Id
+WHERE Books.InStock=1 ORDER BY Books.Title ASC;
 ```
 
 Run Prettier:
@@ -116,7 +118,8 @@ Expected output:
 select
   Books.BookId,
   Books.Title,
-  Books.Price
+  Books.Price,
+  Authors.LastName
 from
   Books
   inner join Authors on Books.AuthorId = Authors.Id
