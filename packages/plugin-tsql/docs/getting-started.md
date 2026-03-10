@@ -101,15 +101,7 @@ export default {
 Create a test file `test.sql`:
 
 ```sql
-select
-  b.book_id,
-  b.title,
-  b.price
-from
-  dbo.Books as b
-  inner join dbo.Authors as a on b.author_id = a.author_id
-where b.in_stock = 1
-order by b.title asc;
+SELECT b.BookId,b.Title,b.Price FROM Books AS b INNER JOIN Authors AS a ON b.AuthorId=a.Id WHERE b.InStock=1 ORDER BY b.Title ASC;
 ```
 
 Run Prettier:
@@ -122,12 +114,12 @@ Expected output:
 
 ```sql
 select
-  b.book_id,
-  b.title,
-  b.price
+  b.BookId,
+  b.Title,
+  b.Price
 from
-  dbo.Books as b
-  inner join dbo.Authors as a on b.author_id = a.author_id
-where b.in_stock = 1
-order by b.title asc;
+  Books as b
+  inner join Authors as a on b.AuthorId = a.Id
+where b.InStock = 1
+order by b.Title asc;
 ```
