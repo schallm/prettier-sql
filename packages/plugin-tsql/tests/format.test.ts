@@ -110,7 +110,7 @@ from Content`;
 
     it('CTE', async () => {
         const result = await fmt(
-            'with available_books as (select BookId, Title from Books where InStock = 1) select b.Title from available_books as b order by b.Title asc'
+            'with availableBooks as (select BookId, Title from Books where InStock = 1) select b.Title from availableBooks as b order by b.Title asc'
         );
         expect(result).toMatchSnapshot();
     });

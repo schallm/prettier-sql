@@ -496,7 +496,7 @@ where InStock = 1;"
 `;
 
 exports[`SELECT formatting > CTE 1`] = `
-"with available_books as (
+"with availableBooks as (
   select
     BookId,
     Title
@@ -504,7 +504,7 @@ exports[`SELECT formatting > CTE 1`] = `
   where InStock = 1
 )
 select b.Title
-from available_books as b
+from availableBooks as b
 order by b.Title asc;"
 `;
 
