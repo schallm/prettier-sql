@@ -1752,15 +1752,15 @@ For databases with file group or log-on clauses, the file spec raw text is prese
 
 ```sql
 alter database AdventureWorks
-set RECOVERY FULL;
+set recovery full;
 
 alter database current
-set AUTO_CLOSE OFF with NO_WAIT;
+set auto_close off with no_wait;
 ```
 
-Option names are reconstructed from the ScriptDom `OptionKind` enum (e.g. `Recovery` →
-`RECOVERY`). The option value, including nested clauses like `QUERY_STORE = ON (...)`, is
-preserved as raw text. `DATABASE CURRENT` is used when there is no explicit database name.
+Option names and values are SQL keywords and respect `sqlKeywordCase`. The option value,
+including nested clauses like `QUERY_STORE = ON (...)`, is fully cased. `DATABASE CURRENT`
+is used when there is no explicit database name.
 
 #### COLLATE / MODIFY NAME
 

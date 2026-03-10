@@ -1291,20 +1291,20 @@ from DISK = N'C:\\backup\\AW.bak';"
     it('ALTER DATABASE SET', async () => {
         const r = await fmt('ALTER DATABASE AdventureWorks SET RECOVERY FULL');
         expect(r).toMatchInlineSnapshot(`
-"alter database AdventureWorks
-set RECOVERY FULL;"
+          "alter database AdventureWorks
+          set recovery full;"
         `);
     });
 
     it('ALTER DATABASE SET with termination', async () => {
         const r = await fmt('ALTER DATABASE AdventureWorks SET AUTO_CLOSE ON WITH NO_WAIT');
-        expect(r).toContain('set AUTO_CLOSE ON WITH NO_WAIT');
+        expect(r).toContain('set auto_close on with no_wait');
     });
 
     it('ALTER DATABASE SET CURRENT', async () => {
         const r = await fmt('ALTER DATABASE CURRENT SET QUERY_STORE = ON');
         expect(r).toContain('alter database current');
-        expect(r).toContain('QUERY_STORE');
+        expect(r).toContain('query_store');
     });
 
     // ALTER DATABASE COLLATE

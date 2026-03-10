@@ -134,8 +134,13 @@ export function printAlterDatabaseSet(node: SqlNode, opts: Options): Doc {
     const options = node.props?.['options'] as string[] | undefined;
     const termination = propStr(node, 'termination');
 
-    const optPart: Doc = options?.length ? join([', '], options) : '';
-    const termPart: Doc = termination ? [' ', termination] : '';
+    const optPart: Doc = options?.length
+        ? join(
+              [', '],
+              options.map((o) => keyword(o, opts)),
+          )
+        : '';
+    const termPart: Doc = termination ? [' ', keyword(termination, opts)] : '';
 
     return group([alterDbHeader(node, opts), hardline, keyword('SET', opts), ' ', optPart, termPart, ';']);
 }
