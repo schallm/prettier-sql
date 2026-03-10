@@ -115,6 +115,8 @@ Remaining comments are sorted by offset. For each one:
 
 Any comment still inside a statement's span (e.g. a commented-out WHERE predicate) is attached to the nearest surrounding AST descendant. The forward neighbour is preferred — if the next descendant is a statement node (e.g. the first statement inside a `BEGIN`/`END` block), the comment is stored as its `leadingComments`. Otherwise it is appended to the backward neighbour's `trailingComment`.
 
+> **Note:** For simple comparisons like `col = 1`, the parent predicate node and its rightmost scalar child share the same `endOffset`. Pass 3 may therefore land the `trailingComment` on the child (e.g. the literal `1`) rather than the predicate itself. The printer's `rightmostTrailingComment` helper accounts for this by walking into children whose `endOffset` matches the target, so between-predicate comments are emitted correctly regardless of which level they were attached to.
+
 ---
 
 ## Layer 3 — Prettier Printer (`src/plugin/printer/`)
