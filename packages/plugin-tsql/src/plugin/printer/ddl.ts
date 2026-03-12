@@ -599,3 +599,48 @@ export function printDropIndex(node: SqlNode, opts: Options): Doc {
     );
     return group([keyword('DROP INDEX', opts), ' ', join([',', hardline], indexDocs), ';']);
 }
+
+// ---------------------------------------------------------------------------
+// CREATE / DROP SYNONYM
+// ---------------------------------------------------------------------------
+
+export function printCreateSynonym(node: SqlNode, opts: Options): Doc {
+    const name = schemaObjectName(prop(node, 'name'));
+    const forName = schemaObjectName(prop(node, 'forName'));
+    return [keyword('CREATE SYNONYM', opts), ' ', name, ' ', keyword('FOR', opts), ' ', forName, ';'];
+}
+
+// ---------------------------------------------------------------------------
+// CREATE / ALTER / DROP SCHEMA
+// ---------------------------------------------------------------------------
+
+export function printCreateSchema(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const owner = propStr(node, 'owner');
+    const ownerPart: Doc = owner ? [' ', keyword('AUTHORIZATION', opts), ' ', owner] : '';
+    return [keyword('CREATE SCHEMA', opts), ' ', name, ownerPart, ';'];
+}
+
+export function printAlterSchema(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const objectKind = propStr(node, 'objectKind') ?? '';
+    const objectName = schemaObjectName(prop(node, 'objectName'));
+
+    // Emit the securable-type qualifier only when ScriptDom gives a non-default kind.
+    // ScriptDom uses "Object" for a plain table/view/proc (no explicit qualifier needed).
+    const kindMap: Record<string, string> = {
+        Type: 'TYPE',
+        XmlSchemaCollection: 'XML SCHEMA COLLECTION',
+    };
+    const qualifier = kindMap[objectKind];
+    const transferTarget: Doc = qualifier ? [keyword(qualifier, opts), '::', objectName] : objectName;
+
+    return [keyword('ALTER SCHEMA', opts), ' ', name, ' ', keyword('TRANSFER', opts), ' ', transferTarget, ';'];
+}
+
+export function printDropSchema(node: SqlNode, opts: Options): Doc {
+    const name = schemaObjectName(prop(node, 'name'));
+    const ifExists = propBool(node, 'ifExists');
+    const ifExistsPart: Doc = ifExists ? [' ', keyword('IF EXISTS', opts)] : '';
+    return [keyword('DROP SCHEMA', opts), ifExistsPart, ' ', name, ';'];
+}

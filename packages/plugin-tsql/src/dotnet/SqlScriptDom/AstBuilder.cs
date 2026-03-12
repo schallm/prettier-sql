@@ -531,6 +531,15 @@ public class AstBuilder : TSqlFragmentVisitor {
             DropViewStatement dvs => BuildDropObjects("DropViewStatement", dvs),
             DropFunctionStatement dfs => BuildDropObjects("DropFunctionStatement", dfs),
 
+            // DDL — synonyms
+            CreateSynonymStatement csy => BuildCreateSynonym(csy),
+            DropSynonymStatement dsy => BuildDropObjects("DropSynonymStatement", dsy),
+
+            // DDL — schemas
+            CreateSchemaStatement csch => BuildCreateSchema(csch),
+            AlterSchemaStatement asch => BuildAlterSchema(asch),
+            DropSchemaStatement dsch => BuildDropSchema(dsch),
+
             // BEGIN/END block
             BeginEndBlockStatement begin => BuildBeginEnd(begin),
 
@@ -1160,6 +1169,40 @@ public class AstBuilder : TSqlFragmentVisitor {
                     ["name"] = c.Index?.Value,
                     ["table"] = BuildSchemaObjectName(c.Object),
                 })).ToList(),
+        });
+
+    // -------------------------------------------------------------------------
+    // DDL: CREATE / DROP SYNONYM
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildCreateSynonym(CreateSynonymStatement stmt) =>
+        Node("CreateSynonymStatement", stmt, new Dictionary<string, object?> {
+            ["name"] = BuildSchemaObjectName(stmt.Name),
+            ["forName"] = BuildSchemaObjectName(stmt.ForName),
+        });
+
+    // -------------------------------------------------------------------------
+    // DDL: CREATE / ALTER / DROP SCHEMA
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildCreateSchema(CreateSchemaStatement stmt) =>
+        Node("CreateSchemaStatement", stmt, new Dictionary<string, object?> {
+            ["name"] = stmt.Name?.Value,
+            ["owner"] = stmt.Owner?.Value,
+        });
+
+    private static SqlNode BuildAlterSchema(AlterSchemaStatement stmt) =>
+        Node("AlterSchemaStatement", stmt, new Dictionary<string, object?> {
+            ["name"] = stmt.Name?.Value,
+            // ObjectKind is the securable type being transferred (Object, Type, XmlSchemaCollection, etc.)
+            ["objectKind"] = stmt.ObjectKind.ToString(),
+            ["objectName"] = BuildSchemaObjectName(stmt.ObjectName),
+        });
+
+    private static SqlNode BuildDropSchema(DropSchemaStatement stmt) =>
+        Node("DropSchemaStatement", stmt, new Dictionary<string, object?> {
+            ["name"] = BuildSchemaObjectName(stmt.Schema),
+            ["ifExists"] = stmt.IsIfExists,
         });
 
     // -------------------------------------------------------------------------

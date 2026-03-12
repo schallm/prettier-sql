@@ -1894,3 +1894,69 @@ describe('CREATE/ALTER/DROP ROLE', () => {
         expect(await fmt('drop role if exists db_reader')).toBe('drop role if exists db_reader;');
     });
 });
+
+describe('CREATE/DROP SYNONYM', () => {
+    it('CREATE SYNONYM simple', async () => {
+        expect(await fmt('create synonym MyAlias for dbo.Books')).toBe(
+            'create synonym MyAlias for dbo.Books;'
+        );
+    });
+
+    it('CREATE SYNONYM schema-qualified', async () => {
+        expect(await fmt('create synonym dbo.MyAlias for dbo.Books')).toBe(
+            'create synonym dbo.MyAlias for dbo.Books;'
+        );
+    });
+
+    it('DROP SYNONYM', async () => {
+        expect(await fmt('drop synonym MyAlias')).toBe('drop synonym MyAlias;');
+    });
+
+    it('DROP SYNONYM IF EXISTS', async () => {
+        expect(await fmt('drop synonym if exists dbo.MyAlias')).toBe(
+            'drop synonym if exists dbo.MyAlias;'
+        );
+    });
+
+    it('keyword case: upper', async () => {
+        const result = await fmt('create synonym MyAlias for dbo.Books', { sqlKeywordCase: 'upper' });
+        expect(result).toBe('CREATE SYNONYM MyAlias FOR dbo.Books;');
+    });
+});
+
+describe('CREATE/ALTER/DROP SCHEMA', () => {
+    it('CREATE SCHEMA simple', async () => {
+        expect(await fmt('create schema sales')).toBe('create schema sales;');
+    });
+
+    it('CREATE SCHEMA with AUTHORIZATION', async () => {
+        expect(await fmt('create schema sales authorization dbo')).toBe(
+            'create schema sales authorization dbo;'
+        );
+    });
+
+    it('ALTER SCHEMA TRANSFER (plain object)', async () => {
+        expect(await fmt('alter schema sales transfer dbo.Books')).toBe(
+            'alter schema sales transfer dbo.Books;'
+        );
+    });
+
+    it('ALTER SCHEMA TRANSFER TYPE::', async () => {
+        expect(await fmt('alter schema sales transfer type::dbo.BookTitle')).toBe(
+            'alter schema sales transfer type::dbo.BookTitle;'
+        );
+    });
+
+    it('DROP SCHEMA', async () => {
+        expect(await fmt('drop schema sales')).toBe('drop schema sales;');
+    });
+
+    it('DROP SCHEMA IF EXISTS', async () => {
+        expect(await fmt('drop schema if exists sales')).toBe('drop schema if exists sales;');
+    });
+
+    it('keyword case: upper', async () => {
+        const result = await fmt('create schema sales authorization dbo', { sqlKeywordCase: 'upper' });
+        expect(result).toBe('CREATE SCHEMA sales AUTHORIZATION dbo;');
+    });
+});

@@ -26,6 +26,10 @@ import {
     printCreateTypeTable,
     printDropObjects,
     printDropIndex,
+    printCreateSynonym,
+    printCreateSchema,
+    printAlterSchema,
+    printDropSchema,
 } from './ddl.js';
 import {
     printBeginTransaction,
@@ -271,6 +275,20 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
             return printDropObjects('TRIGGER', node, opts);
         case 'DropSequenceStatement':
             return printDropObjects('SEQUENCE', node, opts);
+        case 'DropSynonymStatement':
+            return printDropObjects('SYNONYM', node, opts);
+
+        // DDL — synonyms
+        case 'CreateSynonymStatement':
+            return printCreateSynonym(node, opts);
+
+        // DDL — schemas
+        case 'CreateSchemaStatement':
+            return printCreateSchema(node, opts);
+        case 'AlterSchemaStatement':
+            return printAlterSchema(node, opts);
+        case 'DropSchemaStatement':
+            return printDropSchema(node, opts);
 
         // BEGIN/END block (proc bodies, inline blocks)
         case 'BeginEndBlock': {
