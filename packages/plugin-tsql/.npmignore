@@ -1,0 +1,2 @@
+# Debug symbols — not useful to consumers
+bin/dotnet/*.pdb
