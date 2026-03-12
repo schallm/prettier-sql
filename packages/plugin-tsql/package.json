@@ -6,11 +6,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/schallm/prettier-tsql.git"
+    "url": "https://github.com/schallm/prettier-plugin-tsql.git"
   },
-  "homepage": "https://github.com/schallm/prettier-tsql#readme",
+  "homepage": "https://github.com/schallm/prettier-plugin-tsql#readme",
   "bugs": {
-    "url": "https://github.com/schallm/prettier-tsql/issues"
+    "url": "https://github.com/schallm/prettier-plugin-tsql/issues"
   },
   "type": "module",
   "main": "dist/index.js",
