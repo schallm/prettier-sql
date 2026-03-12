@@ -1789,7 +1789,7 @@ alter database AdventureWorks remove filegroup FG2;
 alter database AdventureWorks remove file AW_Data2;
 alter database AdventureWorks modify filegroup FG2 readonly;
 alter database AdventureWorks modify filegroup FG2 default;
-alter database AdventureWorks modify file (NAME = AW_Data, SIZE = 100MB);
+alter database AdventureWorks modify file (name = AW_Data, size = 100mb);
 alter database AdventureWorks add file (...);
 alter database AdventureWorks rebuild log on (...);
 ```

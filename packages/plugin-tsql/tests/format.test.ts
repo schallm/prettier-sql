@@ -1375,13 +1375,15 @@ from DISK = N'C:\\backup\\AW.bak';"
     it('ALTER DATABASE MODIFY FILE', async () => {
         const r = await fmt("ALTER DATABASE AdventureWorks MODIFY FILE (NAME = AW_Data, SIZE = 100MB)");
         expect(r).toContain('modify file');
-        expect(r).toContain('NAME = AW_Data');
+        expect(r).toContain('name = AW_Data');
+        expect(r).toContain('size = 100mb');
     });
 
     it('ALTER DATABASE ADD FILE', async () => {
         const r = await fmt("ALTER DATABASE AdventureWorks ADD FILE (NAME = N'AW_Data2', FILENAME = N'C:\\data\\AW2.ndf')");
         expect(r).toContain('add file');
-        expect(r).toContain("NAME = N'AW_Data2'");
+        expect(r).toContain("name = N'AW_Data2'");
+        expect(r).toContain("filename = N'C:\\data\\AW2.ndf'");
     });
 
     it('ALTER DATABASE keywords respect sqlKeywordCase upper', async () => {

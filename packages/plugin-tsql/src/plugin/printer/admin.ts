@@ -201,6 +201,16 @@ export function printAlterDatabaseScopedConfigClear(node: SqlNode, opts: Options
 // ALTER DATABASE ADD / REMOVE / MODIFY FILE and FILEGROUP
 // ---------------------------------------------------------------------------
 
+/** Apply sqlKeywordCase to the well-known keywords inside a file-spec string
+ *  (NAME, FILENAME, SIZE, MAXSIZE, FILEGROWTH, UNLIMITED, KB, MB, GB, TB).
+ *  Quoted strings and bare identifiers are left untouched. */
+function caseFileSpec(spec: string, opts: Options): string {
+    const kw = (m: string) => keyword(m, opts) as string;
+    return spec
+        .replace(/\b(FILENAME|FILEGROWTH|MAXSIZE|UNLIMITED|NAME|SIZE|OFFLINE|KB|MB|GB|TB)\b/gi, kw)
+        .replace(/(\d)(KB|MB|GB|TB)\b/gi, (_, digit, unit) => digit + kw(unit));
+}
+
 export function printAlterDatabaseAddFile(node: SqlNode, opts: Options): Doc {
     const fileGroup = propStr(node, 'fileGroup');
     const isLog = propBool(node, 'isLog');
@@ -208,7 +218,20 @@ export function printAlterDatabaseAddFile(node: SqlNode, opts: Options): Doc {
 
     const clause: Doc = isLog ? keyword('ADD LOG FILE', opts) : keyword('ADD FILE', opts);
     const toFg: Doc = fileGroup ? [' ', keyword('TO FILEGROUP', opts), ' ', fileGroup] : '';
-    const filesDoc: Doc = files?.length ? ['(', indent([hardline, join([',', hardline], files)]), hardline, ')'] : '()';
+    const filesDoc: Doc = files?.length
+        ? [
+              '(',
+              indent([
+                  hardline,
+                  join(
+                      [',', hardline],
+                      files.map((f) => caseFileSpec(f, opts)),
+                  ),
+              ]),
+              hardline,
+              ')',
+          ]
+        : '()';
 
     return group([alterDbHeader(node, opts), hardline, clause, ' ', filesDoc, toFg, ';']);
 }
@@ -238,7 +261,7 @@ export function printAlterDatabaseRemoveFileGroup(node: SqlNode, opts: Options):
 }
 
 export function printAlterDatabaseModifyFile(node: SqlNode, opts: Options): Doc {
-    const file = propStr(node, 'file') ?? '';
+    const file = caseFileSpec(propStr(node, 'file') ?? '', opts);
     return group([alterDbHeader(node, opts), hardline, keyword('MODIFY FILE', opts), ' (', file, ')', ';']);
 }
 
@@ -257,6 +280,6 @@ export function printAlterDatabaseModifyFileGroup(node: SqlNode, opts: Options):
 
 export function printAlterDatabaseRebuildLog(node: SqlNode, opts: Options): Doc {
     const file = propStr(node, 'file');
-    const onPart: Doc = file ? [' ', keyword('ON', opts), ' (', file, ')'] : '';
+    const onPart: Doc = file ? [' ', keyword('ON', opts), ' (', caseFileSpec(file, opts), ')'] : '';
     return [alterDbHeader(node, opts), ' ', keyword('REBUILD LOG', opts), onPart, ';'];
 }
