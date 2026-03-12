@@ -95,9 +95,7 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
             const refCols = node.props?.['refColumns'];
             const colList = Array.isArray(cols) ? (cols as string[]).join(', ') : '';
             const refColList = Array.isArray(refCols) ? (refCols as string[]).join(', ') : '';
-            const refName = refTable
-                ? [propStr(refTable, 'schema'), propStr(refTable, 'name')].filter(Boolean).join('.')
-                : '';
+            const refName = refTable ? schemaObjectName(refTable) : '';
             return [
                 namePrefix,
                 keyword('FOREIGN KEY', opts),
@@ -384,7 +382,7 @@ export function printCreateView(node: SqlNode, opts: Options): Doc {
         : '';
 
     const preBodyPart: Doc = node.preBodyComments?.length
-        ? node.preBodyComments.flatMap((c): Doc[] => [hardline, c])
+        ? (node.preBodyComments as string[]).flatMap((c): Doc[] => [hardline, c])
         : '';
 
     return group([

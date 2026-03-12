@@ -108,7 +108,7 @@ function printNode(node: SqlNode, opts: Options): Doc {
 function appendTrailingComment(doc: Doc, comment: string | undefined): Doc {
     if (!comment) return doc;
     if (comment.startsWith('--')) return [doc, lineSuffix([' ', comment])];
-    return [doc, ...comment.split('\n').flatMap((c): Doc[] => [hardline, c])];
+    return [doc, ...comment.split(/\r?\n/).flatMap((c): Doc[] => [hardline, c])];
 }
 
 /**
@@ -142,7 +142,7 @@ function printBoolDoc(where: SqlNode, opts: Options): Doc {
     const base = printBool(where, opts);
     const trailing = rightmostBoolLeaf(where)?.trailingComment;
     if (!trailing) return base;
-    return [base, ...trailing.split('\n').flatMap((c): Doc[] => [hardline, c])];
+    return [base, ...trailing.split(/\r?\n/).flatMap((c): Doc[] => [hardline, c])];
 }
 
 function printTable(node: SqlNode, opts: Options): Doc {

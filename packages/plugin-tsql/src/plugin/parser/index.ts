@@ -33,7 +33,15 @@ function loadDotnet(): DotnetModule {
         : path.resolve(thisDir, '../../../bin/dotnet/SqlScriptDom.dll');
 
     // Only cache the module after a successful load.
-    dotnet.load(dllPath);
+    try {
+        dotnet.load(dllPath);
+    } catch (e) {
+        throw new Error(
+            `prettier-plugin-tsql: failed to load SqlScriptDom.dll from "${dllPath}". ` +
+                `Make sure .NET 8+ is installed and the package was installed correctly. ` +
+                `Original error: ${e instanceof Error ? e.message : String(e)}`,
+        );
+    }
     dotnetModule = dotnet;
     return dotnetModule;
 }
