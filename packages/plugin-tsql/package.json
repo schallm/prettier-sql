@@ -1,6 +1,17 @@
 {
   "name": "prettier-plugin-tsql",
   "version": "0.1.0",
+  "description": "Prettier plugin for T-SQL (Microsoft SQL Server) using the official ScriptDom parser",
+  "author": "Mike Schall",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/schallm/prettier-tsql.git"
+  },
+  "homepage": "https://github.com/schallm/prettier-tsql#readme",
+  "bugs": {
+    "url": "https://github.com/schallm/prettier-tsql/issues"
+  },
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -13,7 +24,11 @@
     "prettier-plugin",
     "sql",
     "tsql",
-    "sqlserver"
+    "t-sql",
+    "sqlserver",
+    "sql-server",
+    "mssql",
+    "formatter"
   ],
   "peerDependencies": {
     "prettier": ">=3.0.0"
