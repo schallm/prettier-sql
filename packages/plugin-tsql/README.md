@@ -1,5 +1,7 @@
 # prettier-plugin-tsql
 
+> **Alpha quality — do not use in production. Use at your own risk.**
+
 A [Prettier](https://prettier.io) plugin that formats T-SQL (SQL Server) using Microsoft's official `Microsoft.SqlServer.TransactSql.ScriptDom` parser — the same parser SQL Server itself uses.
 
 ## Features
