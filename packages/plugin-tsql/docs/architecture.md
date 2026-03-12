@@ -130,6 +130,7 @@ Any comment still inside a statement's span (e.g. a commented-out WHERE predicat
 | `ddl.ts`         | DDL: CREATE/ALTER TABLE, CREATE/ALTER INDEX, CREATE/ALTER/CREATE OR ALTER PROCEDURE/FUNCTION/VIEW/TRIGGER, CREATE/ALTER SEQUENCE, BULK INSERT, CREATE TYPE, DROP |
 | `procedural.ts`  | Transactions, DECLARE, SET variants, USE, WAITFOR, IF/WHILE, EXECUTE, TRUNCATE, control flow, error handling, cursors                                            |
 | `security.ts`    | GRANT/DENY/REVOKE, CREATE/ALTER/DROP USER/LOGIN/ROLE                                                                                                             |
+| `admin.ts`       | DROP DATABASE, DBCC, BACKUP/RESTORE, CREATE DATABASE, ALTER DATABASE (SET, COLLATE, file/filegroup ops, SCOPED CONFIGURATION, REBUILD LOG)                       |
 | `expressions.ts` | Column references, literals, binary expressions, predicates, function calls, CASE, CAST, JOIN, table references, query expressions                               |
 | `helpers.ts`     | Shared `prop()`, `propArr()`, `propStr()`, `propBool()` accessors for the untyped `node.props` record                                                            |
 | `utils.ts`       | `keyword()`, `getDensity()`, shared Prettier builder aliases                                                                                                     |
@@ -195,6 +196,7 @@ prettier-plugin-tsql/
 │           ├── ddl.ts         # DDL statement formatters
 │           ├── procedural.ts  # Transactions, control flow, cursors, SET/USE/WAITFOR
 │           ├── security.ts    # GRANT/DENY/REVOKE, USER/LOGIN/ROLE
+│           ├── admin.ts       # Database admin (DBCC, BACKUP, RESTORE, ALTER DATABASE)
 │           ├── expressions.ts # Expression formatters
 │           ├── helpers.ts     # Shared prop accessors (prop, propArr, propStr, propBool)
 │           └── utils.ts       # keyword(), getDensity(), Prettier builder aliases
