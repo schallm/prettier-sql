@@ -942,6 +942,14 @@ drop sequence if exists OrderSeq;
 
 drop index IX_Books_Title on Books;
 
+drop synonym dbo.MyAlias;
+
+drop synonym if exists dbo.MyAlias;
+
+drop schema sales;
+
+drop schema if exists sales;
+
 drop user AppUser;
 
 drop login AppLogin;
@@ -949,7 +957,7 @@ drop login AppLogin;
 drop role if exists db_reader;
 ```
 
-Multiple objects in one `DROP TABLE/PROCEDURE/VIEW/FUNCTION` are comma-separated on one line.
+Multiple objects in one `DROP TABLE/PROCEDURE/VIEW/FUNCTION/SYNONYM` are comma-separated on one line.
 
 ---
 
@@ -1188,6 +1196,59 @@ create type BookList as table (
   Title nvarchar(200) not null,
   Price decimal(10, 2)
 );
+```
+
+---
+
+### CREATE SYNONYM / DROP SYNONYM
+
+`CREATE SYNONYM` creates an alias for any schema-scoped object (table, view, procedure, function, etc.). The synonym name and its target are both fully schema-qualified when provided:
+
+```sql
+create synonym MyAlias for dbo.Books;
+
+create synonym dbo.MyAlias for dbo.Books;
+```
+
+`DROP SYNONYM` supports `IF EXISTS`:
+
+```sql
+drop synonym MyAlias;
+
+drop synonym if exists dbo.MyAlias;
+```
+
+---
+
+### CREATE / ALTER / DROP SCHEMA
+
+`CREATE SCHEMA` with an optional `AUTHORIZATION` clause:
+
+```sql
+create schema sales;
+
+create schema sales authorization dbo;
+```
+
+`ALTER SCHEMA … TRANSFER` moves an object from one schema to another. A securable-type qualifier is emitted only when explicitly required:
+
+```sql
+-- Plain object (table, view, procedure) — no qualifier needed
+alter schema sales transfer dbo.Books;
+
+-- User-defined type
+alter schema sales transfer type::dbo.BookTitle;
+
+-- XML schema collection
+alter schema sales transfer xml schema collection::dbo.BookSchema;
+```
+
+`DROP SCHEMA` supports `IF EXISTS`:
+
+```sql
+drop schema sales;
+
+drop schema if exists sales;
 ```
 
 ---
