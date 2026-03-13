@@ -58,7 +58,20 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 
 The constructs below are parsed correctly but emitted as-is (original source text preserved). PRs welcome.
 
-**Object model**
+### SQL Server 2022 / 2025 syntax
+
+These require new printer logic for AST nodes or properties added in ScriptDom 161+/170:
+
+- **`IS [NOT] DISTINCT FROM`** — NULL-safe comparison; new enum values on `BooleanComparisonExpression` (`IsDistinctFrom` / `IsNotDistinctFrom`). Currently falls back to raw text.
+- **Named `WINDOW` clause** — `SELECT ... WINDOW w AS (PARTITION BY ... ORDER BY ...)` at the end of a query; new `WindowClause`/`WindowDefinition` on `QuerySpecification`. Window functions that reference a named window via `OVER (w)` use the new `OverClause.WindowName` property.
+- **`IGNORE NULLS` / `RESPECT NULLS`** on `FIRST_VALUE`, `LAST_VALUE`, `LAG`, `LEAD` — new `FunctionCall.IgnoreRespectNulls` property; currently the modifier is silently dropped.
+- **`TRIM(LEADING | TRAILING | BOTH [chars] FROM string)`** — enhanced TRIM with direction; new `FunctionCall.TrimOptions` property. Plain `TRIM(string)` and `TRIM(chars FROM string)` already work.
+- **`JSON_OBJECT(key: value, ...)`** — key-value constructor syntax; uses new `FunctionCall.JsonParameters` / `JsonKeyValue` AST class instead of the regular positional parameters list. `JSON_ARRAY(...)` and `JSON_PATH_EXISTS(...)` already work as plain function calls.
+- **Ledger table syntax** — `CREATE TABLE ... WITH (LEDGER = ON, ...)` table options; new `LedgerTableOption` AST node.
+
+> **Already handled by existing `FunctionCall` pass-through:** `GREATEST`, `LEAST`, `DATE_BUCKET`, `DATETRUNC`, `GENERATE_SERIES`, `LEFT_SHIFT`, `RIGHT_SHIFT`, `BIT_COUNT`, `GET_BIT`, `SET_BIT`, `APPROX_PERCENTILE_CONT/DISC`, `JSON_PATH_EXISTS`, and the enhanced `STRING_SPLIT`, `ISJSON`, `LTRIM`, `RTRIM` signatures all format correctly without new code.
+
+### DDL object model
 
 - Partition functions and schemes (`CREATE/ALTER/DROP PARTITION FUNCTION`, `CREATE/ALTER/DROP PARTITION SCHEME`)
 - Assemblies (`CREATE/ALTER/DROP ASSEMBLY`)
@@ -66,27 +79,27 @@ The constructs below are parsed correctly but emitted as-is (original source tex
 - Full-text catalogs and indexes (`CREATE/ALTER/DROP FULLTEXT CATALOG`, `CREATE/ALTER/DROP FULLTEXT INDEX`)
 - `EXECUTE AS` / `REVERT`
 
-**Service Broker**
+### Service Broker
 
 - `CREATE/ALTER/DROP QUEUE`, `SEND`, `RECEIVE`, `CREATE/ALTER/DROP SERVICE`, `CREATE/ALTER/DROP CONTRACT`, `CREATE/ALTER/DROP MESSAGE TYPE`, `CREATE/ALTER/DROP ROUTE`
 
-**Extended Events**
+### Extended Events
 
 - `CREATE/ALTER/DROP EVENT SESSION`
 
-**Cryptography**
+### Cryptography
 
 - `CREATE/ALTER/DROP CERTIFICATE`, `CREATE/ALTER/DROP SYMMETRIC KEY`, `CREATE/ALTER/DROP ASYMMETRIC KEY`, `OPEN/CLOSE MASTER KEY`
 
-**High Availability**
+### High Availability
 
 - `CREATE/ALTER/DROP AVAILABILITY GROUP`, `CREATE/ALTER/DROP ENDPOINT`
 
-**External Data**
+### External Data
 
 - `CREATE/ALTER/DROP EXTERNAL TABLE`, `CREATE/ALTER/DROP EXTERNAL DATA SOURCE`, `CREATE/ALTER/DROP EXTERNAL FILE FORMAT`, `CREATE/ALTER/DROP EXTERNAL RESOURCE POOL`
 
-**Audit**
+### Audit
 
 - `CREATE/ALTER/DROP SERVER AUDIT`, `CREATE/ALTER/DROP DATABASE AUDIT SPECIFICATION`, `CREATE/ALTER/DROP SERVER AUDIT SPECIFICATION`
 
