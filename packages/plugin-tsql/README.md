@@ -59,6 +59,7 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 The constructs below are parsed correctly but emitted as-is (original source text preserved). PRs welcome.
 
 **Object model**
+
 - Partition functions and schemes (`CREATE/ALTER/DROP PARTITION FUNCTION`, `CREATE/ALTER/DROP PARTITION SCHEME`)
 - Assemblies (`CREATE/ALTER/DROP ASSEMBLY`)
 - XML schema collections (`CREATE/ALTER/DROP XML SCHEMA COLLECTION`)
@@ -66,21 +67,27 @@ The constructs below are parsed correctly but emitted as-is (original source tex
 - `EXECUTE AS` / `REVERT`
 
 **Service Broker**
+
 - `CREATE/ALTER/DROP QUEUE`, `SEND`, `RECEIVE`, `CREATE/ALTER/DROP SERVICE`, `CREATE/ALTER/DROP CONTRACT`, `CREATE/ALTER/DROP MESSAGE TYPE`, `CREATE/ALTER/DROP ROUTE`
 
 **Extended Events**
+
 - `CREATE/ALTER/DROP EVENT SESSION`
 
 **Cryptography**
+
 - `CREATE/ALTER/DROP CERTIFICATE`, `CREATE/ALTER/DROP SYMMETRIC KEY`, `CREATE/ALTER/DROP ASYMMETRIC KEY`, `OPEN/CLOSE MASTER KEY`
 
 **High Availability**
+
 - `CREATE/ALTER/DROP AVAILABILITY GROUP`, `CREATE/ALTER/DROP ENDPOINT`
 
 **External Data**
+
 - `CREATE/ALTER/DROP EXTERNAL TABLE`, `CREATE/ALTER/DROP EXTERNAL DATA SOURCE`, `CREATE/ALTER/DROP EXTERNAL FILE FORMAT`, `CREATE/ALTER/DROP EXTERNAL RESOURCE POOL`
 
 **Audit**
+
 - `CREATE/ALTER/DROP SERVER AUDIT`, `CREATE/ALTER/DROP DATABASE AUDIT SPECIFICATION`, `CREATE/ALTER/DROP SERVER AUDIT SPECIFICATION`
 
 ## Requirements
@@ -104,10 +111,10 @@ Add the plugin to your Prettier config:
 ```js
 // prettier.config.js
 export default {
-  plugins: ["prettier-plugin-tsql"],
-  sqlKeywordCase: "lower",
-  sqlDensity: "standard",
-  sqlCommaStyle: "trailing",
+    plugins: ['prettier-plugin-tsql'],
+    sqlKeywordCase: 'lower',
+    sqlDensity: 'standard',
+    sqlCommaStyle: 'trailing',
 };
 ```
 
@@ -115,10 +122,10 @@ Or in `.prettierrc`:
 
 ```json
 {
-  "plugins": ["prettier-plugin-tsql"],
-  "sqlKeywordCase": "lower",
-  "sqlDensity": "standard",
-  "sqlCommaStyle": "trailing"
+    "plugins": ["prettier-plugin-tsql"],
+    "sqlKeywordCase": "lower",
+    "sqlDensity": "standard",
+    "sqlCommaStyle": "trailing"
 }
 ```
 
