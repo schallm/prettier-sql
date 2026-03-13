@@ -2,11 +2,11 @@
 
 ## Requirements
 
-| Requirement   | Version | Notes                             |
-| ------------- | ------- | --------------------------------- |
-| Node.js       | 18+     |                                   |
-| .NET Runtime  | 8.0+    | SDK only needed for building from source |
-| Prettier      | 3.x     |                                   |
+| Requirement  | Version | Notes                                    |
+| ------------ | ------- | ---------------------------------------- |
+| Node.js      | 18+     |                                          |
+| .NET Runtime | 8.0+    | SDK only needed for building from source |
+| Prettier     | 3.x     |                                          |
 
 ## Installing from npm
 

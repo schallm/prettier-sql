@@ -147,15 +147,15 @@ The standard Prettier `printWidth` option (default `80`) controls when lines wra
 ```js
 // prettier.config.js
 export default {
-  plugins: ["prettier-plugin-tsql"],
+    plugins: ['prettier-plugin-tsql'],
 
-  // SQL-specific options
-  sqlKeywordCase: "lower", // lower | upper | preserve
-  sqlDensity: "standard", // compact | standard | spacious
-  sqlCommaStyle: "trailing", // trailing | leading
+    // SQL-specific options
+    sqlKeywordCase: 'lower', // lower | upper | preserve
+    sqlDensity: 'standard', // compact | standard | spacious
+    sqlCommaStyle: 'trailing', // trailing | leading
 
-  // Standard Prettier options (also apply to SQL)
-  printWidth: 100,
-  tabWidth: 2,
+    // Standard Prettier options (also apply to SQL)
+    printWidth: 100,
+    tabWidth: 2,
 };
 ```

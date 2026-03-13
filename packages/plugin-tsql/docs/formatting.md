@@ -4,15 +4,15 @@ This page documents how each SQL construct is formatted. All examples use the de
 
 The examples use a Books domain:
 
-| Table        | Key columns                                                                                   |
-| ------------ | --------------------------------------------------------------------------------------------- |
+| Table        | Key columns                                                                              |
+| ------------ | ---------------------------------------------------------------------------------------- |
 | `Books`      | `Id`, `Title`, `AuthorId`, `PublisherId`, `GenreId`, `Price`, `InStock`, `PublishedDate` |
-| `Authors`    | `Id`, `FirstName`, `LastName`, `Country`, `PublisherId`                                    |
-| `Publishers` | `Id`, `Name`, `Country`                                                                       |
-| `Genres`     | `Id`, `Name`                                                                                  |
-| `Customers`  | `Id`, `Name`, `Email`, `Active`                                                               |
-| `Orders`     | `Id`, `CustomerId`, `Total`, `OrderDate`                                                    |
-| `OrderItems` | `Id`, `OrderId`, `BookId`, `Quantity`, `UnitPrice`                                         |
+| `Authors`    | `Id`, `FirstName`, `LastName`, `Country`, `PublisherId`                                  |
+| `Publishers` | `Id`, `Name`, `Country`                                                                  |
+| `Genres`     | `Id`, `Name`                                                                             |
+| `Customers`  | `Id`, `Name`, `Email`, `Active`                                                          |
+| `Orders`     | `Id`, `CustomerId`, `Total`, `OrderDate`                                                 |
+| `OrderItems` | `Id`, `OrderId`, `BookId`, `Quantity`, `UnitPrice`                                       |
 
 ---
 

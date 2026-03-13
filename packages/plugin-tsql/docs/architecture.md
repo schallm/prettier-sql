@@ -86,8 +86,8 @@ public record SqlNode(
 
 ```ts
 const require = createRequire(import.meta.url);
-const dotnet = require("node-api-dotnet") as DotnetModule;
-dotnet.load("/path/to/SqlScriptDom.dll");
+const dotnet = require('node-api-dotnet') as DotnetModule;
+dotnet.load('/path/to/SqlScriptDom.dll');
 const { SqlParser } = dotnet.PrettierTsql;
 ```
 
@@ -106,8 +106,8 @@ For each statement (and each VALUES row inside INSERT), look for a `--` line com
 Remaining comments are sorted by offset. For each one:
 
 - If it falls **inside** a statement's source span, the comment is checked against the statement's body boundary (`bodyStart`, which `AstBuilder` records as `StatementList.StartOffset` — the offset of the `BEGIN` keyword for procedures and functions, or the body node's own offset for views). If the comment is before that boundary:
-  - Comments after the last parameter are stored in `node.postParamComments` (printed between the parameter list and `AS`).
-  - Other comments are stored in `node.preBodyComments` (printed before the parameter list — e.g. a banner comment between the procedure name and its parameters).
+    - Comments after the last parameter are stored in `node.postParamComments` (printed between the parameter list and `AS`).
+    - Other comments are stored in `node.preBodyComments` (printed before the parameter list — e.g. a banner comment between the procedure name and its parameters).
 - Otherwise, the comment is attached as `node.leadingComments` on the first statement that starts at or after the comment's end offset.
 - Comments that appear after all statements (end of file) are attached to the last statement's `trailingComment` so they are never silently dropped.
 
@@ -231,13 +231,13 @@ The process is the same as for statements, but targeting different switches:
 
 3. **ScriptDom property names** — the ScriptDom API sometimes differs from what documentation or examples suggest. If the build fails with `CS1061` ("does not contain a definition for"), use the reflection snippet below to enumerate actual property names:
 
-   ```csharp
-   // Run in a small .NET program against the NuGet DLL:
-   var dll = Assembly.LoadFrom("path/to/Microsoft.SqlServer.TransactSql.ScriptDom.dll");
-   var t = dll.GetType("Microsoft.SqlServer.TransactSql.ScriptDom.TypeName");
-   foreach (var p in t?.GetProperties() ?? [])
-       Console.WriteLine(p.Name);
-   ```
+    ```csharp
+    // Run in a small .NET program against the NuGet DLL:
+    var dll = Assembly.LoadFrom("path/to/Microsoft.SqlServer.TransactSql.ScriptDom.dll");
+    var t = dll.GetType("Microsoft.SqlServer.TransactSql.ScriptDom.TypeName");
+    foreach (var p in t?.GetProperties() ?? [])
+        Console.WriteLine(p.Name);
+    ```
 
 4. **Tests** — add a test case. Use `{ sqlKeywordCase: 'upper' }` on assertion tests that check for keyword strings so the expected string matches the upper-cased output.
 
