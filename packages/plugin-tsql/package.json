@@ -34,13 +34,13 @@
     "prettier": ">=3.0.0"
   },
   "dependencies": {
-    "node-api-dotnet": "^0.8.0"
+    "node-api-dotnet": "^0.9.19"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "prettier": "^3.0.0",
     "typescript": "^5.0.0",
-    "vitest": "^3.0.0",
-    "@types/node": "^22.0.0"
+    "vitest": "^3.0.0"
   },
   "scripts": {
     "build:dotnet": "dotnet restore src/dotnet/SqlScriptDom/SqlScriptDom.csproj && dotnet msbuild src/dotnet/SqlScriptDom/SqlScriptDom.csproj /t:Publish /p:Configuration=Release \"/p:PublishDir=../../../bin/dotnet/\"",
