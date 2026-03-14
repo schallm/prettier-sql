@@ -12,7 +12,8 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 
 - `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `MERGE INTO … USING … ON … WHEN MATCHED/NOT MATCHED`
 - `OUTPUT` / `OUTPUT INTO` on INSERT, UPDATE, DELETE, and MERGE (including `$action`, `inserted.*`, `deleted.*`)
-- CTEs, window functions, derived tables, subqueries, `UNION`/`UNION ALL`, `CASE` expressions (simple and searched), `IN`/`NOT IN`, nested joins
+- CTEs, window functions, derived tables, subqueries, `UNION`/`UNION ALL`, `CASE` expressions (simple and searched), `IN`/`NOT IN`
+- Joins: `INNER`, `LEFT`, `RIGHT`, `FULL OUTER`, `CROSS JOIN`, `CROSS APPLY`, `OUTER APPLY`; multiple joins, multi-predicate `ON`, self-joins, parenthesized joins, derived table joins
 - Table-valued functions (TVFs) in `FROM` clauses; table hints (`WITH (NOLOCK)`, etc.)
 - Expression functions: `CAST`, `CONVERT`, `TRY_CAST`, `TRY_CONVERT` (with full data type including length/precision), `IIF`, `COALESCE`, `NULLIF`, `AT TIME ZONE`
 - SQL Server 2022 expression features: `IS [NOT] DISTINCT FROM`; `TRIM(LEADING|TRAILING|BOTH ...)`; `IGNORE NULLS` / `RESPECT NULLS` on window functions; named window reference `OVER (window_name)`; `JSON_OBJECT(key: value, ...)`, `JSON_ARRAY(...)`, `JSON_ARRAYAGG(expr [ORDER BY ...])` — all with optional `ABSENT|NULL ON NULL`

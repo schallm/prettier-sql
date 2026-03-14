@@ -201,9 +201,10 @@ prettier-plugin-tsql/
 │           ├── helpers.ts     # Shared prop accessors (prop, propArr, propStr, propBool)
 │           └── utils.ts       # keyword(), getDensity(), Prettier builder aliases
 ├── tests/
-│   ├── format.test.ts         # Vitest snapshot tests
+│   ├── format.test.ts         # Vitest inline snapshot tests (describe/it blocks)
+│   ├── fixtures.test.ts       # Fixture runner — auto-snapshots every .sql in fixtures/
 │   ├── parser.test.ts         # Parser unit tests
-│   └── fixtures/              # Input SQL files by category
+│   └── fixtures/              # Input SQL files by category (add .sql, test picks it up)
 ├── dist/                      # Compiled JS (generated)
 ├── bin/dotnet/                # Compiled DLL (generated)
 ├── package.json
@@ -219,7 +220,11 @@ prettier-plugin-tsql/
 
 2. **TypeScript printer** — add a `case 'SomeStatement':` branch in the `printStatement()` switch in `printer/statements.ts`. The `printer/index.ts` dispatcher automatically routes any type whose name ends with `Statement` or equals `BeginEndBlock` to `printStatement()`, so no change to `index.ts` is needed for standard statement types.
 
-3. **Tests** — add a test case in `tests/format.test.ts` using `toMatchSnapshot()`. Run `npm test` to capture the initial snapshot, then review it to confirm the output is correct.
+3. **Tests** — two options:
+    - **Inline test**: add a `describe`/`it` block in `tests/format.test.ts` using `toMatchSnapshot()`. Good for testing specific options or edge cases.
+    - **Fixture file**: add a `.sql` file under `tests/fixtures/<category>/`. The fixture runner (`fixtures.test.ts`) picks it up automatically and snapshots the formatted output. Good for representative real-world SQL.
+
+    Run `npm test` to capture the initial snapshot, then review it to confirm the output is correct.
 
 ## Adding Support for a New Expression or Table Reference Type
 
@@ -239,7 +244,7 @@ The process is the same as for statements, but targeting different switches:
         Console.WriteLine(p.Name);
     ```
 
-4. **Tests** — add a test case. Use `{ sqlKeywordCase: 'upper' }` on assertion tests that check for keyword strings so the expected string matches the upper-cased output.
+4. **Tests** — add an inline test in `tests/format.test.ts` or a fixture file in `tests/fixtures/`. Use `{ sqlKeywordCase: 'upper' }` on assertion tests that check for keyword strings so the expected string matches the upper-cased output.
 
 ---
 
