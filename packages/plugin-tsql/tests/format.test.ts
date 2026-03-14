@@ -2051,3 +2051,94 @@ describe('TRIM(direction ...) (SQL Server 2022+)', () => {
         expect(result).toContain('FROM');
     });
 });
+
+describe('JSON_OBJECT (SQL Server 2022+)', () => {
+    it('basic key-value pairs', async () => {
+        const result = await fmt("select json_object('name': Title, 'price': Price) from Books");
+        expect(result).toMatchSnapshot();
+    });
+
+    it('with ABSENT ON NULL', async () => {
+        const result = await fmt(
+            "select json_object('name': Title, 'price': Price absent on null) from Books"
+        );
+        expect(result).toMatchSnapshot();
+    });
+
+    it('with NULL ON NULL', async () => {
+        const result = await fmt("select json_object('id': Id null on null) from Books");
+        expect(result).toMatchSnapshot();
+    });
+
+    it('single pair inline', async () => {
+        const result = await fmt("select json_object('id': Id) from Books");
+        expect(result).toMatchSnapshot();
+    });
+
+    it('keyword case: upper', async () => {
+        const result = await fmt("select json_object('name': Title absent on null) from Books", {
+            sqlKeywordCase: 'upper',
+        });
+        expect(result).toContain('JSON_OBJECT(');
+        expect(result).toContain('ABSENT ON NULL');
+    });
+
+    it('keyword case: lower', async () => {
+        const result = await fmt("select JSON_OBJECT('name': Title ABSENT ON NULL) from Books", {
+            sqlKeywordCase: 'lower',
+        });
+        expect(result).toContain('json_object(');
+        expect(result).toContain('absent on null');
+    });
+});
+
+describe('JSON_ARRAY (SQL Server 2022+)', () => {
+    it('basic values', async () => {
+        const result = await fmt("select json_array(1, 2, 'three')");
+        expect(result).toMatchSnapshot();
+    });
+
+    it('with ABSENT ON NULL', async () => {
+        const result = await fmt("select json_array(1, 2, 'three' absent on null)");
+        expect(result).toMatchSnapshot();
+    });
+
+    it('with NULL ON NULL', async () => {
+        const result = await fmt("select json_array(1, null null on null)");
+        expect(result).toMatchSnapshot();
+    });
+
+    it('keyword case: upper', async () => {
+        const result = await fmt("select json_array(1, 2 absent on null)", { sqlKeywordCase: 'upper' });
+        expect(result).toContain('JSON_ARRAY(');
+        expect(result).toContain('ABSENT ON NULL');
+    });
+});
+
+describe('JSON_ARRAYAGG (SQL Server 2022+)', () => {
+    it('basic aggregation', async () => {
+        const result = await fmt('select json_arrayagg(Title) from Books');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('with ORDER BY', async () => {
+        const result = await fmt('select json_arrayagg(Title order by Title) from Books');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('with ORDER BY and ABSENT ON NULL', async () => {
+        const result = await fmt(
+            'select json_arrayagg(Title order by Title absent on null) from Books'
+        );
+        expect(result).toMatchSnapshot();
+    });
+
+    it('keyword case: upper', async () => {
+        const result = await fmt('select json_arrayagg(Title order by Title absent on null) from Books', {
+            sqlKeywordCase: 'upper',
+        });
+        expect(result).toContain('JSON_ARRAYAGG(');
+        expect(result).toContain('ORDER BY');
+        expect(result).toContain('ABSENT ON NULL');
+    });
+});

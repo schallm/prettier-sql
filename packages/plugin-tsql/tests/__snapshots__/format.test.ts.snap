@@ -397,6 +397,47 @@ exports[`IS [NOT] DISTINCT FROM (SQL Server 2022+) > IS NOT DISTINCT FROM 1`] = 
 where a is not distinct from b;"
 `;
 
+exports[`JSON_ARRAY (SQL Server 2022+) > basic values 1`] = `"select json_array(1, 2, 'three');"`;
+
+exports[`JSON_ARRAY (SQL Server 2022+) > with ABSENT ON NULL 1`] = `"select json_array(1, 2, 'three' absent on null);"`;
+
+exports[`JSON_ARRAY (SQL Server 2022+) > with NULL ON NULL 1`] = `"select json_array(1, null null on null);"`;
+
+exports[`JSON_ARRAYAGG (SQL Server 2022+) > basic aggregation 1`] = `
+"select json_arrayagg(Title)
+from Books;"
+`;
+
+exports[`JSON_ARRAYAGG (SQL Server 2022+) > with ORDER BY 1`] = `
+"select json_arrayagg(Title order by Title asc)
+from Books;"
+`;
+
+exports[`JSON_ARRAYAGG (SQL Server 2022+) > with ORDER BY and ABSENT ON NULL 1`] = `
+"select json_arrayagg(Title order by Title asc absent on null)
+from Books;"
+`;
+
+exports[`JSON_OBJECT (SQL Server 2022+) > basic key-value pairs 1`] = `
+"select json_object('name': Title, 'price': Price)
+from Books;"
+`;
+
+exports[`JSON_OBJECT (SQL Server 2022+) > single pair inline 1`] = `
+"select json_object('id': Id)
+from Books;"
+`;
+
+exports[`JSON_OBJECT (SQL Server 2022+) > with ABSENT ON NULL 1`] = `
+"select json_object('name': Title, 'price': Price absent on null)
+from Books;"
+`;
+
+exports[`JSON_OBJECT (SQL Server 2022+) > with NULL ON NULL 1`] = `
+"select json_object('id': Id null on null)
+from Books;"
+`;
+
 exports[`MERGE statement > MERGE with AND predicate on WHEN MATCHED 1`] = `
 "merge into Books as t
 using ArchivedBooks as s

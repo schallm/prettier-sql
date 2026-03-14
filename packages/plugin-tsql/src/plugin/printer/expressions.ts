@@ -111,45 +111,86 @@ function printSelectSetVariable(node: SqlNode, opts: Options, printFn: (n: SqlNo
     return [varName, ' ', op, ' ', val ? printExpression(val, opts, printFn) : ''];
 }
 
+function printNullOnNullClause(node: SqlNode, opts: Options): Doc {
+    const raw = propStr(node, 'nullOnNull');
+    if (!raw) return '';
+    // ScriptDom gives only the first keyword: 'absent' or 'NULL'
+    return raw.toLowerCase() === 'absent' ? keyword('ABSENT ON NULL', opts) : keyword('NULL ON NULL', opts);
+}
+
+function printJsonKeyValue(kv: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const keyNode = prop(kv, 'key');
+    const valNode = prop(kv, 'value');
+    const keyDoc = keyNode ? printExpression(keyNode, opts, printFn) : '';
+    const valDoc = valNode ? printExpression(valNode, opts, printFn) : '';
+    return [keyDoc, ': ', valDoc];
+}
+
 function printFunctionCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
     const name = propStr(node, 'name') ?? 'FUNC';
     const args = propArr(node, 'args').map((a) => printExpression(a, opts, printFn));
     const over = prop(node, 'over');
     const uniqueRowFilter = propStr(node, 'uniqueRowFilter');
     const distinctDoc = uniqueRowFilter === 'Distinct' ? [keyword('DISTINCT', opts), ' '] : [];
+    const nullOnNullDoc = printNullOnNullClause(node, opts);
 
     // TRIM(LEADING|TRAILING|BOTH [chars] FROM str) — SQL Server 2022+
-    // trimOptions holds the direction keyword; args[0] is chars (if 2 args) or str (if 1 arg)
     const trimOptions = propStr(node, 'trimOptions');
     if (trimOptions && name.toUpperCase() === 'TRIM') {
         const dirDoc = keyword(trimOptions.toUpperCase(), opts);
         if (args.length === 2) {
-            // TRIM(direction chars FROM str)
-            const trimDoc = group([
+            return group([
                 keyword('TRIM', opts),
                 '(',
                 indent([softline, dirDoc, ' ', args[0]!, ' ', keyword('FROM', opts), line, args[1]!]),
                 softline,
                 ')',
             ]);
-            return trimDoc;
         } else if (args.length === 1) {
-            // TRIM(direction FROM str)
-            const trimDoc = group([
+            return group([
                 keyword('TRIM', opts),
                 '(',
                 indent([softline, dirDoc, ' ', keyword('FROM', opts), line, args[0]!]),
                 softline,
                 ')',
             ]);
-            return trimDoc;
         }
     }
 
+    // JSON_OBJECT('key': value [, ...] [ABSENT ON NULL | NULL ON NULL]) — SQL Server 2022+
+    const jsonParams = propArr(node, 'jsonParams');
+    if (jsonParams.length > 0) {
+        const pairs = jsonParams.map((kv) => printJsonKeyValue(kv, opts, printFn));
+        const nullClause: Doc = nullOnNullDoc ? [' ', nullOnNullDoc] : '';
+        return group([
+            keyword(name, opts),
+            '(',
+            indent([softline, join([',', line], pairs), nullClause]),
+            softline,
+            ')',
+        ]);
+    }
+
+    // JSON_ARRAYAGG(expr [ORDER BY ...] [ABSENT ON NULL | NULL ON NULL]) — SQL Server 2022+
+    const jsonOrderBy = prop(node, 'jsonOrderBy');
+    if (jsonOrderBy && name.toUpperCase() === 'JSON_ARRAYAGG') {
+        const orderByDoc = printOrderByClause(jsonOrderBy, opts, printFn);
+        const nullClause: Doc = nullOnNullDoc ? [' ', nullOnNullDoc] : '';
+        return group([
+            keyword(name, opts),
+            '(',
+            indent([softline, join([',', line], args), ' ', orderByDoc, nullClause]),
+            softline,
+            ')',
+        ]);
+    }
+
+    // Standard function call (JSON_ARRAY and others with optional ABSENT/NULL ON NULL)
+    const nullClause: Doc = nullOnNullDoc ? [' ', nullOnNullDoc] : '';
     const argsDoc = group([
         keyword(name, opts),
         '(',
-        indent([softline, ...distinctDoc, join([',', line], args)]),
+        indent([softline, ...distinctDoc, join([',', line], args), nullClause]),
         softline,
         ')',
     ]);

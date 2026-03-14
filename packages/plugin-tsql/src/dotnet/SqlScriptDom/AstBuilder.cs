@@ -104,6 +104,16 @@ public class AstBuilder : TSqlFragmentVisitor {
             : null;
         // TRIM(LEADING|TRAILING|BOTH ...) direction (SQL Server 2022+)
         string? trimOptions = fc.TrimOptions?.Value;
+        // JSON_OBJECT key:value pairs (SQL Server 2022+)
+        var jsonParams = fc.JsonParameters?.Count > 0
+            ? fc.JsonParameters.Select(p => (object?)BuildJsonKeyValue(p)).ToList()
+            : null;
+        // NULL ON NULL / ABSENT ON NULL clause on JSON functions (SQL Server 2022+)
+        string? nullOnNull = fc.AbsentOrNullOnNull?.Count > 0
+            ? string.Join(" ", fc.AbsentOrNullOnNull.Select(id => id.Value))
+            : null;
+        // ORDER BY inside JSON_ARRAYAGG (SQL Server 2022+)
+        var jsonOrderBy = fc.JsonOrderByClause != null ? BuildOrderByClause(fc.JsonOrderByClause) : null;
         return new SqlNode(
             "FunctionCall",
             fc.StartOffset,
@@ -116,8 +126,17 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["uniqueRowFilter"] = fc.UniqueRowFilter.ToString(),
                 ["nulls"] = nullsModifier,
                 ["trimOptions"] = trimOptions,
+                ["jsonParams"] = jsonParams,
+                ["nullOnNull"] = nullOnNull,
+                ["jsonOrderBy"] = jsonOrderBy,
             });
     }
+
+    private static SqlNode BuildJsonKeyValue(JsonKeyValue kv) =>
+        Node("JsonKeyValue", kv, new Dictionary<string, object?> {
+            ["key"] = BuildScalarExpression(kv.JsonKeyName),
+            ["value"] = BuildScalarExpression(kv.JsonValue),
+        });
 
     private static SqlNode BuildBinaryExpr(BinaryExpression bin) =>
         Node("BinaryExpression", bin, new Dictionary<string, object?> {
