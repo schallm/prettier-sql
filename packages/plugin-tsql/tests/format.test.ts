@@ -1960,3 +1960,94 @@ describe('CREATE/ALTER/DROP SCHEMA', () => {
         expect(result).toBe('CREATE SCHEMA sales AUTHORIZATION dbo;');
     });
 });
+
+describe('IS [NOT] DISTINCT FROM (SQL Server 2022+)', () => {
+    it('IS DISTINCT FROM', async () => {
+        const result = await fmt('select 1 where a IS DISTINCT FROM b');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('IS NOT DISTINCT FROM', async () => {
+        const result = await fmt('select 1 where a IS NOT DISTINCT FROM b');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('keyword case: upper', async () => {
+        const result = await fmt('select 1 where a is distinct from b', { sqlKeywordCase: 'upper' });
+        expect(result).toContain('IS DISTINCT FROM');
+    });
+
+    it('keyword case: lower', async () => {
+        const result = await fmt('select 1 where a IS DISTINCT FROM b', { sqlKeywordCase: 'lower' });
+        expect(result).toContain('is distinct from');
+    });
+});
+
+describe('OVER (window_name) (SQL Server 2022+)', () => {
+    it('window function referencing named window', async () => {
+        const result = await fmt(
+            'select row_number() over w from Books window w as (partition by AuthorId order by Title)'
+        );
+        expect(result).toMatchSnapshot();
+    });
+
+    it('keyword case: upper', async () => {
+        const result = await fmt('select row_number() over w from t window w as (order by id)', {
+            sqlKeywordCase: 'upper',
+        });
+        expect(result).toContain('OVER (w)');
+    });
+});
+
+describe('IGNORE NULLS / RESPECT NULLS (SQL Server 2022+)', () => {
+    it('FIRST_VALUE IGNORE NULLS', async () => {
+        const result = await fmt(
+            'select first_value(Price) ignore nulls over (partition by AuthorId order by PublishedDate) from Books'
+        );
+        expect(result).toMatchSnapshot();
+    });
+
+    it('LAST_VALUE RESPECT NULLS', async () => {
+        const result = await fmt(
+            'select last_value(Price) respect nulls over (order by PublishedDate) from Books'
+        );
+        expect(result).toMatchSnapshot();
+    });
+
+    it('keyword case: upper', async () => {
+        const result = await fmt('select first_value(x) ignore nulls over (order by id) from t', {
+            sqlKeywordCase: 'upper',
+        });
+        expect(result).toContain('IGNORE NULLS');
+    });
+});
+
+describe('TRIM(direction ...) (SQL Server 2022+)', () => {
+    it('TRIM with LEADING', async () => {
+        const result = await fmt("select trim(leading ' ' from Title) from Books");
+        expect(result).toMatchSnapshot();
+    });
+
+    it('TRIM with TRAILING', async () => {
+        const result = await fmt("select trim(trailing ' ' from Title) from Books");
+        expect(result).toMatchSnapshot();
+    });
+
+    it('TRIM with BOTH', async () => {
+        const result = await fmt("select trim(both ' ' from Title) from Books");
+        expect(result).toMatchSnapshot();
+    });
+
+    it('TRIM without direction still works', async () => {
+        const result = await fmt("select trim(' ' from Title) from Books");
+        expect(result).toMatchSnapshot();
+    });
+
+    it('keyword case: upper', async () => {
+        const result = await fmt("select trim(leading ' ' from title) from t", {
+            sqlKeywordCase: 'upper',
+        });
+        expect(result).toContain('TRIM(LEADING');
+        expect(result).toContain('FROM');
+    });
+});

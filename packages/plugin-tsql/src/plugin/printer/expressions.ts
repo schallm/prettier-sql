@@ -118,6 +118,34 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) =
     const uniqueRowFilter = propStr(node, 'uniqueRowFilter');
     const distinctDoc = uniqueRowFilter === 'Distinct' ? [keyword('DISTINCT', opts), ' '] : [];
 
+    // TRIM(LEADING|TRAILING|BOTH [chars] FROM str) — SQL Server 2022+
+    // trimOptions holds the direction keyword; args[0] is chars (if 2 args) or str (if 1 arg)
+    const trimOptions = propStr(node, 'trimOptions');
+    if (trimOptions && name.toUpperCase() === 'TRIM') {
+        const dirDoc = keyword(trimOptions.toUpperCase(), opts);
+        if (args.length === 2) {
+            // TRIM(direction chars FROM str)
+            const trimDoc = group([
+                keyword('TRIM', opts),
+                '(',
+                indent([softline, dirDoc, ' ', args[0]!, ' ', keyword('FROM', opts), line, args[1]!]),
+                softline,
+                ')',
+            ]);
+            return trimDoc;
+        } else if (args.length === 1) {
+            // TRIM(direction FROM str)
+            const trimDoc = group([
+                keyword('TRIM', opts),
+                '(',
+                indent([softline, dirDoc, ' ', keyword('FROM', opts), line, args[0]!]),
+                softline,
+                ')',
+            ]);
+            return trimDoc;
+        }
+    }
+
     const argsDoc = group([
         keyword(name, opts),
         '(',
@@ -126,8 +154,12 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) =
         ')',
     ]);
 
+    // IGNORE NULLS / RESPECT NULLS modifier — SQL Server 2022+
+    const nullsModifier = propStr(node, 'nulls');
+    const nullsDoc: Doc = nullsModifier ? [' ', keyword(nullsModifier.toUpperCase(), opts)] : '';
+
     if (over) {
-        return [argsDoc, ' ', keyword('OVER', opts), ' ', printOverClause(over, opts, printFn)];
+        return [argsDoc, nullsDoc, ' ', keyword('OVER', opts), ' ', printOverClause(over, opts, printFn)];
     }
     return argsDoc;
 }
@@ -587,6 +619,10 @@ function printBinaryQuery(node: SqlNode, opts: Options, printFn: (n: SqlNode) =>
 }
 
 export function printOverClause(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    // Named window reference: OVER (w) — SQL Server 2022+
+    const windowName = propStr(node, 'windowName');
+    if (windowName) return ['(', windowName, ')'];
+
     const partitions = propArr(node, 'partitionBy');
     const orderBy = prop(node, 'orderBy');
 
@@ -637,6 +673,8 @@ export function printBoolExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode
             return printBetween(node, opts, printFn);
         case 'FullTextPredicate':
             return printFullTextPredicate(node, opts, printFn);
+        case 'DistinctPredicate':
+            return printDistinctPredicate(node, opts, printFn);
         default:
             return node.text ?? `/* ${node.type} */`;
     }
@@ -667,6 +705,20 @@ function printBoolComparison(node: SqlNode, opts: Options, printFn: (n: SqlNode)
         left ? printExpression(left, opts, printFn) : '',
         ' ',
         op,
+        ' ',
+        right ? printExpression(right, opts, printFn) : '',
+    ]);
+}
+
+function printDistinctPredicate(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const left = prop(node, 'left');
+    const right = prop(node, 'right');
+    const isNot = propBool(node, 'isNot');
+    const opKw = isNot ? keyword('IS NOT DISTINCT FROM', opts) : keyword('IS DISTINCT FROM', opts);
+    return group([
+        left ? printExpression(left, opts, printFn) : '',
+        ' ',
+        opKw,
         ' ',
         right ? printExpression(right, opts, printFn) : '',
     ]);

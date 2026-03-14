@@ -14,7 +14,7 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - `OUTPUT` / `OUTPUT INTO` on INSERT, UPDATE, DELETE, and MERGE (including `$action`, `inserted.*`, `deleted.*`)
 - CTEs, window functions, derived tables, subqueries, `UNION`/`UNION ALL`, `CASE` expressions (simple and searched), `IN`/`NOT IN`, nested joins
 - Table-valued functions (TVFs) in `FROM` clauses; table hints (`WITH (NOLOCK)`, etc.)
-- Expression functions: `CAST`, `CONVERT`, `TRY_CAST`, `TRY_CONVERT` (with full data type including length/precision), `IIF`, `COALESCE`, `NULLIF`, `AT TIME ZONE`
+- Expression functions: `CAST`, `CONVERT`, `TRY_CAST`, `TRY_CONVERT` (with full data type including length/precision), `IIF`, `COALESCE`, `NULLIF`, `AT TIME ZONE`; `IS [NOT] DISTINCT FROM` (SQL Server 2022); `TRIM(LEADING|TRAILING|BOTH ...)` (SQL Server 2022); `IGNORE NULLS` / `RESPECT NULLS` on window functions (SQL Server 2022); `OVER (window_name)` named window reference (SQL Server 2022)
 - Full-text predicates: `CONTAINS` / `FREETEXT` (single column, multi-column, wildcard, `LANGUAGE`); `CONTAINSTABLE` / `FREETEXTTABLE` as join sources
 - Rowset functions: `OPENJSON` and `OPENXML` with `WITH` schema declarations; `OPENJSON` row-path and `AS JSON` columns; `OPENROWSET` provider form (single provider-string or three-part datasource/userid/password) and `OPENROWSET(BULK ...)` form
 
@@ -62,11 +62,8 @@ The constructs below are parsed correctly but emitted as-is (original source tex
 
 These require new printer logic for AST nodes or properties added in ScriptDom 161+/170:
 
-- **`IS [NOT] DISTINCT FROM`** — NULL-safe comparison; new enum values on `BooleanComparisonExpression` (`IsDistinctFrom` / `IsNotDistinctFrom`). Currently falls back to raw text.
-- **Named `WINDOW` clause** — `SELECT ... WINDOW w AS (PARTITION BY ... ORDER BY ...)` at the end of a query; new `WindowClause`/`WindowDefinition` on `QuerySpecification`. Window functions that reference a named window via `OVER (w)` use the new `OverClause.WindowName` property.
-- **`IGNORE NULLS` / `RESPECT NULLS`** on `FIRST_VALUE`, `LAST_VALUE`, `LAG`, `LEAD` — new `FunctionCall.IgnoreRespectNulls` property; currently the modifier is silently dropped.
-- **`TRIM(LEADING | TRAILING | BOTH [chars] FROM string)`** — enhanced TRIM with direction; new `FunctionCall.TrimOptions` property. Plain `TRIM(string)` and `TRIM(chars FROM string)` already work.
 - **`JSON_OBJECT(key: value, ...)`** — key-value constructor syntax; uses new `FunctionCall.JsonParameters` / `JsonKeyValue` AST class instead of the regular positional parameters list. `JSON_ARRAY(...)` and `JSON_PATH_EXISTS(...)` already work as plain function calls.
+- **Named `WINDOW` clause** — `SELECT ... WINDOW w AS (PARTITION BY ... ORDER BY ...)` at the end of a query; new `WindowClause`/`WindowDefinition` on `QuerySpecification`. Window functions referencing a named window via `OVER (w)` are already formatted correctly.
 - **Ledger table syntax** — `CREATE TABLE ... WITH (LEDGER = ON, ...)` table options; new `LedgerTableOption` AST node.
 
 > **Already handled by existing `FunctionCall` pass-through:** `GREATEST`, `LEAST`, `DATE_BUCKET`, `DATETRUNC`, `GENERATE_SERIES`, `LEFT_SHIFT`, `RIGHT_SHIFT`, `BIT_COUNT`, `GET_BIT`, `SET_BIT`, `APPROX_PERCENTILE_CONT/DISC`, `JSON_PATH_EXISTS`, and the enhanced `STRING_SPLIT`, `ISJSON`, `LTRIM`, `RTRIM` signatures all format correctly without new code.

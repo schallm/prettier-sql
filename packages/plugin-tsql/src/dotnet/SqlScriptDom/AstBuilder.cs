@@ -98,6 +98,12 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildFunctionCall(FunctionCall fc) {
         var args = fc.Parameters?.Select(p => (object?)BuildScalarExpression(p)).ToList();
         var overClause = fc.OverClause != null ? BuildOverClause(fc.OverClause) : null;
+        // IGNORE NULLS / RESPECT NULLS modifier (SQL Server 2022+)
+        string? nullsModifier = fc.IgnoreRespectNulls?.Count > 0
+            ? string.Join(" ", fc.IgnoreRespectNulls.Select(id => id.Value))
+            : null;
+        // TRIM(LEADING|TRAILING|BOTH ...) direction (SQL Server 2022+)
+        string? trimOptions = fc.TrimOptions?.Value;
         return new SqlNode(
             "FunctionCall",
             fc.StartOffset,
@@ -108,6 +114,8 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["args"] = args,
                 ["over"] = overClause,
                 ["uniqueRowFilter"] = fc.UniqueRowFilter.ToString(),
+                ["nulls"] = nullsModifier,
+                ["trimOptions"] = trimOptions,
             });
     }
 
@@ -222,6 +230,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ExistsPredicate exists => BuildExistsPredicate(exists),
             BooleanTernaryExpression between => BuildBetween(between),
             FullTextPredicate ftp => BuildFullTextPredicate(ftp),
+            DistinctPredicate dp => BuildDistinctPredicate(dp),
             _ => Leaf("BooleanExpression", expr, RawText(expr)),
         };
     }
@@ -254,6 +263,13 @@ public class AstBuilder : TSqlFragmentVisitor {
         Node("IsNullExpression", isNull, new Dictionary<string, object?> {
             ["expr"] = BuildScalarExpression(isNull.Expression),
             ["isNot"] = isNull.IsNot,
+        });
+
+    private static SqlNode BuildDistinctPredicate(DistinctPredicate dp) =>
+        Node("DistinctPredicate", dp, new Dictionary<string, object?> {
+            ["left"] = BuildScalarExpression(dp.FirstExpression),
+            ["right"] = BuildScalarExpression(dp.SecondExpression),
+            ["isNot"] = dp.IsNot,
         });
 
     private static SqlNode BuildInPredicate(InPredicate inPred) =>
@@ -456,9 +472,12 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildOverClause(OverClause over) {
         var partitionBy = over.Partitions?.Select(p => (object?)BuildScalarExpression(p)).ToList();
         var orderBy = over.OrderByClause != null ? BuildOrderByClause(over.OrderByClause) : null;
+        // Named window reference: OVER (window_name) — SQL Server 2022+
+        string? windowName = over.WindowName?.Value;
         return Node("OverClause", over, new Dictionary<string, object?> {
             ["partitionBy"] = partitionBy,
             ["orderBy"] = orderBy,
+            ["windowName"] = windowName,
         });
     }
 

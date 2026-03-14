@@ -318,6 +318,19 @@ from
     b.BookId = ft.key;"
 `;
 
+exports[`IGNORE NULLS / RESPECT NULLS (SQL Server 2022+) > FIRST_VALUE IGNORE NULLS 1`] = `
+"select first_value(Price) ignore nulls over (
+  partition by AuthorId
+  order by PublishedDate asc
+)
+from Books;"
+`;
+
+exports[`IGNORE NULLS / RESPECT NULLS (SQL Server 2022+) > LAST_VALUE RESPECT NULLS 1`] = `
+"select last_value(Price) respect nulls over (order by PublishedDate asc)
+from Books;"
+`;
+
 exports[`IN clause formatting > IN subquery is unaffected 1`] = `
 "select BookId
 from Books
@@ -372,6 +385,16 @@ exports[`INSERT formatting > VALUES insert 1`] = `
 )
 values
   ('Jane Smith', 'jane@example.com', 1);"
+`;
+
+exports[`IS [NOT] DISTINCT FROM (SQL Server 2022+) > IS DISTINCT FROM 1`] = `
+"select 1
+where a is distinct from b;"
+`;
+
+exports[`IS [NOT] DISTINCT FROM (SQL Server 2022+) > IS NOT DISTINCT FROM 1`] = `
+"select 1
+where a is not distinct from b;"
 `;
 
 exports[`MERGE statement > MERGE with AND predicate on WHEN MATCHED 1`] = `
@@ -493,6 +516,11 @@ exports[`OUTPUT clause > UPDATE with OUTPUT 1`] = `
 set Price = Price * 1.1
 output inserted.BookId, deleted.Price, inserted.Price
 where InStock = 1;"
+`;
+
+exports[`OVER (window_name) (SQL Server 2022+) > window function referencing named window 1`] = `
+"select row_number() over (w)
+from Books;"
 `;
 
 exports[`SELECT formatting > CTE 1`] = `
@@ -623,6 +651,26 @@ exports[`SET ROWCOUNT formatting > SET ROWCOUNT 0 resets to unlimited 1`] = `"se
 exports[`SET ROWCOUNT formatting > SET ROWCOUNT respects keyword case 1`] = `"set rowcount 5;"`;
 
 exports[`SET ROWCOUNT formatting > SET ROWCOUNT with integer literal 1`] = `"set rowcount 10;"`;
+
+exports[`TRIM(direction ...) (SQL Server 2022+) > TRIM with BOTH 1`] = `
+"select trim(both ' ' from Title)
+from Books;"
+`;
+
+exports[`TRIM(direction ...) (SQL Server 2022+) > TRIM with LEADING 1`] = `
+"select trim(leading ' ' from Title)
+from Books;"
+`;
+
+exports[`TRIM(direction ...) (SQL Server 2022+) > TRIM with TRAILING 1`] = `
+"select trim(trailing ' ' from Title)
+from Books;"
+`;
+
+exports[`TRIM(direction ...) (SQL Server 2022+) > TRIM without direction still works 1`] = `
+"select trim(' ', Title)
+from Books;"
+`;
 
 exports[`UNION / INTERSECT / EXCEPT formatting > UNION (distinct) has blank lines around the operator 1`] = `
 "select AuthorId
