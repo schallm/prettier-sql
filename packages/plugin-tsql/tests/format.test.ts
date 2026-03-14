@@ -2142,3 +2142,70 @@ describe('JSON_ARRAYAGG (SQL Server 2022+)', () => {
         expect(result).toContain('ABSENT ON NULL');
     });
 });
+
+describe('sqlCommaStyle: leading', () => {
+    const leading = { sqlCommaStyle: 'leading' };
+
+    it('SELECT multi-column uses leading commas', async () => {
+        const result = await fmt(
+            'select b.BookId, b.Title, b.Price from Books as b',
+            leading,
+        );
+        expect(result).toMatchSnapshot();
+        const lines = result.split('\n');
+        // All non-first column lines should start with leading comma (after trim)
+        const colLines = lines.filter((l) => l.trimStart().startsWith(','));
+        expect(colLines.length).toBe(2);
+    });
+
+    it('ORDER BY multi-column uses leading commas', async () => {
+        const result = await fmt(
+            'select Id from Books order by Title asc, Price desc, AuthorId asc',
+            leading,
+        );
+        expect(result).toMatchSnapshot();
+        const lines = result.split('\n');
+        expect(lines.filter((l) => l.trimStart().startsWith(','))).toHaveLength(2);
+    });
+
+    it('GROUP BY multi-column uses leading commas', async () => {
+        const result = await fmt(
+            'select GenreId, AuthorId, count(*) from Books group by GenreId, AuthorId',
+            leading,
+        );
+        expect(result).toMatchSnapshot();
+    });
+
+    it('CTE list uses leading commas', async () => {
+        const result = await fmt(
+            'with cte1 as (select 1 as x), cte2 as (select 2 as y), cte3 as (select 3 as z) select * from cte1',
+            leading,
+        );
+        expect(result).toMatchSnapshot();
+        expect(result).toContain('\n, cte2');
+        expect(result).toContain('\n, cte3');
+    });
+
+    it('single SELECT column is not affected (no comma)', async () => {
+        const result = await fmt('select Title from Books', leading);
+        expect(result).toBe('select Title\nfrom Books;');
+    });
+
+    it('trailing (default) still produces trailing commas', async () => {
+        const result = await fmt('select a, b, c from t');
+        const lines = result.split('\n');
+        // column lines should end with comma (trailing)
+        expect(lines.some((l) => l.trimEnd().endsWith(','))).toBe(true);
+        expect(lines.every((l) => !l.trimStart().startsWith(','))).toBe(true);
+    });
+
+    it('combines with keyword case upper', async () => {
+        const result = await fmt('select a, b, c from t order by a, b', {
+            sqlCommaStyle: 'leading',
+            sqlKeywordCase: 'upper',
+        });
+        expect(result).toContain('SELECT');
+        const lines = result.split('\n');
+        expect(lines.filter((l) => l.trimStart().startsWith(','))).toHaveLength(3); // 2 select + 1 order by
+    });
+});

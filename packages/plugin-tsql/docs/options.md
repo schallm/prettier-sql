@@ -117,7 +117,7 @@ Controls where commas appear in column and value lists.
 | `trailing` | Comma at the end of the line   | ✓       |
 | `leading`  | Comma at the start of the line |         |
 
-> **Note:** `leading` is declared but not yet implemented. Setting it currently has no effect — output will use trailing commas.
+Leading commas apply to SELECT column lists, GROUP BY, ORDER BY, and CTE lists. Function arguments, DDL definitions (CREATE TABLE columns, procedure parameters), VALUES rows, and SET assignments always use trailing commas.
 
 ### `trailing` (default)
 
@@ -126,6 +126,16 @@ select
   Id,
   Title,
   Price
+from Books;
+```
+
+### `leading`
+
+```sql
+select
+  Id
+  , Title
+  , Price
 from Books;
 ```
 

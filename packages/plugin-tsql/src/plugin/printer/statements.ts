@@ -1,7 +1,18 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '../parser/types.js';
 import type { Options } from './utils.js';
-import { keyword, getDensity, hardline, join, indent, group, line, softline, lineSuffix } from './utils.js';
+import {
+    keyword,
+    getDensity,
+    getCommaStyle,
+    hardline,
+    join,
+    indent,
+    group,
+    line,
+    softline,
+    lineSuffix,
+} from './utils.js';
 import { prop, propArr, propStr, propBool, schemaObjectName, assignmentOp } from './helpers.js';
 import {
     printExpression,
@@ -457,6 +468,7 @@ function printCtes(node: SqlNode, opts: Options): Doc[] {
     const ctes = propArr(node, 'ctes');
     if (ctes.length === 0) return [];
 
+    const leading = getCommaStyle(opts) === 'leading';
     const cteDocs = ctes.map((cte, i) => {
         const name = propStr(cte, 'name') ?? 'cte';
         const cols = cte.props?.['columns'] as string[] | undefined;
@@ -464,8 +476,10 @@ function printCtes(node: SqlNode, opts: Options): Doc[] {
 
         const colsPart: Doc = cols?.length ? [' (', join(', ', cols), ')'] : '';
 
+        // trailing: align subsequent CTEs under "with " with 4 spaces
+        // leading:  no prefix — the separator provides ", " before the CTE name
         return [
-            i === 0 ? keyword('WITH', opts) + ' ' : '    ',
+            i === 0 ? keyword('WITH', opts) + ' ' : leading ? '' : '    ',
             name,
             colsPart,
             ' ',
@@ -477,7 +491,8 @@ function printCtes(node: SqlNode, opts: Options): Doc[] {
         ] as Doc;
     });
 
-    return [join([',', hardline], cteDocs), hardline];
+    const sep: Doc = leading ? [hardline, ', '] : [',', hardline];
+    return [join(sep, cteDocs), hardline];
 }
 
 function printSelect(node: SqlNode, opts: Options): Doc {

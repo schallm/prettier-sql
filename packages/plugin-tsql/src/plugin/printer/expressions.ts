@@ -1,7 +1,20 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '../parser/types.js';
 import type { Options } from './utils.js';
-import { keyword, getDensity, hardline, join, group, indent, line, softline, ifBreak, fill } from './utils.js';
+import {
+    keyword,
+    getDensity,
+    hardSep,
+    softSep,
+    hardline,
+    join,
+    group,
+    indent,
+    line,
+    softline,
+    ifBreak,
+    fill,
+} from './utils.js';
 import { prop, propArr, propStr, propBool, schemaObjectName, assignmentOp } from './helpers.js';
 
 // ---------------------------------------------------------------------------
@@ -492,14 +505,14 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
 
     if (density === 'compact') {
         // Compact: try to keep everything inline; wrap at printWidth
-        const colList = group(join([',', line], colDocs));
+        const colList = group(join(softSep(opts), colDocs));
         const parts: Doc[] = [selectKw, ...(topDoc ? [' ', topDoc] : []), ' ', colList];
 
         if (from) {
             const tableRefs = propArr(from, 'tableReferences');
             const fromDocs = tableRefs.map((tr) => printTableRef(tr, opts, printFn));
             // Try to keep FROM on one line; if too long, each join on its own line
-            parts.push(line, keyword('FROM', opts), ' ', group(join([',', line], fromDocs)));
+            parts.push(line, keyword('FROM', opts), ' ', group(join(softSep(opts), fromDocs)));
         }
 
         if (where) {
@@ -509,7 +522,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
         if (groupBy) {
             const elems = propArr(groupBy, 'elements');
             const elemDocs = elems.map((e) => printExpression(e, opts, printFn));
-            parts.push(line, keyword('GROUP BY', opts), ' ', join([',', line], elemDocs));
+            parts.push(line, keyword('GROUP BY', opts), ' ', join(softSep(opts), elemDocs));
         }
 
         if (having) {
@@ -534,7 +547,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
     const colList: Doc =
         density === 'standard' && colDocs.length === 1 && singleExprType !== 'CaseExpression'
             ? [' ', colDocs[0]!]
-            : indent([hardline, join([',', hardline], colDocs)]);
+            : indent([hardline, join(hardSep(opts), colDocs)]);
     const parts: Doc[] = [selectKw, ...(topDoc ? [' ', topDoc] : []), colList];
 
     if (from) {
@@ -549,7 +562,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
         if (singleTable) {
             parts.push(hardline, keyword('FROM', opts), ' ', fromDocs[0]!);
         } else {
-            parts.push(hardline, keyword('FROM', opts), indent([hardline, join([',', hardline], fromDocs)]));
+            parts.push(hardline, keyword('FROM', opts), indent([hardline, join(hardSep(opts), fromDocs)]));
         }
     }
 
@@ -580,7 +593,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
         if (inline) {
             parts.push(hardline, keyword('GROUP BY', opts), ' ', elemDocs[0]!);
         } else {
-            parts.push(hardline, keyword('GROUP BY', opts), indent([hardline, join([',', hardline], elemDocs)]));
+            parts.push(hardline, keyword('GROUP BY', opts), indent([hardline, join(hardSep(opts), elemDocs)]));
         }
     }
 
@@ -1244,10 +1257,10 @@ export function printOrderByClause(node: SqlNode, opts: Options, printFn: (n: Sq
     });
     // compact: inline with ORDER BY, wraps; standard + single: inline; else: each on own line
     if (density === 'compact') {
-        return [keyword('ORDER BY', opts), ' ', join([',', line], elDocs)];
+        return [keyword('ORDER BY', opts), ' ', join(softSep(opts), elDocs)];
     }
     if (density === 'standard' && elements.length === 1) {
         return [keyword('ORDER BY', opts), ' ', elDocs[0]!];
     }
-    return [keyword('ORDER BY', opts), indent([hardline, join([',', hardline], elDocs)])];
+    return [keyword('ORDER BY', opts), indent([hardline, join(hardSep(opts), elDocs)])];
 }
