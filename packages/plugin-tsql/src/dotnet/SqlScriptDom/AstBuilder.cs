@@ -622,6 +622,10 @@ public class AstBuilder : TSqlFragmentVisitor {
             CloseCursorStatement ccs => BuildCloseCursor(ccs),
             DeallocateCursorStatement dalc => BuildDeallocateCursor(dalc),
 
+            // Session context
+            ExecuteAsStatement ea => BuildExecuteAsStatement(ea),
+            RevertStatement rv => BuildRevertStatement(rv),
+
             // Security — GRANT / DENY / REVOKE
             GrantStatement gs => BuildGrant(gs),
             DenyStatement dny => BuildDeny(dny),
@@ -1042,6 +1046,78 @@ public class AstBuilder : TSqlFragmentVisitor {
     // DDL: CREATE PROCEDURE
     // -------------------------------------------------------------------------
 
+    // -------------------------------------------------------------------------
+    // Session context: EXECUTE AS / REVERT
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildExecuteAsStatement(ExecuteAsStatement ea) {
+        var ctx = ea.ExecuteContext;
+        return Node("ExecuteAsStatement", ea, new Dictionary<string, object?> {
+            ["kind"] = ctx?.Kind.ToString(),
+            ["principal"] = ctx?.Principal != null ? BuildScalarExpression(ctx.Principal) : null,
+            ["withNoRevert"] = ea.WithNoRevert,
+            ["cookie"] = ea.Cookie != null ? Leaf("VariableReference", ea.Cookie, ea.Cookie.Name) : null,
+        });
+    }
+
+    private static SqlNode BuildRevertStatement(RevertStatement rv) =>
+        Node("RevertStatement", rv, new Dictionary<string, object?> {
+            ["cookie"] = rv.Cookie != null ? BuildScalarExpression(rv.Cookie) : null,
+        });
+
+    // -------------------------------------------------------------------------
+    // Procedure / function WITH options
+    // -------------------------------------------------------------------------
+
+    private static List<object?>? BuildProcedureOptions(IList<ProcedureOption>? options) {
+        if (options == null || options.Count == 0) return null;
+        return options.Select(opt => (object?)BuildProcedureOption(opt)).ToList();
+    }
+
+    private static SqlNode BuildProcedureOption(ProcedureOption opt) {
+        if (opt is ExecuteAsProcedureOption execAs) {
+            var clause = execAs.ExecuteAs;
+            return Node("ExecuteAsOption", opt, new Dictionary<string, object?> {
+                ["kind"] = clause?.ExecuteAsOption.ToString(),
+                ["principal"] = clause?.Literal?.Value,
+            });
+        }
+        // Simple option: map enum to SQL keyword string
+        string optText = opt.OptionKind switch {
+            ProcedureOptionKind.Encryption => "ENCRYPTION",
+            ProcedureOptionKind.Recompile => "RECOMPILE",
+            ProcedureOptionKind.NativeCompilation => "NATIVE_COMPILATION",
+            ProcedureOptionKind.SchemaBinding => "SCHEMABINDING",
+            _ => opt.OptionKind.ToString().ToUpper(),
+        };
+        return Leaf("ProcedureOption", opt, optText);
+    }
+
+    private static List<object?>? BuildFunctionOptions(IList<FunctionOption>? options) {
+        if (options == null || options.Count == 0) return null;
+        return options.Select(opt => (object?)BuildFunctionOption(opt)).ToList();
+    }
+
+    private static SqlNode BuildFunctionOption(FunctionOption opt) {
+        if (opt is ExecuteAsFunctionOption execAs) {
+            var clause = execAs.ExecuteAs;
+            return Node("ExecuteAsOption", opt, new Dictionary<string, object?> {
+                ["kind"] = clause?.ExecuteAsOption.ToString(),
+                ["principal"] = clause?.Literal?.Value,
+            });
+        }
+        string optText = opt.OptionKind switch {
+            FunctionOptionKind.Encryption => "ENCRYPTION",
+            FunctionOptionKind.SchemaBinding => "SCHEMABINDING",
+            FunctionOptionKind.ReturnsNullOnNullInput => "RETURNS NULL ON NULL INPUT",
+            FunctionOptionKind.CalledOnNullInput => "CALLED ON NULL INPUT",
+            FunctionOptionKind.NativeCompilation => "NATIVE_COMPILATION",
+            FunctionOptionKind.Inline => "INLINE",
+            _ => opt.OptionKind.ToString().ToUpper(),
+        };
+        return Leaf("FunctionOption", opt, optText);
+    }
+
     private static SqlNode BuildCreateProcedureStatement(CreateProcedureStatement cp) {
         var parms = cp.Parameters?.Select(p => (object?)BuildProcedureParameter(p)).ToList();
         var stmts = cp.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
@@ -1049,6 +1125,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         return Node("CreateProcedureStatement", cp, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(cp.ProcedureReference?.Name),
             ["parameters"] = parms,
+            ["options"] = BuildProcedureOptions(cp.Options),
             ["bodyStart"] = cp.StatementList?.StartOffset,
             ["body"] = stmts,
         });
@@ -1092,6 +1169,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         return Node("CreateFunctionStatement", cf, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(cf.Name),
             ["parameters"] = parms,
+            ["options"] = BuildFunctionOptions(cf.Options),
             ["bodyStart"] = cf.StatementList?.StartOffset,
             ["returnType"] = cf.ReturnType != null ? RawText(cf.ReturnType) : null,
             ["bodyType"] = bodyType,
@@ -1138,6 +1216,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         return Node("CreateOrAlterProcedureStatement", cap, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(cap.ProcedureReference?.Name),
             ["parameters"] = parms,
+            ["options"] = BuildProcedureOptions(cap.Options),
             ["bodyStart"] = cap.StatementList?.StartOffset,
             ["body"] = stmts,
         });
@@ -1381,6 +1460,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         return Node(type, p, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(p.ProcedureReference?.Name),
             ["parameters"] = parms,
+            ["options"] = BuildProcedureOptions(p.Options),
             ["bodyStart"] = p.StatementList?.StartOffset,
             ["body"] = stmts,
         });
@@ -1406,6 +1486,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         return Node(type, f, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(f.Name),
             ["parameters"] = parms,
+            ["options"] = BuildFunctionOptions(f.Options),
             ["bodyStart"] = f.StatementList?.StartOffset,
             ["returnType"] = f.ReturnType != null ? RawText(f.ReturnType) : null,
             ["bodyType"] = bodyType,

@@ -2209,3 +2209,60 @@ describe('sqlCommaStyle: leading', () => {
         expect(lines.filter((l) => l.trimStart().startsWith(','))).toHaveLength(3); // 2 select + 1 order by
     });
 });
+
+describe('EXECUTE AS / REVERT', () => {
+    it('EXECUTE AS CALLER', async () => {
+        const result = await fmt('execute as caller;');
+        expect(result).toBe('execute as caller;');
+    });
+
+    it('EXECUTE AS USER', async () => {
+        const result = await fmt("execute as user = 'dbo';");
+        expect(result).toContain('execute as');
+        expect(result).toContain('dbo');
+    });
+
+    it('EXECUTE AS LOGIN', async () => {
+        const result = await fmt("execute as login = 'sa';");
+        expect(result).toContain('execute as');
+        expect(result).toContain('sa');
+    });
+
+    it('EXECUTE AS with WITH NO REVERT', async () => {
+        const result = await fmt('execute as caller with no revert;');
+        expect(result).toContain('execute as caller');
+        expect(result).toContain('with no revert');
+    });
+
+    it('REVERT plain', async () => {
+        const result = await fmt('revert;');
+        expect(result).toBe('revert;');
+    });
+
+    it('REVERT uppercase', async () => {
+        const result = await fmt('revert;', { sqlKeywordCase: 'upper' });
+        expect(result).toBe('REVERT;');
+    });
+
+    it('proc WITH ENCRYPTION', async () => {
+        const result = await fmt(
+            'create procedure dbo.MyProc with encryption as begin select 1; end',
+        );
+        expect(result).toContain('with encryption');
+        expect(result).toContain('create procedure');
+    });
+
+    it('proc WITH RECOMPILE', async () => {
+        const result = await fmt(
+            'create procedure dbo.MyProc with recompile as begin select 1; end',
+        );
+        expect(result).toContain('with recompile');
+    });
+
+    it('proc WITH EXECUTE AS OWNER', async () => {
+        const result = await fmt(
+            "create procedure dbo.MyProc with execute as owner as begin select 1; end",
+        );
+        expect(result).toContain('with execute as owner');
+    });
+});

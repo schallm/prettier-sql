@@ -72,6 +72,8 @@ import {
     printFetchCursor,
     printCloseCursor,
     printDeallocateCursor,
+    printExecuteAsStatement,
+    printRevert,
 } from './procedural.js';
 import {
     printGrantDenyRevoke,
@@ -381,6 +383,12 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
             return printCloseCursor(node, opts);
         case 'DeallocateCursorStatement':
             return printDeallocateCursor(node, opts);
+
+        // Session context
+        case 'ExecuteAsStatement':
+            return printExecuteAsStatement(node, opts);
+        case 'RevertStatement':
+            return printRevert(node, opts);
 
         // Security — GRANT / DENY / REVOKE
         case 'GrantStatement':

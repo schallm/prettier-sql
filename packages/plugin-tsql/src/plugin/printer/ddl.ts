@@ -235,6 +235,39 @@ export function printAlterIndex(node: SqlNode, opts: Options): Doc {
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// WITH options for procs and functions (RECOMPILE, ENCRYPTION, EXECUTE AS, ...)
+// ---------------------------------------------------------------------------
+
+function printExecuteAsClause(optNode: SqlNode, opts: Options): Doc {
+    // ExecuteAsOption node: kind = Caller|Self|Owner|Login|User|String
+    const kind = propStr(optNode, 'kind') ?? 'Caller';
+    const principal = propStr(optNode, 'principal');
+    // String kind = EXECUTE AS 'username' (no USER/LOGIN qualifier)
+    if (kind === 'String') return [keyword('EXECUTE AS', opts), " '", principal ?? '', "'"];
+    const kindMap: Record<string, string> = {
+        Caller: 'CALLER',
+        Self: 'SELF',
+        Owner: 'OWNER',
+        Login: 'LOGIN',
+        User: 'USER',
+    };
+    const kindKw = keyword(kindMap[kind] ?? kind.toUpperCase(), opts);
+    if (principal) return [keyword('EXECUTE AS', opts), ' ', kindKw, " = '", principal, "'"];
+    return [keyword('EXECUTE AS', opts), ' ', kindKw];
+}
+
+function printModuleOptions(node: SqlNode, opts: Options): Doc {
+    const options = propArr(node, 'options');
+    if (!options.length) return '';
+    const optDocs = options.map((o) => {
+        if (o.type === 'ExecuteAsOption') return printExecuteAsClause(o, opts);
+        return keyword(o.text ?? '', opts);
+    });
+    return [hardline, keyword('WITH', opts), ' ', join(', ', optDocs)];
+}
+
+// ---------------------------------------------------------------------------
 // CREATE / ALTER / CREATE OR ALTER PROCEDURE
 // ---------------------------------------------------------------------------
 
@@ -278,6 +311,7 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
         preBody,
         parameters.length > 0 ? indent([hardline, join([',', hardline], paramDocs)]) : '',
         postParam,
+        printModuleOptions(node, opts),
         hardline,
         keyword('AS', opts),
         hardline,
@@ -336,6 +370,7 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
         parameters.length > 0 ? [indent([softline, join([',', line], paramDocs)]), softline] : '',
         ')',
         postParam,
+        printModuleOptions(node, opts),
         hardline,
         keyword('RETURNS', opts),
         ' ',

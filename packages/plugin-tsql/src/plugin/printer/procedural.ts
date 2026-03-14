@@ -378,3 +378,44 @@ export function printCloseCursor(node: SqlNode, opts: Options): Doc {
 export function printDeallocateCursor(node: SqlNode, opts: Options): Doc {
     return [keyword('DEALLOCATE', opts), ' ', propStr(node, 'cursorName') ?? '', ';'];
 }
+
+// ---------------------------------------------------------------------------
+// EXECUTE AS / REVERT (session context)
+// ---------------------------------------------------------------------------
+
+export function printExecuteAsStatement(node: SqlNode, opts: Options): Doc {
+    const kind = propStr(node, 'kind') ?? 'Caller';
+    const principal = prop(node, 'principal');
+    const withNoRevert = propBool(node, 'withNoRevert');
+    const cookie = prop(node, 'cookie');
+
+    const kindMap: Record<string, string> = {
+        Caller: 'CALLER',
+        User: 'USER',
+        Login: 'LOGIN',
+    };
+    const kindKw = keyword(kindMap[kind] ?? kind.toUpperCase(), opts);
+
+    const contextDoc: Doc = principal ? [kindKw, ' = ', printExpression(principal, opts, (n) => n.text ?? '')] : kindKw;
+
+    const parts: Doc[] = [keyword('EXECUTE AS', opts), ' ', contextDoc];
+    if (withNoRevert) parts.push(' ', keyword('WITH NO REVERT', opts));
+    if (cookie) parts.push(' ', keyword('WITH COOKIE INTO', opts), ' ', cookie.text ?? '');
+    parts.push(';');
+    return parts;
+}
+
+export function printRevert(node: SqlNode, opts: Options): Doc {
+    const cookie = prop(node, 'cookie');
+    if (cookie) {
+        return [
+            keyword('REVERT', opts),
+            ' ',
+            keyword('WITH COOKIE =', opts),
+            ' ',
+            printExpression(cookie, opts, (n) => n.text ?? ''),
+            ';',
+        ];
+    }
+    return [keyword('REVERT', opts), ';'];
+}
