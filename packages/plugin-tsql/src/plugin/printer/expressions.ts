@@ -1076,7 +1076,6 @@ function joinTypeKeyword(jt: string, opts: Options): Doc {
         LeftOuter: 'LEFT JOIN',
         RightOuter: 'RIGHT JOIN',
         FullOuter: 'FULL JOIN',
-        Cross: 'CROSS JOIN',
     };
     const kw = map[jt] ?? `${jt} JOIN`;
     return keyword(kw, opts);
@@ -1157,7 +1156,12 @@ function printUnqualifiedJoin(node: SqlNode, opts: Options, printFn: (n: SqlNode
     const left = prop(node, 'left');
     const right = prop(node, 'right');
     const jt = propStr(node, 'joinType') ?? 'Cross';
-    const kw = jt === 'Cross' ? keyword('CROSS JOIN', opts) : keyword('CROSS APPLY', opts);
+    const kw =
+        jt === 'CrossJoin'
+            ? keyword('CROSS JOIN', opts)
+            : jt === 'OuterApply'
+              ? keyword('OUTER APPLY', opts)
+              : keyword('CROSS APPLY', opts);
 
     const leftDoc = left ? printTableRef(left, opts, printFn) : '';
     // Unqualified joins have no condition; comment lands on left node itself.

@@ -1,0 +1,376 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`fixtures > alter-table/add-column.sql 1`] = `
+"alter table Books
+add
+  Isbn nvarchar(20) null,
+  Summary nvarchar(max) null;"
+`;
+
+exports[`fixtures > alter-table/drop-column.sql 1`] = `
+"alter table Books
+drop column Isbn, Summary;"
+`;
+
+exports[`fixtures > create-table/basic.sql 1`] = `
+"create table Books (
+  Id int identity(1, 1) not null,
+  Title nvarchar(200) not null,
+  Price decimal(10, 2) not null,
+  InStock bit default 1 not null,
+  PublishedDate datetime2 default getdate() not null,
+  constraint PK_Books primary key (Id)
+);"
+`;
+
+exports[`fixtures > create-table/with-constraints.sql 1`] = `
+"create table Orders (
+  Id int identity(1, 1) not null,
+  CustomerId int not null,
+  Total decimal(18, 2) not null,
+  Status nvarchar(50) default 'pending' not null,
+  OrderDate datetime2 default getdate() not null,
+  constraint PK_Orders primary key (Id),
+  constraint FK_Orders_Customers foreign key (CustomerId) references Customers (Id),
+  constraint CK_Orders_Total check (Total >= 0)
+);"
+`;
+
+exports[`fixtures > delete/basic.sql 1`] = `
+"delete from Books
+where
+  InStock = 0
+  and PublishedDate < dateadd(year, -10, getdate());"
+`;
+
+exports[`fixtures > function/scalar.sql 1`] = `
+"create function GetAuthorFullName(
+  @FirstName nvarchar(50),
+  @LastName nvarchar(50)
+)
+returns nvarchar(101)
+as
+begin
+  return @FirstName + ' ' + @LastName;
+end;
+go"
+`;
+
+exports[`fixtures > function/table-valued.sql 1`] = `
+"create function GetBooksByGenre(
+  @GenreId int
+)
+returns select id, title, price from books where genreid = @genreid and instock = 1
+as
+begin
+  select
+    Id,
+    Title,
+    Price
+  from Books
+  where
+    GenreId = @GenreId
+    and InStock = 1
+end;
+go"
+`;
+
+exports[`fixtures > insert/basic.sql 1`] = `
+"insert into Customers (
+  Name,
+  Email,
+  Active
+)
+values
+  ('John Doe', 'john@example.com', 1),
+  ('Jane Smith', 'jane@example.com', 1);"
+`;
+
+exports[`fixtures > insert/select-into.sql 1`] = `
+"insert into ArchivedBooks (
+  Id,
+  Title,
+  Price
+)
+select
+  Id,
+  Title,
+  Price
+from Books
+where InStock = 0;"
+`;
+
+exports[`fixtures > select/basic.sql 1`] = `
+"select
+  Books.Id,
+  Books.Title,
+  Authors.FirstName
+from
+  Books
+  inner join Authors on Books.AuthorId = Authors.Id
+where Books.InStock = 1
+order by Books.Title asc;"
+`;
+
+exports[`fixtures > select/cte.sql 1`] = `
+"with availableBooks as (
+  select
+    Id,
+    Title
+  from Books
+  where InStock = 1
+),
+    bookOrders as (
+  select
+    BookId,
+    count(*) as OrderCount
+  from OrderItems
+  group by BookId
+)
+select
+  availableBooks.Title,
+  bookOrders.OrderCount
+from
+  availableBooks
+  inner join bookOrders on availableBooks.Id = bookOrders.BookId
+order by bookOrders.OrderCount desc;"
+`;
+
+exports[`fixtures > select/joins.sql 1`] = `
+"-- INNER JOIN (keyword form)
+select
+  b.Id,
+  b.Title,
+  a.LastName
+from
+  Books as b
+  inner join Authors as a on b.AuthorId = a.Id
+where b.InStock = 1
+order by b.Title asc;
+
+-- LEFT JOIN with aliased columns
+select
+  b.Title,
+  p.Name as Publisher
+from
+  Books as b
+  left join Publishers as p on b.PublisherId = p.Id;
+
+-- RIGHT JOIN
+select
+  b.Title,
+  g.Name as Genre
+from
+  Books as b
+  right join Genres as g on b.GenreId = g.Id;
+
+-- FULL OUTER JOIN
+select
+  b.Title,
+  a.LastName
+from
+  Books as b
+  full join Authors as a on b.AuthorId = a.Id;
+
+-- CROSS JOIN
+select
+  b.Title,
+  g.Name
+from
+  Books as b
+  cross join Genres as g;
+
+-- Multiple joins on the same table
+select
+  b.Title,
+  a.LastName,
+  p.Name as Publisher,
+  g.Name as Genre
+from
+  Books as b
+  inner join Authors as a on b.AuthorId = a.Id
+  inner join Publishers as p on b.PublisherId = p.Id
+  inner join Genres as g on b.GenreId = g.Id
+where b.InStock = 1;
+
+-- JOIN with multiple ON predicates (AND)
+select
+  b.Title,
+  oi.Quantity
+from
+  Books as b
+  inner join OrderItems as oi on
+    b.Id = oi.BookId
+    and oi.UnitPrice > 10
+    and oi.Quantity > 1;
+
+-- Self-join
+select
+  b1.Title as Original,
+  b2.Title as Companion
+from
+  Books as b1
+  inner join Books as b2 on
+    b1.AuthorId = b2.AuthorId
+    and b1.Id <> b2.Id;
+
+-- JOIN with subquery (derived table)
+select
+  b.Title,
+  recent.Total
+from
+  Books as b
+  inner join (
+    select
+      BookId,
+      sum(Quantity) as Total
+    from OrderItems
+    group by BookId
+  ) as recent on b.Id = recent.BookId;
+
+-- CROSS APPLY
+select
+  b.Title,
+  top5.OrderId
+from
+  Books as b
+  cross apply (
+    select top (5) OrderId
+    from OrderItems
+    where BookId = b.Id
+    order by UnitPrice desc
+  ) as top5;
+
+-- OUTER APPLY
+select
+  b.Title,
+  latest.OrderId
+from
+  Books as b
+  outer apply (
+    select top (1) OrderId
+    from OrderItems
+    where BookId = b.Id
+    order by UnitPrice desc
+  ) as latest;
+
+-- JOIN with table hint
+select
+  b.Title,
+  a.LastName
+from
+  Books as b with (nolock)
+  inner join Authors as a with (nolock) on b.AuthorId = a.Id;
+
+-- Three-way join with WHERE and ORDER BY
+select
+  b.Title,
+  a.LastName,
+  o.Total
+from
+  Orders as o
+  inner join OrderItems as oi on o.Id = oi.OrderId
+  inner join Books as b on oi.BookId = b.Id
+  inner join Authors as a on b.AuthorId = a.Id
+where o.Status = 'Shipped'
+order by
+  o.OrderDate desc,
+  b.Title asc;
+
+-- UPDATE with JOIN (join-based update)
+update Books
+set InStock = 0
+from
+  Books as b
+  inner join Publishers as p on b.PublisherId = p.Id
+where p.Country = 'UK';"
+`;
+
+exports[`fixtures > select/subquery.sql 1`] = `
+"select
+  Id,
+  Title
+from Books
+where
+  Id in (
+    select BookId
+    from OrderItems
+    where UnitPrice > 50
+  )
+  and GenreId = (
+    select Id
+    from Genres
+    where Name = 'Fiction'
+  );"
+`;
+
+exports[`fixtures > select/window.sql 1`] = `
+"select
+  Id,
+  Title,
+  Price,
+  row_number() over (
+    partition by GenreId
+    order by Price desc
+  ) as Rn,
+  rank() over (
+    partition by GenreId
+    order by Price desc
+  ) as Rnk,
+  sum(Price) over (partition by GenreId) as GenreTotal
+from Books;"
+`;
+
+exports[`fixtures > stored-proc/basic.sql 1`] = `
+"create procedure GetAvailableBooks
+as
+begin
+  select
+    Id,
+    Title,
+    Price
+  from Books
+  where InStock = 1
+  order by Title asc;
+end;
+go"
+`;
+
+exports[`fixtures > stored-proc/with-params.sql 1`] = `
+"create procedure GetBookById
+  @BookId int,
+  @IncludeOutOfStock bit = 0
+as
+begin
+  select
+    Id,
+    Title,
+    Price,
+    InStock
+  from Books
+  where
+    Id = @BookId
+    and (
+      InStock = 1
+      or @IncludeOutOfStock = 1
+    );
+end;
+go"
+`;
+
+exports[`fixtures > update/basic.sql 1`] = `
+"update Books
+set
+  Title = 'Updated Title',
+  Price = 29.99
+where Id = 42;"
+`;
+
+exports[`fixtures > update/join-update.sql 1`] = `
+"update Books
+set InStock = 0
+from
+  Books
+  inner join Publishers on Books.PublisherId = Publishers.Id
+where Publishers.Country = 'UK';"
+`;
