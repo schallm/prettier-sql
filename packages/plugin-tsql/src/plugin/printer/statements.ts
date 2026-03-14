@@ -12,6 +12,7 @@ import {
     line,
     softline,
     lineSuffix,
+    appendTrailingLines,
 } from './utils.js';
 import { prop, propArr, propStr, propBool, schemaObjectName, assignmentOp } from './helpers.js';
 import {
@@ -109,12 +110,23 @@ import {
 } from './admin.js';
 
 // ---------------------------------------------------------------------------
-// Shared helpers — used here and re-exported for ddl.ts / procedural.ts
+// Shared helpers — exported for use in ddl.ts, procedural.ts, and admin.ts
+// (those files import printStatementWithComments from here; circular but safe in ESM)
 // ---------------------------------------------------------------------------
 
 /** Print a node via the expression dispatcher (no path needed for inner nodes). */
-function printNode(node: SqlNode, opts: Options): Doc {
+export function printNode(node: SqlNode, opts: Options): Doc {
     return printExpression(node, opts, (n) => printNode(n, opts));
+}
+
+/** Print a boolean expression node via the expression dispatcher. */
+export function printBool(node: SqlNode, opts: Options): Doc {
+    return printBoolExpr(node, opts, (n) => printNode(n, opts));
+}
+
+/** Print a query expression node via the expression dispatcher. */
+export function qexpr(node: SqlNode, opts: Options): Doc {
+    return printQueryExpression(node, opts, (n) => printNode(n, opts));
 }
 
 /**
@@ -125,7 +137,7 @@ function printNode(node: SqlNode, opts: Options): Doc {
 function appendTrailingComment(doc: Doc, comment: string | undefined): Doc {
     if (!comment) return doc;
     if (comment.startsWith('--')) return [doc, lineSuffix([' ', comment])];
-    return [doc, ...comment.split(/\r?\n/).flatMap((c): Doc[] => [hardline, c])];
+    return appendTrailingLines(doc, comment);
 }
 
 /**
@@ -142,10 +154,6 @@ export function printStatementWithComments(s: SqlNode, opts: Options): Doc {
     return withTrailing;
 }
 
-function printBool(node: SqlNode, opts: Options): Doc {
-    return printBoolExpr(node, opts, (n) => printNode(n, opts));
-}
-
 // Walk to the rightmost non-BooleanBinary leaf (mirrors the one in expressions.ts).
 function rightmostBoolLeaf(node: SqlNode | null | undefined): SqlNode | null {
     if (!node) return null;
@@ -158,8 +166,7 @@ function rightmostBoolLeaf(node: SqlNode | null | undefined): SqlNode | null {
 function printBoolDoc(where: SqlNode, opts: Options): Doc {
     const base = printBool(where, opts);
     const trailing = rightmostBoolLeaf(where)?.trailingComment;
-    if (!trailing) return base;
-    return [base, ...trailing.split(/\r?\n/).flatMap((c): Doc[] => [hardline, c])];
+    return appendTrailingLines(base, trailing);
 }
 
 function printTable(node: SqlNode, opts: Options): Doc {
@@ -466,11 +473,6 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 // SELECT
 // ---------------------------------------------------------------------------
-
-/** Shorthand: print a query expression node using the local printFn. */
-function qexpr(node: SqlNode, opts: Options): Doc {
-    return printQueryExpression(node, opts, (n) => printNode(n, opts));
-}
 
 function printCtes(node: SqlNode, opts: Options): Doc[] {
     const ctes = propArr(node, 'ctes');

@@ -1,8 +1,8 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '../parser/types.js';
 import type { Options } from './utils.js';
-import { keyword, hardline, join, indent } from './utils.js';
-import { propStr } from './helpers.js';
+import { keyword, hardline, join, indent, ifExistsDoc } from './utils.js';
+import { propStr, propBool } from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // GRANT / DENY / REVOKE
@@ -196,8 +196,8 @@ export function printAlterUser(node: SqlNode, opts: Options): Doc {
 
 export function printDropUser(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name') ?? '';
-    const ifExists = node.props?.['ifExists'];
-    return [keyword('DROP USER', opts), ifExists ? [' ', keyword('IF EXISTS', opts)] : '', ' ', name, ';'];
+    const ifExists = propBool(node, 'ifExists');
+    return [keyword('DROP USER', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
 }
 
 // ---------------------------------------------------------------------------
@@ -261,8 +261,8 @@ export function printAlterLogin(node: SqlNode, opts: Options): Doc {
 
 export function printDropLogin(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name') ?? '';
-    const ifExists = node.props?.['ifExists'];
-    return [keyword('DROP LOGIN', opts), ifExists ? [' ', keyword('IF EXISTS', opts)] : '', ' ', name, ';'];
+    const ifExists = propBool(node, 'ifExists');
+    return [keyword('DROP LOGIN', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
 }
 
 // ---------------------------------------------------------------------------
@@ -297,6 +297,6 @@ export function printAlterRole(node: SqlNode, opts: Options): Doc {
 
 export function printDropRole(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name') ?? '';
-    const ifExists = node.props?.['ifExists'];
-    return [keyword('DROP ROLE', opts), ifExists ? [' ', keyword('IF EXISTS', opts)] : '', ' ', name, ';'];
+    const ifExists = propBool(node, 'ifExists');
+    return [keyword('DROP ROLE', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
 }

@@ -1,26 +1,12 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '../parser/types.js';
 import type { Options } from './utils.js';
-import { keyword, hardline, join, indent, group } from './utils.js';
+import { keyword, hardline, join, indent, group, onOffKw } from './utils.js';
 import { prop, propArr, propStr, propBool, schemaObjectName, assignmentOp } from './helpers.js';
-import { printExpression, printBoolExpr, printQueryExpression } from './expressions.js';
-// printStatementWithComments is imported from statements.ts — circular but safe in ESM
-// (all imports are function references, never accessed during module initialisation)
-import { printStatementWithComments } from './statements.js';
+// printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
+// — circular but safe in ESM (all imports are function references, never accessed during init)
+import { printStatementWithComments, printNode, printBool, qexpr } from './statements.js';
 import { printColumnDef, printConstraintDef } from './ddl.js';
-
-// Local wrappers — mirror the ones in statements.ts
-function printNode(node: SqlNode, opts: Options): Doc {
-    return printExpression(node, opts, (n) => printNode(n, opts));
-}
-
-function printBool(node: SqlNode, opts: Options): Doc {
-    return printBoolExpr(node, opts, (n) => printNode(n, opts));
-}
-
-function qexpr(node: SqlNode, opts: Options): Doc {
-    return printQueryExpression(node, opts, (n) => printNode(n, opts));
-}
 
 // ---------------------------------------------------------------------------
 // Transactions
@@ -116,18 +102,18 @@ export function printUse(node: SqlNode, opts: Options): Doc {
 
 export function printPredicateSet(node: SqlNode, opts: Options): Doc {
     const opt = propStr(node, 'options') ?? '';
-    const onOff = propBool(node, 'isOn') ? keyword('ON', opts) : keyword('OFF', opts);
+    const onOff = onOffKw(propBool(node, 'isOn'), opts);
     return [keyword('SET', opts), ' ', keyword(opt, opts), ' ', onOff, ';'];
 }
 
 export function printSetStatistics(node: SqlNode, opts: Options): Doc {
     const opt = propStr(node, 'options') ?? '';
-    const onOff = propBool(node, 'isOn') ? keyword('ON', opts) : keyword('OFF', opts);
+    const onOff = onOffKw(propBool(node, 'isOn'), opts);
     return [keyword('SET STATISTICS', opts), ' ', keyword(opt, opts), ' ', onOff, ';'];
 }
 
 export function printSetIdentityInsert(node: SqlNode, opts: Options): Doc {
-    const onOff = propBool(node, 'isOn') ? keyword('ON', opts) : keyword('OFF', opts);
+    const onOff = onOffKw(propBool(node, 'isOn'), opts);
     return [keyword('SET IDENTITY_INSERT', opts), ' ', schemaObjectName(prop(node, 'table')), ' ', onOff, ';'];
 }
 
@@ -396,7 +382,7 @@ export function printExecuteAsStatement(node: SqlNode, opts: Options): Doc {
     };
     const kindKw = keyword(kindMap[kind] ?? kind.toUpperCase(), opts);
 
-    const contextDoc: Doc = principal ? [kindKw, ' = ', printExpression(principal, opts, (n) => n.text ?? '')] : kindKw;
+    const contextDoc: Doc = principal ? [kindKw, ' = ', printNode(principal, opts)] : kindKw;
 
     const parts: Doc[] = [keyword('EXECUTE AS', opts), ' ', contextDoc];
     if (withNoRevert) parts.push(' ', keyword('WITH NO REVERT', opts));
@@ -408,14 +394,7 @@ export function printExecuteAsStatement(node: SqlNode, opts: Options): Doc {
 export function printRevert(node: SqlNode, opts: Options): Doc {
     const cookie = prop(node, 'cookie');
     if (cookie) {
-        return [
-            keyword('REVERT', opts),
-            ' ',
-            keyword('WITH COOKIE =', opts),
-            ' ',
-            printExpression(cookie, opts, (n) => n.text ?? ''),
-            ';',
-        ];
+        return [keyword('REVERT', opts), ' ', keyword('WITH COOKIE =', opts), ' ', printNode(cookie, opts), ';'];
     }
     return [keyword('REVERT', opts), ';'];
 }

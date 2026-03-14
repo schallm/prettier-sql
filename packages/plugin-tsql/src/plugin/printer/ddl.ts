@@ -1,25 +1,11 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '../parser/types.js';
 import type { Options } from './utils.js';
-import { keyword, hardline, join, indent, group, softline, line } from './utils.js';
+import { keyword, hardline, join, indent, group, softline, line, ifExistsDoc } from './utils.js';
 import { prop, propArr, propStr, propBool, schemaObjectName } from './helpers.js';
-import { printExpression, printBoolExpr, printQueryExpression } from './expressions.js';
-// printStatementWithComments is imported from statements.ts — circular but safe in ESM
-// (all imports are function references, never accessed during module initialisation)
-import { printStatementWithComments } from './statements.js';
-
-// Local wrappers — mirror the ones in statements.ts
-function printNode(node: SqlNode, opts: Options): Doc {
-    return printExpression(node, opts, (n) => printNode(n, opts));
-}
-
-function printBool(node: SqlNode, opts: Options): Doc {
-    return printBoolExpr(node, opts, (n) => printNode(n, opts));
-}
-
-function qexpr(node: SqlNode, opts: Options): Doc {
-    return printQueryExpression(node, opts, (n) => printNode(n, opts));
-}
+// printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
+// — circular but safe in ESM (all imports are function references, never accessed during init)
+import { printStatementWithComments, printNode, printBool, qexpr } from './statements.js';
 
 // ---------------------------------------------------------------------------
 // CREATE TABLE
@@ -611,12 +597,11 @@ export function printCreateTypeTable(node: SqlNode, opts: Options): Doc {
 export function printDropObjects(objType: string, node: SqlNode, opts: Options): Doc {
     const names = propArr(node, 'names');
     const ifExists = propBool(node, 'ifExists');
-    const ifExistsPart: Doc = ifExists ? [' ', keyword('IF EXISTS', opts)] : '';
     return [
         keyword('DROP', opts),
         ' ',
         keyword(objType, opts),
-        ifExistsPart,
+        ifExistsDoc(ifExists, opts),
         ' ',
         join(
             ', ',
@@ -676,6 +661,5 @@ export function printAlterSchema(node: SqlNode, opts: Options): Doc {
 export function printDropSchema(node: SqlNode, opts: Options): Doc {
     const name = schemaObjectName(prop(node, 'name'));
     const ifExists = propBool(node, 'ifExists');
-    const ifExistsPart: Doc = ifExists ? [' ', keyword('IF EXISTS', opts)] : '';
-    return [keyword('DROP SCHEMA', opts), ifExistsPart, ' ', name, ';'];
+    return [keyword('DROP SCHEMA', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
 }

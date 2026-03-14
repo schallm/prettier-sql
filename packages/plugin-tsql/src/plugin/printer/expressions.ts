@@ -14,6 +14,7 @@ import {
     softline,
     ifBreak,
     fill,
+    appendTrailingLines,
 } from './utils.js';
 import { prop, propArr, propStr, propBool, schemaObjectName, assignmentOp } from './helpers.js';
 
@@ -885,8 +886,7 @@ function rightmostPred(node: SqlNode | null | undefined): SqlNode | null {
 function boolWithTrailing(node: SqlNode, doc: Doc): Doc {
     const rp = rightmostPred(node);
     const trailing = rp ? rightmostTrailingComment(rp, rp.endOffset) : undefined;
-    if (!trailing) return doc;
-    return [doc, ...trailing.split('\n').flatMap((c): Doc[] => [hardline, c])];
+    return appendTrailingLines(doc, trailing);
 }
 
 function printBoolBinary(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {

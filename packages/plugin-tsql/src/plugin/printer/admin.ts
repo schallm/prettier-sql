@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '../parser/types.js';
 import type { Options } from './utils.js';
-import { keyword, hardline, join, indent, group } from './utils.js';
+import { keyword, hardline, join, indent, group, ifExistsDoc } from './utils.js';
 import { propStr, propBool } from './helpers.js';
 
 // ---------------------------------------------------------------------------
@@ -12,9 +12,8 @@ export function printDropDatabase(node: SqlNode, opts: Options): Doc {
     const databases = node.props?.['databases'] as string[] | undefined;
     const ifExists = propBool(node, 'ifExists');
 
-    const ifExistsPart: Doc = ifExists ? [' ', keyword('IF EXISTS', opts)] : '';
     const dbList: Doc = databases?.length ? join([', '], databases) : '';
-    return [keyword('DROP DATABASE', opts), ifExistsPart, ' ', dbList, ';'];
+    return [keyword('DROP DATABASE', opts), ifExistsDoc(ifExists, opts), ' ', dbList, ';'];
 }
 
 // ---------------------------------------------------------------------------
