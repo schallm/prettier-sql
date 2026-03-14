@@ -4,7 +4,7 @@
 
 | Requirement  | Version | Notes                                    |
 | ------------ | ------- | ---------------------------------------- |
-| Node.js      | 18+     |                                          |
+| Node.js      | 20+     | Node 18 is EOL                           |
 | .NET Runtime | 8.0+    | SDK only needed for building from source |
 | Prettier     | 3.x     |                                          |
 
@@ -50,7 +50,7 @@ If you want to contribute or use a local build:
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org) 18+
+- [Node.js](https://nodejs.org) 20+
 - [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 
 ### Steps

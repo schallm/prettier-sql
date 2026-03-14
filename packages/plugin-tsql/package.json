@@ -30,6 +30,9 @@
     "mssql",
     "formatter"
   ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "peerDependencies": {
     "prettier": ">=3.0.0"
   },
