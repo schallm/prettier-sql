@@ -5,6 +5,8 @@ import {
     keyword,
     getDensity,
     getCommaStyle,
+    hardSep,
+    softSep,
     hardline,
     join,
     indent,
@@ -554,7 +556,7 @@ function printInsert(node: SqlNode, opts: Options): Doc {
               indent([
                   softline,
                   join(
-                      [',', line],
+                      softSep(opts),
                       columns.map((c) => printNode(c, opts)),
                   ),
               ]),
@@ -592,11 +594,11 @@ function printValuesSource(node: SqlNode, opts: Options): Doc {
     const rowDocs = rows.map((row) => {
         const rowNode = row as SqlNode;
         const vals = propArr(rowNode, 'values').map((v) => printNode(v, opts));
-        const rowDoc = group(['(', indent([softline, join([',', line], vals)]), softline, ')']);
+        const rowDoc = group(['(', indent([softline, join(softSep(opts), vals)]), softline, ')']);
         return rowNode.trailingComment ? [rowDoc, lineSuffix([' ', rowNode.trailingComment])] : rowDoc;
     });
 
-    return [hardline, keyword('VALUES', opts), indent([hardline, join([',', hardline], rowDocs)])];
+    return [hardline, keyword('VALUES', opts), indent([hardline, join(hardSep(opts), rowDocs)])];
 }
 
 // ---------------------------------------------------------------------------
@@ -629,7 +631,7 @@ function printUpdate(node: SqlNode, opts: Options): Doc {
         keyword('SET', opts),
         density !== 'spacious' && setParts.length === 1
             ? [' ', setParts[0]!]
-            : indent([hardline, join([',', hardline], setParts)]),
+            : indent([hardline, join(hardSep(opts), setParts)]),
     ];
 
     if (from) {
@@ -640,7 +642,7 @@ function printUpdate(node: SqlNode, opts: Options): Doc {
             indent([
                 hardline,
                 join(
-                    [',', hardline],
+                    hardSep(opts),
                     tableRefs.map((tr) => printTable(tr, opts)),
                 ),
             ]),
@@ -686,7 +688,7 @@ function printDelete(node: SqlNode, opts: Options): Doc {
             indent([
                 hardline,
                 join(
-                    [',', hardline],
+                    hardSep(opts),
                     tableRefs.map((tr) => printTable(tr, opts)),
                 ),
             ]),

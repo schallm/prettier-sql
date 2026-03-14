@@ -1088,6 +1088,26 @@ group by
   , AuthorId;"
 `;
 
+exports[`sqlCommaStyle: leading > INSERT VALUES multi-row uses leading commas between rows 1`] = `
+"insert into Books (
+  Title
+  , Price
+)
+values
+  (
+    'A'
+    , 1.00
+  )
+  , (
+    'B'
+    , 2.00
+  )
+  , (
+    'C'
+    , 3.00
+  );"
+`;
+
 exports[`sqlCommaStyle: leading > ORDER BY multi-column uses leading commas 1`] = `
 "select Id
 from Books
@@ -1103,6 +1123,15 @@ exports[`sqlCommaStyle: leading > SELECT multi-column uses leading commas 1`] = 
   , b.Title
   , b.Price
 from Books as b;"
+`;
+
+exports[`sqlCommaStyle: leading > UPDATE SET multi-column uses leading commas 1`] = `
+"update Books
+set
+  Title = @title
+  , Price = @price
+  , AuthorId = @authorId
+where BookId = @id;"
 `;
 
 exports[`table hints > NOLOCK on joined table 1`] = `

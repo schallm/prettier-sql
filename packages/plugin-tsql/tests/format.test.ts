@@ -2253,6 +2253,33 @@ describe('sqlCommaStyle: leading', () => {
         const lines = result.split('\n');
         expect(lines.filter((l) => l.trimStart().startsWith(','))).toHaveLength(3); // 2 select + 1 order by
     });
+
+    it('INSERT VALUES multi-row uses leading commas between rows', async () => {
+        const result = await fmt(
+            "insert into Books (Title, Price) values ('A', 1.00), ('B', 2.00), ('C', 3.00)",
+            leading,
+        );
+        expect(result).toMatchSnapshot();
+        // Leading commas appear on column list, within each row, and between rows
+        expect(result.split('\n').some((l) => l.trimStart().startsWith(','))).toBe(true);
+    });
+
+    it('UPDATE SET multi-column uses leading commas', async () => {
+        const result = await fmt(
+            'update Books set Title = @title, Price = @price, AuthorId = @authorId where BookId = @id',
+            leading,
+        );
+        expect(result).toMatchSnapshot();
+        const lines = result.split('\n');
+        expect(lines.filter((l) => l.trimStart().startsWith(','))).toHaveLength(2);
+    });
+
+    it('trailing (default) INSERT VALUES still uses trailing commas', async () => {
+        const result = await fmt("insert into t (a, b) values (1, 2), (3, 4)");
+        const lines = result.split('\n');
+        expect(lines.some((l) => l.trimEnd().endsWith(','))).toBe(true);
+        expect(lines.every((l) => !l.trimStart().startsWith(','))).toBe(true);
+    });
 });
 
 describe('EXECUTE AS / REVERT', () => {
