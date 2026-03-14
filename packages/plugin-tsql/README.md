@@ -14,8 +14,10 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - `OUTPUT` / `OUTPUT INTO` on INSERT, UPDATE, DELETE, and MERGE (including `$action`, `inserted.*`, `deleted.*`)
 - CTEs, window functions, derived tables, subqueries, `UNION`/`UNION ALL`, `CASE` expressions (simple and searched), `IN`/`NOT IN`, nested joins
 - Table-valued functions (TVFs) in `FROM` clauses; table hints (`WITH (NOLOCK)`, etc.)
-- Expression functions: `CAST`, `CONVERT`, `TRY_CAST`, `TRY_CONVERT` (with full data type including length/precision), `IIF`, `COALESCE`, `NULLIF`, `AT TIME ZONE`; `IS [NOT] DISTINCT FROM` (SQL Server 2022); `TRIM(LEADING|TRAILING|BOTH ...)` (SQL Server 2022); `IGNORE NULLS` / `RESPECT NULLS` on window functions (SQL Server 2022); `OVER (window_name)` named window reference (SQL Server 2022); `JSON_OBJECT(key: value, ...) [ABSENT|NULL ON NULL]` (SQL Server 2022); `JSON_ARRAY(...) [ABSENT|NULL ON NULL]` (SQL Server 2022); `JSON_ARRAYAGG(expr [ORDER BY ...] [ABSENT|NULL ON NULL])` (SQL Server 2022)
+- Expression functions: `CAST`, `CONVERT`, `TRY_CAST`, `TRY_CONVERT` (with full data type including length/precision), `IIF`, `COALESCE`, `NULLIF`, `AT TIME ZONE`
+- SQL Server 2022 expression features: `IS [NOT] DISTINCT FROM`; `TRIM(LEADING|TRAILING|BOTH ...)`; `IGNORE NULLS` / `RESPECT NULLS` on window functions; named window reference `OVER (window_name)`; `JSON_OBJECT(key: value, ...)`, `JSON_ARRAY(...)`, `JSON_ARRAYAGG(expr [ORDER BY ...])` — all with optional `ABSENT|NULL ON NULL`
 - Named `WINDOW` clause: `SELECT ... WINDOW w AS (PARTITION BY x ORDER BY y)` with full window frame support (`ROWS`/`RANGE BETWEEN ... AND ...`, `UNBOUNDED PRECEDING/FOLLOWING`, `CURRENT ROW`, value preceding/following)
+- SQL Server 2022 built-in functions (formatted as standard function calls, no special handling needed): `GREATEST`, `LEAST`, `DATE_BUCKET`, `DATETRUNC`, `GENERATE_SERIES`, `LEFT_SHIFT`, `RIGHT_SHIFT`, `BIT_COUNT`, `GET_BIT`, `SET_BIT`, `APPROX_PERCENTILE_CONT`, `APPROX_PERCENTILE_DISC`, `JSON_PATH_EXISTS`, and the updated `STRING_SPLIT`, `ISJSON`, `LTRIM`, `RTRIM` signatures
 - Full-text predicates: `CONTAINS` / `FREETEXT` (single column, multi-column, wildcard, `LANGUAGE`); `CONTAINSTABLE` / `FREETEXTTABLE` as join sources
 - Rowset functions: `OPENJSON` and `OPENXML` with `WITH` schema declarations; `OPENJSON` row-path and `AS JSON` columns; `OPENROWSET` provider form (single provider-string or three-part datasource/userid/password) and `OPENROWSET(BULK ...)` form
 
@@ -61,16 +63,9 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 
 The constructs below are parsed correctly but emitted as-is (original source text preserved). PRs welcome.
 
-### SQL Server 2022 / 2025 syntax
-
-These require new printer logic for AST nodes or properties added in ScriptDom 161+/170:
-
-- **Ledger table syntax** — `CREATE TABLE ... WITH (LEDGER = ON, ...)` table options; new `LedgerTableOption` AST node.
-
-> **Already handled by existing `FunctionCall` pass-through:** `GREATEST`, `LEAST`, `DATE_BUCKET`, `DATETRUNC`, `GENERATE_SERIES`, `LEFT_SHIFT`, `RIGHT_SHIFT`, `BIT_COUNT`, `GET_BIT`, `SET_BIT`, `APPROX_PERCENTILE_CONT/DISC`, `JSON_PATH_EXISTS`, and the enhanced `STRING_SPLIT`, `ISJSON`, `LTRIM`, `RTRIM` signatures all format correctly without new code.
-
 ### DDL object model
 
+- Ledger table syntax — `CREATE TABLE ... WITH (LEDGER = ON, ...)` table options
 - Partition functions and schemes (`CREATE/ALTER/DROP PARTITION FUNCTION`, `CREATE/ALTER/DROP PARTITION SCHEME`)
 - Assemblies (`CREATE/ALTER/DROP ASSEMBLY`)
 - XML schema collections (`CREATE/ALTER/DROP XML SCHEMA COLLECTION`)
