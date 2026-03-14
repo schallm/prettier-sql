@@ -403,6 +403,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         var groupByClause = qs.GroupByClause != null ? BuildGroupByClause(qs.GroupByClause) : null;
         var havingClause = qs.HavingClause != null ? BuildBooleanExpression(qs.HavingClause.SearchCondition) : null;
         var orderByClause = qs.OrderByClause != null ? BuildOrderByClause(qs.OrderByClause) : null;
+        var windowClause = BuildWindowClause(qs.WindowClause);
         var uniqueRowFilter = qs.UniqueRowFilter.ToString();
 
         return Node("QuerySpecification", qs, new Dictionary<string, object?> {
@@ -414,6 +415,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["groupBy"] = groupByClause,
             ["having"] = havingClause,
             ["orderBy"] = orderByClause,
+            ["windowDefs"] = windowClause,
         });
     }
 
@@ -497,7 +499,38 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["partitionBy"] = partitionBy,
             ["orderBy"] = orderBy,
             ["windowName"] = windowName,
+            ["frame"] = over.WindowFrameClause != null ? BuildWindowFrame(over.WindowFrameClause) : null,
         });
+    }
+
+    private static SqlNode BuildWindowFrame(WindowFrameClause frame) =>
+        Node("WindowFrame", frame, new Dictionary<string, object?> {
+            ["frameType"] = frame.WindowFrameType.ToString(),
+            ["top"] = BuildWindowDelimiter(frame.Top),
+            ["bottom"] = frame.Bottom != null ? BuildWindowDelimiter(frame.Bottom) : null,
+        });
+
+    private static SqlNode BuildWindowDelimiter(WindowDelimiter delim) =>
+        Node("WindowDelimiter", delim, new Dictionary<string, object?> {
+            ["delimType"] = delim.WindowDelimiterType.ToString(),
+            ["offset"] = delim.OffsetValue != null ? BuildScalarExpression(delim.OffsetValue) : null,
+        });
+
+    private static SqlNode BuildWindowDefinition(WindowDefinition wd) {
+        var partitionBy = wd.Partitions?.Select(p => (object?)BuildScalarExpression(p)).ToList();
+        var orderBy = wd.OrderByClause != null ? BuildOrderByClause(wd.OrderByClause) : null;
+        return Node("WindowDefinition", wd, new Dictionary<string, object?> {
+            ["name"] = wd.WindowName?.Value,
+            ["refWindowName"] = wd.RefWindowName?.Value,
+            ["partitionBy"] = partitionBy,
+            ["orderBy"] = orderBy,
+            ["frame"] = wd.WindowFrameClause != null ? BuildWindowFrame(wd.WindowFrameClause) : null,
+        });
+    }
+
+    private static List<object?>? BuildWindowClause(WindowClause? wc) {
+        if (wc?.WindowDefinition == null || wc.WindowDefinition.Count == 0) return null;
+        return wc.WindowDefinition.Select(wd => (object?)BuildWindowDefinition(wd)).ToList();
     }
 
     // -------------------------------------------------------------------------

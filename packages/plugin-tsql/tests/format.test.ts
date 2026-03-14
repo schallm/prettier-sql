@@ -1989,6 +1989,9 @@ describe('OVER (window_name) (SQL Server 2022+)', () => {
             'select row_number() over w from Books window w as (partition by AuthorId order by Title)'
         );
         expect(result).toMatchSnapshot();
+        expect(result).toContain('window w as (');
+        expect(result).toContain('partition by AuthorId');
+        expect(result).toContain('order by Title asc');
     });
 
     it('keyword case: upper', async () => {
@@ -1996,6 +1999,48 @@ describe('OVER (window_name) (SQL Server 2022+)', () => {
             sqlKeywordCase: 'upper',
         });
         expect(result).toContain('OVER (w)');
+        expect(result).toContain('WINDOW w AS (');
+        expect(result).toContain('ORDER BY id ASC');
+    });
+
+    it('window with ROWS BETWEEN frame', async () => {
+        const result = await fmt(
+            'select sum(Price) over w from Books window w as (partition by AuthorId order by Id rows between unbounded preceding and current row)'
+        );
+        expect(result).toMatchSnapshot();
+        expect(result).toContain('rows between unbounded preceding and current row');
+    });
+
+    it('window with RANGE UNBOUNDED PRECEDING (no BETWEEN)', async () => {
+        const result = await fmt(
+            'select sum(Price) over w from Books window w as (order by Id range unbounded preceding)'
+        );
+        expect(result).toContain('range unbounded preceding');
+    });
+
+    it('multiple named windows', async () => {
+        const result = await fmt(
+            'select row_number() over w1, rank() over w2 from Books window w1 as (partition by AuthorId order by Id), w2 as (order by Price)'
+        );
+        expect(result).toMatchSnapshot();
+        expect(result).toContain('window');
+        expect(result).toContain('w1 as (');
+        expect(result).toContain('w2 as (');
+    });
+
+    it('window with ROWS N PRECEDING', async () => {
+        const result = await fmt(
+            'select avg(Price) over w from Books window w as (order by Id rows 3 preceding)'
+        );
+        expect(result).toContain('rows 3 preceding');
+    });
+
+    it('inline window frame on OVER clause (no named window)', async () => {
+        const result = await fmt(
+            'select sum(Price) over (partition by AuthorId order by Id rows between unbounded preceding and current row) from Books'
+        );
+        expect(result).toMatchSnapshot();
+        expect(result).toContain('rows between unbounded preceding and current row');
     });
 });
 

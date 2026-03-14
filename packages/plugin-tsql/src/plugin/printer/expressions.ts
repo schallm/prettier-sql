@@ -497,6 +497,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
     const groupBy = prop(node, 'groupBy');
     const having = prop(node, 'having');
     const orderBy = prop(node, 'orderBy');
+    const windowDefs = propArr(node, 'windowDefs');
 
     const selectKw = uniqueRowFilter === 'Distinct' ? keyword('SELECT DISTINCT', opts) : keyword('SELECT', opts);
 
@@ -536,6 +537,10 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
 
         if (orderBy) {
             parts.push(line, printOrderByClause(orderBy, opts, printFn));
+        }
+
+        if (windowDefs.length > 0) {
+            parts.push(line, printWindowClause(windowDefs, opts, printFn));
         }
 
         return group(parts);
@@ -619,6 +624,10 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
         parts.push(hardline, printOrderByClause(orderBy, opts, printFn));
     }
 
+    if (windowDefs.length > 0) {
+        parts.push(hardline, printWindowClause(windowDefs, opts, printFn));
+    }
+
     return group(parts);
 }
 
@@ -679,6 +688,7 @@ export function printOverClause(node: SqlNode, opts: Options, printFn: (n: SqlNo
 
     const partitions = propArr(node, 'partitionBy');
     const orderBy = prop(node, 'orderBy');
+    const frame = prop(node, 'frame');
 
     const parts: Doc[] = [];
 
@@ -698,7 +708,93 @@ export function printOverClause(node: SqlNode, opts: Options, printFn: (n: SqlNo
         parts.push(printOrderByClause(orderBy, opts, printFn));
     }
 
+    if (frame) {
+        if (parts.length > 0) parts.push(hardline);
+        parts.push(printWindowFrame(frame, opts, printFn));
+    }
+
     return group(['(', indent([softline, ...parts]), softline, ')']);
+}
+
+function printWindowFrame(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const frameType = keyword(propStr(node, 'frameType') ?? 'ROWS', opts); // 'Rows' | 'Range'
+    const top = prop(node, 'top');
+    const bottom = prop(node, 'bottom');
+    if (bottom) {
+        return [
+            frameType,
+            ' ',
+            keyword('BETWEEN', opts),
+            ' ',
+            printWindowDelimiter(top!, opts, printFn),
+            ' ',
+            keyword('AND', opts),
+            ' ',
+            printWindowDelimiter(bottom, opts, printFn),
+        ];
+    }
+    return [frameType, ' ', printWindowDelimiter(top!, opts, printFn)];
+}
+
+function printWindowDelimiter(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const delimType = propStr(node, 'delimType') ?? '';
+    const offset = prop(node, 'offset');
+    switch (delimType) {
+        case 'UnboundedPreceding':
+            return [keyword('UNBOUNDED', opts), ' ', keyword('PRECEDING', opts)];
+        case 'ValuePreceding':
+            return [offset ? printExpression(offset, opts, printFn) : '', ' ', keyword('PRECEDING', opts)];
+        case 'CurrentRow':
+            return [keyword('CURRENT', opts), ' ', keyword('ROW', opts)];
+        case 'ValueFollowing':
+            return [offset ? printExpression(offset, opts, printFn) : '', ' ', keyword('FOLLOWING', opts)];
+        case 'UnboundedFollowing':
+            return [keyword('UNBOUNDED', opts), ' ', keyword('FOLLOWING', opts)];
+        default:
+            return delimType;
+    }
+}
+
+function printWindowDefinition(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const refWindowName = propStr(node, 'refWindowName');
+    const partitions = propArr(node, 'partitionBy');
+    const orderBy = prop(node, 'orderBy');
+    const frame = prop(node, 'frame');
+
+    const inner: Doc[] = [];
+    if (refWindowName) inner.push(refWindowName);
+    if (partitions.length > 0) {
+        if (inner.length > 0) inner.push(hardline);
+        inner.push(
+            keyword('PARTITION BY', opts),
+            ' ',
+            join(
+                [',', line],
+                partitions.map((p) => printExpression(p, opts, printFn)),
+            ),
+        );
+    }
+    if (orderBy) {
+        if (inner.length > 0) inner.push(hardline);
+        inner.push(printOrderByClause(orderBy, opts, printFn));
+    }
+    if (frame) {
+        if (inner.length > 0) inner.push(hardline);
+        inner.push(printWindowFrame(frame, opts, printFn));
+    }
+
+    const body = inner.length > 0 ? group(['(', indent([softline, ...inner]), softline, ')']) : '()';
+    return [name, ' ', keyword('AS', opts), ' ', body];
+}
+
+export function printWindowClause(defs: SqlNode[], opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    if (defs.length === 0) return '';
+    const defDocs = defs.map((d) => printWindowDefinition(d, opts, printFn));
+    if (defs.length === 1) {
+        return [keyword('WINDOW', opts), ' ', defDocs[0]!];
+    }
+    return [keyword('WINDOW', opts), indent([hardline, join([',', hardline], defDocs)])];
 }
 
 // ---------------------------------------------------------------------------
