@@ -14,7 +14,7 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - `OUTPUT` / `OUTPUT INTO` on INSERT, UPDATE, DELETE, and MERGE (including `$action`, `inserted.*`, `deleted.*`)
 - CTEs, window functions, derived tables, subqueries, `UNION`/`UNION ALL`, `CASE` expressions (simple and searched), `IN`/`NOT IN`, nested joins
 - Table-valued functions (TVFs) in `FROM` clauses; table hints (`WITH (NOLOCK)`, etc.)
-- Expression functions: `CAST`, `CONVERT`, `TRY_CAST`, `TRY_CONVERT` (with full data type including length/precision), `IIF`, `COALESCE`, `NULLIF`, `AT TIME ZONE`; `IS [NOT] DISTINCT FROM` (SQL Server 2022); `TRIM(LEADING|TRAILING|BOTH ...)` (SQL Server 2022); `IGNORE NULLS` / `RESPECT NULLS` on window functions (SQL Server 2022); `OVER (window_name)` named window reference (SQL Server 2022)
+- Expression functions: `CAST`, `CONVERT`, `TRY_CAST`, `TRY_CONVERT` (with full data type including length/precision), `IIF`, `COALESCE`, `NULLIF`, `AT TIME ZONE`; `IS [NOT] DISTINCT FROM` (SQL Server 2022); `TRIM(LEADING|TRAILING|BOTH ...)` (SQL Server 2022); `IGNORE NULLS` / `RESPECT NULLS` on window functions (SQL Server 2022); `OVER (window_name)` named window reference (SQL Server 2022); `JSON_OBJECT(key: value, ...) [ABSENT|NULL ON NULL]` (SQL Server 2022); `JSON_ARRAY(...) [ABSENT|NULL ON NULL]` (SQL Server 2022); `JSON_ARRAYAGG(expr [ORDER BY ...] [ABSENT|NULL ON NULL])` (SQL Server 2022)
 - Full-text predicates: `CONTAINS` / `FREETEXT` (single column, multi-column, wildcard, `LANGUAGE`); `CONTAINSTABLE` / `FREETEXTTABLE` as join sources
 - Rowset functions: `OPENJSON` and `OPENXML` with `WITH` schema declarations; `OPENJSON` row-path and `AS JSON` columns; `OPENROWSET` provider form (single provider-string or three-part datasource/userid/password) and `OPENROWSET(BULK ...)` form
 
@@ -62,7 +62,6 @@ The constructs below are parsed correctly but emitted as-is (original source tex
 
 These require new printer logic for AST nodes or properties added in ScriptDom 161+/170:
 
-- **`JSON_OBJECT(key: value, ...)`** — key-value constructor syntax; uses new `FunctionCall.JsonParameters` / `JsonKeyValue` AST class instead of the regular positional parameters list. `JSON_ARRAY(...)` and `JSON_PATH_EXISTS(...)` already work as plain function calls.
 - **Named `WINDOW` clause** — `SELECT ... WINDOW w AS (PARTITION BY ... ORDER BY ...)` at the end of a query; new `WindowClause`/`WindowDefinition` on `QuerySpecification`. Window functions referencing a named window via `OVER (w)` are already formatted correctly.
 - **Ledger table syntax** — `CREATE TABLE ... WITH (LEDGER = ON, ...)` table options; new `LedgerTableOption` AST node.
 
