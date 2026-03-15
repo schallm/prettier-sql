@@ -475,8 +475,7 @@ export function printCreateTrigger(node: SqlNode, opts: Options): Doc {
 
 function printSequenceOptions(node: SqlNode, opts: Options): Doc[] {
     const parts: Doc[] = [];
-    const dataType = propStr(node, 'dataType');
-    if (dataType) parts.push(hardline, keyword('AS', opts), ' ', keyword(dataType, opts));
+    const dataType = propStr(node, 'dataType'); // emitted inline on header line, not here
     const startWith = propStr(node, 'startWith');
     if (startWith != null) parts.push(hardline, keyword('START WITH', opts), ' ', startWith);
     const restartWith = propStr(node, 'restartWith');
@@ -501,11 +500,15 @@ function printSequenceOptions(node: SqlNode, opts: Options): Doc[] {
     return parts;
 }
 
+function sequenceHeader(kw: Doc, node: SqlNode, opts: Options): Doc {
+    const dataType = propStr(node, 'dataType');
+    const asPart: Doc = dataType ? [' ', keyword('AS', opts), ' ', keyword(dataType, opts)] : '';
+    return [kw, ' ', schemaObjectName(prop(node, 'name')), asPart];
+}
+
 export function printCreateSequence(node: SqlNode, opts: Options): Doc {
     return group([
-        keyword('CREATE SEQUENCE', opts),
-        ' ',
-        schemaObjectName(prop(node, 'name')),
+        sequenceHeader(keyword('CREATE SEQUENCE', opts), node, opts),
         indent(printSequenceOptions(node, opts)),
         ';',
     ]);
@@ -513,9 +516,7 @@ export function printCreateSequence(node: SqlNode, opts: Options): Doc {
 
 export function printAlterSequence(node: SqlNode, opts: Options): Doc {
     return group([
-        keyword('ALTER SEQUENCE', opts),
-        ' ',
-        schemaObjectName(prop(node, 'name')),
+        sequenceHeader(keyword('ALTER SEQUENCE', opts), node, opts),
         indent(printSequenceOptions(node, opts)),
         ';',
     ]);

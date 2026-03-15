@@ -182,15 +182,13 @@ exports[`CREATE/ALTER/DROP SEQUENCE > ALTER SEQUENCE restart 1`] = `
 `;
 
 exports[`CREATE/ALTER/DROP SEQUENCE > CREATE SEQUENCE minimal 1`] = `
-"create sequence OrderSeq
-  as int
+"create sequence OrderSeq as int
   start with 1
   increment by 1;"
 `;
 
 exports[`CREATE/ALTER/DROP SEQUENCE > CREATE SEQUENCE with min/max/cycle/cache 1`] = `
-"create sequence Seq
-  as bigint
+"create sequence Seq as bigint
   start with 1
   increment by 1
   minvalue 1

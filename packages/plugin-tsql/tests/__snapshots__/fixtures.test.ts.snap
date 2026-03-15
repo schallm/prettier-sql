@@ -696,13 +696,11 @@ from Books;"
 `;
 
 exports[`fixtures > sequence/basic.sql 1`] = `
-"create sequence OrderSeq
-  as int
+"create sequence OrderSeq as int
   start with 1
   increment by 1;
 
-create sequence dbo.InvoiceSeq
-  as bigint
+create sequence dbo.InvoiceSeq as bigint
   start with 1000
   increment by 1
   minvalue 1000
