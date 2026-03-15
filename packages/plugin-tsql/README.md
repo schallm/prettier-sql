@@ -99,7 +99,7 @@ The constructs below are parsed correctly but emitted as-is (original source tex
 
 ## Requirements
 
-- Node.js 20+ (Node 18 is EOL)
+- Node.js 20+
 - [.NET 8+ Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) (the SDK is only needed for building from source)
 - Prettier 3.x (peer dependency)
 
