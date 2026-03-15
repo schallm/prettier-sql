@@ -10,17 +10,19 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 
 **DML**
 
-- `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `MERGE INTO … USING … ON … WHEN MATCHED/NOT MATCHED`
-- `OUTPUT` / `OUTPUT INTO` on INSERT, UPDATE, DELETE, and MERGE (including `$action`, `inserted.*`, `deleted.*`)
-- CTEs, window functions, derived tables, subqueries, `UNION`/`UNION ALL`, `CASE` expressions (simple and searched), `IN`/`NOT IN`
+- `SELECT`, `INSERT`, `UPDATE`, `DELETE`
+- `MERGE INTO … USING … ON … WHEN MATCHED/NOT MATCHED`
+- `OUTPUT` / `OUTPUT INTO` on `INSERT`, `UPDATE`, `DELETE`, and `MERGE` (including `$action`, `inserted.*`, `deleted.*`)
+- CTEs, `UNION`/`UNION ALL`, subqueries, derived tables
+- `CASE` expressions (simple and searched), `IN`/`NOT IN`
 - Joins: `INNER`, `LEFT`, `RIGHT`, `FULL OUTER`, `CROSS JOIN`, `CROSS APPLY`, `OUTER APPLY`; multiple joins, multi-predicate `ON`, self-joins, parenthesized joins, derived table joins
 - Table-valued functions (TVFs) in `FROM` clauses; table hints (`WITH (NOLOCK)`, etc.)
-- Expression functions: `CAST`, `CONVERT`, `TRY_CAST`, `TRY_CONVERT` (with full data type including length/precision), `IIF`, `COALESCE`, `NULLIF`, `AT TIME ZONE`
-- SQL Server 2022 expression features: `IS [NOT] DISTINCT FROM`; `TRIM(LEADING|TRAILING|BOTH ...)`; `IGNORE NULLS` / `RESPECT NULLS` on window functions; named window reference `OVER (window_name)`; `JSON_OBJECT(key: value, ...)`, `JSON_ARRAY(...)`, `JSON_ARRAYAGG(expr [ORDER BY ...])` — all with optional `ABSENT|NULL ON NULL`
-- Named `WINDOW` clause: `SELECT ... WINDOW w AS (PARTITION BY x ORDER BY y)` with full window frame support (`ROWS`/`RANGE BETWEEN ... AND ...`, `UNBOUNDED PRECEDING/FOLLOWING`, `CURRENT ROW`, value preceding/following)
-- SQL Server 2022 built-in functions (formatted as standard function calls, no special handling needed): `GREATEST`, `LEAST`, `DATE_BUCKET`, `DATETRUNC`, `GENERATE_SERIES`, `LEFT_SHIFT`, `RIGHT_SHIFT`, `BIT_COUNT`, `GET_BIT`, `SET_BIT`, `APPROX_PERCENTILE_CONT`, `APPROX_PERCENTILE_DISC`, `JSON_PATH_EXISTS`, and the updated `STRING_SPLIT`, `ISJSON`, `LTRIM`, `RTRIM` signatures
-- Full-text predicates: `CONTAINS` / `FREETEXT` (single column, multi-column, wildcard, `LANGUAGE`); `CONTAINSTABLE` / `FREETEXTTABLE` as join sources
-- Rowset functions: `OPENJSON` and `OPENXML` with `WITH` schema declarations; `OPENJSON` row-path and `AS JSON` columns; `OPENROWSET` provider form (single provider-string or three-part datasource/userid/password) and `OPENROWSET(BULK ...)` form
+- Window functions with `OVER` clause — `PARTITION BY`, `ORDER BY`, full frame support (`ROWS`/`RANGE BETWEEN … AND …`, `UNBOUNDED PRECEDING/FOLLOWING`, `CURRENT ROW`); `IGNORE NULLS`/`RESPECT NULLS`; named window references; named `WINDOW` clause
+- Expression functions: `CAST`, `CONVERT`, `TRY_CAST`, `TRY_CONVERT` (with full data type including length/precision), `IIF`, `COALESCE`, `NULLIF`, `AT TIME ZONE`, `IS [NOT] DISTINCT FROM`, `TRIM(LEADING|TRAILING|BOTH …)`
+- JSON functions: `JSON_OBJECT(key: value, …)`, `JSON_ARRAY(…)`, `JSON_ARRAYAGG(… ORDER BY …)` with `ABSENT|NULL ON NULL`
+- Full-text predicates: `CONTAINS`/`FREETEXT` (single column, multi-column, wildcard, `LANGUAGE`); `CONTAINSTABLE`/`FREETEXTTABLE` as join sources
+- Rowset functions: `OPENJSON` and `OPENXML` with `WITH` schema declarations; `OPENJSON` row-path and `AS JSON` columns; `OPENROWSET` provider and `OPENROWSET(BULK …)` forms
+- Built-in functions formatted as standard function calls: `GREATEST`, `LEAST`, `DATE_BUCKET`, `DATETRUNC`, `GENERATE_SERIES`, `LEFT_SHIFT`, `RIGHT_SHIFT`, `BIT_COUNT`, `GET_BIT`, `SET_BIT`, `APPROX_PERCENTILE_CONT`, `APPROX_PERCENTILE_DISC`, `JSON_PATH_EXISTS`, `STRING_SPLIT`, `ISJSON`, `LTRIM`, `RTRIM`
 
 **DDL**
 
