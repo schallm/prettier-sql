@@ -856,7 +856,7 @@ create table Books (
   Title nvarchar(200) not null,
   Price decimal(10, 2) not null,
   InStock bit default 1 not null,
-  constraint pk_books primary key (Id)
+  constraint PK_Books primary key (Id)
 );
 ```
 
@@ -867,8 +867,8 @@ create table Orders (
   Id int identity(1, 1) not null,
   CustomerId int not null,
   Total decimal(18, 2) not null,
-  constraint pk_orders primary key (Id),
-  constraint fk_orders_customers foreign key (CustomerId) references Customers (Id)
+  constraint PK_Orders primary key (Id),
+  constraint FK_Orders_Customers foreign key (CustomerId) references Customers (Id)
 );
 ```
 
