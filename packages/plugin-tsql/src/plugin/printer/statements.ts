@@ -794,6 +794,19 @@ function printMerge(node: SqlNode, opts: Options): Doc {
             : printTable(target, opts)
         : '';
 
+    const density = getDensity(opts);
+    let onDoc: Doc = '';
+    if (on) {
+        const isMultiple = on.type === 'BooleanBinary';
+        if (density === 'compact') {
+            onDoc = [' ', keyword('ON', opts), ' ', printBool(on, opts)];
+        } else if (density === 'standard' && !isMultiple) {
+            onDoc = [' ', keyword('ON', opts), group([indent([line, printBool(on, opts)])])];
+        } else {
+            onDoc = [' ', keyword('ON', opts), indent([hardline, printBool(on, opts)])];
+        }
+    }
+
     const parts: Doc[] = [
         ...ctesDocs,
         keyword('MERGE INTO', opts),
@@ -803,10 +816,7 @@ function printMerge(node: SqlNode, opts: Options): Doc {
         keyword('USING', opts),
         ' ',
         source ? printTable(source, opts) : '',
-        hardline,
-        keyword('ON', opts),
-        ' ',
-        on ? printBool(on, opts) : '',
+        onDoc,
     ];
 
     for (const clause of clauses) {

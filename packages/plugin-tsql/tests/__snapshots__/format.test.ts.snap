@@ -440,8 +440,7 @@ from Books;"
 
 exports[`MERGE statement > MERGE with AND predicate on WHEN MATCHED 1`] = `
 "merge into Books as t
-using ArchivedBooks as s
-on t.BookId = s.BookId
+using ArchivedBooks as s on t.BookId = s.BookId
 when matched and t.Price <> s.Price then
   update set
     t.Price = s.Price;"
@@ -456,8 +455,7 @@ using (
     Price
   from ArchivedBooks
   where Price > 0
-) as s
-on t.BookId = s.BookId
+) as s on t.BookId = s.BookId
 when matched then
   update set
     t.Title = s.Title,
@@ -466,8 +464,7 @@ when matched then
 
 exports[`MERGE statement > full MERGE with all three clause types 1`] = `
 "merge into Books as t
-using ArchivedBooks as s
-on t.BookId = s.BookId
+using ArchivedBooks as s on t.BookId = s.BookId
 when matched then
   update set
     t.Title = s.Title,
@@ -525,8 +522,7 @@ values
 
 exports[`OUTPUT clause > MERGE with OUTPUT $action and inserted/deleted columns 1`] = `
 "merge into Books as t
-using ArchivedBooks as s
-on t.BookId = s.BookId
+using ArchivedBooks as s on t.BookId = s.BookId
 when matched then
   update set
     t.Price = s.Price
@@ -540,8 +536,7 @@ output $action, inserted.BookId, deleted.Price;"
 
 exports[`OUTPUT clause > MERGE with OUTPUT INTO table variable 1`] = `
 "merge into Books as t
-using ArchivedBooks as s
-on t.BookId = s.BookId
+using ArchivedBooks as s on t.BookId = s.BookId
 when matched then
   update set
     t.Price = s.Price

@@ -747,12 +747,11 @@ where InStock = 0;
 
 ### MERGE
 
-`merge into` targets the destination table. `using` specifies the source, which can be a table or a subquery. Each `when` clause appears on its own line; the action is indented one level below `then`:
+`merge into` targets the destination table. `using` specifies the source, which can be a table or a subquery. The `on` condition follows `using` on the same line (matching JOIN behaviour): a single predicate stays inline; multiple predicates break to indented lines below. Each `when` clause appears on its own line; the action is indented one level below `then`:
 
 ```sql
 merge into Books
-using ArchivedBooks
-on Books.Id = ArchivedBooks.Id
+using ArchivedBooks on Books.Id = ArchivedBooks.Id
 when matched then
   update set
     Title = ArchivedBooks.Title,
@@ -764,12 +763,23 @@ when not matched by source then
   delete;
 ```
 
+When the `on` condition has multiple predicates they break to indented lines:
+
+```sql
+merge into Books
+using ArchivedBooks on
+  Books.Id = ArchivedBooks.Id
+  and Books.Name = ArchivedBooks.Name
+when matched then
+  update set
+    Price = ArchivedBooks.Price;
+```
+
 An optional `and` predicate on a `when` clause stays inline with the condition keyword:
 
 ```sql
 merge into Books
-using ArchivedBooks
-on Books.Id = ArchivedBooks.Id
+using ArchivedBooks on Books.Id = ArchivedBooks.Id
 when matched and Books.Price <> ArchivedBooks.Price then
   update set
     Price = ArchivedBooks.Price;
@@ -786,8 +796,7 @@ using (
     Price
   from ArchivedBooks
   where Price > 0
-) as src
-on Books.Id = src.Id
+) as src on Books.Id = src.Id
 when matched then
   update set
     Title = src.Title,
@@ -798,8 +807,7 @@ MERGE with OUTPUT:
 
 ```sql
 merge into Books
-using ArchivedBooks
-on Books.Id = ArchivedBooks.Id
+using ArchivedBooks on Books.Id = ArchivedBooks.Id
 when matched then
   update set
     Price = ArchivedBooks.Price

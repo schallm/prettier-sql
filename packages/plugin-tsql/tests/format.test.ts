@@ -885,6 +885,25 @@ describe('MERGE statement', () => {
         expect(result).toMatchSnapshot();
     });
 
+    it('MERGE with multi-predicate ON breaks predicates below USING line', async () => {
+        const result = await fmt(`
+            merge into Books as t
+            using ArchivedBooks as s
+            on t.BookId = s.BookId and t.Name = s.Name
+            when matched then
+                update set t.Price = s.Price;
+        `);
+        expect(result).toMatchInlineSnapshot(`
+"merge into Books as t
+using ArchivedBooks as s on
+  t.BookId = s.BookId
+  and t.Name = s.Name
+when matched then
+  update set
+    t.Price = s.Price;"
+        `);
+    });
+
     it('MERGE respects sqlKeywordCase upper', async () => {
         const result = await fmt(`
             merge into Books as t
