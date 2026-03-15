@@ -359,7 +359,7 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
         ')',
         postParam,
         printModuleOptions(node, opts),
-        hardline,
+        ' ',
         keyword('RETURNS', opts),
         ' ',
         keyword(returnType, opts),

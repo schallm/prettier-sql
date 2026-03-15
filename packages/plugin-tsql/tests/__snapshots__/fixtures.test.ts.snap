@@ -89,8 +89,7 @@ exports[`fixtures > function/scalar.sql 1`] = `
 "create function GetAuthorFullName(
   @FirstName nvarchar(50),
   @LastName nvarchar(50)
-)
-returns nvarchar(101)
+) returns nvarchar(101)
 as
 begin
   return @FirstName + ' ' + @LastName;
@@ -101,8 +100,7 @@ go"
 exports[`fixtures > function/table-valued.sql 1`] = `
 "create function GetBooksByGenre(
   @GenreId int
-)
-returns select id, title, price from books where genreid = @genreid and instock = 1
+) returns select id, title, price from books where genreid = @genreid and instock = 1
 as
 begin
   select
