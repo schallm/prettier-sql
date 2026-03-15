@@ -1242,8 +1242,8 @@ describe('Database administration', () => {
     it('BACKUP DATABASE simple', async () => {
         const r = await fmt("BACKUP DATABASE AdventureWorks TO DISK = N'C:\\backup\\AW.bak'");
         expect(r).toMatchInlineSnapshot(`
-"backup database AdventureWorks
-to DISK = N'C:\\backup\\AW.bak';"
+          "backup database AdventureWorks
+            to DISK = N'C:\\backup\\AW.bak';"
         `);
     });
 
@@ -1270,8 +1270,8 @@ to DISK = N'C:\\backup\\AW.bak';"
     it('RESTORE DATABASE simple', async () => {
         const r = await fmt("RESTORE DATABASE AdventureWorks FROM DISK = N'C:\\backup\\AW.bak'");
         expect(r).toMatchInlineSnapshot(`
-"restore database AdventureWorks
-from DISK = N'C:\\backup\\AW.bak';"
+          "restore database AdventureWorks
+            from DISK = N'C:\\backup\\AW.bak';"
         `);
     });
 
