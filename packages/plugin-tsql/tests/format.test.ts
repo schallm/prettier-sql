@@ -2338,3 +2338,97 @@ describe('EXECUTE AS / REVERT', () => {
         expect(result).toContain('with execute as owner');
     });
 });
+
+describe('partition functions', () => {
+    it('CREATE PARTITION FUNCTION RANGE RIGHT', async () => {
+        const result = await fmt(
+            "create partition function pf_date (date) as range right for values ('2020-01-01', '2021-01-01', '2022-01-01')",
+        );
+        expect(result).toMatchSnapshot();
+        expect(result).toContain('range right');
+        expect(result).toContain("'2021-01-01'");
+    });
+
+    it('CREATE PARTITION FUNCTION RANGE LEFT', async () => {
+        const result = await fmt(
+            'create partition function pf_price (decimal(10,2)) as range left for values (100, 500, 1000)',
+        );
+        expect(result).toMatchSnapshot();
+        expect(result).toContain('range left');
+        expect(result).toContain('decimal(10,2)');
+    });
+
+    it('CREATE PARTITION FUNCTION uppercase', async () => {
+        const result = await fmt(
+            "create partition function pf_date (date) as range right for values ('2020-01-01')",
+            { sqlKeywordCase: 'upper' },
+        );
+        expect(result).toContain('CREATE PARTITION FUNCTION');
+        expect(result).toContain('AS RANGE RIGHT');
+        expect(result).toContain('FOR VALUES');
+    });
+
+    it('ALTER PARTITION FUNCTION SPLIT RANGE', async () => {
+        const result = await fmt("alter partition function pf_date() split range ('2023-01-01')");
+        expect(result).toMatchSnapshot();
+        expect(result).toContain('split range');
+    });
+
+    it('ALTER PARTITION FUNCTION MERGE RANGE', async () => {
+        const result = await fmt("alter partition function pf_date() merge range ('2020-01-01')");
+        expect(result).toMatchSnapshot();
+        expect(result).toContain('merge range');
+    });
+
+    it('DROP PARTITION FUNCTION', async () => {
+        const result = await fmt('drop partition function pf_date');
+        expect(result).toBe('drop partition function pf_date;');
+    });
+
+});
+
+describe('partition schemes', () => {
+    it('CREATE PARTITION SCHEME', async () => {
+        const result = await fmt(
+            'create partition scheme ps_date as partition pf_date to ([PRIMARY], fg1, fg2, fg3)',
+        );
+        expect(result).toMatchSnapshot();
+        expect(result).toContain('as partition');
+        expect(result).toContain('[PRIMARY]');
+    });
+
+    it('CREATE PARTITION SCHEME ALL TO', async () => {
+        const result = await fmt(
+            'create partition scheme ps_date as partition pf_date all to ([PRIMARY])',
+        );
+        expect(result).toMatchSnapshot();
+        expect(result).toContain('all to');
+    });
+
+    it('CREATE PARTITION SCHEME uppercase', async () => {
+        const result = await fmt(
+            'create partition scheme ps_date as partition pf_date to ([PRIMARY], fg1)',
+            { sqlKeywordCase: 'upper' },
+        );
+        expect(result).toContain('CREATE PARTITION SCHEME');
+        expect(result).toContain('AS PARTITION');
+        expect(result).toContain('TO');
+    });
+
+    it('ALTER PARTITION SCHEME NEXT USED with filegroup', async () => {
+        const result = await fmt('alter partition scheme ps_date next used fg_new');
+        expect(result).toMatchSnapshot();
+        expect(result).toContain('next used');
+    });
+
+    it('ALTER PARTITION SCHEME NEXT USED without filegroup', async () => {
+        const result = await fmt('alter partition scheme ps_date next used');
+        expect(result).toContain('next used');
+    });
+
+    it('DROP PARTITION SCHEME', async () => {
+        const result = await fmt('drop partition scheme ps_date');
+        expect(result).toBe('drop partition scheme ps_date;');
+    });
+
+});

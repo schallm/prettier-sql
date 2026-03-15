@@ -44,6 +44,12 @@ import {
     printCreateSchema,
     printAlterSchema,
     printDropSchema,
+    printCreatePartitionFunction,
+    printAlterPartitionFunction,
+    printDropPartitionFunction,
+    printCreatePartitionScheme,
+    printAlterPartitionScheme,
+    printDropPartitionScheme,
 } from './ddl.js';
 import {
     printBeginTransaction,
@@ -311,6 +317,20 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
             return printAlterSchema(node, opts);
         case 'DropSchemaStatement':
             return printDropSchema(node, opts);
+
+        // DDL — partition functions & schemes
+        case 'CreatePartitionFunctionStatement':
+            return printCreatePartitionFunction(node, opts);
+        case 'AlterPartitionFunctionStatement':
+            return printAlterPartitionFunction(node, opts);
+        case 'DropPartitionFunctionStatement':
+            return printDropPartitionFunction(node, opts);
+        case 'CreatePartitionSchemeStatement':
+            return printCreatePartitionScheme(node, opts);
+        case 'AlterPartitionSchemeStatement':
+            return printAlterPartitionScheme(node, opts);
+        case 'DropPartitionSchemeStatement':
+            return printDropPartitionScheme(node, opts);
 
         // BEGIN/END block (proc bodies, inline blocks)
         case 'BeginEndBlock': {

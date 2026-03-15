@@ -663,3 +663,116 @@ export function printDropSchema(node: SqlNode, opts: Options): Doc {
     const ifExists = propBool(node, 'ifExists');
     return [keyword('DROP SCHEMA', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
 }
+
+// ---------------------------------------------------------------------------
+// CREATE / ALTER / DROP PARTITION FUNCTION
+// ---------------------------------------------------------------------------
+
+export function printCreatePartitionFunction(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const paramType = propStr(node, 'paramType') ?? '';
+    const collation = propStr(node, 'collation');
+    const range = propStr(node, 'range');
+    const boundaryValues = propArr(node, 'boundaryValues');
+
+    const rangeKw =
+        range === 'Right'
+            ? keyword('RANGE RIGHT', opts)
+            : range === 'Left'
+              ? keyword('RANGE LEFT', opts)
+              : keyword('RANGE', opts);
+
+    const collationPart: Doc = collation ? [' ', keyword('COLLATE', opts), ' ', collation] : '';
+    const valsDocs = boundaryValues.map((v) => printNode(v as SqlNode, opts));
+    const forValues: Doc = group([
+        keyword('FOR VALUES', opts),
+        ' (',
+        indent([softline, join([',', line], valsDocs)]),
+        softline,
+        ')',
+    ]);
+
+    return [
+        keyword('CREATE PARTITION FUNCTION', opts),
+        ' ',
+        name,
+        ' (',
+        keyword(paramType, opts),
+        collationPart,
+        ')',
+        hardline,
+        keyword('AS', opts),
+        ' ',
+        rangeKw,
+        hardline,
+        forValues,
+        ';',
+    ];
+}
+
+export function printAlterPartitionFunction(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const isSplit = propBool(node, 'isSplit');
+    const boundary = prop(node, 'boundary');
+    const action = isSplit ? keyword('SPLIT RANGE', opts) : keyword('MERGE RANGE', opts);
+    return [
+        keyword('ALTER PARTITION FUNCTION', opts),
+        ' ',
+        name,
+        '()',
+        hardline,
+        action,
+        ' (',
+        boundary ? printNode(boundary as SqlNode, opts) : '',
+        ')',
+        ';',
+    ];
+}
+
+export function printDropPartitionFunction(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const ifExists = propBool(node, 'ifExists');
+    return [keyword('DROP PARTITION FUNCTION', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
+}
+
+// ---------------------------------------------------------------------------
+// CREATE / ALTER / DROP PARTITION SCHEME
+// ---------------------------------------------------------------------------
+
+export function printCreatePartitionScheme(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const pf = propStr(node, 'partitionFunction') ?? '';
+    const isAll = propBool(node, 'isAll');
+    const fileGroups = propArr(node, 'fileGroups');
+    const fgDocs = fileGroups.map((fg) => String(fg));
+
+    const toClause: Doc = isAll
+        ? [keyword('ALL TO', opts), ' (', join(', ', fgDocs), ')']
+        : [keyword('TO', opts), ' (', join(', ', fgDocs), ')'];
+
+    return [
+        keyword('CREATE PARTITION SCHEME', opts),
+        ' ',
+        name,
+        hardline,
+        keyword('AS PARTITION', opts),
+        ' ',
+        pf,
+        hardline,
+        toClause,
+        ';',
+    ];
+}
+
+export function printAlterPartitionScheme(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const fileGroup = propStr(node, 'fileGroup');
+    const nextUsed: Doc = fileGroup ? [keyword('NEXT USED', opts), ' ', fileGroup] : keyword('NEXT USED', opts);
+    return [keyword('ALTER PARTITION SCHEME', opts), ' ', name, hardline, nextUsed, ';'];
+}
+
+export function printDropPartitionScheme(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const ifExists = propBool(node, 'ifExists');
+    return [keyword('DROP PARTITION SCHEME', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
+}

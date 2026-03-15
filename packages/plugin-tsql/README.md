@@ -32,6 +32,8 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - `CREATE TYPE … FROM …` (scalar UDDTs) and `CREATE TYPE … AS TABLE (…)` (table-valued parameters)
 - `CREATE SYNONYM` / `DROP SYNONYM` (with `IF EXISTS`)
 - `CREATE SCHEMA` (with optional `AUTHORIZATION`), `ALTER SCHEMA … TRANSFER` (plain objects, `TYPE::`, `XML SCHEMA COLLECTION::`), `DROP SCHEMA` (with `IF EXISTS`)
+- `CREATE PARTITION FUNCTION` (RANGE LEFT/RIGHT, boundary values), `ALTER PARTITION FUNCTION` (SPLIT/MERGE RANGE), `DROP PARTITION FUNCTION`
+- `CREATE PARTITION SCHEME` (AS PARTITION, ALL TO / TO filegroup list), `ALTER PARTITION SCHEME` (NEXT USED), `DROP PARTITION SCHEME`
 - `DROP TABLE/PROCEDURE/VIEW/FUNCTION/INDEX/TRIGGER/SEQUENCE/SYNONYM/SCHEMA` (with `IF EXISTS`)
 - `DROP DATABASE` (with `IF EXISTS`, multiple databases)
 - `CREATE DATABASE` (with optional `COLLATE`, file group specs, snapshot)
@@ -67,7 +69,6 @@ The constructs below are parsed correctly but emitted as-is (original source tex
 ### DDL object model
 
 - Ledger table syntax — `CREATE TABLE ... WITH (LEDGER = ON, ...)` table options
-- Partition functions and schemes (`CREATE/ALTER/DROP PARTITION FUNCTION`, `CREATE/ALTER/DROP PARTITION SCHEME`)
 - Assemblies (`CREATE/ALTER/DROP ASSEMBLY`)
 - XML schema collections (`CREATE/ALTER/DROP XML SCHEMA COLLECTION`)
 - Full-text catalogs and indexes (`CREATE/ALTER/DROP FULLTEXT CATALOG`, `CREATE/ALTER/DROP FULLTEXT INDEX`)

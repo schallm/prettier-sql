@@ -591,6 +591,14 @@ public class AstBuilder : TSqlFragmentVisitor {
             AlterSequenceStatement aseq => BuildAlterSequence(aseq),
             DropSequenceStatement dseq => BuildDropObjects("DropSequenceStatement", dseq),
 
+            // DDL — partition functions & schemes
+            CreatePartitionFunctionStatement cpf => BuildCreatePartitionFunction(cpf),
+            AlterPartitionFunctionStatement apf => BuildAlterPartitionFunction(apf),
+            DropPartitionFunctionStatement dpf => BuildDropPartitionFunction(dpf),
+            CreatePartitionSchemeStatement cps => BuildCreatePartitionScheme(cps),
+            AlterPartitionSchemeStatement aps => BuildAlterPartitionScheme(aps),
+            DropPartitionSchemeStatement dps => BuildDropPartitionScheme(dps),
+
             // DDL — types & bulk insert
             BulkInsertStatement bulk => BuildBulkInsert(bulk),
             CreateTypeUddtStatement ctud => BuildCreateTypeUddt(ctud),
@@ -1671,6 +1679,56 @@ public class AstBuilder : TSqlFragmentVisitor {
         opts["name"] = BuildSchemaObjectName(aseq.Name);
         return Node("AlterSequenceStatement", aseq, opts);
     }
+
+    // -------------------------------------------------------------------------
+    // DDL: PARTITION FUNCTIONS & SCHEMES
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildCreatePartitionFunction(CreatePartitionFunctionStatement cpf) {
+        var range = cpf.Range == PartitionFunctionRange.Left ? "Left"
+                  : cpf.Range == PartitionFunctionRange.Right ? "Right"
+                  : (string?)null;
+        return Node("CreatePartitionFunctionStatement", cpf, new Dictionary<string, object?> {
+            ["name"] = cpf.Name?.Value,
+            ["paramType"] = cpf.ParameterType?.DataType != null ? RawText(cpf.ParameterType.DataType) : null,
+            ["collation"] = cpf.ParameterType?.Collation?.Value,
+            ["range"] = range,
+            ["boundaryValues"] = cpf.BoundaryValues?.Select(v => (object?)BuildScalarExpression(v)).ToList(),
+        });
+    }
+
+    private static SqlNode BuildAlterPartitionFunction(AlterPartitionFunctionStatement apf) =>
+        Node("AlterPartitionFunctionStatement", apf, new Dictionary<string, object?> {
+            ["name"] = apf.Name?.Value,
+            ["isSplit"] = apf.IsSplit,
+            ["boundary"] = apf.Boundary != null ? BuildScalarExpression(apf.Boundary) : null,
+        });
+
+    private static SqlNode BuildDropPartitionFunction(DropPartitionFunctionStatement dpf) =>
+        Node("DropPartitionFunctionStatement", dpf, new Dictionary<string, object?> {
+            ["name"] = dpf.Name?.Value,
+            ["ifExists"] = dpf.IsIfExists,
+        });
+
+    private static SqlNode BuildCreatePartitionScheme(CreatePartitionSchemeStatement cps) =>
+        Node("CreatePartitionSchemeStatement", cps, new Dictionary<string, object?> {
+            ["name"] = cps.Name?.Value,
+            ["partitionFunction"] = cps.PartitionFunction?.Value,
+            ["isAll"] = cps.IsAll,
+            ["fileGroups"] = cps.FileGroups?.Select(fg => (object?)RawText(fg)).ToList(),
+        });
+
+    private static SqlNode BuildAlterPartitionScheme(AlterPartitionSchemeStatement aps) =>
+        Node("AlterPartitionSchemeStatement", aps, new Dictionary<string, object?> {
+            ["name"] = aps.Name?.Value,
+            ["fileGroup"] = aps.FileGroup != null ? RawText(aps.FileGroup) : null,
+        });
+
+    private static SqlNode BuildDropPartitionScheme(DropPartitionSchemeStatement dps) =>
+        Node("DropPartitionSchemeStatement", dps, new Dictionary<string, object?> {
+            ["name"] = dps.Name?.Value,
+            ["ifExists"] = dps.IsIfExists,
+        });
 
     // -------------------------------------------------------------------------
     // DML: BULK INSERT
