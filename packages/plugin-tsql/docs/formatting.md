@@ -523,8 +523,8 @@ from
   cross apply openjson(JsonData) as j;
 ```
 
-With a row-path and `WITH` schema declaration, each column definition is on its own indented
-line inside the parentheses:
+With a row-path and `WITH` schema declaration, `WITH (` opens on the same line as `OPENJSON`
+and each column definition is on its own indented line:
 
 ```sql
 select
@@ -532,8 +532,7 @@ select
   j.amount
 from
   Orders
-  cross apply openjson(JsonData, '$.items')
-  with (
+  cross apply openjson(JsonData, '$.items') with (
     OrderId int '$.Id',
     amount decimal(10, 2) '$.amount',
     notes nvarchar(500) '$.notes'
@@ -546,8 +545,7 @@ from
 select
   Id,
   data
-from openjson(@json)
-with (
+from openjson(@json) with (
   Id int '$.Id',
   data nvarchar(max) '$.data' as json
 );
@@ -555,14 +553,13 @@ with (
 
 ##### OPENXML
 
-`OPENXML` follows the same WITH-clause layout:
+`OPENXML` follows the same layout — `WITH (` on the same line as `OPENXML`:
 
 ```sql
 select
   Id,
   Name
-from openxml(@hDoc, '/root/item', 2)
-with (
+from openxml(@hDoc, '/root/item', 2) with (
   Id int '@Id',
   Name varchar(100) 'Name'
 );
