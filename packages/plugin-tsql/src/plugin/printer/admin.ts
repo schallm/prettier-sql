@@ -50,7 +50,7 @@ function printBackupBase(verb: Doc, node: SqlNode, opts: Options): Doc {
 
     const withPart: Doc = options?.length ? [hardline, keyword('WITH', opts), ' ', join([', '], options)] : '';
 
-    return group([verb, ' ', database, toPart, ...mirrorParts, withPart, ';']);
+    return group([verb, ' ', database, indent([toPart, ...mirrorParts, withPart]), ';']);
 }
 
 export function printBackupDatabase(node: SqlNode, opts: Options): Doc {
@@ -77,7 +77,7 @@ export function printRestore(node: SqlNode, opts: Options): Doc {
 
     const withPart: Doc = options?.length ? [hardline, keyword('WITH', opts), ' ', join([', '], options)] : '';
 
-    return group([keyword('RESTORE', opts), ' ', keyword(kind, opts), dbPart, fromPart, withPart, ';']);
+    return group([keyword('RESTORE', opts), ' ', keyword(kind, opts), dbPart, indent([fromPart, withPart]), ';']);
 }
 
 // ---------------------------------------------------------------------------

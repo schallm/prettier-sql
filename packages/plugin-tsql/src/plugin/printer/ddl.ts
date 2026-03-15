@@ -506,7 +506,7 @@ export function printCreateSequence(node: SqlNode, opts: Options): Doc {
         keyword('CREATE SEQUENCE', opts),
         ' ',
         schemaObjectName(prop(node, 'name')),
-        ...printSequenceOptions(node, opts),
+        indent(printSequenceOptions(node, opts)),
         ';',
     ]);
 }
@@ -516,7 +516,7 @@ export function printAlterSequence(node: SqlNode, opts: Options): Doc {
         keyword('ALTER SEQUENCE', opts),
         ' ',
         schemaObjectName(prop(node, 'name')),
-        ...printSequenceOptions(node, opts),
+        indent(printSequenceOptions(node, opts)),
         ';',
     ]);
 }
@@ -702,12 +702,7 @@ export function printCreatePartitionFunction(node: SqlNode, opts: Options): Doc 
         keyword(paramType, opts),
         collationPart,
         ')',
-        hardline,
-        keyword('AS', opts),
-        ' ',
-        rangeKw,
-        hardline,
-        forValues,
+        indent([hardline, keyword('AS', opts), ' ', rangeKw, hardline, forValues]),
         ';',
     ];
 }
@@ -722,11 +717,7 @@ export function printAlterPartitionFunction(node: SqlNode, opts: Options): Doc {
         ' ',
         name,
         '()',
-        hardline,
-        action,
-        ' (',
-        boundary ? printNode(boundary as SqlNode, opts) : '',
-        ')',
+        indent([hardline, action, ' (', boundary ? printNode(boundary as SqlNode, opts) : '', ')']),
         ';',
     ];
 }
@@ -756,12 +747,7 @@ export function printCreatePartitionScheme(node: SqlNode, opts: Options): Doc {
         keyword('CREATE PARTITION SCHEME', opts),
         ' ',
         name,
-        hardline,
-        keyword('AS PARTITION', opts),
-        ' ',
-        pf,
-        hardline,
-        toClause,
+        indent([hardline, keyword('AS PARTITION', opts), ' ', pf, hardline, toClause]),
         ';',
     ];
 }
@@ -770,7 +756,7 @@ export function printAlterPartitionScheme(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name') ?? '';
     const fileGroup = propStr(node, 'fileGroup');
     const nextUsed: Doc = fileGroup ? [keyword('NEXT USED', opts), ' ', fileGroup] : keyword('NEXT USED', opts);
-    return [keyword('ALTER PARTITION SCHEME', opts), ' ', name, hardline, nextUsed, ';'];
+    return [keyword('ALTER PARTITION SCHEME', opts), ' ', name, indent([hardline, nextUsed]), ';'];
 }
 
 export function printDropPartitionScheme(node: SqlNode, opts: Options): Doc {

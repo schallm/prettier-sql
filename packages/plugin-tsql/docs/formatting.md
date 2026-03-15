@@ -1133,37 +1133,37 @@ go
 
 ### CREATE / ALTER SEQUENCE
 
-Options each appear on their own line below the sequence name:
+Options each appear on their own indented line below the sequence name:
 
 ```sql
 create sequence OrderSeq
-as bigint
-start with 1
-increment by 1
-minvalue 1
-maxvalue 9999
-cycle
-cache 20;
+  as bigint
+  start with 1
+  increment by 1
+  minvalue 1
+  maxvalue 9999
+  cycle
+  cache 20;
 ```
 
 `NO` variants are supported:
 
 ```sql
 create sequence Seq
-as int
-start with 1
-no minvalue
-no maxvalue
-no cycle
-no cache;
+  as int
+  start with 1
+  no minvalue
+  no maxvalue
+  no cycle
+  no cache;
 ```
 
 `alter sequence` uses `restart with` (not `start with`):
 
 ```sql
 alter sequence OrderSeq
-restart with 100
-increment by 5;
+  restart with 100
+  increment by 5;
 ```
 
 ---
@@ -1268,26 +1268,26 @@ drop schema if exists sales;
 
 ### CREATE / ALTER / DROP PARTITION FUNCTION
 
-`CREATE PARTITION FUNCTION` emits the parameter type, range direction, and boundary values each on their own line:
+`CREATE PARTITION FUNCTION` indents `AS RANGE` and `FOR VALUES` under the function name:
 
 ```sql
 create partition function pf_date (date)
-as range right
-for values ('2020-01-01', '2021-01-01', '2022-01-01');
+  as range right
+  for values ('2020-01-01', '2021-01-01', '2022-01-01');
 
 create partition function pf_price (decimal(10, 2))
-as range left
-for values (100, 500, 1000);
+  as range left
+  for values (100, 500, 1000);
 ```
 
-`ALTER PARTITION FUNCTION` emits `split range` or `merge range` on the line below the function name:
+`ALTER PARTITION FUNCTION` indents `split range` or `merge range` under the function name:
 
 ```sql
 alter partition function pf_date()
-split range ('2023-01-01');
+  split range ('2023-01-01');
 
 alter partition function pf_date()
-merge range ('2020-01-01');
+  merge range ('2020-01-01');
 ```
 
 `DROP PARTITION FUNCTION`:
@@ -1298,31 +1298,31 @@ drop partition function pf_date;
 
 ### CREATE / ALTER / DROP PARTITION SCHEME
 
-`CREATE PARTITION SCHEME` emits the function reference and filegroup list each on their own line:
+`CREATE PARTITION SCHEME` indents `AS PARTITION` and `TO`/`ALL TO` under the scheme name:
 
 ```sql
 create partition scheme ps_date
-as partition pf_date
-to ([PRIMARY], fg1, fg2, fg3);
+  as partition pf_date
+  to ([PRIMARY], fg1, fg2, fg3);
 ```
 
 When all partitions map to the same filegroup, use `ALL TO`:
 
 ```sql
 create partition scheme ps_date
-as partition pf_date
-all to ([PRIMARY]);
+  as partition pf_date
+  all to ([PRIMARY]);
 ```
 
-`ALTER PARTITION SCHEME … NEXT USED` designates the next filegroup for an incoming partition:
+`ALTER PARTITION SCHEME … NEXT USED` indents the clause under the scheme name:
 
 ```sql
 alter partition scheme ps_date
-next used fg_new;
+  next used fg_new;
 
 -- Without a filegroup (resets the designation)
 alter partition scheme ps_date
-next used;
+  next used;
 ```
 
 `DROP PARTITION SCHEME`:
@@ -1851,31 +1851,31 @@ Arguments appear inside parentheses (when present), options after `WITH`. The co
 
 ```sql
 backup database AdventureWorks
-to DISK = N'C:\backup\AW.bak'
-with COMPRESSION, STATS = 10;
+  to DISK = N'C:\backup\AW.bak'
+  with COMPRESSION, STATS = 10;
 
 backup log AdventureWorks
-to DISK = N'C:\backup\AW_log.bak';
+  to DISK = N'C:\backup\AW_log.bak';
 ```
 
 `BACKUP DATABASE` / `BACKUP LOG` keywords are reformatted; device type (`DISK`, `TAPE`, `URL`)
 and option names (`COMPRESSION`, `STATS`) are emitted as raw text (original casing preserved).
-`TO` and `WITH` are on new lines; multiple devices or mirror-to clauses each on their own line.
+`TO`, `MIRROR TO`, and `WITH` are indented on new lines; multiple devices each on their own line.
 
 ### RESTORE
 
 ```sql
 restore database AdventureWorks
-from DISK = N'C:\backup\AW.bak'
-with NORECOVERY;
+  from DISK = N'C:\backup\AW.bak'
+  with NORECOVERY;
 
 restore database AdventureWorks
-from DISK = N'C:\backup\AW.bak'
-with RECOVERY, REPLACE;
+  from DISK = N'C:\backup\AW.bak'
+  with RECOVERY, REPLACE;
 ```
 
 `RESTORE DATABASE` / `RESTORE LOG` / `RESTORE FILELISTONLY` / `RESTORE HEADERONLY` /
-`RESTORE VERIFYONLY` are all supported. `FROM` and `WITH` are on new lines.
+`RESTORE VERIFYONLY` are all supported. `FROM` and `WITH` are indented on new lines.
 
 ### CREATE DATABASE
 

@@ -189,26 +189,26 @@ go"
 
 exports[`CREATE/ALTER/DROP SEQUENCE > ALTER SEQUENCE restart 1`] = `
 "alter sequence OrderSeq
-restart with 100
-increment by 5;"
+  restart with 100
+  increment by 5;"
 `;
 
 exports[`CREATE/ALTER/DROP SEQUENCE > CREATE SEQUENCE minimal 1`] = `
 "create sequence OrderSeq
-as int
-start with 1
-increment by 1;"
+  as int
+  start with 1
+  increment by 1;"
 `;
 
 exports[`CREATE/ALTER/DROP SEQUENCE > CREATE SEQUENCE with min/max/cycle/cache 1`] = `
 "create sequence Seq
-as bigint
-start with 1
-increment by 1
-minvalue 1
-maxvalue 9999
-cycle
-cache 20;"
+  as bigint
+  start with 1
+  increment by 1
+  minvalue 1
+  maxvalue 9999
+  cycle
+  cache 20;"
 `;
 
 exports[`Control flow & DDL additions > CREATE OR ALTER PROCEDURE emits correct keyword and GO 1`] = `
@@ -1060,41 +1060,41 @@ from
 
 exports[`partition functions > ALTER PARTITION FUNCTION MERGE RANGE 1`] = `
 "alter partition function pf_date()
-merge range ('2020-01-01');"
+  merge range ('2020-01-01');"
 `;
 
 exports[`partition functions > ALTER PARTITION FUNCTION SPLIT RANGE 1`] = `
 "alter partition function pf_date()
-split range ('2023-01-01');"
+  split range ('2023-01-01');"
 `;
 
 exports[`partition functions > CREATE PARTITION FUNCTION RANGE LEFT 1`] = `
 "create partition function pf_price (decimal(10,2))
-as range left
-for values (100, 500, 1000);"
+  as range left
+  for values (100, 500, 1000);"
 `;
 
 exports[`partition functions > CREATE PARTITION FUNCTION RANGE RIGHT 1`] = `
 "create partition function pf_date (date)
-as range right
-for values ('2020-01-01', '2021-01-01', '2022-01-01');"
+  as range right
+  for values ('2020-01-01', '2021-01-01', '2022-01-01');"
 `;
 
 exports[`partition schemes > ALTER PARTITION SCHEME NEXT USED with filegroup 1`] = `
 "alter partition scheme ps_date
-next used fg_new;"
+  next used fg_new;"
 `;
 
 exports[`partition schemes > CREATE PARTITION SCHEME 1`] = `
 "create partition scheme ps_date
-as partition pf_date
-to ([PRIMARY], fg1, fg2, fg3);"
+  as partition pf_date
+  to ([PRIMARY], fg1, fg2, fg3);"
 `;
 
 exports[`partition schemes > CREATE PARTITION SCHEME ALL TO 1`] = `
 "create partition scheme ps_date
-as partition pf_date
-all to ([PRIMARY]);"
+  as partition pf_date
+  all to ([PRIMARY]);"
 `;
 
 exports[`sqlCommaStyle: leading > CTE list uses leading commas 1`] = `

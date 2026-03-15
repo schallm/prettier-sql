@@ -2,38 +2,38 @@
 
 exports[`fixtures > admin/backup-restore.sql 1`] = `
 "backup database AdventureWorks
-to DISK = N'C:\\Backups\\AW_Full.bak'
-with NO_FORMAT = noformat, init, NAME = N'AdventureWorks Full Backup', STATS = 10;
+  to DISK = N'C:\\Backups\\AW_Full.bak'
+  with NO_FORMAT = noformat, init, NAME = N'AdventureWorks Full Backup', STATS = 10;
 
 backup database AdventureWorks
-to DISK = N'C:\\Backups\\AW_Full_1.bak',
-DISK = N'C:\\Backups\\AW_Full_2.bak'
-with compression, checksum;
+  to DISK = N'C:\\Backups\\AW_Full_1.bak',
+  DISK = N'C:\\Backups\\AW_Full_2.bak'
+  with compression, checksum;
 
 backup log AdventureWorks
-to DISK = N'C:\\Backups\\AW_Log.bak'
-with NO_RECOVERY = norecovery;
+  to DISK = N'C:\\Backups\\AW_Log.bak'
+  with NO_RECOVERY = norecovery;
 
 restore database AdventureWorks
-from DISK = N'C:\\Backups\\AW_Full.bak'
-with norecovery;
+  from DISK = N'C:\\Backups\\AW_Full.bak'
+  with norecovery;
 
 restore database AdventureWorks
-from DISK = N'C:\\Backups\\AW_Full.bak'
-with N'AW_Data' to N'C:\\Data\\AW.mdf', N'AW_Log' to N'C:\\Data\\AW.ldf', recovery, 5;
+  from DISK = N'C:\\Backups\\AW_Full.bak'
+  with N'AW_Data' to N'C:\\Data\\AW.mdf', N'AW_Log' to N'C:\\Data\\AW.ldf', recovery, 5;
 
 restore log AdventureWorks
-from DISK = N'C:\\Backups\\AW_Log.bak'
-with recovery;
+  from DISK = N'C:\\Backups\\AW_Log.bak'
+  with recovery;
 
 restore filelistonly
-from DISK = N'C:\\Backups\\AW_Full.bak';
+  from DISK = N'C:\\Backups\\AW_Full.bak';
 
 restore headeronly
-from DISK = N'C:\\Backups\\AW_Full.bak';
+  from DISK = N'C:\\Backups\\AW_Full.bak';
 
 restore verifyonly
-from DISK = N'C:\\Backups\\AW_Full.bak';
+  from DISK = N'C:\\Backups\\AW_Full.bak';
 
 drop database AdventureWorks;
 
@@ -231,31 +231,31 @@ output $action, inserted.Id, inserted.Title, deleted.Price;"
 
 exports[`fixtures > partition/basic.sql 1`] = `
 "create partition function pf_OrderDate (datetime2)
-as range right
-for values ('2021-01-01', '2022-01-01', '2023-01-01', '2024-01-01');
+  as range right
+  for values ('2021-01-01', '2022-01-01', '2023-01-01', '2024-01-01');
 
 create partition function pf_Price (decimal(10, 2))
-as range left
-for values (100, 500, 1000, 5000);
+  as range left
+  for values (100, 500, 1000, 5000);
 
 alter partition function pf_OrderDate()
-split range ('2025-01-01');
+  split range ('2025-01-01');
 
 alter partition function pf_OrderDate()
-merge range ('2021-01-01');
+  merge range ('2021-01-01');
 
 drop partition function pf_Price;
 
 create partition scheme ps_OrderDate
-as partition pf_OrderDate
-to ([PRIMARY], fg2021, fg2022, fg2023, fg2024, fg2025);
+  as partition pf_OrderDate
+  to ([PRIMARY], fg2021, fg2022, fg2023, fg2024, fg2025);
 
 create partition scheme ps_OrderDateArchive
-as partition pf_OrderDate
-all to ([PRIMARY]);
+  as partition pf_OrderDate
+  all to ([PRIMARY]);
 
 alter partition scheme ps_OrderDate
-next used fg2026;
+  next used fg2026;
 
 drop partition scheme ps_OrderDate;"
 `;
@@ -702,27 +702,27 @@ from Books;"
 
 exports[`fixtures > sequence/basic.sql 1`] = `
 "create sequence OrderSeq
-as int
-start with 1
-increment by 1;
+  as int
+  start with 1
+  increment by 1;
 
 create sequence dbo.InvoiceSeq
-as bigint
-start with 1000
-increment by 1
-minvalue 1000
-maxvalue 9999999
-no cycle
-cache 50;
+  as bigint
+  start with 1000
+  increment by 1
+  minvalue 1000
+  maxvalue 9999999
+  no cycle
+  cache 50;
 
 alter sequence OrderSeq
-restart with 1;
+  restart with 1;
 
 alter sequence dbo.InvoiceSeq
-increment by 10
-maxvalue 99999999
-cycle
-cache 100;
+  increment by 10
+  maxvalue 99999999
+  cycle
+  cache 100;
 
 drop sequence OrderSeq;
 
