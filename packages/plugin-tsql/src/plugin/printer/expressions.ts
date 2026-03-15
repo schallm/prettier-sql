@@ -1254,7 +1254,7 @@ function printFullTextTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNod
 
 function rowsetWithClause(items: SqlNode[], opts: Options): Doc {
     return [
-        hardline,
+        ' ',
         keyword('WITH', opts),
         ' (',
         indent([
@@ -1284,7 +1284,7 @@ function printOpenXmlTableRef(node: SqlNode, opts: Options): Doc {
     const withPart: Doc = withItems.length
         ? rowsetWithClause(withItems, opts)
         : tableName
-          ? [hardline, keyword('WITH', opts), ' ', schemaObjectName(tableName)]
+          ? [' ', keyword('WITH', opts), ' ', schemaObjectName(tableName)]
           : '';
     const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
     return [keyword('OPENXML', opts), '(', ...args, ')', withPart, aliasPart];

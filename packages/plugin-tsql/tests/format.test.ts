@@ -1076,17 +1076,16 @@ where o.id = 1;"
             "select j.OrderId, j.amount from Orders as o cross apply openjson(o.JsonData, '$.items') with (OrderId int '$.id', amount decimal(10,2) '$.amount', notes nvarchar(500) '$.notes') as j;"
         );
         expect(result).toMatchInlineSnapshot(`
-"select
-  j.OrderId,
-  j.amount
-from
-  Orders as o
-  cross apply openjson(o.JsonData, '$.items')
-  with (
-    OrderId int '$.id',
-    amount decimal(10,2) '$.amount',
-    notes nvarchar(500) '$.notes'
-  ) as j;"
+          "select
+            j.OrderId,
+            j.amount
+          from
+            Orders as o
+            cross apply openjson(o.JsonData, '$.items') with (
+              OrderId int '$.id',
+              amount decimal(10,2) '$.amount',
+              notes nvarchar(500) '$.notes'
+            ) as j;"
         `);
     });
 
@@ -1103,14 +1102,13 @@ from
             "select x.id, x.Name from openxml(@hDoc, '/root/item', 2) with (id int '@id', Name varchar(100) 'Name') as x;"
         );
         expect(result).toMatchInlineSnapshot(`
-"select
-  x.id,
-  x.Name
-from openxml(@hDoc, '/root/item', 2)
-with (
-  id int '@id',
-  Name varchar(100) 'Name'
-) as x;"
+          "select
+            x.id,
+            x.Name
+          from openxml(@hDoc, '/root/item', 2) with (
+            id int '@id',
+            Name varchar(100) 'Name'
+          ) as x;"
         `);
     });
 
