@@ -193,8 +193,7 @@ using (
     Price,
     InStock
   from BookUpdates
-) as src
-on tgt.Id = src.Id
+) as src on tgt.Id = src.Id
 when matched and src.InStock = 0 then
   delete
 when matched then
@@ -207,8 +206,7 @@ when not matched by target then
   values (src.Title, src.Price, src.InStock);
 
 merge into Books as tgt
-using BookUpdates as src
-on tgt.Id = src.Id
+using BookUpdates as src on tgt.Id = src.Id
 when matched and tgt.Price <> src.Price then
   update set
     tgt.Price = src.Price
@@ -220,8 +218,7 @@ when not matched by source then
     tgt.InStock = 0;
 
 merge into Books as tgt
-using BookUpdates as src
-on tgt.Id = src.Id
+using BookUpdates as src on tgt.Id = src.Id
 when matched then
   update set
     tgt.Title = src.Title,
