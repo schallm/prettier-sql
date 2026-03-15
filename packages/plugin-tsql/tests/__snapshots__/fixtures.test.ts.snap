@@ -1,5 +1,47 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`fixtures > admin/backup-restore.sql 1`] = `
+"backup database AdventureWorks
+to DISK = N'C:\\Backups\\AW_Full.bak'
+with NO_FORMAT = noformat, init, NAME = N'AdventureWorks Full Backup', STATS = 10;
+
+backup database AdventureWorks
+to DISK = N'C:\\Backups\\AW_Full_1.bak',
+DISK = N'C:\\Backups\\AW_Full_2.bak'
+with compression, checksum;
+
+backup log AdventureWorks
+to DISK = N'C:\\Backups\\AW_Log.bak'
+with NO_RECOVERY = norecovery;
+
+restore database AdventureWorks
+from DISK = N'C:\\Backups\\AW_Full.bak'
+with norecovery;
+
+restore database AdventureWorks
+from DISK = N'C:\\Backups\\AW_Full.bak'
+with N'AW_Data' to N'C:\\Data\\AW.mdf', N'AW_Log' to N'C:\\Data\\AW.ldf', recovery, 5;
+
+restore log AdventureWorks
+from DISK = N'C:\\Backups\\AW_Log.bak'
+with recovery;
+
+restore filelistonly
+from DISK = N'C:\\Backups\\AW_Full.bak';
+
+restore headeronly
+from DISK = N'C:\\Backups\\AW_Full.bak';
+
+restore verifyonly
+from DISK = N'C:\\Backups\\AW_Full.bak';
+
+drop database AdventureWorks;
+
+drop database if exists AdventureWorks;
+
+drop database AdventureWorks, AdventureWorksDev;"
+`;
+
 exports[`fixtures > alter-table/add-column.sql 1`] = `
 "alter table Books
 add
@@ -75,6 +117,48 @@ end;
 go"
 `;
 
+exports[`fixtures > index/basic.sql 1`] = `
+"create nonclustered index IX_Books_Title
+on Books (
+  Title asc
+);
+
+create unique nonclustered index UX_Books_Isbn
+on Books (
+  Isbn asc
+);
+
+create clustered index CX_Orders_Date
+on Orders (
+  OrderDate desc
+);
+
+create nonclustered index IX_Books_Genre_Price
+on Books (
+  GenreId asc,
+  Price desc
+)
+include (Title, InStock);
+
+create unique nonclustered index UX_Authors_Email
+on Authors (
+  Email asc
+);
+
+alter index IX_Books_Title on Books
+rebuild;
+
+alter index IX_Books_Genre_Price on Books
+reorganize;
+
+alter index all on Books
+disable;
+
+drop index IX_Books_Title on Books;
+
+drop index IX_Books_Title on Books;"
+`;
+
 exports[`fixtures > insert/basic.sql 1`] = `
 "insert into Customers (
   Name,
@@ -98,6 +182,304 @@ select
   Price
 from Books
 where InStock = 0;"
+`;
+
+exports[`fixtures > merge/basic.sql 1`] = `
+"merge into Books as tgt
+using (
+  select
+    Id,
+    Title,
+    Price,
+    InStock
+  from BookUpdates
+) as src
+on tgt.Id = src.Id
+when matched and src.InStock = 0 then
+  delete
+when matched then
+  update set
+    tgt.Title = src.Title,
+    tgt.Price = src.Price,
+    tgt.InStock = src.InStock
+when not matched by target then
+  insert (Title, Price, InStock)
+  values (src.Title, src.Price, src.InStock);
+
+merge into Books as tgt
+using BookUpdates as src
+on tgt.Id = src.Id
+when matched and tgt.Price <> src.Price then
+  update set
+    tgt.Price = src.Price
+when not matched by target then
+  insert (Title, Price, InStock)
+  values (src.Title, src.Price, 1)
+when not matched by source then
+  update set
+    tgt.InStock = 0;
+
+merge into Books as tgt
+using BookUpdates as src
+on tgt.Id = src.Id
+when matched then
+  update set
+    tgt.Title = src.Title,
+    tgt.Price = src.Price
+when not matched by target then
+  insert (Title, Price, InStock)
+  values (src.Title, src.Price, src.InStock)
+output $action, inserted.Id, inserted.Title, deleted.Price;"
+`;
+
+exports[`fixtures > partition/basic.sql 1`] = `
+"create partition function pf_OrderDate (datetime2)
+as range right
+for values ('2021-01-01', '2022-01-01', '2023-01-01', '2024-01-01');
+
+create partition function pf_Price (decimal(10, 2))
+as range left
+for values (100, 500, 1000, 5000);
+
+alter partition function pf_OrderDate()
+split range ('2025-01-01');
+
+alter partition function pf_OrderDate()
+merge range ('2021-01-01');
+
+drop partition function pf_Price;
+
+create partition scheme ps_OrderDate
+as partition pf_OrderDate
+to ([PRIMARY], fg2021, fg2022, fg2023, fg2024, fg2025);
+
+create partition scheme ps_OrderDateArchive
+as partition pf_OrderDate
+all to ([PRIMARY]);
+
+alter partition scheme ps_OrderDate
+next used fg2026;
+
+drop partition scheme ps_OrderDate;"
+`;
+
+exports[`fixtures > procedural/control-flow.sql 1`] = `
+"declare @price decimal(10, 2) = 29.99;
+
+declare @title nvarchar(200);
+
+declare @count int;
+
+set @count = (
+  select count(*)
+  from Books
+  where InStock = 1
+);
+
+if @count > 0
+begin
+  set @title = 'Books available';
+end
+else
+begin
+  set @title = 'No books available';
+end
+
+if @price < 10
+  set @title = 'cheap';
+else
+  if @price < 50
+    set @title = 'mid-range';
+  else
+    set @title = 'expensive';
+
+while @count > 0
+begin
+  set @count = @count - 1;
+
+  if @count = 5
+    continue;
+
+  if @count = 0
+    break;
+end
+
+begin try
+  insert into Books (
+    Title,
+    Price,
+    InStock
+  )
+  values
+    ('New Book', 19.99, 1);
+end try
+begin catch
+  declare @msg nvarchar(4000) = error_message();
+
+  declare @sev int = error_severity();
+
+  declare @state int = error_state();
+
+  raiserror (@msg, @sev, @state);
+end catch
+
+goto Cleanup;
+
+Cleanup:
+
+print 'done';
+
+return;"
+`;
+
+exports[`fixtures > procedural/cursors.sql 1`] = `
+"declare @bookId int;
+
+declare @title nvarchar(200);
+
+declare @price decimal(10, 2);
+
+declare BookCursor cursor
+for
+select
+  Id,
+  Title,
+  Price
+from Books
+where InStock = 1
+order by Title asc;
+
+open BookCursor;
+
+fetch next from BookCursor into @bookId, @title, @price;
+
+while @@fetch_status = 0
+begin
+  print @title;
+
+  fetch next from BookCursor into @bookId, @title, @price;
+end
+
+close BookCursor;
+
+deallocate BookCursor;
+
+declare ScrollCursor SCROLL cursor
+for
+select
+  Id,
+  Title
+from Books
+order by Id asc;
+
+open ScrollCursor;
+
+fetch first from ScrollCursor into @bookId, @title;
+
+fetch last from ScrollCursor into @bookId, @title;
+
+fetch absolute 5 from ScrollCursor into @bookId, @title;
+
+fetch relative -2 from ScrollCursor into @bookId, @title;
+
+fetch prior from ScrollCursor into @bookId, @title;
+
+close ScrollCursor;
+
+deallocate ScrollCursor;"
+`;
+
+exports[`fixtures > security/grants.sql 1`] = `
+"create user AppUser
+for login AppLogin;
+
+create user ReportUser
+without login
+with
+  default_schema = dbo;
+
+alter user AppUser
+with
+  name = NewAppUser,
+  default_schema = sales;
+
+drop user AppUser;
+
+drop user if exists AppUser;
+
+create login AppLogin
+with
+  password = 'Str0ngP@ssw0rd!';
+
+create login DomainUser
+from windows
+with
+  default_database = AdventureWorks;
+
+alter login AppLogin
+with
+  password = 'NewP@ssw0rd!',
+  old_password = 'Str0ngP@ssw0rd!';
+
+alter login AppLogin enable;
+
+drop login AppLogin;
+
+create role db_reader
+authorization dbo;
+
+alter role db_reader
+add member AppUser;
+
+alter role db_reader
+drop member AppUser;
+
+drop role db_reader;
+
+grant select
+on dbo.Books
+to AppUser;
+
+grant
+  select,
+  insert,
+  update
+on dbo.Books
+to AppUser, ReportUser;
+
+grant select
+on dbo.Books (Title, Price)
+to ReportUser;
+
+grant execute
+on dbo.GetAvailableBooks
+to AppUser
+with grant option;
+
+deny delete
+on dbo.Books
+to AppUser;
+
+revoke select
+on dbo.Books
+from AppUser;
+
+revoke select
+on dbo.Books
+from AppUser
+cascade;
+
+grant
+  select,
+  insert,
+  update,
+  delete
+on schema::dbo
+to AppUser;
+
+grant control
+on database::AdventureWorks
+to AppUser;"
 `;
 
 exports[`fixtures > select/basic.sql 1`] = `
@@ -321,6 +703,37 @@ exports[`fixtures > select/window.sql 1`] = `
 from Books;"
 `;
 
+exports[`fixtures > sequence/basic.sql 1`] = `
+"create sequence OrderSeq
+as int
+start with 1
+increment by 1;
+
+create sequence dbo.InvoiceSeq
+as bigint
+start with 1000
+increment by 1
+minvalue 1000
+maxvalue 9999999
+no cycle
+cache 50;
+
+alter sequence OrderSeq
+restart with 1;
+
+alter sequence dbo.InvoiceSeq
+increment by 10
+maxvalue 99999999
+cycle
+cache 100;
+
+drop sequence OrderSeq;
+
+drop sequence if exists OrderSeq;
+
+drop sequence dbo.InvoiceSeq, dbo.OrderSeq;"
+`;
+
 exports[`fixtures > stored-proc/basic.sql 1`] = `
 "create procedure GetAvailableBooks
 as
@@ -358,6 +771,66 @@ end;
 go"
 `;
 
+exports[`fixtures > trigger/after-insert.sql 1`] = `
+"create trigger BooksAfterInsert
+on Books
+after insert
+as
+begin
+  insert into AuditLog (
+    TableName,
+    Action,
+    RecordId,
+    ChangedAt
+  )
+  select
+    'Books',
+    'INSERT',
+    Id,
+    getdate()
+  from inserted;
+end;
+go"
+`;
+
+exports[`fixtures > trigger/instead-of-delete.sql 1`] = `
+"create trigger BooksInsteadOfDelete
+on Books
+instead of delete
+as
+begin
+  update Books
+  set
+    IsDeleted = 1,
+    DeletedAt = getdate()
+  where Id in (
+    select Id
+    from deleted
+  );
+end;
+go"
+`;
+
+exports[`fixtures > type/basic.sql 1`] = `
+"create type dbo.BookTitle from nvarchar(200) not null;
+
+create type dbo.Price from decimal(10, 2) null;
+
+create type dbo.BookTableType as table (
+  Id int not null,
+  Title nvarchar(200) not null,
+  Price decimal(10, 2) not null,
+  InStock bit not null
+);
+
+create type dbo.OrderLineType as table (
+  LineId int not null,
+  BookId int not null,
+  Quantity int not null,
+  UnitPrice decimal(10, 2) not null
+);"
+`;
+
 exports[`fixtures > update/basic.sql 1`] = `
 "update Books
 set
@@ -373,4 +846,31 @@ from
   Books
   inner join Publishers on Books.PublisherId = Publishers.Id
 where Publishers.Country = 'UK';"
+`;
+
+exports[`fixtures > view/basic.sql 1`] = `
+"create view AvailableBooks
+as
+select
+  b.Id,
+  b.Title,
+  b.Price,
+  a.Name as AuthorName
+from
+  Books as b
+  inner join Authors as a on b.AuthorId = a.Id
+where b.InStock = 1;
+go"
+`;
+
+exports[`fixtures > view/schemabinding.sql 1`] = `
+"create view dbo.BookSummary
+with schemabinding
+as
+select
+  b.Id,
+  b.Title,
+  b.Price
+from dbo.Books as b;
+go"
 `;

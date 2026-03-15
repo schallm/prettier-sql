@@ -1386,6 +1386,18 @@ from DISK = N'C:\\backup\\AW.bak';"
         expect(r).toContain("filename = N'C:\\data\\AW2.ndf'");
     });
 
+    it('ALTER DATABASE REBUILD LOG without ON clause', async () => {
+        const r = await fmt('ALTER DATABASE AdventureWorks REBUILD LOG');
+        expect(r).toBe('alter database AdventureWorks rebuild log;');
+    });
+
+    it('ALTER DATABASE REBUILD LOG with ON clause', async () => {
+        const r = await fmt("ALTER DATABASE AdventureWorks REBUILD LOG ON (NAME = AW_log, FILENAME = N'C:\\data\\AW.ldf')");
+        expect(r).toContain('rebuild log');
+        expect(r).toContain('on (');
+        expect(r).toContain('name = AW_log');
+    });
+
     it('ALTER DATABASE keywords respect sqlKeywordCase upper', async () => {
         const r = await fmt('ALTER DATABASE AdventureWorks SET RECOVERY FULL', { sqlKeywordCase: 'upper' });
         expect(r).toContain('ALTER DATABASE');
