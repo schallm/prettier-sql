@@ -166,14 +166,7 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
     const uniqueKw = isUnique ? keyword('UNIQUE ', opts) : '';
     const clusteredKw = isClustered ? keyword('CLUSTERED ', opts) : keyword('NONCLUSTERED ', opts);
 
-    const parts: Doc[] = [
-        keyword('CREATE ', opts),
-        uniqueKw,
-        clusteredKw,
-        keyword('INDEX', opts),
-        ' ',
-        indexName,
-        hardline,
+    const onClause: Doc = [
         keyword('ON', opts),
         ' ',
         schemaObjectName(table),
@@ -183,12 +176,21 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
         ')',
     ];
 
-    if (Array.isArray(includeColumns) && includeColumns.length > 0) {
-        parts.push(hardline, keyword('INCLUDE', opts), ' (', (includeColumns as string[]).join(', '), ')');
-    }
+    const includePart: Doc =
+        Array.isArray(includeColumns) && includeColumns.length > 0
+            ? [hardline, keyword('INCLUDE', opts), ' (', (includeColumns as string[]).join(', '), ')']
+            : '';
 
-    parts.push(';');
-    return group(parts);
+    return group([
+        keyword('CREATE ', opts),
+        uniqueKw,
+        clusteredKw,
+        keyword('INDEX', opts),
+        ' ',
+        indexName,
+        indent([hardline, onClause, includePart]),
+        ';',
+    ]);
 }
 
 // ---------------------------------------------------------------------------

@@ -891,25 +891,25 @@ drop column Isbn;
 
 ### CREATE INDEX
 
-`CREATE INDEX` places the index name on the same line as the verb, then `ON table (columns)` on its own line with the column list indented. Each column includes an explicit `ASC` or `DESC` direction. An optional `INCLUDE` clause goes on a further line.
+`CREATE INDEX` places the index name on the first line. `ON table (columns)` and the optional `INCLUDE` clause are each indented one level as sub-clauses of the statement. Each column includes an explicit `ASC` or `DESC` direction.
 
 ```sql
 create nonclustered index IX_Books_Title
-on Books (
-  Title asc
-);
+  on Books (
+    Title asc
+  );
 
 create unique clustered index IX_Books_Id
-on Books (
-  Id asc
-);
+  on Books (
+    Id asc
+  );
 
 create nonclustered index IX_Books_AuthorId_Price
-on Books (
-  AuthorId asc,
-  Price desc
-)
-include (Title, InStock);
+  on Books (
+    AuthorId asc,
+    Price desc
+  )
+  include (Title, InStock);
 ```
 
 ---
