@@ -601,16 +601,17 @@ keywords (`OPENROWSET`, `AS`) are subject to the `sqlKeywordCase` option.
 `OPENROWSET(BULK ...)` for importing file data:
 
 ```sql
--- With FORMATFILE and extra options, each option on its own indented line
+-- All arguments break together when the call exceeds printWidth
 select *
-from openrowset(bulk 'C:\data\file.csv',
+from openrowset(
+  bulk 'C:\data\file.csv',
   formatfile='C:\data\fmt.xml',
   firstrow=2
-);
+) as t;
 
--- SINGLE_BLOB on one line when there is only one option
+-- Stays inline when short enough
 select *
-from openrowset(bulk 'C:\data\data.json', single_blob);
+from openrowset(bulk 'C:\data\data.json', single_blob) as t;
 ```
 
 Options are emitted as raw text (original casing preserved). The `BULK` keyword respects

@@ -1150,7 +1150,7 @@ where o.id = 1;"
         const result = await fmt(
             "select * from openrowset(bulk 'C:\\data\\file.csv', formatfile='C:\\data\\fmt.xml', firstrow=2) as t;"
         );
-        expect(result).toContain("openrowset(bulk 'C:\\data\\file.csv',");
+        expect(result).toContain("bulk 'C:\\data\\file.csv',");
         expect(result).toContain("formatfile='C:\\data\\fmt.xml'");
         expect(result).toContain('as t;');
     });

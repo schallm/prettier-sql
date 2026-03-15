@@ -1345,10 +1345,10 @@ function printBulkOpenRowset(node: SqlNode, opts: Options): Doc {
     const alias = propStr(node, 'alias');
 
     const dataFile = dataFiles?.[0] ?? '';
-    const optionsDocs: Doc = options?.length ? [',', indent([hardline, join([',', hardline], options)])] : '';
+    const allArgs: Doc[] = [keyword('BULK', opts), ' ', dataFile, ...(options ?? []).map((o): Doc => [',', line, o])];
 
     const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
-    return [keyword('OPENROWSET', opts), '(', keyword('BULK', opts), ' ', dataFile, optionsDocs, ')', aliasPart];
+    return [group([keyword('OPENROWSET', opts), '(', indent([softline, ...allArgs]), softline, ')']), aliasPart];
 }
 
 // ---------------------------------------------------------------------------
