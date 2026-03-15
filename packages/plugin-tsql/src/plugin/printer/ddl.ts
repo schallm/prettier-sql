@@ -369,8 +369,24 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
     // Scalar or multi-statement TVF — both use BEGIN...END
     const stmts = Array.isArray(body) ? (body as SqlNode[]).map((s) => printStatementWithComments(s, opts)) : [];
     const bodyDoc: Doc = join([hardline, hardline], stmts);
-    // inline-table TVF: returnType contains "@var TABLE (...)" raw text — don't keyword-case identifiers
-    const retTypePart: Doc = bodyType === 'inline-table' ? returnType : keyword(returnType, opts);
+
+    let retTypePart: Doc;
+    if (bodyType === 'inline-table') {
+        const returnVar = propStr(node, 'returnVar') ?? '@t';
+        const returnColumns = propArr(node, 'returnColumns');
+        const colDocs = returnColumns.map((c) => printColumnDef(c as SqlNode, opts));
+        retTypePart = [
+            returnVar,
+            ' ',
+            keyword('TABLE', opts),
+            ' (',
+            indent([hardline, join([',', hardline], colDocs)]),
+            hardline,
+            ')',
+        ];
+    } else {
+        retTypePart = keyword(returnType, opts);
+    }
 
     return [
         nameAndParams,

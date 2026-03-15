@@ -1201,9 +1201,20 @@ public class AstBuilder : TSqlFragmentVisitor {
             QueryExpression? qexpr = selRet.SelectStatement?.QueryExpression;
             while (qexpr is QueryParenthesisExpression qpe) qexpr = qpe.QueryExpression;
             body = BuildQueryExpression(qexpr);
-        } else if (cf.ReturnType is TableValuedFunctionReturnType) {
+        } else if (cf.ReturnType is TableValuedFunctionReturnType tvf) {
             bodyType = "inline-table";
             body = cf.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
+            return Node("CreateFunctionStatement", cf, new Dictionary<string, object?> {
+                ["name"] = BuildSchemaObjectName(cf.Name),
+                ["parameters"] = parms,
+                ["options"] = BuildFunctionOptions(cf.Options),
+                ["bodyStart"] = cf.StatementList?.StartOffset,
+                ["bodyType"] = bodyType,
+                ["body"] = body,
+                ["returnVar"] = tvf.DeclareTableVariableBody?.VariableName?.Value,
+                ["returnColumns"] = tvf.DeclareTableVariableBody?.Definition?.ColumnDefinitions
+                    ?.Select(c => (object?)BuildColumnDefinition(c)).ToList(),
+            });
         } else {
             bodyType = "scalar";
             body = cf.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
@@ -1519,9 +1530,20 @@ public class AstBuilder : TSqlFragmentVisitor {
             QueryExpression? qexpr = selRet.SelectStatement?.QueryExpression;
             while (qexpr is QueryParenthesisExpression qpe) qexpr = qpe.QueryExpression;
             body = BuildQueryExpression(qexpr);
-        } else if (f.ReturnType is TableValuedFunctionReturnType) {
+        } else if (f.ReturnType is TableValuedFunctionReturnType tvf) {
             bodyType = "inline-table";
             body = f.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
+            return Node(type, f, new Dictionary<string, object?> {
+                ["name"] = BuildSchemaObjectName(f.Name),
+                ["parameters"] = parms,
+                ["options"] = BuildFunctionOptions(f.Options),
+                ["bodyStart"] = f.StatementList?.StartOffset,
+                ["bodyType"] = bodyType,
+                ["body"] = body,
+                ["returnVar"] = tvf.DeclareTableVariableBody?.VariableName?.Value,
+                ["returnColumns"] = tvf.DeclareTableVariableBody?.Definition?.ColumnDefinitions
+                    ?.Select(c => (object?)BuildColumnDefinition(c)).ToList(),
+            });
         } else {
             bodyType = "scalar";
             body = f.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();

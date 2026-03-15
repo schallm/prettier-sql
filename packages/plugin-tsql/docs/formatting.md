@@ -1056,7 +1056,11 @@ Multi-statement table-valued function: return table declaration inline after `)`
 ```sql
 create function GetTopBooks(
   @MaxPrice decimal(10, 2)
-) returns @result table (Id int not null, Title nvarchar(200) not null, Price decimal(10, 2) not null)
+) returns @result table (
+  Id int not null,
+  Title nvarchar(200) not null,
+  Price decimal(10, 2) not null
+)
 as
 begin
   insert into @result

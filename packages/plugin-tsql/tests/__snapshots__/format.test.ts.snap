@@ -775,9 +775,10 @@ go"
 `;
 
 exports[`USE / SET / WAITFOR / ALTER PROC/FUNC > CREATE FUNCTION multi-statement TVF (RETURNS @t TABLE) 1`] = `
-"create function GetTopBooks(
-  @MaxPrice decimal(10,2)
-) returns @result table (Id int, Title nvarchar(200))
+"create function GetTopBooks(@MaxPrice decimal(10,2)) returns @result table (
+  Id int,
+  Title nvarchar(200)
+)
 as
 begin
   insert into @result
