@@ -225,12 +225,10 @@ output $action, inserted.Id, inserted.Title, deleted.Price;"
 `;
 
 exports[`fixtures > partition/basic.sql 1`] = `
-"create partition function pf_OrderDate (datetime2)
-  as range right
+"create partition function pf_OrderDate (datetime2) as range right
   for values ('2021-01-01', '2022-01-01', '2023-01-01', '2024-01-01');
 
-create partition function pf_Price (decimal(10, 2))
-  as range left
+create partition function pf_Price (decimal(10, 2)) as range left
   for values (100, 500, 1000, 5000);
 
 alter partition function pf_OrderDate()

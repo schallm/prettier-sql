@@ -1261,15 +1261,13 @@ drop schema if exists sales;
 
 ### CREATE / ALTER / DROP PARTITION FUNCTION
 
-`CREATE PARTITION FUNCTION` indents `AS RANGE` and `FOR VALUES` under the function name:
+`CREATE PARTITION FUNCTION` places `AS RANGE` inline after the parameter type, then indents `FOR VALUES`:
 
 ```sql
-create partition function pf_date (date)
-  as range right
+create partition function pf_date (date) as range right
   for values ('2020-01-01', '2021-01-01', '2022-01-01');
 
-create partition function pf_price (decimal(10, 2))
-  as range left
+create partition function pf_price (decimal(10, 2)) as range left
   for values (100, 500, 1000);
 ```
 

@@ -1055,14 +1055,12 @@ exports[`partition functions > ALTER PARTITION FUNCTION SPLIT RANGE 1`] = `
 `;
 
 exports[`partition functions > CREATE PARTITION FUNCTION RANGE LEFT 1`] = `
-"create partition function pf_price (decimal(10,2))
-  as range left
+"create partition function pf_price (decimal(10,2)) as range left
   for values (100, 500, 1000);"
 `;
 
 exports[`partition functions > CREATE PARTITION FUNCTION RANGE RIGHT 1`] = `
-"create partition function pf_date (date)
-  as range right
+"create partition function pf_date (date) as range right
   for values ('2020-01-01', '2021-01-01', '2022-01-01');"
 `;
 

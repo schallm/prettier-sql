@@ -702,8 +702,11 @@ export function printCreatePartitionFunction(node: SqlNode, opts: Options): Doc 
         ' (',
         keyword(paramType, opts),
         collationPart,
-        ')',
-        indent([hardline, keyword('AS', opts), ' ', rangeKw, hardline, forValues]),
+        ') ',
+        keyword('AS', opts),
+        ' ',
+        rangeKw,
+        indent([hardline, forValues]),
         ';',
     ];
 }
