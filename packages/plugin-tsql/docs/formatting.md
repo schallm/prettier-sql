@@ -1538,9 +1538,7 @@ grant execute
 on GetBooks
 to AppUser;
 
-grant
-  select,
-  insert
+grant select, insert
 on object::Books
 to AppUser, GuestUser;
 

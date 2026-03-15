@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '../parser/types.js';
 import type { Options } from './utils.js';
-import { keyword, hardline, join, indent, ifExistsDoc } from './utils.js';
+import { keyword, hardline, join, indent, group, line, softline, ifExistsDoc } from './utils.js';
 import { propStr, propBool } from './helpers.js';
 
 // ---------------------------------------------------------------------------
@@ -80,9 +80,8 @@ export function printGrantDenyRevoke(node: SqlNode, verb: string, opts: Options)
     const verbParts: Doc[] = [keyword(verb, opts)];
     if (grantOptFor) verbParts.push(' ', keyword('GRANT OPTION FOR', opts));
 
-    // Permissions: single stays inline, multiple break one-per-line
-    const permPart: Doc =
-        permDocs.length === 1 ? [' ', permDocs[0]] : indent([hardline, join([',', hardline], permDocs)]);
+    // Permissions: wrap only when they exceed printWidth
+    const permPart: Doc = [' ', group([indent([softline, join([',', line], permDocs)])])];
 
     const parts: Doc[] = [...verbParts, permPart];
 

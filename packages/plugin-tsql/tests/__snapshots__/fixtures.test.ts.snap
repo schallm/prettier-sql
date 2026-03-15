@@ -459,10 +459,7 @@ grant select
 on dbo.Books
 to AppUser;
 
-grant
-  select,
-  insert,
-  update
+grant select, insert, update
 on dbo.Books
 to AppUser, ReportUser;
 
@@ -488,11 +485,7 @@ on dbo.Books
 from AppUser
 cascade;
 
-grant
-  select,
-  insert,
-  update,
-  delete
+grant select, insert, update, delete
 on schema::dbo
 to AppUser;
 

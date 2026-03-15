@@ -1779,7 +1779,7 @@ describe('CREATE TYPE', () => {
 describe('GRANT / DENY / REVOKE', () => {
     it('GRANT multiple permissions ON object TO principal', async () => {
         expect(await fmt('grant select, insert on object::Books to AppUser')).toBe(
-            'grant\n  select,\n  insert\non object::Books\nto AppUser;'
+            'grant select, insert\non object::Books\nto AppUser;'
         );
     });
 
