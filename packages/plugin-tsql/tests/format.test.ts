@@ -1127,10 +1127,14 @@ where o.id = 1;"
             "select r.id, r.Name from openrowset('SQLNCLI', 'Server=(local);Trusted_Connection=yes;', 'select id, Name from pubs.titles') as r;"
         );
         expect(result).toMatchInlineSnapshot(`
-"select
-  r.id,
-  r.Name
-from openrowset('SQLNCLI', 'Server=(local);Trusted_Connection=yes;', 'select id, Name from pubs.titles') as r;"
+          "select
+            r.id,
+            r.Name
+          from openrowset(
+            'SQLNCLI',
+            'Server=(local);Trusted_Connection=yes;',
+            'select id, Name from pubs.titles'
+          ) as r;"
         `);
     });
 

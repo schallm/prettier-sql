@@ -1327,7 +1327,16 @@ function printOpenRowsetTableRef(node: SqlNode, opts: Options): Doc {
     const third: Doc = query ? query : schemaObjectName(obj);
 
     const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
-    return [keyword('OPENROWSET', opts), '(', providerName, ', ', connection, ', ', third, ')', aliasPart];
+    return [
+        group([
+            keyword('OPENROWSET', opts),
+            '(',
+            indent([softline, providerName, ',', line, connection, ',', line, third]),
+            softline,
+            ')',
+        ]),
+        aliasPart,
+    ];
 }
 
 function printBulkOpenRowset(node: SqlNode, opts: Options): Doc {

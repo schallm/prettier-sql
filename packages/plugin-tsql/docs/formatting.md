@@ -573,18 +573,27 @@ preserved).
 `OPENROWSET` with an OLE DB provider name and a query string or remote object:
 
 ```sql
--- Single provider-string connection
+-- Single provider-string connection — breaks across lines when too long for printWidth
 select
   Id,
   Name
-from openrowset('SQLNCLI', 'Server=(local);Trusted_Connection=yes;', 'select Id, Name from pubs..titles');
+from openrowset(
+  'SQLNCLI',
+  'Server=(local);Trusted_Connection=yes;',
+  'select Id, Name from pubs..titles'
+);
 
 -- Three-part datasource;userid;password connection with a schema object
 select *
-from openrowset('SQLNCLI', 'server=(local)';'sa';'pass', pubs..titles);
+from openrowset(
+  'SQLNCLI',
+  'server=(local)';'sa';'pass',
+  pubs..titles
+);
 ```
 
-The three arguments (provider name, connection, query/object) are kept inline. All SQL
+The three arguments (provider name, connection, query/object) each break to their own indented
+line when the call does not fit within `printWidth`; they stay inline when it does. All SQL
 keywords (`OPENROWSET`, `AS`) are subject to the `sqlKeywordCase` option.
 
 ##### OPENROWSET — BULK form
