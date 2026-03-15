@@ -1529,7 +1529,7 @@ deallocate BookCursor;
 
 ### GRANT / DENY / REVOKE
 
-Permissions, the `ON` clause, and the `TO`/`FROM` clause each go on their own line. A single permission stays inline with the verb; multiple permissions are indented one per line.
+Permissions follow the verb inline and wrap to indented lines only when they exceed `printWidth`. The `ON` clause and the `TO`/`FROM` clause each go on their own line.
 
 #### GRANT
 
@@ -1569,9 +1569,7 @@ deny delete
 on object::Books
 to GuestUser;
 
-deny
-  insert,
-  update
+deny insert, update
 on object::Books
 to GuestUser
 cascade;
