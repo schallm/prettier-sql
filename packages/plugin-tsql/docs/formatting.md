@@ -916,20 +916,16 @@ create nonclustered index IX_Books_AuthorId_Price
 
 ### ALTER INDEX
 
-`alter index` reformats the index name (or `all`), table, and operation on separate lines:
+`alter index` formats the index name (or `all`), table, and operation on a single line:
 
 ```sql
-alter index IX_Books_Title on Books
-rebuild;
+alter index IX_Books_Title on Books rebuild;
 
-alter index all on Books
-rebuild;
+alter index all on Books rebuild;
 
-alter index IX_Books_Title on Books
-reorganize;
+alter index IX_Books_Title on Books reorganize;
 
-alter index IX_Books_Title on Books
-disable;
+alter index IX_Books_Title on Books disable;
 ```
 
 ---
@@ -1042,8 +1038,7 @@ Scalar function:
 create function GetAuthorFullName(
   @First nvarchar(50),
   @Last nvarchar(50)
-)
-returns nvarchar(101)
+) returns nvarchar(101)
 as
 begin
   return @First + ' ' + @Last;
@@ -1133,11 +1128,10 @@ go
 
 ### CREATE / ALTER SEQUENCE
 
-Options each appear on their own indented line below the sequence name:
+The `as` type is placed inline on the header line; remaining options each appear on their own indented line:
 
 ```sql
-create sequence OrderSeq
-  as bigint
+create sequence OrderSeq as bigint
   start with 1
   increment by 1
   minvalue 1
@@ -1149,8 +1143,7 @@ create sequence OrderSeq
 `NO` variants are supported:
 
 ```sql
-create sequence Seq
-  as int
+create sequence Seq as int
   start with 1
   no minvalue
   no maxvalue
