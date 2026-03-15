@@ -216,7 +216,7 @@ export function printAlterIndex(node: SqlNode, opts: Options): Doc {
         keyword('ON', opts),
         ' ',
         schemaObjectName(table),
-        hardline,
+        ' ',
         typeKw,
         ';',
     ];

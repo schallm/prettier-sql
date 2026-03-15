@@ -1,24 +1,12 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`ALTER INDEX > ALTER INDEX ALL REBUILD 1`] = `
-"alter index all on Books
-rebuild;"
-`;
+exports[`ALTER INDEX > ALTER INDEX ALL REBUILD 1`] = `"alter index all on Books rebuild;"`;
 
-exports[`ALTER INDEX > ALTER INDEX DISABLE 1`] = `
-"alter index ix_Books_title on Books
-disable;"
-`;
+exports[`ALTER INDEX > ALTER INDEX DISABLE 1`] = `"alter index ix_Books_title on Books disable;"`;
 
-exports[`ALTER INDEX > ALTER INDEX REBUILD 1`] = `
-"alter index ix_Books_title on Books
-rebuild;"
-`;
+exports[`ALTER INDEX > ALTER INDEX REBUILD 1`] = `"alter index ix_Books_title on Books rebuild;"`;
 
-exports[`ALTER INDEX > ALTER INDEX REORGANIZE 1`] = `
-"alter index ix_Books_title on Books
-reorganize;"
-`;
+exports[`ALTER INDEX > ALTER INDEX REORGANIZE 1`] = `"alter index ix_Books_title on Books reorganize;"`;
 
 exports[`ALTER TABLE formatting > add column 1`] = `
 "alter table Books

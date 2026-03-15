@@ -145,14 +145,11 @@ create unique nonclustered index UX_Authors_Email
     Email asc
   );
 
-alter index IX_Books_Title on Books
-rebuild;
+alter index IX_Books_Title on Books rebuild;
 
-alter index IX_Books_Genre_Price on Books
-reorganize;
+alter index IX_Books_Genre_Price on Books reorganize;
 
-alter index all on Books
-disable;
+alter index all on Books disable;
 
 drop index IX_Books_Title on Books;
 
