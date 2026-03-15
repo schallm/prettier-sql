@@ -457,7 +457,8 @@ function printAtTimeZone(node: SqlNode, opts: Options, printFn: (n: SqlNode) => 
 function printScalarSubquery(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
     const query = prop(node, 'query');
     if (!query) return '(/* subquery */)';
-    return ['(', indent([hardline, printQueryExpression(query, opts, printFn)]), hardline, ')'];
+    const sep = getDensity(opts) === 'compact' ? softline : hardline;
+    return group(['(', indent([sep, printQueryExpression(query, opts, printFn)]), sep, ')']);
 }
 
 // ---------------------------------------------------------------------------
@@ -473,15 +474,18 @@ export function printQueryExpression(node: SqlNode, opts: Options, printFn: (n: 
             return printBinaryQuery(node, opts, printFn);
         case 'QueryParenthesis': {
             const q = prop(node, 'query');
-            return q ? ['(', indent([hardline, printQueryExpression(q, opts, printFn)]), hardline, ')'] : '()';
+            if (!q) return '()';
+            const sep = getDensity(opts) === 'compact' ? softline : hardline;
+            return group(['(', indent([sep, printQueryExpression(q, opts, printFn)]), sep, ')']);
         }
         case 'QueryDerivedTable': {
             const q = prop(node, 'query');
             const alias = propStr(node, 'alias');
             const inner = q ? printQueryExpression(q, opts, printFn) : '/* query */';
+            const sep = getDensity(opts) === 'compact' ? softline : hardline;
             return alias
-                ? ['(', indent([hardline, inner]), hardline, ') ', keyword('AS', opts), ' ', alias]
-                : ['(', indent([hardline, inner]), hardline, ')'];
+                ? group(['(', indent([sep, inner]), sep, ') ', keyword('AS', opts), ' ', alias])
+                : group(['(', indent([sep, inner]), sep, ')']);
         }
         default:
             return node.text ?? `/* ${node.type} */`;
@@ -987,13 +991,14 @@ function printLikePredicate(node: SqlNode, opts: Options, printFn: (n: SqlNode) 
 function printExistsPredicate(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
     const subquery = prop(node, 'subquery');
     if (!subquery) return keyword('EXISTS', opts) + '()';
-    return [
+    const sep = getDensity(opts) === 'compact' ? softline : hardline;
+    return group([
         keyword('EXISTS', opts),
         ' (',
-        indent([hardline, printQueryExpression(subquery, opts, printFn)]),
-        hardline,
+        indent([sep, printQueryExpression(subquery, opts, printFn)]),
+        sep,
         ')',
-    ];
+    ]);
 }
 
 function printBetween(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {

@@ -1197,11 +1197,13 @@ public class AstBuilder : TSqlFragmentVisitor {
 
         if (cf.ReturnType is SelectFunctionReturnType selRet) {
             bodyType = "table";
-            body = BuildQueryExpression(selRet.SelectStatement?.QueryExpression);
-        } else if (cf.ReturnType is TableValuedFunctionReturnType tvf) {
+            // Unwrap QueryParenthesisExpression: we emit RETURN (...) ourselves
+            QueryExpression? qexpr = selRet.SelectStatement?.QueryExpression;
+            while (qexpr is QueryParenthesisExpression qpe) qexpr = qpe.QueryExpression;
+            body = BuildQueryExpression(qexpr);
+        } else if (cf.ReturnType is TableValuedFunctionReturnType) {
             bodyType = "inline-table";
-            body = tvf.DeclareTableVariableBody?.Definition?.ColumnDefinitions
-                ?.Select(c => (object?)BuildColumnDefinition(c)).ToList();
+            body = cf.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
         } else {
             bodyType = "scalar";
             body = cf.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
@@ -1514,11 +1516,12 @@ public class AstBuilder : TSqlFragmentVisitor {
 
         if (f.ReturnType is SelectFunctionReturnType selRet) {
             bodyType = "table";
-            body = BuildQueryExpression(selRet.SelectStatement?.QueryExpression);
-        } else if (f.ReturnType is TableValuedFunctionReturnType tvf) {
+            QueryExpression? qexpr = selRet.SelectStatement?.QueryExpression;
+            while (qexpr is QueryParenthesisExpression qpe) qexpr = qpe.QueryExpression;
+            body = BuildQueryExpression(qexpr);
+        } else if (f.ReturnType is TableValuedFunctionReturnType) {
             bodyType = "inline-table";
-            body = tvf.DeclareTableVariableBody?.Definition?.ColumnDefinitions
-                ?.Select(c => (object?)BuildColumnDefinition(c)).ToList();
+            body = f.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
         } else {
             bodyType = "scalar";
             body = f.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();

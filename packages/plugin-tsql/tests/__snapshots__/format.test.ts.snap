@@ -762,6 +762,37 @@ from
 where p.Country = 'UK';"
 `;
 
+exports[`USE / SET / WAITFOR / ALTER PROC/FUNC > CREATE FUNCTION inline TVF (RETURNS TABLE) 1`] = `
+"create function GetBooksByGenre(@GenreId int) returns table
+as
+return (
+  select
+    Id,
+    Title
+  from Books
+  where GenreId = @GenreId
+);
+go"
+`;
+
+exports[`USE / SET / WAITFOR / ALTER PROC/FUNC > CREATE FUNCTION multi-statement TVF (RETURNS @t TABLE) 1`] = `
+"create function GetTopBooks(
+  @MaxPrice decimal(10,2)
+) returns @result table (Id int, Title nvarchar(200))
+as
+begin
+  insert into @result
+  select
+    Id,
+    Title
+  from Books
+  where Price <= @MaxPrice;
+
+  return;
+end;
+go"
+`;
+
 exports[`VIEW formatting > CREATE OR ALTER VIEW basic 1`] = `
 "create or alter view AvailableBooksView
 as

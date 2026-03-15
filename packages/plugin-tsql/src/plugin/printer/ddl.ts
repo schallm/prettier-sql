@@ -327,14 +327,6 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
         return [pName, ' ', keyword(dt, opts)] as Doc;
     });
 
-    let bodyDoc: Doc;
-    if (bodyType === 'table' || bodyType === 'inline-table') {
-        bodyDoc = body && typeof body === 'object' ? qexpr(body as SqlNode, opts) : '/* table body */';
-    } else {
-        const stmts = Array.isArray(body) ? (body as SqlNode[]).map((s) => printStatementWithComments(s, opts)) : [];
-        bodyDoc = join([hardline, hardline], stmts);
-    }
-
     const preBody: Doc = node.preBodyComments?.length
         ? (node.preBodyComments as string[]).flatMap((c): Doc[] => [hardline, c])
         : '';
@@ -349,20 +341,50 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
               ? keyword('ALTER FUNCTION', opts)
               : keyword('CREATE FUNCTION', opts);
 
-    return group([
+    const nameAndParams: Doc = [
         fnKw,
         ' ',
         schemaObjectName(prop(node, 'name')),
         preBody,
-        '(',
-        parameters.length > 0 ? [indent([softline, join([',', line], paramDocs)]), softline] : '',
-        ')',
+        group(['(', parameters.length > 0 ? [indent([softline, join([',', line], paramDocs)]), softline] : '', ')']),
         postParam,
         printModuleOptions(node, opts),
+    ];
+
+    if (bodyType === 'table') {
+        // Inline TVF: RETURNS TABLE AS RETURN (query) — no BEGIN/END
+        // returnType raw text contains the SELECT, not the word TABLE — hardcode TABLE
+        const queryDoc = body && !Array.isArray(body) ? qexpr(body as SqlNode, opts) : '/* query */';
+        return [
+            nameAndParams,
+            ' ',
+            keyword('RETURNS', opts),
+            ' ',
+            keyword('TABLE', opts),
+            hardline,
+            keyword('AS', opts),
+            hardline,
+            keyword('RETURN', opts),
+            ' (',
+            indent([hardline, queryDoc]),
+            hardline,
+            ')',
+            ';',
+        ];
+    }
+
+    // Scalar or multi-statement TVF — both use BEGIN...END
+    const stmts = Array.isArray(body) ? (body as SqlNode[]).map((s) => printStatementWithComments(s, opts)) : [];
+    const bodyDoc: Doc = join([hardline, hardline], stmts);
+    // inline-table TVF: returnType contains "@var TABLE (...)" raw text — don't keyword-case identifiers
+    const retTypePart: Doc = bodyType === 'inline-table' ? returnType : keyword(returnType, opts);
+
+    return [
+        nameAndParams,
         ' ',
         keyword('RETURNS', opts),
         ' ',
-        keyword(returnType, opts),
+        retTypePart,
         hardline,
         keyword('AS', opts),
         hardline,
@@ -371,7 +393,7 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
         hardline,
         keyword('END', opts),
         ';',
-    ]);
+    ];
 }
 
 // ---------------------------------------------------------------------------

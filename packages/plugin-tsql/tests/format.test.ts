@@ -1505,6 +1505,28 @@ describe('USE / SET / WAITFOR / ALTER PROC/FUNC', () => {
         expect(result).toContain('create or alter function GetCount');
         expect(result).toContain('go');
     });
+
+    it('CREATE FUNCTION inline TVF (RETURNS TABLE)', async () => {
+        const result = await fmt(
+            'create function GetBooksByGenre(@GenreId int) returns table as return (select Id, Title from Books where GenreId = @GenreId)'
+        );
+        expect(result).toContain('returns table');
+        expect(result).toContain('as');
+        expect(result).toContain('return (');
+        expect(result).toContain('go');
+        expect(result).toMatchSnapshot();
+    });
+
+    it('CREATE FUNCTION multi-statement TVF (RETURNS @t TABLE)', async () => {
+        const result = await fmt(
+            'create function GetTopBooks(@MaxPrice decimal(10,2)) returns @result table (Id int, Title nvarchar(200)) as begin insert into @result select Id, Title from Books where Price <= @MaxPrice; return; end'
+        );
+        expect(result).toContain('returns @result table');
+        expect(result).toContain('begin');
+        expect(result).toContain('end;');
+        expect(result).toContain('go');
+        expect(result).toMatchSnapshot();
+    });
 });
 
 describe('CREATE/ALTER TRIGGER', () => {
