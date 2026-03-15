@@ -1019,6 +1019,8 @@ go
 
 `alter function` and `create or alter function` follow the same layout as `create function`.
 
+The parameter list wraps to indented lines only when it would exceed `printWidth`; `returns` always appears inline after the closing `)`.
+
 Scalar function:
 
 ```sql
@@ -1029,6 +1031,45 @@ create function GetAuthorFullName(
 as
 begin
   return @First + ' ' + @Last;
+end;
+go
+```
+
+Inline table-valued function (`RETURNS TABLE`): uses `RETURN (query)` — no `BEGIN`/`END`:
+
+```sql
+create function GetBooksByGenre(@GenreId int) returns table
+as
+return (
+  select
+    Id,
+    Title,
+    Price
+  from Books
+  where GenreId = @GenreId
+    and InStock = 1
+);
+go
+```
+
+Multi-statement table-valued function: return table declaration inline after `)`, body in `BEGIN`/`END`:
+
+```sql
+create function GetTopBooks(
+  @MaxPrice decimal(10, 2)
+) returns @result table (Id int not null, Title nvarchar(200) not null, Price decimal(10, 2) not null)
+as
+begin
+  insert into @result
+  select
+    Id,
+    Title,
+    Price
+  from Books
+  where Price <= @MaxPrice
+  order by Price asc;
+
+  return;
 end;
 go
 ```
