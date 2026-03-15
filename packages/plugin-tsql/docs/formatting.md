@@ -1610,8 +1610,7 @@ from external provider;
 
 create user AppUser
 for login AppLogin
-with
-  default_schema = dbo;
+with default_schema = dbo;
 ```
 
 #### ALTER USER
@@ -1621,6 +1620,9 @@ alter user AppUser
 with
   Name = NewUser,
   default_schema = reports;
+
+alter user AppUser
+with Name = NewUser;
 ```
 
 #### DROP USER
@@ -1635,12 +1637,11 @@ drop user AppUser;
 
 #### CREATE LOGIN
 
-The `WITH` or `FROM` clause starts on a new line. Options are indented one level, one per line:
+The `WITH` or `FROM` clause starts on a new line. A single option stays inline with `WITH`; multiple options are indented one per line:
 
 ```sql
 create login AppLogin
-with
-  password = 'P@ssw0rd';
+with password = 'P@ssw0rd';
 
 create login AppLogin
 with
@@ -1650,16 +1651,14 @@ with
   check_expiration = on;
 
 create login AppLogin
-with
-  password = 'P@ssw0rd' hashed must_change;
+with password = 'P@ssw0rd' hashed must_change;
 
 create login WindowsUser
 from windows;
 
 create login WindowsUser
 from windows
-with
-  default_domain = CORP;
+with default_domain = CORP;
 ```
 
 #### ALTER LOGIN
@@ -1675,8 +1674,7 @@ alter login AppLogin
 drop credential BackupCred;
 
 alter login AppLogin
-with
-  password = 'NewP@ss';
+with password = 'NewP@ss';
 
 alter login AppLogin
 with

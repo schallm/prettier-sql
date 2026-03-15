@@ -1859,13 +1859,13 @@ describe('CREATE/ALTER/DROP USER', () => {
 
     it('CREATE USER ... FOR LOGIN WITH DEFAULT_SCHEMA', async () => {
         expect(await fmt("create user AppUser for login AppLogin with default_schema = dbo")).toBe(
-            'create user AppUser\nfor login AppLogin\nwith\n  default_schema = dbo;'
+            'create user AppUser\nfor login AppLogin\nwith default_schema = dbo;'
         );
     });
 
     it('ALTER USER ... WITH NAME', async () => {
         expect(await fmt('alter user AppUser with name = NewUser')).toBe(
-            'alter user AppUser\nwith\n  name = NewUser;'
+            'alter user AppUser\nwith name = NewUser;'
         );
     });
 
@@ -1877,7 +1877,7 @@ describe('CREATE/ALTER/DROP USER', () => {
 describe('CREATE/ALTER/DROP LOGIN', () => {
     it('CREATE LOGIN with password', async () => {
         expect(await fmt("create login AppLogin with password = 'P@ssw0rd'")).toBe(
-            "create login AppLogin\nwith\n  password = 'P@ssw0rd';"
+            "create login AppLogin\nwith password = 'P@ssw0rd';"
         );
     });
 
@@ -1903,7 +1903,7 @@ describe('CREATE/ALTER/DROP LOGIN', () => {
 
     it('ALTER LOGIN with new password', async () => {
         expect(await fmt("alter login AppLogin with password = 'NewP@ss'")).toBe(
-            "alter login AppLogin\nwith\n  password = 'NewP@ss';"
+            "alter login AppLogin\nwith password = 'NewP@ss';"
         );
     });
 

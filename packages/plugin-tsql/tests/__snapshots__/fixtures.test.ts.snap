@@ -414,8 +414,7 @@ for login AppLogin;
 
 create user ReportUser
 without login
-with
-  default_schema = dbo;
+with default_schema = dbo;
 
 alter user AppUser
 with
@@ -427,18 +426,15 @@ drop user AppUser;
 drop user if exists AppUser;
 
 create login AppLogin
-with
-  password = 'Str0ngP@ssw0rd!';
+with password = 'Str0ngP@ssw0rd!';
 
 create login DomainUser
 from windows
-with
-  default_database = AdventureWorks;
+with default_database = AdventureWorks;
 
 alter login AppLogin
-with
-  password = 'NewP@ssw0rd!',
-  old_password = 'Str0ngP@ssw0rd!';
+with password = 'NewP@ssw0rd!',
+old_password = 'Str0ngP@ssw0rd!';
 
 alter login AppLogin enable;
 

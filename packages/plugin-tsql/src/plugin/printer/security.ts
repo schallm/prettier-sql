@@ -156,7 +156,8 @@ function printPrincipalOptions(node: SqlNode, opts: Options): Doc {
     const options = node.props?.['options'];
     if (!Array.isArray(options) || options.length === 0) return '';
     const parts = (options as Record<string, unknown>[]).map((o) => printPrincipalOption(o, opts));
-    return [keyword('WITH', opts), indent([hardline, join([',', hardline], parts)])];
+    const optsPart: Doc = parts.length === 1 ? [' ', parts[0]!] : indent([hardline, join([',', hardline], parts)]);
+    return [keyword('WITH', opts), optsPart];
 }
 
 // ---------------------------------------------------------------------------
@@ -219,7 +220,10 @@ export function printCreateLogin(node: SqlNode, opts: Options): Doc {
         const optDocs: Doc[] = Array.isArray(options)
             ? (options as Record<string, unknown>[]).map((o) => printPrincipalOption(o, opts))
             : [];
-        parts.push([hardline, keyword('WITH', opts), indent([hardline, join([',', hardline], [pwParts, ...optDocs])])]);
+        const allOpts: Doc[] = [pwParts, ...optDocs];
+        const withOpts: Doc =
+            allOpts.length === 1 ? [' ', allOpts[0]!] : indent([hardline, join([',', hardline], allOpts)]);
+        parts.push([hardline, keyword('WITH', opts), withOpts]);
     } else if (sourceType === 'Windows') {
         parts.push([hardline, keyword('FROM WINDOWS', opts)]);
         const optionsDoc = printPrincipalOptions(node, opts);
@@ -253,7 +257,9 @@ export function printAlterLogin(node: SqlNode, opts: Options): Doc {
         const optDocs: Doc[] = Array.isArray(options)
             ? (options as Record<string, unknown>[]).map((o) => printPrincipalOption(o, opts))
             : [];
-        return [base, hardline, keyword('WITH', opts), indent([hardline, join([',', hardline], optDocs)]), ';'];
+        const withOpts: Doc =
+            optDocs.length === 1 ? [' ', optDocs[0]!] : indent([hardline, join([',', hardline], optDocs)]);
+        return [base, hardline, keyword('WITH', opts), withOpts, ';'];
     }
     return [base, ';'];
 }
