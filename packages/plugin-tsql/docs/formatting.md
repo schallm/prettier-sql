@@ -631,14 +631,10 @@ where InStock = 1;
 
 ### INSERT
 
-Column list and values list are each indented:
+The column list stays inline when it fits; it wraps to indented lines only when it would exceed `printWidth`. The values list is always indented:
 
 ```sql
-insert into Customers (
-  Name,
-  Email,
-  Active
-)
+insert into Customers (Name, Email, Active)
 values
   ('Jane Smith', 'jane@example.com', 1);
 ```
@@ -646,10 +642,7 @@ values
 Multiple rows stay on one line each (wrapping only if a single row exceeds `printWidth`):
 
 ```sql
-insert into Genres (
-  Id,
-  Name
-)
+insert into Genres (Id, Name)
 values
   (1, 'Fiction'),
   (2, 'Non-Fiction');
@@ -658,10 +651,7 @@ values
 INSERT ... SELECT:
 
 ```sql
-insert into ArchivedBooks (
-  Id,
-  Title
-)
+insert into ArchivedBooks (Id, Title)
 select
   Id,
   Title
@@ -672,10 +662,7 @@ where InStock = 0;
 INSERT with OUTPUT (see [OUTPUT clause](#output-clause) below):
 
 ```sql
-insert into Books (
-  Title,
-  Price
-)
+insert into Books (Title, Price)
 output inserted.Id, inserted.Title
 values
   ('New Book', 9.99);
@@ -1440,10 +1427,7 @@ raiserror ('Book not found', 16, 1);
 
 ```sql
 begin try
-  insert into Books (
-    Title,
-    Price
-  )
+  insert into Books (Title, Price)
   values
     ('New Book', 29.99);
 end try
@@ -1711,10 +1695,7 @@ drop role if exists db_reader;
 Line comments at the end of a statement or VALUES row are kept on the same line:
 
 ```sql
-insert into Genres (
-  Id,
-  Name
-)
+insert into Genres (Id, Name)
 values
   (1, 'Fiction'), -- primary genre
   (2, 'Non-Fiction'); -- secondary genre
