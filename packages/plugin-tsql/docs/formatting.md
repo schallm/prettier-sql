@@ -1251,6 +1251,71 @@ drop schema sales;
 drop schema if exists sales;
 ```
 
+### CREATE / ALTER / DROP PARTITION FUNCTION
+
+`CREATE PARTITION FUNCTION` emits the parameter type, range direction, and boundary values each on their own line:
+
+```sql
+create partition function pf_date (date)
+as range right
+for values ('2020-01-01', '2021-01-01', '2022-01-01');
+
+create partition function pf_price (decimal(10, 2))
+as range left
+for values (100, 500, 1000);
+```
+
+`ALTER PARTITION FUNCTION` emits `split range` or `merge range` on the line below the function name:
+
+```sql
+alter partition function pf_date()
+split range ('2023-01-01');
+
+alter partition function pf_date()
+merge range ('2020-01-01');
+```
+
+`DROP PARTITION FUNCTION`:
+
+```sql
+drop partition function pf_date;
+```
+
+### CREATE / ALTER / DROP PARTITION SCHEME
+
+`CREATE PARTITION SCHEME` emits the function reference and filegroup list each on their own line:
+
+```sql
+create partition scheme ps_date
+as partition pf_date
+to ([PRIMARY], fg1, fg2, fg3);
+```
+
+When all partitions map to the same filegroup, use `ALL TO`:
+
+```sql
+create partition scheme ps_date
+as partition pf_date
+all to ([PRIMARY]);
+```
+
+`ALTER PARTITION SCHEME … NEXT USED` designates the next filegroup for an incoming partition:
+
+```sql
+alter partition scheme ps_date
+next used fg_new;
+
+-- Without a filegroup (resets the designation)
+alter partition scheme ps_date
+next used;
+```
+
+`DROP PARTITION SCHEME`:
+
+```sql
+drop partition scheme ps_date;
+```
+
 ---
 
 ## Procedural / Control Flow
