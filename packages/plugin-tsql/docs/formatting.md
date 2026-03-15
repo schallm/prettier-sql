@@ -866,8 +866,7 @@ create table Orders (
 ```sql
 -- Add column
 alter table Books
-add
-  Isbn nvarchar(20) null;
+add Isbn nvarchar(20) null;
 
 -- Drop column
 alter table Books

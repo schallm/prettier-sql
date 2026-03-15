@@ -10,8 +10,7 @@ exports[`ALTER INDEX > ALTER INDEX REORGANIZE 1`] = `"alter index ix_Books_title
 
 exports[`ALTER TABLE formatting > add column 1`] = `
 "alter table Books
-add
-  Isbn nvarchar(20) null;"
+add Isbn nvarchar(20) null;"
 `;
 
 exports[`ALTER TABLE formatting > drop column 1`] = `

@@ -114,15 +114,8 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             ...propArr(node, 'columns').map((c) => printColumnDef(c, opts)),
             ...propArr(node, 'constraints').map((c) => printConstraintDef(c, opts)),
         ];
-        return group([
-            keyword('ALTER TABLE', opts),
-            ' ',
-            name,
-            hardline,
-            keyword('ADD', opts),
-            indent([hardline, join([',', hardline], defs)]),
-            ';',
-        ]);
+        const addPart: Doc = defs.length === 1 ? [' ', defs[0]!] : indent([hardline, join([',', hardline], defs)]);
+        return [keyword('ALTER TABLE', opts), ' ', name, hardline, keyword('ADD', opts), addPart, ';'];
     }
 
     if (alterType === 'AlterTableDropTableElementStatement') {
