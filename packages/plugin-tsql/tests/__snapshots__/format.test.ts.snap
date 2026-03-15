@@ -352,10 +352,7 @@ where GenreId in (1, 2, 3);"
 `;
 
 exports[`INSERT formatting > INSERT ... SELECT 1`] = `
-"insert into ArchivedBooks (
-  BookId,
-  Title
-)
+"insert into ArchivedBooks (BookId, Title)
 select
   BookId,
   Title
@@ -364,11 +361,7 @@ where InStock = 0;"
 `;
 
 exports[`INSERT formatting > VALUES insert 1`] = `
-"insert into Customers (
-  Name,
-  Email,
-  Active
-)
+"insert into Customers (Name, Email, Active)
 values
   ('Jane Smith', 'jane@example.com', 1);"
 `;
@@ -497,10 +490,7 @@ where InStock = 0;"
 `;
 
 exports[`OUTPUT clause > INSERT with OUTPUT inserted.* 1`] = `
-"insert into Books (
-  Title,
-  Price
-)
+"insert into Books (Title, Price)
 output inserted.BookId, inserted.Title
 values
   ('New Book', 9.99);"

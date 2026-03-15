@@ -571,7 +571,7 @@ function printInsert(node: SqlNode, opts: Options): Doc {
     const outputInto = prop(node, 'outputInto');
 
     const colsPart: Doc = columns.length
-        ? [
+        ? group([
               ' (',
               indent([
                   softline,
@@ -582,7 +582,7 @@ function printInsert(node: SqlNode, opts: Options): Doc {
               ]),
               softline,
               ')',
-          ]
+          ])
         : '';
 
     const sourcePart: Doc =

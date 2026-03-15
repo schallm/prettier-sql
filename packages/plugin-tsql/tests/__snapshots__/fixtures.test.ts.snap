@@ -155,22 +155,14 @@ drop index IX_Books_Title on Books;"
 `;
 
 exports[`fixtures > insert/basic.sql 1`] = `
-"insert into Customers (
-  Name,
-  Email,
-  Active
-)
+"insert into Customers (Name, Email, Active)
 values
   ('John Doe', 'john@example.com', 1),
   ('Jane Smith', 'jane@example.com', 1);"
 `;
 
 exports[`fixtures > insert/select-into.sql 1`] = `
-"insert into ArchivedBooks (
-  Id,
-  Title,
-  Price
-)
+"insert into ArchivedBooks (Id, Title, Price)
 select
   Id,
   Title,
@@ -295,11 +287,7 @@ begin
 end
 
 begin try
-  insert into Books (
-    Title,
-    Price,
-    InStock
-  )
+  insert into Books (Title, Price, InStock)
   values
     ('New Book', 19.99, 1);
 end try
@@ -765,12 +753,7 @@ on Books
 after insert
 as
 begin
-  insert into AuditLog (
-    TableName,
-    Action,
-    RecordId,
-    ChangedAt
-  )
+  insert into AuditLog (TableName, Action, RecordId, ChangedAt)
   select
     'Books',
     'INSERT',
