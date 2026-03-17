@@ -152,12 +152,32 @@ function printPrincipalOption(o: Record<string, unknown>, opts: Options): Doc {
     return principalOptionKw(kind, opts);
 }
 
+function withOptionsPart(items: Doc[]): Doc {
+    return items.length === 1 ? [' ', items[0]!] : indent([hardline, join([',', hardline], items)]);
+}
+
+/** Expands a password option into multiple peer items so OLD_PASSWORD and UNLOCK
+ *  are treated as separate WITH options rather than embedded sub-lines. */
+function expandPasswordOption(o: Record<string, unknown>, opts: Options): Doc[] {
+    const pw = o['password'] as string | undefined;
+    const old = o['oldPassword'] as string | undefined;
+    const hashed = o['hashed'] as boolean | undefined;
+    const mustChange = o['mustChange'] as boolean | undefined;
+    const unlock = o['unlock'] as boolean | undefined;
+    const pwDoc: Doc[] = [keyword('PASSWORD', opts), ' = ', pw ?? ''];
+    if (hashed) pwDoc.push(' ', keyword('HASHED', opts));
+    if (mustChange) pwDoc.push(' ', keyword('MUST_CHANGE', opts));
+    const result: Doc[] = [pwDoc];
+    if (old) result.push([keyword('OLD_PASSWORD', opts), ' = ', old]);
+    if (unlock) result.push(keyword('UNLOCK', opts));
+    return result;
+}
+
 function printPrincipalOptions(node: SqlNode, opts: Options): Doc {
     const options = node.props?.['options'];
     if (!Array.isArray(options) || options.length === 0) return '';
     const parts = (options as Record<string, unknown>[]).map((o) => printPrincipalOption(o, opts));
-    const optsPart: Doc = parts.length === 1 ? [' ', parts[0]!] : indent([hardline, join([',', hardline], parts)]);
-    return [keyword('WITH', opts), optsPart];
+    return [keyword('WITH', opts), withOptionsPart(parts)];
 }
 
 // ---------------------------------------------------------------------------
@@ -221,9 +241,7 @@ export function printCreateLogin(node: SqlNode, opts: Options): Doc {
             ? (options as Record<string, unknown>[]).map((o) => printPrincipalOption(o, opts))
             : [];
         const allOpts: Doc[] = [pwParts, ...optDocs];
-        const withOpts: Doc =
-            allOpts.length === 1 ? [' ', allOpts[0]!] : indent([hardline, join([',', hardline], allOpts)]);
-        parts.push([hardline, keyword('WITH', opts), withOpts]);
+        parts.push([hardline, keyword('WITH', opts), withOptionsPart(allOpts)]);
     } else if (sourceType === 'Windows') {
         parts.push([hardline, keyword('FROM WINDOWS', opts)]);
         const optionsDoc = printPrincipalOptions(node, opts);
@@ -255,11 +273,13 @@ export function printAlterLogin(node: SqlNode, opts: Options): Doc {
     if (action === 'WithOptions') {
         const options = node.props?.['options'];
         const optDocs: Doc[] = Array.isArray(options)
-            ? (options as Record<string, unknown>[]).map((o) => printPrincipalOption(o, opts))
+            ? (options as Record<string, unknown>[]).flatMap((o) =>
+                  (o['kind'] as string) === 'Password'
+                      ? expandPasswordOption(o, opts)
+                      : [printPrincipalOption(o, opts)],
+              )
             : [];
-        const withOpts: Doc =
-            optDocs.length === 1 ? [' ', optDocs[0]!] : indent([hardline, join([',', hardline], optDocs)]);
-        return [base, hardline, keyword('WITH', opts), withOpts, ';'];
+        return [base, hardline, keyword('WITH', opts), withOptionsPart(optDocs), ';'];
     }
     return [base, ';'];
 }

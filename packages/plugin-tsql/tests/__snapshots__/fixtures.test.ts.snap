@@ -42,6 +42,19 @@ drop database if exists AdventureWorks;
 drop database AdventureWorks, AdventureWorksDev;"
 `;
 
+exports[`fixtures > admin/create-database.sql 1`] = `
+"create database SalesDB;
+
+create database SalesDB collate Latin1_General_CI_AS;
+
+create database SalesSnap
+as snapshot of SalesDB;
+
+drop database SalesDB;
+
+drop database if exists SalesDB;"
+`;
+
 exports[`fixtures > alter-table/add-column.sql 1`] = `
 "alter table Books
 add
@@ -62,6 +75,24 @@ exports[`fixtures > create-table/basic.sql 1`] = `
   InStock bit default 1 not null,
   PublishedDate datetime2 default getdate() not null,
   constraint PK_Books primary key (Id)
+);"
+`;
+
+exports[`fixtures > create-table/computed-columns.sql 1`] = `
+"create table OrderItems (
+  Id int identity(1, 1) not null,
+  Quantity int not null,
+  UnitPrice decimal(10, 2) not null,
+  LineTotal as Quantity * UnitPrice,
+  constraint PK_OrderItems primary key (Id)
+);
+
+create table Products (
+  Id int identity(1, 1) not null,
+  Name nvarchar(200) not null,
+  Price decimal(10, 2) not null,
+  PriceWithTax as Price * 1.1 persisted,
+  constraint PK_Products primary key (Id)
 );"
 `;
 
@@ -97,6 +128,23 @@ create table OrderItems (
   constraint FK_OrderItems_Orders foreign key (OrderId) references Orders (Id),
   constraint FK_OrderItems_Products foreign key (ProductId) references Products (Id)
 );"
+`;
+
+exports[`fixtures > create-table/with-options.sql 1`] = `
+"create table ArchivedOrders (
+  Id int not null,
+  CustomerId int not null,
+  Total decimal(18, 2) not null,
+  constraint PK_ArchivedOrders primary key (Id)
+)
+with (data_compression = page);
+
+create table BigData (
+  Id int not null,
+  Payload nvarchar(max) null,
+  constraint PK_BigData primary key (Id)
+)
+with (data_compression = row, memory_optimized = off);"
 `;
 
 exports[`fixtures > delete/basic.sql 1`] = `
@@ -433,8 +481,9 @@ from windows
 with default_database = AdventureWorks;
 
 alter login AppLogin
-with password = 'NewP@ssw0rd!',
-old_password = 'Str0ngP@ssw0rd!';
+with
+  password = 'NewP@ssw0rd!',
+  old_password = 'Str0ngP@ssw0rd!';
 
 alter login AppLogin enable;
 

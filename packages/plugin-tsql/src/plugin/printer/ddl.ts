@@ -14,10 +14,20 @@ import { printStatementWithComments, printNode, printBool, qexpr } from './state
 export function printCreateTable(node: SqlNode, opts: Options): Doc {
     const columns = propArr(node, 'columns');
     const constraints = propArr(node, 'constraints');
+    const options = node.props?.['options'] as string[] | undefined;
     const allDefs = [
         ...columns.map((col) => printColumnDef(col, opts)),
         ...constraints.map((c) => printConstraintDef(c, opts)),
     ];
+    const withPart: Doc =
+        options && options.length > 0
+            ? [
+                  hardline,
+                  keyword('WITH', opts),
+                  ' ',
+                  group(['(', indent([softline, join([',', line], options)]), softline, ')']),
+              ]
+            : '';
     return group([
         keyword('CREATE TABLE', opts),
         ' ',
@@ -25,12 +35,29 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
         ' (',
         indent([hardline, join([',', hardline], allDefs)]),
         hardline,
-        ');',
+        ')',
+        withPart,
+        ';',
     ]);
 }
 
 export function printColumnDef(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name') ?? 'col';
+
+    // Computed column: Name AS expression [PERSISTED]
+    const computedExpr = prop(node, 'computedExpression');
+    if (computedExpr) {
+        const isPersisted = node.props?.['isPersisted'] as boolean | undefined;
+        return [
+            name,
+            ' ',
+            keyword('AS', opts),
+            ' ',
+            printNode(computedExpr, opts),
+            isPersisted ? [' ', keyword('PERSISTED', opts)] : '',
+        ];
+    }
+
     const dataType = propStr(node, 'dataType') ?? 'INT';
     const params = node.props?.['dataTypeParams'];
     // Read nullable as a tristate (true/false/undefined) — propBool only returns true/false.

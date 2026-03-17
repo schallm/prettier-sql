@@ -859,6 +859,34 @@ create table Orders (
 );
 ```
 
+Computed columns use `AS`:
+
+```sql
+create table OrderItems (
+  Id int identity(1, 1) not null,
+  Quantity int not null,
+  UnitPrice decimal(10, 2) not null,
+  LineTotal as Quantity * UnitPrice,
+  constraint PK_OrderItems primary key (Id)
+);
+```
+
+`WITH` options appear on the line after the closing parenthesis. Multiple options stay on one line unless they exceed `printWidth`, in which case each wraps to its own line:
+
+```sql
+create table ArchivedOrders (
+  Id int not null,
+  constraint PK_ArchivedOrders primary key (Id)
+)
+with (data_compression = page);
+
+create table BigData (
+  Id int not null,
+  constraint PK_BigData primary key (Id)
+)
+with (data_compression = row, memory_optimized = off);
+```
+
 ---
 
 ### ALTER TABLE

@@ -954,20 +954,49 @@ public class AstBuilder : TSqlFragmentVisitor {
     // DDL: CREATE TABLE
     // -------------------------------------------------------------------------
 
+    private static string SerializeTableOption(TableOption opt) {
+        if (opt is MemoryOptimizedTableOption mo)
+            return $"memory_optimized = {mo.OptionState.ToString().ToLower()}";
+        if (opt is DurabilityTableOption dur) {
+            var val = dur.DurabilityTableOptionKind == DurabilityTableOptionKind.SchemaOnly ? "schema_only" : "schema_and_data";
+            return $"durability = {val}";
+        }
+        if (opt is LockEscalationTableOption le)
+            return $"lock_escalation = {le.Value.ToString().ToLower()}";
+        return RawText(opt);
+    }
+
     private static SqlNode BuildCreateTableStatement(CreateTableStatement ct) {
         var columns = ct.Definition?.ColumnDefinitions
             ?.Select(c => (object?)BuildColumnDefinition(c)).ToList();
         var constraints = ct.Definition?.TableConstraints
             ?.Select(c => (object?)BuildTableConstraint(c)).ToList();
+        var options = ct.Options?.Count > 0
+            ? ct.Options.Select(o => (object?)SerializeTableOption(o)).ToList()
+            : null;
 
         return Node("CreateTableStatement", ct, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(ct.SchemaObjectName),
             ["columns"] = columns,
             ["constraints"] = constraints,
+            ["options"] = options,
         });
     }
 
     private static SqlNode BuildColumnDefinition(ColumnDefinition col) {
+        if (col.ComputedColumnExpression != null) {
+            return new SqlNode(
+                "ColumnDefinition",
+                col.StartOffset,
+                col.StartOffset + col.FragmentLength,
+                col.ColumnIdentifier?.Value,
+                new Dictionary<string, object?> {
+                    ["name"] = col.ColumnIdentifier?.Value,
+                    ["computedExpression"] = BuildScalarExpression(col.ComputedColumnExpression),
+                    ["isPersisted"] = col.IsPersisted ? (object?)true : null,
+                });
+        }
+
         var dt = col.DataType;
         var dataTypeName = dt?.Name?.BaseIdentifier?.Value;
 
