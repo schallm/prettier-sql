@@ -47,8 +47,7 @@ exports[`fixtures > admin/create-database.sql 1`] = `
 
 create database SalesDB collate Latin1_General_CI_AS;
 
-create database SalesSnap
-as snapshot of SalesDB;
+create database SalesSnap as snapshot of SalesDB;
 
 drop database SalesDB;
 
@@ -60,6 +59,30 @@ exports[`fixtures > alter-table/add-column.sql 1`] = `
 add
   Isbn nvarchar(20) null,
   Summary nvarchar(max) null;"
+`;
+
+exports[`fixtures > alter-table/constraints.sql 1`] = `
+"alter table Books
+add constraint UQ_Books_Isbn unique (Isbn);
+
+alter table Orders
+add constraint FK_Orders_Customers foreign key (CustomerId) references Customers (Id);
+
+alter table Books
+add constraint CK_Books_Price check (Price > 0);
+
+alter table Books
+drop column UQ_Books_Isbn;
+
+alter table Books
+drop column CK_Books_Price;
+
+alter table Orders
+add constraint FK_Orders_Customers foreign key (CustomerId) references Customers (Id);
+
+alter table Orders /* AlterTableConstraintModificationStatement */;
+
+alter table Orders /* AlterTableConstraintModificationStatement */;"
 `;
 
 exports[`fixtures > alter-table/drop-column.sql 1`] = `
@@ -456,6 +479,41 @@ close ScrollCursor;
 deallocate ScrollCursor;"
 `;
 
+exports[`fixtures > procedural/transactions.sql 1`] = `
+"begin transaction;
+
+begin transaction SaveOrder;
+
+save transaction BeforeSave
+
+rollback transaction;
+
+rollback transaction BeforeSave;
+
+commit transaction;
+
+commit transaction SaveOrder;
+
+begin try
+  begin transaction;
+
+  insert into Orders (CustomerId, Total)
+  values
+    (1, 99.99);
+
+  commit transaction;
+end try
+begin catch
+  rollback transaction throw;
+end catch
+
+set transaction isolation level read committed;
+
+set transaction isolation level serializable;
+
+set transaction isolation level snapshot;"
+`;
+
 exports[`fixtures > security/grants.sql 1`] = `
 "create user AppUser
 for login AppLogin;
@@ -539,6 +597,73 @@ on database::AdventureWorks
 to AppUser;"
 `;
 
+exports[`fixtures > security/users-roles.sql 1`] = `
+"create user AppUser
+for login AppLogin
+with default_schema = dbo;
+
+create user ReportUser
+without login
+with default_schema = reporting;
+
+create user ExternalUser
+from external provider;
+
+alter user AppUser
+with name = NewAppUser;
+
+alter user AppUser
+with default_schema = sales;
+
+create role ReadOnly;
+
+create role DataReader
+authorization dbo;
+
+alter role ReadOnly
+add member AppUser;
+
+alter role ReadOnly
+drop member AppUser;
+
+alter role ReadOnly
+with name = db_readonly;
+
+drop role ReadOnly;
+
+drop role if exists db_readonly;
+
+grant select, insert, update
+on schema::dbo
+to AppUser;
+
+grant control
+on database::AdventureWorks
+to AppUser;
+
+grant impersonate
+on login::ServiceLogin
+to AppUser;
+
+deny delete
+on object::dbo.AuditLog
+to AppUser;
+
+revoke select
+on schema::dbo
+from AppUser
+cascade;
+
+grant select
+on dbo.Books (Title, Price)
+to ReportUser;
+
+grant execute
+on dbo.GetAvailableBooks
+to AppUser
+with grant option;"
+`;
+
 exports[`fixtures > select/basic.sql 1`] = `
 "select
   Books.Id,
@@ -573,6 +698,88 @@ from
   availableBooks
   inner join bookOrders on availableBooks.Id = bookOrders.BookId
 order by bookOrders.OrderCount desc;"
+`;
+
+exports[`fixtures > select/expressions.sql 1`] = `
+"select next value for dbo.OrderSeq;
+
+select next value for dbo.OrderSeq over (order by Id asc);
+
+select parse('2023-01-01' as date);
+
+select parse('3.14' as decimal(10, 2) using 'en-US');
+
+select try_parse('abc' as int);
+
+select try_parse('2023-01-01' as date using 'en-US');
+
+select string_agg(Name, ', ') within group (order by Name asc)
+from Authors;
+
+select percentile_cont(0.5) within group (order by Salary asc) over (
+  partition by Department
+)
+from Employees;
+
+select top (10) with ties
+  Id,
+  Title,
+  Price
+from Books
+order by Price desc;
+
+select top (10) percent
+  Id,
+  Title
+from Books
+order by Price desc;"
+`;
+
+exports[`fixtures > select/for-xml-json.sql 1`] = `
+"select
+  Id,
+  Title,
+  Price
+from Books
+for xml auto;
+
+select
+  Id,
+  Title,
+  Price
+from Books
+for xml path('Book'), root('Books'), type;
+
+select
+  Id,
+  Name,
+  Category
+from Products
+for xml raw('Product'), elements, root('Catalog');
+
+select
+  OrderId,
+  CustomerId,
+  Total
+from Orders
+for json auto;
+
+select
+  Id,
+  Title as name,
+  Price as price
+from Books
+for json path, root('Books'), include_null_values;
+
+select
+  Id,
+  Title
+from Books
+for json path, without_array_wrapper;
+
+select *
+from Books
+for browse;"
 `;
 
 exports[`fixtures > select/joins.sql 1`] = `
@@ -725,6 +932,38 @@ from
 where p.Country = 'UK';"
 `;
 
+exports[`fixtures > select/pivot-unpivot.sql 1`] = `
+"select *
+from Sales
+pivot (
+  sum(Amount)
+  for Quarter in ([Q1], [Q2], [Q3], [Q4])
+) as PivotTable;
+
+select
+  CustomerId,
+  2022,
+  2023,
+  2024
+from (
+  select
+    CustomerId,
+    year(OrderDate) as OrderYear,
+    Total
+  from Orders
+) as src
+pivot (
+  sum(Total)
+  for OrderYear in ([2022], [2023], [2024])
+) as YearlyTotals;
+
+select *
+from PivotedSales
+unpivot (
+  Amount for Quarter in (Q1, Q2, Q3, Q4)
+) as UnpivotTable;"
+`;
+
 exports[`fixtures > select/subquery.sql 1`] = `
 "select
   Id,
@@ -741,6 +980,42 @@ where
     from Genres
     where Name = 'Fiction'
   );"
+`;
+
+exports[`fixtures > select/tablesample-temporal.sql 1`] = `
+"select *
+from BigTable tablesample (10 percent);
+
+select *
+from BigTable tablesample (1000 rows);
+
+select *
+from BigTable tablesample system (10 percent) repeatable (42);
+
+select
+  Id,
+  Name
+from dbo.Employee for system_time as of '2023-01-01';
+
+select
+  Id,
+  Name
+from dbo.Employee for system_time from '2022-01-01' to '2023-01-01';
+
+select
+  Id,
+  Name
+from dbo.Employee for system_time between '2022-01-01' and '2023-01-01';
+
+select
+  Id,
+  Name
+from dbo.Employee for system_time contained in ('2022-01-01', '2023-01-01');
+
+select
+  Id,
+  Name
+from dbo.Employee for system_time all;"
 `;
 
 exports[`fixtures > select/window.sql 1`] = `
@@ -879,6 +1154,28 @@ create type dbo.OrderLineType as table (
   Quantity int not null,
   UnitPrice decimal(10, 2) not null
 );"
+`;
+
+exports[`fixtures > type/table-types.sql 1`] = `
+"create type dbo.IdList as table (
+  Id int not null
+);
+
+create type dbo.NameValuePair as table (
+  Name nvarchar(100) not null,
+  Value nvarchar(500) null
+);
+
+create type dbo.OrderLine as table (
+  LineId int not null,
+  ProductId int not null,
+  Quantity int default 1 not null,
+  UnitPrice decimal(10, 2) not null
+);
+
+drop type dbo.IdList
+
+drop type if exists dbo.NameValuePair"
 `;
 
 exports[`fixtures > update/basic.sql 1`] = `

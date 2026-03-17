@@ -82,6 +82,11 @@ export function printExpression(node: SqlNode, opts: Options, printFn: (n: SqlNo
             return printAtTimeZone(node, opts, printFn);
         case 'ScalarSubquery':
             return printScalarSubquery(node, opts, printFn);
+        case 'NextValueFor':
+            return printNextValueFor(node, opts, printFn);
+        case 'ParseCall':
+        case 'TryParseCall':
+            return printParseCall(node, opts, printFn);
         case 'OverClause':
             return printOverClause(node, opts, printFn);
         case 'RollupSpec':
@@ -212,6 +217,29 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) =
     // IGNORE NULLS / RESPECT NULLS modifier — SQL Server 2022+
     const nullsModifier = propStr(node, 'nulls');
     const nullsDoc: Doc = nullsModifier ? [' ', keyword(nullsModifier.toUpperCase(), opts)] : '';
+
+    // WITHIN GROUP (ORDER BY ...) for STRING_AGG, PERCENTILE_CONT/DISC etc.
+    const withinGroup = prop(node, 'withinGroup');
+    if (withinGroup) {
+        const withinDoc: Doc = [
+            ' ',
+            keyword('WITHIN GROUP', opts),
+            ' (',
+            printOrderByClause(withinGroup, opts, printFn),
+            ')',
+        ];
+        if (over)
+            return [
+                argsDoc,
+                nullsDoc,
+                withinDoc,
+                ' ',
+                keyword('OVER', opts),
+                ' ',
+                printOverClause(over, opts, printFn),
+            ];
+        return [argsDoc, nullsDoc, withinDoc];
+    }
 
     if (over) {
         return [argsDoc, nullsDoc, ' ', keyword('OVER', opts), ' ', printOverClause(over, opts, printFn)];
@@ -497,6 +525,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
     const uniqueRowFilter = propStr(node, 'uniqueRowFilter');
     const top = prop(node, 'top');
     const selectElements = propArr(node, 'selectElements');
+    const forClause = prop(node, 'forClause');
     const from = prop(node, 'from');
     const where = prop(node, 'where');
     const groupBy = prop(node, 'groupBy');
@@ -546,6 +575,10 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
 
         if (windowDefs.length > 0) {
             parts.push(line, printWindowClause(windowDefs, opts, printFn));
+        }
+
+        if (forClause) {
+            parts.push(line, printForClause(forClause, opts));
         }
 
         return group(parts);
@@ -631,6 +664,10 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
 
     if (windowDefs.length > 0) {
         parts.push(hardline, printWindowClause(windowDefs, opts, printFn));
+    }
+
+    if (forClause) {
+        parts.push(hardline, printForClause(forClause, opts));
     }
 
     return group(parts);
@@ -1027,7 +1064,7 @@ function printBetween(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc
 export function printTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
     switch (node.type) {
         case 'NamedTableReference':
-            return printNamedTableRef(node, opts);
+            return printNamedTableRef(node, opts, printFn);
         case 'VariableTableReference':
             return node.text ?? '/* unknown table var */';
         case 'QualifiedJoin':
@@ -1050,12 +1087,16 @@ export function printTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode
             return printOpenRowsetTableRef(node, opts);
         case 'BulkOpenRowset':
             return printBulkOpenRowset(node, opts);
+        case 'PivotedTableReference':
+            return printPivotedTableRef(node, opts, printFn);
+        case 'UnpivotedTableReference':
+            return printUnpivotedTableRef(node, opts, printFn);
         default:
             return node.text ?? `/* ${node.type} */`;
     }
 }
 
-function printNamedTableRef(node: SqlNode, opts: Options): Doc {
+function printNamedTableRef(node: SqlNode, opts: Options, printFn?: (n: SqlNode) => Doc): Doc {
     const alias = propStr(node, 'alias');
     const hints = node.props?.['hints'] as string[] | undefined;
     const nameDoc: Doc = schemaObjectName(prop(node, 'name'));
@@ -1072,7 +1113,12 @@ function printNamedTableRef(node: SqlNode, opts: Options): Doc {
               ')',
           ]
         : '';
-    return [nameDoc, aliasDoc, hintsDoc];
+    const tableSample = prop(node, 'tableSample');
+    const temporal = prop(node, 'temporal');
+    const sampleDoc: Doc = tableSample && printFn ? printTableSample(tableSample, opts, printFn) : '';
+    const temporalDoc: Doc = temporal && printFn ? printTemporalClause(temporal, opts, printFn) : '';
+    // Order: name, temporal, alias, tablesample, hints
+    return [nameDoc, temporalDoc, aliasDoc, sampleDoc, hintsDoc];
 }
 
 function joinTypeKeyword(jt: string, opts: Options): Doc {
@@ -1377,4 +1423,206 @@ export function printOrderByClause(node: SqlNode, opts: Options, printFn: (n: Sq
         return [keyword('ORDER BY', opts), ' ', elDocs[0]!];
     }
     return [keyword('ORDER BY', opts), indent([hardline, join(hardSep(opts), elDocs)])];
+}
+
+// ---------------------------------------------------------------------------
+// NEXT VALUE FOR, PARSE / TRY_PARSE
+// ---------------------------------------------------------------------------
+
+function printNextValueFor(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const nameDoc = schemaObjectName(prop(node, 'name'));
+    const over = prop(node, 'over');
+    const parts: Doc[] = [keyword('NEXT VALUE FOR', opts), ' ', nameDoc];
+    if (over) parts.push(' ', keyword('OVER', opts), ' ', printOverClause(over, opts, printFn));
+    return parts;
+}
+
+function printParseCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const isTry = node.type === 'TryParseCall';
+    const fnKw = isTry ? keyword('TRY_PARSE', opts) : keyword('PARSE', opts);
+    const valueDoc = printExpression(prop(node, 'value')!, opts, printFn);
+    const dataType = propStr(node, 'dataType') ?? '';
+    const culture = prop(node, 'culture');
+    const parts: Doc[] = [valueDoc, ' ', keyword('AS', opts), ' ', keyword(dataType, opts)];
+    if (culture) parts.push(' ', keyword('USING', opts), ' ', printExpression(culture, opts, printFn));
+    return group([fnKw, '(', indent([softline, ...parts]), softline, ')']);
+}
+
+// ---------------------------------------------------------------------------
+// TABLESAMPLE
+// ---------------------------------------------------------------------------
+
+function printTableSample(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const isSystem = node.props?.['system'] as boolean | undefined;
+    const sampleNumber = prop(node, 'sampleNumber');
+    const option = propStr(node, 'option');
+    const repeatSeed = prop(node, 'repeatSeed');
+
+    const systemKw: Doc = isSystem ? [' ', keyword('SYSTEM', opts)] : '';
+    const numDoc = sampleNumber ? printExpression(sampleNumber, opts, printFn) : '';
+    const optDoc: Doc = option ? [' ', keyword(option.toUpperCase(), opts)] : '';
+    const repeatDoc: Doc = repeatSeed
+        ? [' ', keyword('REPEATABLE', opts), ' (', printExpression(repeatSeed, opts, printFn), ')']
+        : '';
+    return [' ', keyword('TABLESAMPLE', opts), systemKw, ' (', numDoc, optDoc, ')', repeatDoc];
+}
+
+// ---------------------------------------------------------------------------
+// FOR SYSTEM_TIME (temporal tables)
+// ---------------------------------------------------------------------------
+
+function printTemporalClause(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const clauseType = propStr(node, 'clauseType');
+    const startTime = prop(node, 'startTime');
+    const endTime = prop(node, 'endTime');
+    const startDoc = startTime ? printExpression(startTime, opts, printFn) : '';
+    const endDoc = endTime ? printExpression(endTime, opts, printFn) : '';
+    const prefix = [' ', keyword('FOR SYSTEM_TIME', opts)];
+    switch (clauseType) {
+        case 'AsOf':
+            return [...prefix, ' ', keyword('AS OF', opts), ' ', startDoc];
+        case 'FromTo':
+            return [...prefix, ' ', keyword('FROM', opts), ' ', startDoc, ' ', keyword('TO', opts), ' ', endDoc];
+        case 'Between':
+            return [...prefix, ' ', keyword('BETWEEN', opts), ' ', startDoc, ' ', keyword('AND', opts), ' ', endDoc];
+        case 'ContainedIn':
+            return [...prefix, ' ', keyword('CONTAINED IN', opts), ' (', startDoc, ', ', endDoc, ')'];
+        case 'TemporalAll':
+            return [...prefix, ' ', keyword('ALL', opts)];
+        default:
+            return '';
+    }
+}
+
+// ---------------------------------------------------------------------------
+// FOR XML / FOR JSON
+// ---------------------------------------------------------------------------
+
+// Map ScriptDom enum names to their SQL keyword equivalents
+const XML_JSON_OPTION_KW: Record<string, string> = {
+    IncludeNullValues: 'INCLUDE_NULL_VALUES',
+    WithoutArrayWrapper: 'WITHOUT_ARRAY_WRAPPER',
+    BinaryBase64: 'BINARY BASE64',
+    XmlSchema: 'XMLSCHEMA',
+    XmlData: 'XMLDATA',
+    ElementsXsiNil: 'ELEMENTS XSINIL',
+    ElementsAbsent: 'ELEMENTS ABSENT',
+    ElementsAll: 'ELEMENTS',
+};
+
+function xmlJsonOptionKw(kind: string, opts: Options): Doc {
+    return keyword(XML_JSON_OPTION_KW[kind] ?? kind.toUpperCase(), opts);
+}
+
+function printForClause(node: SqlNode, opts: Options): Doc {
+    switch (node.type) {
+        case 'ForXmlClause': {
+            const options = node.props?.['options'] as Array<{ kind: string; value?: string }> | undefined;
+            if (!options?.length) return keyword('FOR XML', opts);
+            const optDocs = options.map((o) => {
+                const kw = xmlJsonOptionKw(o.kind, opts);
+                return o.value != null && o.value !== '' ? [kw, "('", o.value, "')"] : kw;
+            });
+            return [keyword('FOR XML', opts), ' ', join(', ', optDocs)];
+        }
+        case 'ForJsonClause': {
+            const options = node.props?.['options'] as Array<{ kind: string; value?: string }> | undefined;
+            if (!options?.length) return keyword('FOR JSON', opts);
+            const optDocs = options.map((o) => {
+                const kw = xmlJsonOptionKw(o.kind, opts);
+                return o.value != null && o.value !== '' ? [kw, "('", o.value, "')"] : kw;
+            });
+            return [keyword('FOR JSON', opts), ' ', join(', ', optDocs)];
+        }
+        case 'ForBrowseClause':
+            return keyword('FOR BROWSE', opts);
+        case 'ForReadOnlyClause':
+            return keyword('FOR READ ONLY', opts);
+        case 'ForUpdateClause': {
+            const cols = node.props?.['columns'] as string[] | undefined;
+            if (cols?.length) return [keyword('FOR UPDATE OF', opts), ' ', join(', ', cols)];
+            return keyword('FOR UPDATE', opts);
+        }
+        default:
+            return node.text ?? keyword('FOR', opts);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PIVOT / UNPIVOT
+// ---------------------------------------------------------------------------
+
+function printPivotedTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const tableRef = prop(node, 'tableRef');
+    const aggregateFn = propStr(node, 'aggregateFn') ?? 'agg';
+    const valueColumns = node.props?.['valueColumns'] as string[] | undefined;
+    const pivotColumn = propStr(node, 'pivotColumn') ?? '';
+    const inColumns = node.props?.['inColumns'] as string[] | undefined;
+    const alias = propStr(node, 'alias');
+
+    const tableDoc = tableRef ? printTableRef(tableRef, opts, printFn) : '';
+    const aggArgs = (valueColumns ?? []).join(', ');
+    const inCols = (inColumns ?? []).map((c) => `[${c}]`).join(', ');
+    const aliasDoc: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
+
+    return group([
+        tableDoc,
+        hardline,
+        keyword('PIVOT', opts),
+        ' (',
+        indent([
+            softline,
+            keyword(aggregateFn, opts),
+            '(',
+            aggArgs,
+            ')',
+            hardline,
+            keyword('FOR', opts),
+            ' ',
+            pivotColumn,
+            ' ',
+            keyword('IN', opts),
+            ' (',
+            inCols,
+            ')',
+        ]),
+        softline,
+        ')',
+        aliasDoc,
+    ]);
+}
+
+function printUnpivotedTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const tableRef = prop(node, 'tableRef');
+    const valueColumn = propStr(node, 'valueColumn') ?? '';
+    const pivotColumn = propStr(node, 'pivotColumn') ?? '';
+    const inColumns = node.props?.['inColumns'] as string[] | undefined;
+    const alias = propStr(node, 'alias');
+
+    const tableDoc = tableRef ? printTableRef(tableRef, opts, printFn) : '';
+    const inCols = (inColumns ?? []).join(', ');
+    const aliasDoc: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
+
+    return group([
+        tableDoc,
+        hardline,
+        keyword('UNPIVOT', opts),
+        ' (',
+        indent([
+            softline,
+            valueColumn,
+            ' ',
+            keyword('FOR', opts),
+            ' ',
+            pivotColumn,
+            ' ',
+            keyword('IN', opts),
+            ' (',
+            inCols,
+            ')',
+        ]),
+        softline,
+        ')',
+        aliasDoc,
+    ]);
 }

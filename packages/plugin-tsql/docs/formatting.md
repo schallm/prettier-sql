@@ -333,6 +333,111 @@ select PublishedDate at time zone 'UTC' as PublishedUtc
 from Books;
 ```
 
+##### PARSE and TRY_PARSE
+
+`PARSE` and `TRY_PARSE` use `AS datatype [USING culture]` inline:
+
+```sql
+select parse('2023-01-01' as date);
+select try_parse('abc' as int);
+select parse('3.14' as decimal(10, 2) using 'en-US');
+```
+
+##### NEXT VALUE FOR
+
+Sequence value expressions stay inline; `OVER` follows when present:
+
+```sql
+select next value for dbo.OrderSeq;
+select next value for dbo.OrderSeq over (order by Id asc);
+```
+
+##### WITHIN GROUP
+
+Ordered-set aggregates append `WITHIN GROUP (ORDER BY …)` on the same line. When `OVER` is also present (e.g. `PERCENTILE_CONT`), it follows after:
+
+```sql
+select string_agg(Name, ', ') within group (order by Name asc)
+from Authors;
+
+select percentile_cont(0.5) within group (order by Salary asc) over (
+  partition by Department
+)
+from Employees;
+```
+
+#### TOP
+
+`TOP (n)`, `TOP (n) PERCENT`, and `TOP (n) WITH TIES` stay inline with `SELECT`:
+
+```sql
+select top (10) Id, Title
+from Books
+order by Price desc;
+
+select top (10) percent Id, Title
+from Books
+order by Price desc;
+
+select top (10) with ties Id, Title, Price
+from Books
+order by Price desc;
+```
+
+#### PIVOT and UNPIVOT
+
+`PIVOT` and `UNPIVOT` indent the aggregate and `FOR … IN` clause inside the parentheses:
+
+```sql
+select *
+from Sales
+pivot (
+  sum(Amount)
+  for Quarter in ([Q1], [Q2], [Q3], [Q4])
+) as PivotTable;
+
+select *
+from PivotedSales
+unpivot (
+  Amount for Quarter in (Q1, Q2, Q3, Q4)
+) as UnpivotTable;
+```
+
+#### TABLESAMPLE
+
+`TABLESAMPLE` follows the table name (after any alias):
+
+```sql
+select * from BigTable tablesample (10 percent);
+select * from BigTable tablesample system (1000 rows) repeatable (42);
+```
+
+#### FOR SYSTEM_TIME (Temporal tables)
+
+Temporal clause follows the table name:
+
+```sql
+select Id, Name from dbo.Employee for system_time as of '2023-01-01';
+
+select Id, Name from dbo.Employee for system_time between '2022-01-01' and '2023-01-01';
+
+select Id, Name from dbo.Employee for system_time contained in ('2022-01-01', '2023-01-01');
+```
+
+#### FOR XML / FOR JSON
+
+`FOR XML` and `FOR JSON` appear as the last clause, inline on their own line after the query:
+
+```sql
+select Id, Title, Price
+from Books
+for xml path('Book'), root('Books'), type;
+
+select Id, Title as name, Price as price
+from Books
+for json path, root('Books'), include_null_values;
+```
+
 #### UNION / UNION ALL
 
 Each query branch is separated from the set operator by a blank line:
@@ -1917,13 +2022,15 @@ restore database AdventureWorks
 
 ### CREATE DATABASE
 
+`COLLATE`, `AS SNAPSHOT OF`, and `AS COPY OF` stay inline on the same line as the database name:
+
 ```sql
 create database NewDb;
 create database NewDb2 collate Latin1_General_CI_AS;
+create database SalesSnap as snapshot of SalesDB;
 ```
 
-For databases with file group or log-on clauses, the file spec raw text is preserved. The
-`COLLATE`, `AS SNAPSHOT OF`, and `AS COPY OF` sub-clauses are formatted as keywords.
+For databases with file group or log-on clauses, the file spec raw text is preserved.
 
 ### ALTER DATABASE
 

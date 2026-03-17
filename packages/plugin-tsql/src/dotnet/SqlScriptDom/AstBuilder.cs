@@ -75,6 +75,9 @@ public class AstBuilder : TSqlFragmentVisitor {
             TryConvertCall tryConv => BuildTryConvertCall(tryConv),
             AtTimeZoneCall atz => BuildAtTimeZoneCall(atz),
             ScalarSubquery sub => BuildScalarSubquery(sub),
+            NextValueForExpression nv => BuildNextValueFor(nv),
+            ParseCall pc => BuildParseCallNode(pc, false),
+            TryParseCall tpc => BuildParseCallNode(tpc, true),
             _ => Leaf("ScalarExpression", expr, RawText(expr)),
         };
     }
@@ -114,6 +117,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             : null;
         // ORDER BY inside JSON_ARRAYAGG (SQL Server 2022+)
         var jsonOrderBy = fc.JsonOrderByClause != null ? BuildOrderByClause(fc.JsonOrderByClause) : null;
+        // WITHIN GROUP (ORDER BY ...) for STRING_AGG, PERCENTILE_CONT/DISC etc.
+        var withinGroup = fc.WithinGroupClause != null ? BuildOrderByClause(fc.WithinGroupClause.OrderByClause) : null;
         return new SqlNode(
             "FunctionCall",
             fc.StartOffset,
@@ -129,6 +134,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["jsonParams"] = jsonParams,
                 ["nullOnNull"] = nullOnNull,
                 ["jsonOrderBy"] = jsonOrderBy,
+                ["withinGroup"] = withinGroup,
             });
     }
 
@@ -137,6 +143,87 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["key"] = BuildScalarExpression(kv.JsonKeyName),
             ["value"] = BuildScalarExpression(kv.JsonValue),
         });
+
+    private static SqlNode BuildNextValueFor(NextValueForExpression nv) =>
+        Node("NextValueFor", nv, new Dictionary<string, object?> {
+            ["name"] = BuildSchemaObjectName(nv.SequenceName),
+            ["over"] = nv.OverClause != null ? BuildOverClause(nv.OverClause) : null,
+        });
+
+    private static SqlNode BuildParseCallNode(ScalarExpression expr, bool isTry) {
+        ScalarExpression? value; DataTypeReference? dataType; ScalarExpression? culture;
+        if (isTry) { var tpc = (TryParseCall)expr; value = tpc.StringValue; dataType = tpc.DataType; culture = tpc.Culture; } else { var pc = (ParseCall)expr; value = pc.StringValue; dataType = pc.DataType; culture = pc.Culture; }
+        return Node(isTry ? "TryParseCall" : "ParseCall", expr, new Dictionary<string, object?> {
+            ["value"] = BuildScalarExpression(value),
+            ["dataType"] = RawText(dataType!),
+            ["culture"] = culture != null ? BuildScalarExpression(culture) : null,
+        });
+    }
+
+    private static SqlNode BuildTableSample(TableSampleClause ts) =>
+        Node("TableSample", ts, new Dictionary<string, object?> {
+            ["system"] = ts.System ? (object?)true : null,
+            ["sampleNumber"] = BuildScalarExpression(ts.SampleNumber),
+            ["option"] = ts.TableSampleClauseOption == TableSampleClauseOption.NotSpecified ? null : ts.TableSampleClauseOption.ToString(),
+            ["repeatSeed"] = ts.RepeatSeed != null ? BuildScalarExpression(ts.RepeatSeed) : null,
+        });
+
+    private static SqlNode BuildTemporalClause(TemporalClause tc) =>
+        Node("TemporalClause", tc, new Dictionary<string, object?> {
+            ["clauseType"] = tc.TemporalClauseType.ToString(),
+            ["startTime"] = BuildScalarExpression(tc.StartTime),
+            ["endTime"] = tc.EndTime != null ? BuildScalarExpression(tc.EndTime) : null,
+        });
+
+    private static SqlNode BuildForClause(ForClause fc) {
+        if (fc is XmlForClause xml) {
+            var options = xml.Options?.Select(o => (object?)new Dictionary<string, object?> {
+                ["kind"] = o.OptionKind.ToString(),
+                ["value"] = o.Value?.Value,
+            }).ToList();
+            return Node("ForXmlClause", fc, new Dictionary<string, object?> { ["options"] = options });
+        }
+        if (fc is JsonForClause json) {
+            var options = json.Options?.Select(o => (object?)new Dictionary<string, object?> {
+                ["kind"] = o.OptionKind.ToString(),
+                ["value"] = o.Value?.Value,
+            }).ToList();
+            return Node("ForJsonClause", fc, new Dictionary<string, object?> { ["options"] = options });
+        }
+        if (fc is BrowseForClause) return Node("ForBrowseClause", fc, new Dictionary<string, object?>());
+        if (fc is ReadOnlyForClause) return Node("ForReadOnlyClause", fc, new Dictionary<string, object?>());
+        if (fc is UpdateForClause upd) {
+            var cols = upd.Columns?.Select(c => (object?)(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()?.Value ?? "")).ToList();
+            return Node("ForUpdateClause", fc, new Dictionary<string, object?> { ["columns"] = cols });
+        }
+        return Leaf("ForClause", fc, RawText(fc));
+    }
+
+    private static SqlNode BuildPivotedTableRef(PivotedTableReference piv) {
+        var inColumns = piv.InColumns?.Select(c => (object?)(c.Value ?? "")).ToList();
+        var valueColumns = piv.ValueColumns?.Select(c =>
+            (object?)(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()?.Value ?? "")).ToList();
+        return Node("PivotedTableReference", piv, new Dictionary<string, object?> {
+            ["tableRef"] = BuildTableReference(piv.TableReference),
+            ["aggregateFn"] = piv.AggregateFunctionIdentifier?.Identifiers?.LastOrDefault()?.Value,
+            ["valueColumns"] = valueColumns,
+            ["pivotColumn"] = piv.PivotColumn?.MultiPartIdentifier?.Identifiers?.LastOrDefault()?.Value,
+            ["inColumns"] = inColumns,
+            ["alias"] = piv.Alias?.Value,
+        });
+    }
+
+    private static SqlNode BuildUnpivotedTableRef(UnpivotedTableReference unpiv) {
+        var inColumns = unpiv.InColumns?.Select(c =>
+            (object?)(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()?.Value ?? "")).ToList();
+        return Node("UnpivotedTableReference", unpiv, new Dictionary<string, object?> {
+            ["tableRef"] = BuildTableReference(unpiv.TableReference),
+            ["valueColumn"] = unpiv.ValueColumn?.Value,
+            ["pivotColumn"] = unpiv.PivotColumn?.Value,
+            ["inColumns"] = inColumns,
+            ["alias"] = unpiv.Alias?.Value,
+        });
+    }
 
     private static SqlNode BuildBinaryExpr(BinaryExpression bin) =>
         Node("BinaryExpression", bin, new Dictionary<string, object?> {
@@ -335,6 +422,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             OpenJsonTableReference openJson => BuildOpenJsonTableReference(openJson),
             OpenRowsetTableReference or => BuildOpenRowsetTableReference(or),
             BulkOpenRowset bulkOr => BuildBulkOpenRowset(bulkOr),
+            PivotedTableReference piv => BuildPivotedTableRef(piv),
+            UnpivotedTableReference unpiv => BuildUnpivotedTableRef(unpiv),
             _ => Leaf("TableReference", tableRef, RawText(tableRef)),
         };
     }
@@ -347,6 +436,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["name"] = BuildSchemaObjectName(named.SchemaObject),
             ["alias"] = named.Alias?.Value,
             ["hints"] = hints,
+            ["tableSample"] = named.TableSampleClause != null ? BuildTableSample(named.TableSampleClause) : null,
+            ["temporal"] = named.TemporalClause != null ? BuildTemporalClause(named.TemporalClause) : null,
         });
     }
 
@@ -405,6 +496,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         var orderByClause = qs.OrderByClause != null ? BuildOrderByClause(qs.OrderByClause) : null;
         var windowClause = BuildWindowClause(qs.WindowClause);
         var uniqueRowFilter = qs.UniqueRowFilter.ToString();
+        var forClause = qs.ForClause != null ? BuildForClause(qs.ForClause) : null;
 
         return Node("QuerySpecification", qs, new Dictionary<string, object?> {
             ["uniqueRowFilter"] = uniqueRowFilter,
@@ -416,15 +508,19 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["having"] = havingClause,
             ["orderBy"] = orderByClause,
             ["windowDefs"] = windowClause,
+            ["forClause"] = forClause,
         });
     }
 
-    private static SqlNode BuildTopRowFilter(TopRowFilter top) =>
-        Node("TopRowFilter", top, new Dictionary<string, object?> {
-            ["expression"] = BuildScalarExpression(top.Expression),
+    private static SqlNode BuildTopRowFilter(TopRowFilter top) {
+        // TOP (n) — ScriptDom stores expression as ParenthesisExpression; unwrap to avoid double parens in output
+        var expr = top.Expression is ParenthesisExpression pe ? pe.Expression : top.Expression;
+        return Node("TopRowFilter", top, new Dictionary<string, object?> {
+            ["expression"] = BuildScalarExpression(expr),
             ["percent"] = top.Percent,
             ["withTies"] = top.WithTies,
         });
+    }
 
     private static SqlNode? BuildSelectElement(SelectElement se) => se switch {
         SelectStarExpression star => Leaf("SelectStar", star, RawText(star)),

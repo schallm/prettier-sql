@@ -15,10 +15,17 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - `OUTPUT` / `OUTPUT INTO` on `INSERT`, `UPDATE`, `DELETE`, and `MERGE` (including `$action`, `inserted.*`, `deleted.*`)
 - CTEs, `UNION`/`UNION ALL`, subqueries, derived tables
 - `CASE` expressions (simple and searched), `IN`/`NOT IN`
+- `TOP (n)`, `TOP (n) PERCENT`, `TOP (n) WITH TIES`
+- `PIVOT` / `UNPIVOT`
+- `FOR XML` (`AUTO`, `PATH`, `RAW`, `EXPLICIT`, `XMLSCHEMA`, `ELEMENTS`, `ROOT`, `TYPE`, etc.) and `FOR JSON` (`AUTO`, `PATH`, `ROOT`, `INCLUDE_NULL_VALUES`, `WITHOUT_ARRAY_WRAPPER`)
+- `TABLESAMPLE [SYSTEM] (n PERCENT|ROWS) [REPEATABLE(seed)]`
+- Temporal table queries — `FOR SYSTEM_TIME AS OF`, `FROM … TO`, `BETWEEN … AND`, `CONTAINED IN`, `ALL`
 - Joins: `INNER`, `LEFT`, `RIGHT`, `FULL OUTER`, `CROSS JOIN`, `CROSS APPLY`, `OUTER APPLY`; multiple joins, multi-predicate `ON`, self-joins, parenthesized joins, derived table joins
 - Table-valued functions (TVFs) in `FROM` clauses; table hints (`WITH (NOLOCK)`, etc.)
 - Window functions with `OVER` clause — `PARTITION BY`, `ORDER BY`, full frame support (`ROWS`/`RANGE BETWEEN … AND …`, `UNBOUNDED PRECEDING/FOLLOWING`, `CURRENT ROW`); `IGNORE NULLS`/`RESPECT NULLS`; named window references; named `WINDOW` clause
-- Expression functions: `CAST`, `CONVERT`, `TRY_CAST`, `TRY_CONVERT` (with full data type including length/precision), `IIF`, `COALESCE`, `NULLIF`, `AT TIME ZONE`, `IS [NOT] DISTINCT FROM`, `TRIM(LEADING|TRAILING|BOTH …)`
+- Ordered set aggregates: `WITHIN GROUP (ORDER BY …)` for `STRING_AGG`, `PERCENTILE_CONT`/`PERCENTILE_DISC`, etc.
+- Expression functions: `CAST`, `CONVERT`, `TRY_CAST`, `TRY_CONVERT` (with full data type including length/precision), `IIF`, `COALESCE`, `NULLIF`, `AT TIME ZONE`, `IS [NOT] DISTINCT FROM`, `TRIM(LEADING|TRAILING|BOTH …)`, `PARSE`, `TRY_PARSE`
+- Sequence expressions: `NEXT VALUE FOR sequence [OVER (…)]`
 - JSON functions: `JSON_OBJECT(key: value, …)`, `JSON_ARRAY(…)`, `JSON_ARRAYAGG(… ORDER BY …)` with `ABSENT|NULL ON NULL`
 - Full-text predicates: `CONTAINS`/`FREETEXT` (single column, multi-column, wildcard, `LANGUAGE`); `CONTAINSTABLE`/`FREETEXTTABLE` as join sources
 - Rowset functions: `OPENJSON` and `OPENXML` with `WITH` schema declarations; `OPENJSON` row-path and `AS JSON` columns; `OPENROWSET` provider and `OPENROWSET(BULK …)` forms
@@ -26,7 +33,7 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 
 **DDL**
 
-- `CREATE TABLE`, `ALTER TABLE` (ADD/DROP column), `CREATE INDEX` (UNIQUE/CLUSTERED/NONCLUSTERED, ASC/DESC, INCLUDE), `ALTER INDEX … REBUILD/REORGANIZE/DISABLE`
+- `CREATE TABLE` (columns, constraints, computed columns `AS expr [PERSISTED]`, `WITH` options such as `DATA_COMPRESSION`, `MEMORY_OPTIMIZED`), `ALTER TABLE` (ADD/DROP column, ADD/DROP/ENABLE/DISABLE constraint), `CREATE INDEX` (UNIQUE/CLUSTERED/NONCLUSTERED, ASC/DESC, INCLUDE), `ALTER INDEX … REBUILD/REORGANIZE/DISABLE`
 - `CREATE/ALTER/CREATE OR ALTER PROCEDURE`, `CREATE/ALTER/CREATE OR ALTER FUNCTION`, `CREATE/ALTER/CREATE OR ALTER VIEW`
 - `CREATE/ALTER TRIGGER` (DML triggers: AFTER/INSTEAD OF INSERT/UPDATE/DELETE)
 - `CREATE/ALTER/DROP SEQUENCE` with full options (START WITH, INCREMENT BY, MINVALUE/NO MINVALUE, MAXVALUE/NO MAXVALUE, CYCLE/NO CYCLE, CACHE/NO CACHE)
