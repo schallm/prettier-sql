@@ -87,6 +87,16 @@ export function printExpression(node: SqlNode, opts: Options, printFn: (n: SqlNo
         case 'ParseCall':
         case 'TryParseCall':
             return printParseCall(node, opts, printFn);
+        case 'ParameterlessCall':
+            return keyword(node.text ?? 'CURRENT_TIMESTAMP', opts);
+        case 'DefaultLiteral':
+            return keyword('DEFAULT', opts);
+        case 'PartitionFunctionCall':
+            return printPartitionFunctionCall(node, opts, printFn);
+        case 'IdentityFunctionCall':
+            return printIdentityFunctionCall(node, opts, printFn);
+        case 'ExtractFromExpression':
+            return printExtractFrom(node, opts, printFn);
         case 'OverClause':
             return printOverClause(node, opts, printFn);
         case 'RollupSpec':
@@ -1435,6 +1445,39 @@ function printNextValueFor(node: SqlNode, opts: Options, printFn: (n: SqlNode) =
     const parts: Doc[] = [keyword('NEXT VALUE FOR', opts), ' ', nameDoc];
     if (over) parts.push(' ', keyword('OVER', opts), ' ', printOverClause(over, opts, printFn));
     return parts;
+}
+
+function printPartitionFunctionCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const db = propStr(node, 'database');
+    const name = propStr(node, 'name') ?? '';
+    const args = propArr(node, 'args').map((a) => printExpression(a, opts, printFn));
+    const prefix = db ? `${db}.$PARTITION.` : '$PARTITION.';
+    return group([prefix, name, '(', indent([softline, join([',', line], args)]), softline, ')']);
+}
+
+function printIdentityFunctionCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const dataType = propStr(node, 'dataType') ?? '';
+    const seed = prop(node, 'seed');
+    const inc = prop(node, 'increment');
+    const parts: Doc[] = [keyword(dataType, opts)];
+    if (seed) parts.push(', ', printExpression(seed, opts, printFn));
+    if (inc) parts.push(', ', printExpression(inc, opts, printFn));
+    return [keyword('IDENTITY', opts), '(', ...parts, ')'];
+}
+
+function printExtractFrom(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const element = propStr(node, 'element') ?? '';
+    const expr = prop(node, 'expression');
+    return [
+        keyword('EXTRACT', opts),
+        '(',
+        keyword(element, opts),
+        ' ',
+        keyword('FROM', opts),
+        ' ',
+        expr ? printExpression(expr, opts, printFn) : '',
+        ')',
+    ];
 }
 
 function printParseCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {

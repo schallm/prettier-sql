@@ -1,3 +1,14 @@
+select current_timestamp, current_user, session_user, system_user
+
+select $partition.PF_OrderDate(OrderDate)
+from Orders
+
+insert into Books (Title, Price, InStock) values ('Clean Code', 39.99, default)
+
+select identity(int, 1, 1) as Id, Name
+into #Temp
+from Source
+
 select next value for dbo.OrderSeq
 
 select next value for dbo.OrderSeq over (order by Id)

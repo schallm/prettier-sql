@@ -78,6 +78,11 @@ public class AstBuilder : TSqlFragmentVisitor {
             NextValueForExpression nv => BuildNextValueFor(nv),
             ParseCall pc => BuildParseCallNode(pc, false),
             TryParseCall tpc => BuildParseCallNode(tpc, true),
+            ParameterlessCall plc => Leaf("ParameterlessCall", plc, ParameterlessCallKeyword(plc.ParameterlessCallType)),
+            DefaultLiteral dl => Leaf("DefaultLiteral", dl, "DEFAULT"),
+            PartitionFunctionCall pfc => BuildPartitionFunctionCall(pfc),
+            IdentityFunctionCall ifc => BuildIdentityFunctionCall(ifc),
+            ExtractFromExpression ext => BuildExtractFrom(ext),
             _ => Leaf("ScalarExpression", expr, RawText(expr)),
         };
     }
@@ -142,6 +147,37 @@ public class AstBuilder : TSqlFragmentVisitor {
         Node("JsonKeyValue", kv, new Dictionary<string, object?> {
             ["key"] = BuildScalarExpression(kv.JsonKeyName),
             ["value"] = BuildScalarExpression(kv.JsonValue),
+        });
+
+    private static string ParameterlessCallKeyword(ParameterlessCallType t) => t switch {
+        ParameterlessCallType.CurrentUser => "CURRENT_USER",
+        ParameterlessCallType.SessionUser => "SESSION_USER",
+        ParameterlessCallType.SystemUser => "SYSTEM_USER",
+        ParameterlessCallType.CurrentTimestamp => "CURRENT_TIMESTAMP",
+        ParameterlessCallType.CurrentDate => "CURRENT_DATE",
+        _ => "USER",
+    };
+
+    private static SqlNode BuildPartitionFunctionCall(PartitionFunctionCall pfc) {
+        var args = pfc.Parameters?.Select(p => (object?)BuildScalarExpression(p)).ToList();
+        return Node("PartitionFunctionCall", pfc, new Dictionary<string, object?> {
+            ["database"] = pfc.DatabaseName?.Value,
+            ["name"] = pfc.FunctionName?.Value,
+            ["args"] = args,
+        });
+    }
+
+    private static SqlNode BuildIdentityFunctionCall(IdentityFunctionCall ifc) =>
+        Node("IdentityFunctionCall", ifc, new Dictionary<string, object?> {
+            ["dataType"] = ifc.DataType != null ? RawText(ifc.DataType) : null,
+            ["seed"] = BuildScalarExpression(ifc.Seed),
+            ["increment"] = BuildScalarExpression(ifc.Increment),
+        });
+
+    private static SqlNode BuildExtractFrom(ExtractFromExpression ext) =>
+        Node("ExtractFromExpression", ext, new Dictionary<string, object?> {
+            ["element"] = ext.ExtractedElement?.Value,
+            ["expression"] = BuildScalarExpression(ext.Expression),
         });
 
     private static SqlNode BuildNextValueFor(NextValueForExpression nv) =>
