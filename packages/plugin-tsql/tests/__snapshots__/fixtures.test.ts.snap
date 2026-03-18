@@ -1,45 +1,45 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`fixtures > admin/backup-restore.sql 1`] = `
-"backup database AdventureWorks
-  to DISK = N'C:\\Backups\\AW_Full.bak'
-  with NO_FORMAT = noformat, init, NAME = N'AdventureWorks Full Backup', STATS = 10;
+"backup database Bookstore
+  to DISK = N'C:\\Backups\\Bookstore_Full.bak'
+  with noformat, init, NAME = N'Bookstore Full Backup', STATS = 10;
 
-backup database AdventureWorks
-  to DISK = N'C:\\Backups\\AW_Full_1.bak',
-  DISK = N'C:\\Backups\\AW_Full_2.bak'
+backup database Bookstore
+  to DISK = N'C:\\Backups\\Bookstore_Full_1.bak',
+  DISK = N'C:\\Backups\\Bookstore_Full_2.bak'
   with compression, checksum;
 
-backup log AdventureWorks
-  to DISK = N'C:\\Backups\\AW_Log.bak'
-  with NO_RECOVERY = norecovery;
-
-restore database AdventureWorks
-  from DISK = N'C:\\Backups\\AW_Full.bak'
+backup log Bookstore
+  to DISK = N'C:\\Backups\\Bookstore_Log.bak'
   with norecovery;
 
-restore database AdventureWorks
-  from DISK = N'C:\\Backups\\AW_Full.bak'
-  with N'AW_Data' to N'C:\\Data\\AW.mdf', N'AW_Log' to N'C:\\Data\\AW.ldf', recovery, 5;
+restore database Bookstore
+  from DISK = N'C:\\Backups\\Bookstore_Full.bak'
+  with norecovery;
 
-restore log AdventureWorks
-  from DISK = N'C:\\Backups\\AW_Log.bak'
+restore database Bookstore
+  from DISK = N'C:\\Backups\\Bookstore_Full.bak'
+  with N'Bookstore_Data' to N'C:\\Data\\Bookstore.mdf', N'Bookstore_Log' to N'C:\\Data\\Bookstore.ldf', recovery, 5;
+
+restore log Bookstore
+  from DISK = N'C:\\Backups\\Bookstore_Log.bak'
   with recovery;
 
 restore filelistonly
-  from DISK = N'C:\\Backups\\AW_Full.bak';
+  from DISK = N'C:\\Backups\\Bookstore_Full.bak';
 
 restore headeronly
-  from DISK = N'C:\\Backups\\AW_Full.bak';
+  from DISK = N'C:\\Backups\\Bookstore_Full.bak';
 
 restore verifyonly
-  from DISK = N'C:\\Backups\\AW_Full.bak';
+  from DISK = N'C:\\Backups\\Bookstore_Full.bak';
 
-drop database AdventureWorks;
+drop database Bookstore;
 
-drop database if exists AdventureWorks;
+drop database if exists Bookstore;
 
-drop database AdventureWorks, AdventureWorksDev;"
+drop database Bookstore, BookstoreDev;"
 `;
 
 exports[`fixtures > admin/create-database.sql 1`] = `

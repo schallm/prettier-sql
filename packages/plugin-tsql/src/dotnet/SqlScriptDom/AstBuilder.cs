@@ -2044,13 +2044,15 @@ public class AstBuilder : TSqlFragmentVisitor {
         return $"{typeSql} = {(d.PhysicalDevice != null ? RawText(d.PhysicalDevice) : "")}";
     }
 
-    // BackupOption raw text omits the option keyword for value-bearing options (e.g. "STATS = 10"
-    // gives raw "10"). Apply the same name-prepend pattern used for DatabaseOption.
+    // BackupOption: flag options (no value) have the correct SQL keyword in their raw text
+    // (e.g. NOFORMAT, NOINIT, NOREWIND — not NO_FORMAT). Value-bearing options only carry
+    // the value in raw text (e.g. "10" for STATS = 10), so we prepend the keyword name.
     private static string BackupOptionText(BackupOption o) {
+        if (o.Value == null) return RawText(o).Trim();
         var name = System.Text.RegularExpressions.Regex
                          .Replace(o.OptionKind.ToString(), "(?<=[a-z])(?=[A-Z])", "_")
                          .ToUpperInvariant();
-        var rawVal = o.Value != null ? RawText(o.Value).Trim() : RawText(o).Trim();
+        var rawVal = RawText(o.Value).Trim();
         if (rawVal.Length == 0) return name;
         if (rawVal.StartsWith(name, StringComparison.OrdinalIgnoreCase)) return rawVal;
         return $"{name} = {rawVal}";
