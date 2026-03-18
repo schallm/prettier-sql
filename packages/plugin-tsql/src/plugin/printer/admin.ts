@@ -29,9 +29,31 @@ export function printDbcc(node: SqlNode, opts: Options): Doc {
     const argPart: Doc = literals?.length ? ['(', join([', '], literals), ')'] : '';
 
     const optSep = optionsUseJoin ? ' JOIN ' : ', ';
-    const withPart: Doc = options?.length ? [' ', keyword('WITH', opts), ' ', join([optSep], options)] : '';
+    const withPart: Doc = options?.length ? [' ', keyword('WITH', opts), ' ', join([optSep], options.map((o) => keyword(o, opts)))] : '';
 
     return [keyword('DBCC', opts), ' ', keyword(command, opts), argPart, withPart, ';'];
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+// Applies keyword casing to an option/device string like "NOFORMAT", "DISK = N'...'",
+// "STATS = 10", or "MOVE N'...' TO N'...'". Only the keyword portions are cased;
+// string literals and numeric values are emitted verbatim.
+function kwOpt(opt: string, opts: Options): Doc {
+    const eqIdx = opt.indexOf(' = ');
+    if (eqIdx >= 0) {
+        return [keyword(opt.slice(0, eqIdx), opts), ' = ', opt.slice(eqIdx + 3)];
+    }
+    // MOVE N'logical' TO N'physical' — keyword MOVE and TO, literals verbatim
+    const moveMatch = opt.match(/^(MOVE)\s+(.*?)\s+(TO)\s+(.+)$/i);
+    if (moveMatch) {
+        return [keyword(moveMatch[1], opts), ' ', moveMatch[2], ' ', keyword(moveMatch[3], opts), ' ', moveMatch[4]];
+    }
+    // Guard: if the string starts with a literal, don't try to keyword-case it
+    if (opt.startsWith("N'") || opt.startsWith("'")) return opt;
+    return keyword(opt, opts);
 }
 
 // ---------------------------------------------------------------------------
@@ -44,11 +66,11 @@ function printBackupBase(verb: Doc, node: SqlNode, opts: Options): Doc {
     const options = node.props?.['options'] as string[] | undefined;
     const mirrorTo = node.props?.['mirrorTo'] as string[] | undefined;
 
-    const toPart: Doc = devices?.length ? [hardline, keyword('TO', opts), ' ', join([',', hardline], devices)] : '';
+    const toPart: Doc = devices?.length ? [hardline, keyword('TO', opts), ' ', join([',', hardline], devices.map((d) => kwOpt(d, opts)))] : '';
 
-    const mirrorParts: Doc[] = mirrorTo?.map((m) => [hardline, keyword('MIRROR TO', opts), ' ', m] as Doc) ?? [];
+    const mirrorParts: Doc[] = mirrorTo?.map((m) => [hardline, keyword('MIRROR TO', opts), ' ', kwOpt(m, opts)] as Doc) ?? [];
 
-    const withPart: Doc = options?.length ? [hardline, keyword('WITH', opts), ' ', join([', '], options)] : '';
+    const withPart: Doc = options?.length ? [hardline, keyword('WITH', opts), ' ', join([', '], options.map((o) => kwOpt(o, opts)))] : '';
 
     return group([verb, ' ', database, indent([toPart, ...mirrorParts, withPart]), ';']);
 }
@@ -73,9 +95,9 @@ export function printRestore(node: SqlNode, opts: Options): Doc {
 
     const dbPart: Doc = database ? [' ', database] : '';
 
-    const fromPart: Doc = devices?.length ? [hardline, keyword('FROM', opts), ' ', join([',', hardline], devices)] : '';
+    const fromPart: Doc = devices?.length ? [hardline, keyword('FROM', opts), ' ', join([',', hardline], devices.map((d) => kwOpt(d, opts)))] : '';
 
-    const withPart: Doc = options?.length ? [hardline, keyword('WITH', opts), ' ', join([', '], options)] : '';
+    const withPart: Doc = options?.length ? [hardline, keyword('WITH', opts), ' ', join([', '], options.map((o) => kwOpt(o, opts)))] : '';
 
     return group([keyword('RESTORE', opts), ' ', keyword(kind, opts), dbPart, indent([fromPart, withPart]), ';']);
 }

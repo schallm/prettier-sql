@@ -2096,6 +2096,16 @@ public class AstBuilder : TSqlFragmentVisitor {
         _ => "DATABASE",
     };
 
+    // Restore options: flag options carry their keyword in RawText; value-bearing options
+    // only carry the value. MoveRestoreOption's raw text starts after the MOVE keyword.
+    private static string RestoreOptionText(RestoreOption o) {
+        if (o is MoveRestoreOption move)
+            return $"MOVE {RawText(move.LogicalFileName)} TO {RawText(move.OSFileName)}";
+        if (o is ScalarExpressionRestoreOption sro && sro.Value != null)
+            return $"{sro.OptionKind.ToString().ToUpperInvariant()} = {RawText(sro.Value).Trim()}";
+        return RawText(o).Trim();
+    }
+
     private static SqlNode BuildRestore(RestoreStatement stmt) =>
         Node("RestoreStatement", stmt, new Dictionary<string, object?> {
             ["kind"] = RestoreKindToSql(stmt.Kind),
@@ -2104,7 +2114,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                            ? stmt.Devices.Select(d => (object?)BuildDeviceInfoText(d)).ToList()
                            : null,
             ["options"] = stmt.Options?.Count > 0
-                           ? stmt.Options.Select(o => (object?)RawText(o)).ToList()
+                           ? stmt.Options.Select(o => (object?)RestoreOptionText(o)).ToList()
                            : null,
         });
 

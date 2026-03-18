@@ -2,38 +2,38 @@
 
 exports[`fixtures > admin/backup-restore.sql 1`] = `
 "backup database Bookstore
-  to DISK = N'C:\\Backups\\Bookstore_Full.bak'
-  with noformat, init, NAME = N'Bookstore Full Backup', STATS = 10;
+  to disk = N'C:\\Backups\\Bookstore_Full.bak'
+  with noformat, init, name = N'Bookstore Full Backup', stats = 10;
 
 backup database Bookstore
-  to DISK = N'C:\\Backups\\Bookstore_Full_1.bak',
-  DISK = N'C:\\Backups\\Bookstore_Full_2.bak'
+  to disk = N'C:\\Backups\\Bookstore_Full_1.bak',
+  disk = N'C:\\Backups\\Bookstore_Full_2.bak'
   with compression, checksum;
 
 backup log Bookstore
-  to DISK = N'C:\\Backups\\Bookstore_Log.bak'
+  to disk = N'C:\\Backups\\Bookstore_Log.bak'
   with norecovery;
 
 restore database Bookstore
-  from DISK = N'C:\\Backups\\Bookstore_Full.bak'
+  from disk = N'C:\\Backups\\Bookstore_Full.bak'
   with norecovery;
 
 restore database Bookstore
-  from DISK = N'C:\\Backups\\Bookstore_Full.bak'
-  with N'Bookstore_Data' to N'C:\\Data\\Bookstore.mdf', N'Bookstore_Log' to N'C:\\Data\\Bookstore.ldf', recovery, 5;
+  from disk = N'C:\\Backups\\Bookstore_Full.bak'
+  with move N'Bookstore_Data' to N'C:\\Data\\Bookstore.mdf', move N'Bookstore_Log' to N'C:\\Data\\Bookstore.ldf', recovery, stats = 5;
 
 restore log Bookstore
-  from DISK = N'C:\\Backups\\Bookstore_Log.bak'
+  from disk = N'C:\\Backups\\Bookstore_Log.bak'
   with recovery;
 
 restore filelistonly
-  from DISK = N'C:\\Backups\\Bookstore_Full.bak';
+  from disk = N'C:\\Backups\\Bookstore_Full.bak';
 
 restore headeronly
-  from DISK = N'C:\\Backups\\Bookstore_Full.bak';
+  from disk = N'C:\\Backups\\Bookstore_Full.bak';
 
 restore verifyonly
-  from DISK = N'C:\\Backups\\Bookstore_Full.bak';
+  from disk = N'C:\\Backups\\Bookstore_Full.bak';
 
 drop database Bookstore;
 

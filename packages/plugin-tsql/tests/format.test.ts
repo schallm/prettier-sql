@@ -1226,7 +1226,7 @@ describe('Database administration', () => {
     });
 
     it('DBCC with WITH options', async () => {
-        expect(await fmt("DBCC CHECKDB ('AdventureWorks') WITH NO_INFOMSGS")).toContain('with NO_INFOMSGS');
+        expect(await fmt("DBCC CHECKDB ('AdventureWorks') WITH NO_INFOMSGS")).toContain('with no_infomsgs');
     });
 
     it('DBCC multiple literals', async () => {
@@ -1243,21 +1243,21 @@ describe('Database administration', () => {
         const r = await fmt("BACKUP DATABASE AdventureWorks TO DISK = N'C:\\backup\\AW.bak'");
         expect(r).toMatchInlineSnapshot(`
           "backup database AdventureWorks
-            to DISK = N'C:\\backup\\AW.bak';"
+            to disk = N'C:\\backup\\AW.bak';"
         `);
     });
 
     it('BACKUP DATABASE with options', async () => {
         const r = await fmt("BACKUP DATABASE AdventureWorks TO DISK = N'C:\\backup\\AW.bak' WITH COMPRESSION, STATS = 10");
         expect(r).toContain('backup database AdventureWorks');
-        expect(r).toContain("to DISK = N'C:\\backup\\AW.bak'");
-        expect(r).toContain('with COMPRESSION, STATS = 10');
+        expect(r).toContain("to disk = N'C:\\backup\\AW.bak'");
+        expect(r).toContain('with compression, stats = 10');
     });
 
     it('BACKUP LOG', async () => {
         const r = await fmt("BACKUP LOG AdventureWorks TO DISK = N'C:\\backup\\AW_log.bak'");
         expect(r).toContain('backup log AdventureWorks');
-        expect(r).toContain("to DISK = N'C:\\backup\\AW_log.bak'");
+        expect(r).toContain("to disk = N'C:\\backup\\AW_log.bak'");
     });
 
     it('BACKUP keywords respect sqlKeywordCase upper', async () => {
@@ -1271,14 +1271,14 @@ describe('Database administration', () => {
         const r = await fmt("RESTORE DATABASE AdventureWorks FROM DISK = N'C:\\backup\\AW.bak'");
         expect(r).toMatchInlineSnapshot(`
           "restore database AdventureWorks
-            from DISK = N'C:\\backup\\AW.bak';"
+            from disk = N'C:\\backup\\AW.bak';"
         `);
     });
 
     it('RESTORE DATABASE with options', async () => {
         const r = await fmt("RESTORE DATABASE AdventureWorks FROM DISK = N'C:\\backup\\AW.bak' WITH NORECOVERY");
         expect(r).toContain('restore database AdventureWorks');
-        expect(r).toContain('with NORECOVERY');
+        expect(r).toContain('with norecovery');
     });
 
     it('RESTORE LOG', async () => {
