@@ -5,4 +5,4 @@ src/dotnet/**/obj/
 src/dotnet/**/bin/
 *.user
 .DS_Store
-tests/test.sql
+/examples/test.sql
