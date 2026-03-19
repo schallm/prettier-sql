@@ -29,6 +29,30 @@ export function printRollbackTransaction(node: SqlNode, opts: Options): Doc {
     return printTransaction('ROLLBACK TRANSACTION', node, opts);
 }
 
+export function printSaveTransaction(node: SqlNode, opts: Options): Doc {
+    return printTransaction('SAVE TRANSACTION', node, opts);
+}
+
+// ---------------------------------------------------------------------------
+// CHECKPOINT / KILL / RECONFIGURE
+// ---------------------------------------------------------------------------
+
+export function printCheckpoint(node: SqlNode, opts: Options): Doc {
+    const duration = propStr(node, 'duration');
+    return [keyword('CHECKPOINT', opts), ...(duration ? [' ', duration] : []), ';'];
+}
+
+export function printKill(node: SqlNode, opts: Options): Doc {
+    const param = propStr(node, 'param') ?? '';
+    const statusOnly = propBool(node, 'withStatusOnly');
+    return [keyword('KILL', opts), ' ', param, ...(statusOnly ? [' ', keyword('WITH STATUSONLY', opts)] : []), ';'];
+}
+
+export function printReconfigure(node: SqlNode, opts: Options): Doc {
+    const withOverride = propBool(node, 'withOverride');
+    return [keyword('RECONFIGURE', opts), ...(withOverride ? [' ', keyword('WITH OVERRIDE', opts)] : []), ';'];
+}
+
 // ---------------------------------------------------------------------------
 // DECLARE
 // ---------------------------------------------------------------------------

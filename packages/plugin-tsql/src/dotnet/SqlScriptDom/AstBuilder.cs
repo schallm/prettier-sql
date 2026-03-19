@@ -758,12 +758,32 @@ public class AstBuilder : TSqlFragmentVisitor {
             BeginTransactionStatement bt => BuildBeginTransaction(bt),
             CommitTransactionStatement ct => BuildCommitTransaction(ct),
             RollbackTransactionStatement rt => BuildRollbackTransaction(rt),
+            SaveTransactionStatement sv => BuildSaveTransaction(sv),
 
             // Variable management
             DeclareVariableStatement dv => BuildDeclareVariable(dv),
             DeclareTableVariableStatement dtv => BuildDeclareTableVariable(dtv),
             SetVariableStatement sv => BuildSetVariable(sv),
             SetRowCountStatement src => BuildSetRowCount(src),
+
+            // Operational / admin
+            CheckpointStatement chk => BuildCheckpoint(chk),
+            KillStatement kll => BuildKill(kll),
+            ReconfigureStatement rc => BuildReconfigure(rc),
+
+            // DDL — triggers (enable/disable)
+            EnableDisableTriggerStatement et => BuildEnableDisableTrigger(et),
+
+            // DDL — indexes (columnstore)
+            CreateColumnStoreIndexStatement ccsi => BuildCreateColumnStoreIndex(ccsi),
+
+            // Security — ALTER AUTHORIZATION
+            AlterAuthorizationStatement aa => BuildAlterAuthorization(aa),
+
+            // DDL — statistics
+            CreateStatisticsStatement cstat => BuildCreateStatistics(cstat),
+            UpdateStatisticsStatement ustat => BuildUpdateStatistics(ustat),
+            DropStatisticsStatement dstat => BuildDropStatistics(dstat),
 
             // SET / USE / WAITFOR
             UseStatement use => BuildUseStatement(use),
@@ -2477,5 +2497,127 @@ public class AstBuilder : TSqlFragmentVisitor {
         Node("DropRoleStatement", s, new Dictionary<string, object?> {
             ["name"] = s.Name?.Value,
             ["ifExists"] = s.IsIfExists,
+        });
+
+    // -------------------------------------------------------------------------
+    // Transactions — SAVE TRANSACTION
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildSaveTransaction(SaveTransactionStatement sv) =>
+        Node("SaveTransactionStatement", sv, new Dictionary<string, object?> {
+            ["name"] = sv.Name?.Value,
+        });
+
+    // -------------------------------------------------------------------------
+    // Operational — CHECKPOINT / KILL / RECONFIGURE
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildCheckpoint(CheckpointStatement chk) =>
+        Node("CheckpointStatement", chk, new Dictionary<string, object?> {
+            ["duration"] = chk.Duration?.Value,
+        });
+
+    private static SqlNode BuildKill(KillStatement kll) =>
+        Node("KillStatement", kll, new Dictionary<string, object?> {
+            ["param"] = RawText(kll.Parameter).Trim(),
+            ["withStatusOnly"] = kll.WithStatusOnly,
+        });
+
+    private static SqlNode BuildReconfigure(ReconfigureStatement rc) =>
+        Node("ReconfigureStatement", rc, new Dictionary<string, object?> {
+            ["withOverride"] = rc.WithOverride,
+        });
+
+    // -------------------------------------------------------------------------
+    // DDL — ENABLE / DISABLE TRIGGER
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildEnableDisableTrigger(EnableDisableTriggerStatement et) {
+        var names = et.TriggerNames?.Select(n => (object?)(n.BaseIdentifier?.Value ?? RawText(n).Trim())).ToList();
+        var scope = et.TriggerObject?.TriggerScope.ToString() ?? "Normal";
+        var targetName = scope == "Normal" ? BuildSchemaObjectName(et.TriggerObject?.Name) : null;
+        return Node("EnableDisableTriggerStatement", et, new Dictionary<string, object?> {
+            ["enforcement"] = et.TriggerEnforcement.ToString(),
+            ["all"] = et.All,
+            ["triggerNames"] = names,
+            ["targetScope"] = scope,
+            ["targetName"] = targetName,
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // DDL — Statistics
+    // -------------------------------------------------------------------------
+
+    private static string StatisticsOptionText(StatisticsOption o) => o switch {
+        OnOffStatisticsOption oo => $"{o.OptionKind} = {(oo.OptionState == OptionState.On ? "ON" : "OFF")}",
+        LiteralStatisticsOption lo when o.OptionKind == StatisticsOptionKind.SamplePercent
+            => $"SAMPLE {lo.Literal?.Value} PERCENT",
+        LiteralStatisticsOption lo when o.OptionKind == StatisticsOptionKind.SampleRows
+            => $"SAMPLE {lo.Literal?.Value} ROWS",
+        LiteralStatisticsOption lo => $"{o.OptionKind} = {lo.Literal?.Value}",
+        _ => o.OptionKind.ToString().ToUpperInvariant(),
+    };
+
+    private static SqlNode BuildCreateStatistics(CreateStatisticsStatement cs) {
+        var cols = cs.Columns?.Select(c => (object?)(
+            c.MultiPartIdentifier?.Identifiers?.LastOrDefault()?.Value ?? RawText(c).Trim()
+        )).ToList();
+        var opts = cs.StatisticsOptions?.Select(o => (object?)StatisticsOptionText(o)).ToList();
+        return Node("CreateStatisticsStatement", cs, new Dictionary<string, object?> {
+            ["name"] = cs.Name?.Value,
+            ["onName"] = BuildSchemaObjectName(cs.OnName),
+            ["columns"] = cols,
+            ["filterPredicate"] = cs.FilterPredicate != null ? RawText(cs.FilterPredicate).Trim() : null,
+            ["options"] = opts,
+        });
+    }
+
+    private static SqlNode BuildUpdateStatistics(UpdateStatisticsStatement us) {
+        var subElems = us.SubElements?.Select(i => (object?)(i.Value ?? RawText(i).Trim())).ToList();
+        var opts = us.StatisticsOptions?.Select(o => (object?)StatisticsOptionText(o)).ToList();
+        return Node("UpdateStatisticsStatement", us, new Dictionary<string, object?> {
+            ["table"] = BuildSchemaObjectName(us.SchemaObjectName),
+            ["subElements"] = subElems,
+            ["options"] = opts,
+        });
+    }
+
+    private static SqlNode BuildDropStatistics(DropStatisticsStatement ds) {
+        // Each ChildObjectName has BaseIdentifier (table) and ChildIdentifier (stat name)
+        var objects = ds.Objects?.Select(o => (object?)RawText(o).Trim()).ToList();
+        return Node("DropStatisticsStatement", ds, new Dictionary<string, object?> {
+            ["objects"] = objects,
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // DDL — CREATE COLUMNSTORE INDEX
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildCreateColumnStoreIndex(CreateColumnStoreIndexStatement csi) {
+        var cols = csi.Columns?.Select(c => (object?)(
+            c.MultiPartIdentifier?.Identifiers?.LastOrDefault()?.Value ?? RawText(c).Trim()
+        )).ToList();
+        var opts = csi.IndexOptions?.Select(o => (object?)RawText(o).Trim()).ToList();
+        return Node("CreateColumnStoreIndexStatement", csi, new Dictionary<string, object?> {
+            ["name"] = csi.Name?.Value,
+            ["clustered"] = csi.Clustered,
+            ["onName"] = BuildSchemaObjectName(csi.OnName),
+            ["columns"] = cols,
+            ["filterPredicate"] = csi.FilterPredicate != null ? RawText(csi.FilterPredicate).Trim() : null,
+            ["options"] = opts,
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Security — ALTER AUTHORIZATION
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildAlterAuthorization(AlterAuthorizationStatement aa) =>
+        Node("AlterAuthorizationStatement", aa, new Dictionary<string, object?> {
+            ["target"] = BuildSecurityTarget(aa.SecurityTargetObject),
+            ["toSchemaOwner"] = aa.ToSchemaOwner,
+            ["principal"] = aa.PrincipalName?.Value,
         });
 }

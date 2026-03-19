@@ -58,6 +58,35 @@ drop database SalesDB;
 drop database if exists SalesDB;"
 `;
 
+exports[`fixtures > admin/statistics.sql 1`] = `
+"create statistics stat1
+on dbo.Orders (OrderDate);
+
+create statistics stat2
+on dbo.Orders (CustomerId, OrderDate)
+with fullscan;
+
+create statistics stat3
+on dbo.Orders (Status)
+where Status = 'Active'
+with sample 50 percent, norecompute;
+
+update statistics dbo.Orders;
+
+update statistics dbo.Orders (stat1);
+
+update statistics dbo.Orders
+with fullscan;
+
+update statistics dbo.Orders (stat1, stat2)
+with norecompute;
+
+drop statistics dbo.Orders.stat1;
+
+drop statistics dbo.Orders.stat1,
+dbo.Orders.stat2;"
+`;
+
 exports[`fixtures > alter-table/add-column.sql 1`] = `
 "alter table Books
 add
@@ -268,6 +297,19 @@ alter index all on Books disable;
 drop index IX_Books_Title on Books;
 
 drop index IX_Books_Title on Books;"
+`;
+
+exports[`fixtures > index/columnstore.sql 1`] = `
+"create clustered columnstore index cci
+on dbo.Orders;
+
+create nonclustered columnstore index ncci
+on dbo.Orders (CustomerId, OrderDate, Total);
+
+create nonclustered columnstore index ncci_filtered
+on dbo.Orders (CustomerId, OrderDate)
+where Status = 'Closed'
+with (drop_existing = on);"
 `;
 
 exports[`fixtures > insert/basic.sql 1`] = `
@@ -483,12 +525,30 @@ close ScrollCursor;
 deallocate ScrollCursor;"
 `;
 
+exports[`fixtures > procedural/operational.sql 1`] = `
+"save transaction SavePoint1;
+
+save transaction @sp;
+
+checkpoint;
+
+checkpoint 5;
+
+kill 52;
+
+kill 52 with statusonly;
+
+reconfigure;
+
+reconfigure with override;"
+`;
+
 exports[`fixtures > procedural/transactions.sql 1`] = `
 "begin transaction;
 
 begin transaction SaveOrder;
 
-save transaction BeforeSave
+save transaction BeforeSave;
 
 rollback transaction;
 
@@ -516,6 +576,24 @@ set transaction isolation level read committed;
 set transaction isolation level serializable;
 
 set transaction isolation level snapshot;"
+`;
+
+exports[`fixtures > security/alter-authorization.sql 1`] = `
+"alter authorization
+on schema::Sales
+to Mary;
+
+alter authorization
+on dbo.Orders
+to Mary;
+
+alter authorization
+on object::dbo.Orders
+to dbo;
+
+alter authorization
+on database::Bookstore
+to sa;"
 `;
 
 exports[`fixtures > security/grants.sql 1`] = `
@@ -1134,6 +1212,26 @@ begin
   from inserted;
 end;
 go"
+`;
+
+exports[`fixtures > trigger/enable-disable.sql 1`] = `
+"enable trigger tr1
+on dbo.Orders;
+
+disable trigger tr1
+on dbo.Orders;
+
+enable trigger tr1, tr2
+on dbo.Orders;
+
+disable trigger all
+on dbo.Orders;
+
+enable trigger all
+on database;
+
+disable trigger all
+on all server;"
 `;
 
 exports[`fixtures > trigger/instead-of-delete.sql 1`] = `

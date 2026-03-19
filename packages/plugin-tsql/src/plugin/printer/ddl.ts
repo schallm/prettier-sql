@@ -828,3 +828,153 @@ export function printDropPartitionScheme(node: SqlNode, opts: Options): Doc {
     const ifExists = propBool(node, 'ifExists');
     return [keyword('DROP PARTITION SCHEME', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
 }
+
+// ---------------------------------------------------------------------------
+// CREATE COLUMNSTORE INDEX
+// ---------------------------------------------------------------------------
+
+export function printCreateColumnStoreIndex(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const clustered = node.props?.['clustered'] as boolean | null | undefined;
+    const onName = prop(node, 'onName');
+    const columns = node.props?.['columns'] as string[] | undefined;
+    const filterPredicate = propStr(node, 'filterPredicate');
+    const options = node.props?.['options'] as string[] | undefined;
+
+    const clusterKw: Doc =
+        clustered === true
+            ? [keyword('CLUSTERED', opts), ' ']
+            : clustered === false
+              ? [keyword('NONCLUSTERED', opts), ' ']
+              : '';
+    const parts: Doc[] = [keyword('CREATE', opts), ' ', clusterKw, keyword('COLUMNSTORE INDEX', opts), ' ', name];
+    parts.push([hardline, keyword('ON', opts), ' ', onName ? schemaObjectName(onName) : '']);
+    if (columns?.length) {
+        parts.push([' ', group(['(', indent([softline, join([',', line], columns)]), softline, ')'])]);
+    }
+    if (filterPredicate) parts.push([hardline, keyword('WHERE', opts), ' ', filterPredicate]);
+    if (options?.length) {
+        parts.push([
+            hardline,
+            group([
+                keyword('WITH', opts),
+                ' (',
+                indent([
+                    softline,
+                    join(
+                        [',', line],
+                        options.map((o) => keyword(o, opts)),
+                    ),
+                ]),
+                softline,
+                ')',
+            ]),
+        ]);
+    }
+    parts.push(';');
+    return parts;
+}
+
+// ---------------------------------------------------------------------------
+// ENABLE / DISABLE TRIGGER
+// ---------------------------------------------------------------------------
+
+export function printEnableDisableTrigger(node: SqlNode, opts: Options): Doc {
+    const enforcement = propStr(node, 'enforcement') ?? 'Enable';
+    const all = propBool(node, 'all');
+    const triggerNames = node.props?.['triggerNames'] as string[] | undefined;
+    const targetScope = propStr(node, 'targetScope') ?? 'Normal';
+    const targetName = prop(node, 'targetName');
+
+    const verb = enforcement === 'Disable' ? 'DISABLE TRIGGER' : 'ENABLE TRIGGER';
+    const triggersDoc: Doc = all
+        ? keyword('ALL', opts)
+        : join(
+              ', ',
+              (triggerNames ?? []).map((n) => n),
+          );
+
+    let onTarget: Doc;
+    if (targetScope === 'Database') onTarget = keyword('DATABASE', opts);
+    else if (targetScope === 'AllServer') onTarget = keyword('ALL SERVER', opts);
+    else onTarget = targetName ? schemaObjectName(targetName) : '';
+
+    return [keyword(verb, opts), ' ', triggersDoc, hardline, keyword('ON', opts), ' ', onTarget, ';'];
+}
+
+// ---------------------------------------------------------------------------
+// CREATE / UPDATE / DROP STATISTICS
+// ---------------------------------------------------------------------------
+
+export function printCreateStatistics(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const onName = prop(node, 'onName');
+    const columns = node.props?.['columns'] as string[] | undefined;
+    const filterPredicate = propStr(node, 'filterPredicate');
+    const options = node.props?.['options'] as string[] | undefined;
+
+    const parts: Doc[] = [keyword('CREATE STATISTICS', opts), ' ', name];
+    parts.push([hardline, keyword('ON', opts), ' ', onName ? schemaObjectName(onName) : '']);
+    if (columns?.length) {
+        parts.push([' ', group(['(', indent([softline, join([',', line], columns)]), softline, ')'])]);
+    }
+    if (filterPredicate) parts.push([hardline, keyword('WHERE', opts), ' ', filterPredicate]);
+    if (options?.length) {
+        parts.push([
+            hardline,
+            group([
+                keyword('WITH', opts),
+                indent([
+                    line,
+                    join(
+                        [',', line],
+                        options.map((o) => keyword(o, opts)),
+                    ),
+                ]),
+            ]),
+        ]);
+    }
+    parts.push(';');
+    return parts;
+}
+
+export function printUpdateStatistics(node: SqlNode, opts: Options): Doc {
+    const table = prop(node, 'table');
+    const subElements = node.props?.['subElements'] as string[] | undefined;
+    const options = node.props?.['options'] as string[] | undefined;
+
+    const parts: Doc[] = [keyword('UPDATE STATISTICS', opts), ' ', table ? schemaObjectName(table) : ''];
+    if (subElements?.length) {
+        parts.push([' ', group(['(', indent([softline, join([',', line], subElements)]), softline, ')'])]);
+    }
+    if (options?.length) {
+        parts.push([
+            hardline,
+            group([
+                keyword('WITH', opts),
+                indent([
+                    line,
+                    join(
+                        [',', line],
+                        options.map((o) => keyword(o, opts)),
+                    ),
+                ]),
+            ]),
+        ]);
+    }
+    parts.push(';');
+    return parts;
+}
+
+export function printDropStatistics(node: SqlNode, opts: Options): Doc {
+    const objects = node.props?.['objects'] as string[] | undefined;
+    return [
+        keyword('DROP STATISTICS', opts),
+        ' ',
+        join(
+            [',', hardline],
+            (objects ?? []).map((o) => o),
+        ),
+        ';',
+    ];
+}

@@ -315,3 +315,29 @@ export function printDropRole(node: SqlNode, opts: Options): Doc {
     const ifExists = propBool(node, 'ifExists');
     return [keyword('DROP ROLE', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
 }
+
+// ---------------------------------------------------------------------------
+// ALTER AUTHORIZATION
+// ---------------------------------------------------------------------------
+
+export function printAlterAuthorization(node: SqlNode, opts: Options): Doc {
+    const target = node.props?.['target'] as Record<string, unknown> | undefined;
+    const toSchemaOwner = node.props?.['toSchemaOwner'] as boolean | undefined;
+    const principal = propStr(node, 'principal') ?? '';
+
+    const targetDoc: Doc = target ? printSecurityTarget(target, opts) : '';
+    const toPart: Doc = toSchemaOwner ? keyword('SCHEMA OWNER', opts) : principal;
+
+    return [
+        keyword('ALTER AUTHORIZATION', opts),
+        hardline,
+        keyword('ON', opts),
+        ' ',
+        targetDoc,
+        hardline,
+        keyword('TO', opts),
+        ' ',
+        toPart,
+        ';',
+    ];
+}

@@ -50,11 +50,20 @@ import {
     printCreatePartitionScheme,
     printAlterPartitionScheme,
     printDropPartitionScheme,
+    printEnableDisableTrigger,
+    printCreateColumnStoreIndex,
+    printCreateStatistics,
+    printUpdateStatistics,
+    printDropStatistics,
 } from './ddl.js';
 import {
     printBeginTransaction,
     printCommitTransaction,
     printRollbackTransaction,
+    printSaveTransaction,
+    printCheckpoint,
+    printKill,
+    printReconfigure,
     printDeclareVariable,
     printDeclareTableVariable,
     printSetVariable,
@@ -86,6 +95,7 @@ import {
 } from './procedural.js';
 import {
     printGrantDenyRevoke,
+    printAlterAuthorization,
     printCreateUser,
     printAlterUser,
     printDropUser,
@@ -275,6 +285,12 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'CreateTriggerStatement':
         case 'AlterTriggerStatement':
             return printCreateTrigger(node, opts);
+        case 'EnableDisableTriggerStatement':
+            return printEnableDisableTrigger(node, opts);
+
+        // DDL — columnstore index
+        case 'CreateColumnStoreIndexStatement':
+            return printCreateColumnStoreIndex(node, opts);
 
         // DDL — sequences
         case 'CreateSequenceStatement':
@@ -348,6 +364,8 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
             return printCommitTransaction(node, opts);
         case 'RollbackTransactionStatement':
             return printRollbackTransaction(node, opts);
+        case 'SaveTransactionStatement':
+            return printSaveTransaction(node, opts);
 
         // Variable management
         case 'DeclareVariableStatement':
@@ -358,6 +376,22 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
             return printSetVariable(node, opts);
         case 'SetRowCountStatement':
             return printSetRowCount(node, opts);
+
+        // Operational
+        case 'CheckpointStatement':
+            return printCheckpoint(node, opts);
+        case 'KillStatement':
+            return printKill(node, opts);
+        case 'ReconfigureStatement':
+            return printReconfigure(node, opts);
+
+        // DDL — statistics
+        case 'CreateStatisticsStatement':
+            return printCreateStatistics(node, opts);
+        case 'UpdateStatisticsStatement':
+            return printUpdateStatistics(node, opts);
+        case 'DropStatisticsStatement':
+            return printDropStatistics(node, opts);
 
         // SET / USE / WAITFOR
         case 'UseStatement':
@@ -419,13 +453,15 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'RevertStatement':
             return printRevert(node, opts);
 
-        // Security — GRANT / DENY / REVOKE
+        // Security — GRANT / DENY / REVOKE / ALTER AUTHORIZATION
         case 'GrantStatement':
             return printGrantDenyRevoke(node, 'GRANT', opts);
         case 'DenyStatement':
             return printGrantDenyRevoke(node, 'DENY', opts);
         case 'RevokeStatement':
             return printGrantDenyRevoke(node, 'REVOKE', opts);
+        case 'AlterAuthorizationStatement':
+            return printAlterAuthorization(node, opts);
 
         // Security — USER / LOGIN / ROLE
         case 'CreateUserStatement':
