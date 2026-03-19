@@ -20,7 +20,8 @@ restore database Bookstore
 
 restore database Bookstore
   from disk = N'C:\\Backups\\Bookstore_Full.bak'
-  with move N'Bookstore_Data' to N'C:\\Data\\Bookstore.mdf',
+  with
+    move N'Bookstore_Data' to N'C:\\Data\\Bookstore.mdf',
     move N'Bookstore_Log' to N'C:\\Data\\Bookstore.ldf',
     recovery,
     stats = 5;

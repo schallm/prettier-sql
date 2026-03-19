@@ -73,7 +73,7 @@ function printBackupBase(verb: Doc, node: SqlNode, opts: Options): Doc {
     const mirrorParts: Doc[] = mirrorTo?.map((m) => [hardline, keyword('MIRROR TO', opts), ' ', kwOpt(m, opts)] as Doc) ?? [];
 
     const withPart: Doc = options?.length
-        ? [hardline, keyword('WITH', opts), indent([' ', group(join([',', line], options.map((o) => kwOpt(o, opts))))])]
+        ? [hardline, group([keyword('WITH', opts), indent([line, join([',', line], options.map((o) => kwOpt(o, opts)))])])]
         : '';
 
     return group([verb, ' ', database, indent([toPart, ...mirrorParts, withPart]), ';']);
@@ -102,7 +102,7 @@ export function printRestore(node: SqlNode, opts: Options): Doc {
     const fromPart: Doc = devices?.length ? [hardline, keyword('FROM', opts), ' ', join([',', hardline], devices.map((d) => kwOpt(d, opts)))] : '';
 
     const withPart: Doc = options?.length
-        ? [hardline, keyword('WITH', opts), indent([' ', group(join([',', line], options.map((o) => kwOpt(o, opts))))])]
+        ? [hardline, group([keyword('WITH', opts), indent([line, join([',', line], options.map((o) => kwOpt(o, opts)))])])]
         : '';
 
     return group([keyword('RESTORE', opts), ' ', keyword(kind, opts), dbPart, indent([fromPart, withPart]), ';']);
