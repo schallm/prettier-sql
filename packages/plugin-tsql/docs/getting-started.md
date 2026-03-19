@@ -57,7 +57,7 @@ If you want to contribute or use a local build:
 
 ```bash
 # 1. Clone and install Node dependencies
-git clone <repo-url>
+git clone https://github.com/schallm/prettier-plugin-tsql.git
 cd prettier-plugin-tsql
 npm install
 
