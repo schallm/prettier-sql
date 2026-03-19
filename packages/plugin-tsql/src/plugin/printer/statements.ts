@@ -506,7 +506,9 @@ function printCtes(node: SqlNode, opts: Options): Doc[] {
         const cols = cte.props?.['columns'] as string[] | undefined;
         const query = prop(cte, 'query');
 
-        const colsPart: Doc = cols?.length ? [' (', join(', ', cols), ')'] : '';
+        const colsPart: Doc = cols?.length
+            ? [' ', group(['(', indent([softline, join([',', line], cols)]), softline, ')'])]
+            : '';
 
         // trailing: align subsequent CTEs under "with " with 4 spaces
         // leading:  no prefix — the separator provides ", " before the CTE name

@@ -272,7 +272,7 @@ function printModuleOptions(node: SqlNode, opts: Options): Doc {
         if (o.type === 'ExecuteAsOption') return printExecuteAsClause(o, opts);
         return keyword(o.text ?? '', opts);
     });
-    return [hardline, keyword('WITH', opts), ' ', join(', ', optDocs)];
+    return [hardline, group([keyword('WITH', opts), indent([line, join([',', line], optDocs)])])];
 }
 
 // ---------------------------------------------------------------------------
@@ -448,7 +448,9 @@ export function printCreateView(node: SqlNode, opts: Options): Doc {
               ? keyword('ALTER VIEW', opts)
               : keyword('CREATE VIEW', opts);
 
-    const colsPart: Doc = columns?.length ? [' (', join(', ', columns), ')'] : '';
+    const colsPart: Doc = columns?.length
+        ? [' ', group(['(', indent([softline, join([',', line], columns)]), softline, ')'])]
+        : '';
 
     const withPart: Doc = withOptions?.length
         ? [

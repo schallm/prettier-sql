@@ -1883,7 +1883,7 @@ describe('CREATE/ALTER/DROP LOGIN', () => {
 
     it('CREATE LOGIN with password and options', async () => {
         expect(await fmt("create login AppLogin with password = 'P@ssw0rd', default_database = master, check_policy = on")).toBe(
-            "create login AppLogin\nwith\n  password = 'P@ssw0rd',\n  default_database = master,\n  check_policy = on;"
+            "create login AppLogin\nwith password = 'P@ssw0rd', default_database = master, check_policy = on;"
         );
     });
 

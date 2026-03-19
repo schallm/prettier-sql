@@ -527,9 +527,7 @@ without login
 with default_schema = dbo;
 
 alter user AppUser
-with
-  name = NewAppUser,
-  default_schema = sales;
+with name = NewAppUser, default_schema = sales;
 
 drop user AppUser;
 
@@ -543,9 +541,7 @@ from windows
 with default_database = AdventureWorks;
 
 alter login AppLogin
-with
-  password = 'NewP@ssw0rd!',
-  old_password = 'Str0ngP@ssw0rd!';
+with password = 'NewP@ssw0rd!', old_password = 'Str0ngP@ssw0rd!';
 
 alter login AppLogin enable;
 

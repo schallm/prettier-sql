@@ -88,7 +88,7 @@ export function printGrantDenyRevoke(node: SqlNode, verb: string, opts: Options)
     if (target) parts.push([hardline, keyword('ON', opts), ' ', printSecurityTarget(target, opts)]);
 
     const direction = verb === 'REVOKE' ? 'FROM' : 'TO';
-    parts.push([hardline, keyword(direction, opts), ' ', join(', ', principalDocs)]);
+    parts.push([hardline, group([keyword(direction, opts), indent([line, join([',', line], principalDocs)])])]);
 
     if (withGrant) parts.push([hardline, keyword('WITH GRANT OPTION', opts)]);
     if (cascade) parts.push([hardline, keyword('CASCADE', opts)]);
@@ -143,7 +143,7 @@ function printPrincipalOption(o: Record<string, unknown>, opts: Options): Doc {
 }
 
 function withOptionsPart(items: Doc[]): Doc {
-    return items.length === 1 ? [' ', items[0]!] : indent([hardline, join([',', hardline], items)]);
+    return group([indent([line, join([',', line], items)])]);
 }
 
 /** Expands a password option into multiple peer items so OLD_PASSWORD and UNLOCK
