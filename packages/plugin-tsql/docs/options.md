@@ -28,12 +28,13 @@ where Books.InStock = 1;
 
 **`upper`**
 
+<!-- prettier-ignore -->
 ```sql
-select
+SELECT
     Books.Id,
     Books.Title
-from Books
-where Books.InStock = 1;
+FROM Books
+WHERE Books.InStock = 1;
 ```
 
 **`preserve`**
@@ -81,14 +82,10 @@ where
 
 Tries to keep everything on as few lines as possible, wrapping only when a line would exceed `printWidth`.
 
+<!-- prettier-ignore -->
 ```sql
-select
-    Books.BookId,
-    Books.Title,
-    Books.Price
-from
-    Books
-    inner join Authors on Books.AuthorId = Authors.Id
+select Books.BookId, Books.Title, Books.Price
+from Books inner join Authors on Books.AuthorId = Authors.Id
 where Books.InStock = 1
 order by Books.Title asc;
 ```
@@ -97,6 +94,7 @@ order by Books.Title asc;
 
 Every predicate gets its own indented line, even when there is only one. Maximises vertical readability.
 
+<!-- prettier-ignore -->
 ```sql
 select
     Books.BookId,
@@ -105,8 +103,10 @@ select
 from
     Books
     inner join Authors on Books.AuthorId = Authors.Id
-where Books.InStock = 1
-order by Books.Title asc;
+where
+    Books.InStock = 1
+order by
+    Books.Title asc;
 ```
 
 ---
@@ -145,22 +145,26 @@ where BookId = @id;
 
 ### `leading`
 
+<!-- prettier-ignore -->
 ```sql
 select
-    Id,
-    Title,
-    Price
+    Id
+  , Title
+  , Price
 from Books;
 
-insert into Books (Title, Price)
+insert into Books (
+    Title
+  , Price
+)
 values
-    ('A', 1.00),
-    ('B', 2.00);
+    ('A', 1.00)
+  , ('B', 2.00);
 
 update Books
 set
-    Title = @title,
-    Price = @price
+    Title = @title
+  , Price = @price
 where BookId = @id;
 ```
 

@@ -159,17 +159,9 @@ See [docs/options.md](docs/options.md) for full details and examples.
 
 **Input**
 
+<!-- prettier-ignore -->
 ```sql
-select
-    Books.BookId,
-    Books.Title,
-    Books.Price,
-    Authors.LastName
-from
-    Books
-    inner join Authors on Books.AuthorId = Authors.Id
-where Books.InStock = 1
-order by Books.Title asc;
+SELECT Books.BookId,Books.Title,Books.Price,Authors.LastName FROM Books INNER JOIN Authors ON Books.AuthorId=Authors.Id WHERE Books.InStock=1 ORDER BY Books.Title ASC;
 ```
 
 **Output** (default options)
