@@ -29,7 +29,17 @@ export function printDbcc(node: SqlNode, opts: Options): Doc {
     const argPart: Doc = literals?.length ? ['(', join([', '], literals), ')'] : '';
 
     const optSep = optionsUseJoin ? ' JOIN ' : ', ';
-    const withPart: Doc = options?.length ? [' ', keyword('WITH', opts), ' ', join([optSep], options.map((o) => keyword(o, opts)))] : '';
+    const withPart: Doc = options?.length
+        ? [
+              ' ',
+              keyword('WITH', opts),
+              ' ',
+              join(
+                  [optSep],
+                  options.map((o) => keyword(o, opts)),
+              ),
+          ]
+        : '';
 
     return [keyword('DBCC', opts), ' ', keyword(command, opts), argPart, withPart, ';'];
 }
@@ -68,12 +78,35 @@ function printBackupBase(verb: Doc, node: SqlNode, opts: Options): Doc {
     const options = node.props?.['options'] as string[] | undefined;
     const mirrorTo = node.props?.['mirrorTo'] as string[] | undefined;
 
-    const toPart: Doc = devices?.length ? [hardline, keyword('TO', opts), ' ', join([',', hardline], devices.map((d) => kwOpt(d, opts)))] : '';
+    const toPart: Doc = devices?.length
+        ? [
+              hardline,
+              keyword('TO', opts),
+              ' ',
+              join(
+                  [',', hardline],
+                  devices.map((d) => kwOpt(d, opts)),
+              ),
+          ]
+        : '';
 
-    const mirrorParts: Doc[] = mirrorTo?.map((m) => [hardline, keyword('MIRROR TO', opts), ' ', kwOpt(m, opts)] as Doc) ?? [];
+    const mirrorParts: Doc[] =
+        mirrorTo?.map((m) => [hardline, keyword('MIRROR TO', opts), ' ', kwOpt(m, opts)] as Doc) ?? [];
 
     const withPart: Doc = options?.length
-        ? [hardline, group([keyword('WITH', opts), indent([line, join([',', line], options.map((o) => kwOpt(o, opts)))])])]
+        ? [
+              hardline,
+              group([
+                  keyword('WITH', opts),
+                  indent([
+                      line,
+                      join(
+                          [',', line],
+                          options.map((o) => kwOpt(o, opts)),
+                      ),
+                  ]),
+              ]),
+          ]
         : '';
 
     return group([verb, ' ', database, indent([toPart, ...mirrorParts, withPart]), ';']);
@@ -99,10 +132,32 @@ export function printRestore(node: SqlNode, opts: Options): Doc {
 
     const dbPart: Doc = database ? [' ', database] : '';
 
-    const fromPart: Doc = devices?.length ? [hardline, keyword('FROM', opts), ' ', join([',', hardline], devices.map((d) => kwOpt(d, opts)))] : '';
+    const fromPart: Doc = devices?.length
+        ? [
+              hardline,
+              keyword('FROM', opts),
+              ' ',
+              join(
+                  [',', hardline],
+                  devices.map((d) => kwOpt(d, opts)),
+              ),
+          ]
+        : '';
 
     const withPart: Doc = options?.length
-        ? [hardline, group([keyword('WITH', opts), indent([line, join([',', line], options.map((o) => kwOpt(o, opts)))])])]
+        ? [
+              hardline,
+              group([
+                  keyword('WITH', opts),
+                  indent([
+                      line,
+                      join(
+                          [',', line],
+                          options.map((o) => kwOpt(o, opts)),
+                      ),
+                  ]),
+              ]),
+          ]
         : '';
 
     return group([keyword('RESTORE', opts), ' ', keyword(kind, opts), dbPart, indent([fromPart, withPart]), ';']);
@@ -134,7 +189,14 @@ export function printCreateDatabase(node: SqlNode, opts: Options): Doc {
         parts.push(hardline, keyword('LOG ON', opts), ' ');
         parts.push(indent([hardline, join([',', hardline], logOn)]));
     }
-    if (options?.length) parts.push(hardline, join([',', hardline], options.map((o) => kwOpt(o, opts))));
+    if (options?.length)
+        parts.push(
+            hardline,
+            join(
+                [',', hardline],
+                options.map((o) => kwOpt(o, opts)),
+            ),
+        );
 
     parts.push(';');
     return group(parts);
