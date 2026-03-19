@@ -73,7 +73,7 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 
 ## Pending implementation
 
-The constructs below are parsed correctly but emitted as-is (original source text preserved). PRs welcome.
+The constructs below are parsed correctly but emitted as-is (original source text preserved). Open a ticket to request formatting support for any of these.
 
 ### DDL object model
 
