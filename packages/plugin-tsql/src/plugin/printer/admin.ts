@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '../parser/types.js';
 import type { Options } from './utils.js';
-import { keyword, hardline, join, indent, group, ifExistsDoc } from './utils.js';
+import { keyword, hardline, join, indent, group, line, ifExistsDoc } from './utils.js';
 import { propStr, propBool } from './helpers.js';
 
 // ---------------------------------------------------------------------------
@@ -72,7 +72,9 @@ function printBackupBase(verb: Doc, node: SqlNode, opts: Options): Doc {
 
     const mirrorParts: Doc[] = mirrorTo?.map((m) => [hardline, keyword('MIRROR TO', opts), ' ', kwOpt(m, opts)] as Doc) ?? [];
 
-    const withPart: Doc = options?.length ? [hardline, keyword('WITH', opts), ' ', join([', '], options.map((o) => kwOpt(o, opts)))] : '';
+    const withPart: Doc = options?.length
+        ? [hardline, keyword('WITH', opts), indent([' ', group(join([',', line], options.map((o) => kwOpt(o, opts))))])]
+        : '';
 
     return group([verb, ' ', database, indent([toPart, ...mirrorParts, withPart]), ';']);
 }
@@ -99,7 +101,9 @@ export function printRestore(node: SqlNode, opts: Options): Doc {
 
     const fromPart: Doc = devices?.length ? [hardline, keyword('FROM', opts), ' ', join([',', hardline], devices.map((d) => kwOpt(d, opts)))] : '';
 
-    const withPart: Doc = options?.length ? [hardline, keyword('WITH', opts), ' ', join([', '], options.map((o) => kwOpt(o, opts)))] : '';
+    const withPart: Doc = options?.length
+        ? [hardline, keyword('WITH', opts), indent([' ', group(join([',', line], options.map((o) => kwOpt(o, opts))))])]
+        : '';
 
     return group([keyword('RESTORE', opts), ' ', keyword(kind, opts), dbPart, indent([fromPart, withPart]), ';']);
 }
