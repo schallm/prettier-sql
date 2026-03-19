@@ -1662,7 +1662,7 @@ deallocate BookCursor;
 
 ### GRANT / DENY / REVOKE
 
-Permissions follow the verb inline and wrap to indented lines only when they exceed `printWidth`. The `ON` clause and the `TO`/`FROM` clause each go on their own line.
+Permissions follow the verb inline and wrap to indented lines only when they exceed `printWidth`. The `ON` clause and the `TO`/`FROM` clause each go on their own line. The principal list after `TO`/`FROM` also wraps when it exceeds `printWidth`.
 
 #### GRANT
 
@@ -1993,32 +1993,56 @@ Arguments appear inside parentheses (when present), options after `WITH`. The co
 ### BACKUP DATABASE / BACKUP LOG
 
 ```sql
-backup database AdventureWorks
-  to DISK = N'C:\backup\AW.bak'
-  with COMPRESSION, STATS = 10;
+backup database Bookstore
+  to disk = N'C:\backup\Bookstore.bak'
+  with compression, stats = 10;
 
-backup log AdventureWorks
-  to DISK = N'C:\backup\AW_log.bak';
+backup log Bookstore
+  to disk = N'C:\backup\Bookstore_log.bak';
 ```
 
-`BACKUP DATABASE` / `BACKUP LOG` keywords are reformatted; device type (`DISK`, `TAPE`, `URL`)
-and option names (`COMPRESSION`, `STATS`) are emitted as raw text (original casing preserved).
-`TO`, `MIRROR TO`, and `WITH` are indented on new lines; multiple devices each on their own line.
+`BACKUP DATABASE` / `BACKUP LOG` keywords are reformatted. Device type keywords (`DISK`, `TAPE`,
+`URL`) and all option names (`COMPRESSION`, `NOFORMAT`, `STATS`, `NAME`, etc.) follow
+`sqlKeywordCase`. `TO`, `MIRROR TO`, and `WITH` are indented on new lines; multiple devices each
+on their own line.
+
+When the `WITH` option list is short it stays on one line; when it would exceed `printWidth` every
+option wraps to its own indented line:
+
+```sql
+-- fits on one line
+backup database Bookstore
+  to disk = N'C:\backup\Bookstore.bak'
+  with noformat, noinit, compression;
+
+-- exceeds printWidth → each option on its own line
+backup database Bookstore
+  to disk = N'C:\backup\Bookstore.bak'
+  with
+    copy_only,
+    noformat,
+    noinit,
+    name = N'Bookstore Full Backup',
+    stats = 10;
+```
 
 ### RESTORE
 
 ```sql
-restore database AdventureWorks
-  from DISK = N'C:\backup\AW.bak'
-  with NORECOVERY;
+restore database Bookstore
+  from disk = N'C:\backup\Bookstore.bak'
+  with norecovery;
 
-restore database AdventureWorks
-  from DISK = N'C:\backup\AW.bak'
-  with RECOVERY, REPLACE;
+restore database Bookstore
+  from disk = N'C:\backup\Bookstore.bak'
+  with move N'Bookstore_Data' to N'C:\Data\Bookstore.mdf',
+       move N'Bookstore_Log' to N'C:\Data\Bookstore.ldf',
+       recovery, stats = 5;
 ```
 
 `RESTORE DATABASE` / `RESTORE LOG` / `RESTORE FILELISTONLY` / `RESTORE HEADERONLY` /
 `RESTORE VERIFYONLY` are all supported. `FROM` and `WITH` are indented on new lines.
+The `WITH` option list follows the same inline/wrap behaviour as `BACKUP`.
 
 ### CREATE DATABASE
 
