@@ -1106,7 +1106,7 @@ export function printTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode
     }
 }
 
-function printNamedTableRef(node: SqlNode, opts: Options, printFn?: (n: SqlNode) => Doc): Doc {
+function printNamedTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
     const alias = propStr(node, 'alias');
     const hints = node.props?.['hints'] as string[] | undefined;
     const nameDoc: Doc = schemaObjectName(prop(node, 'name'));
@@ -1125,8 +1125,8 @@ function printNamedTableRef(node: SqlNode, opts: Options, printFn?: (n: SqlNode)
         : '';
     const tableSample = prop(node, 'tableSample');
     const temporal = prop(node, 'temporal');
-    const sampleDoc: Doc = tableSample && printFn ? printTableSample(tableSample, opts, printFn) : '';
-    const temporalDoc: Doc = temporal && printFn ? printTemporalClause(temporal, opts, printFn) : '';
+    const sampleDoc: Doc = tableSample ? printTableSample(tableSample, opts, printFn) : '';
+    const temporalDoc: Doc = temporal ? printTemporalClause(temporal, opts, printFn) : '';
     // Order: name, temporal, alias, tablesample, hints
     return [nameDoc, temporalDoc, aliasDoc, sampleDoc, hintsDoc];
 }
@@ -1557,26 +1557,23 @@ function xmlJsonOptionKw(kind: string, opts: Options): Doc {
     return keyword(XML_JSON_OPTION_KW[kind] ?? kind.toUpperCase(), opts);
 }
 
+function printForXmlJsonOptions(forKw: string, node: SqlNode, opts: Options): Doc {
+    const options = node.props?.['options'] as Array<{ kind: string; value?: string }> | undefined;
+    const kwDoc = keyword(forKw, opts);
+    if (!options?.length) return kwDoc;
+    const optDocs = options.map((o) => {
+        const kw = xmlJsonOptionKw(o.kind, opts);
+        return o.value != null && o.value !== '' ? [kw, "('", o.value, "')"] : kw;
+    });
+    return [kwDoc, ' ', join(', ', optDocs)];
+}
+
 function printForClause(node: SqlNode, opts: Options): Doc {
     switch (node.type) {
-        case 'ForXmlClause': {
-            const options = node.props?.['options'] as Array<{ kind: string; value?: string }> | undefined;
-            if (!options?.length) return keyword('FOR XML', opts);
-            const optDocs = options.map((o) => {
-                const kw = xmlJsonOptionKw(o.kind, opts);
-                return o.value != null && o.value !== '' ? [kw, "('", o.value, "')"] : kw;
-            });
-            return [keyword('FOR XML', opts), ' ', join(', ', optDocs)];
-        }
-        case 'ForJsonClause': {
-            const options = node.props?.['options'] as Array<{ kind: string; value?: string }> | undefined;
-            if (!options?.length) return keyword('FOR JSON', opts);
-            const optDocs = options.map((o) => {
-                const kw = xmlJsonOptionKw(o.kind, opts);
-                return o.value != null && o.value !== '' ? [kw, "('", o.value, "')"] : kw;
-            });
-            return [keyword('FOR JSON', opts), ' ', join(', ', optDocs)];
-        }
+        case 'ForXmlClause':
+            return printForXmlJsonOptions('FOR XML', node, opts);
+        case 'ForJsonClause':
+            return printForXmlJsonOptions('FOR JSON', node, opts);
         case 'ForBrowseClause':
             return keyword('FOR BROWSE', opts);
         case 'ForReadOnlyClause':

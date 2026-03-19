@@ -38,6 +38,8 @@ export function printDbcc(node: SqlNode, opts: Options): Doc {
 // Helpers
 // ---------------------------------------------------------------------------
 
+const MOVE_OPT_RE = /^(MOVE)\s+(.*?)\s+(TO)\s+(.+)$/i;
+
 // Applies keyword casing to an option/device string like "NOFORMAT", "DISK = N'...'",
 // "STATS = 10", or "MOVE N'...' TO N'...'". Only the keyword portions are cased;
 // string literals and numeric values are emitted verbatim.
@@ -47,7 +49,7 @@ function kwOpt(opt: string, opts: Options): Doc {
         return [keyword(opt.slice(0, eqIdx), opts), ' = ', opt.slice(eqIdx + 3)];
     }
     // MOVE N'logical' TO N'physical' — keyword MOVE and TO, literals verbatim
-    const moveMatch = opt.match(/^(MOVE)\s+(.*?)\s+(TO)\s+(.+)$/i);
+    const moveMatch = opt.match(MOVE_OPT_RE);
     if (moveMatch) {
         return [keyword(moveMatch[1], opts), ' ', moveMatch[2], ' ', keyword(moveMatch[3], opts), ' ', moveMatch[4]];
     }
@@ -128,7 +130,7 @@ export function printCreateDatabase(node: SqlNode, opts: Options): Doc {
         parts.push(hardline, keyword('LOG ON', opts), ' ');
         parts.push(indent([hardline, join([',', hardline], logOn)]));
     }
-    if (options?.length) parts.push(hardline, join([',', hardline], options));
+    if (options?.length) parts.push(hardline, join([',', hardline], options.map((o) => kwOpt(o, opts))));
 
     parts.push(';');
     return group(parts);

@@ -128,17 +128,7 @@ function principalOptionKw(kind: string, opts: Options): Doc {
 function printPrincipalOption(o: Record<string, unknown>, opts: Options): Doc {
     const kind = (o['kind'] as string) ?? '';
     if (kind === 'Password') {
-        const pw = o['password'] as string | undefined;
-        const old = o['oldPassword'] as string | undefined;
-        const hashed = o['hashed'] as boolean | undefined;
-        const mustChange = o['mustChange'] as boolean | undefined;
-        const unlock = o['unlock'] as boolean | undefined;
-        const parts: Doc[] = [keyword('PASSWORD', opts), ' = ', pw ?? ''];
-        if (hashed) parts.push(' ', keyword('HASHED', opts));
-        if (mustChange) parts.push(' ', keyword('MUST_CHANGE', opts));
-        if (old) parts.push([',', hardline, keyword('OLD_PASSWORD', opts), ' = ', old]);
-        if (unlock) parts.push([',', hardline, keyword('UNLOCK', opts)]);
-        return parts;
+        return join([',', hardline], expandPasswordOption(o, opts));
     }
     if ('onOff' in o) {
         return [principalOptionKw(kind, opts), ' = ', keyword((o['onOff'] as string).toUpperCase(), opts)];
