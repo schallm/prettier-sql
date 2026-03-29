@@ -4,6 +4,8 @@
 
 A [Prettier](https://prettier.io) plugin that formats T-SQL (SQL Server) using Microsoft's official `Microsoft.SqlServer.TransactSql.ScriptDom` parser — the same parser SQL Server itself uses.
 
+**Requires [.NET 8+ Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)** to be installed on your machine (the SDK is not needed).
+
 ## Features
 
 Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Configurable keyword casing, layout density, and comma style. Preserves `--` and `/* */` comments — trailing, leading, inside procedure bodies, between parameters and `AS`. Emits `go` batch separators where required. Integrates with editor extensions that support Prettier (VS Code, etc.).
