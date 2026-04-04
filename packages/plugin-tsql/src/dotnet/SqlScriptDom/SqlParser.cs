@@ -36,8 +36,8 @@ public static class SqlParser {
                 bool isLine = t.TokenType == TSqlTokenType.SingleLineComment;
                 int start = lineStarts[t.Line - 1] + (t.Column - 1);
                 string value = isLine
-                    ? (t.Text.Length > 2 ? t.Text.Substring(2).TrimEnd() : "")
-                    : (t.Text.Length > 4 ? t.Text.Substring(2, t.Text.Length - 4) : "");
+                    ? (t.Text.Length > 2 ? t.Text.AsSpan(2).TrimEnd().ToString() : "")
+                    : (t.Text.Length > 4 ? t.Text.AsSpan(2, t.Text.Length - 4).ToString() : "");
                 return new {
                     type = isLine ? "line" : "block",
                     value,

@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
 
 namespace PrettierTsql;
@@ -23,10 +24,11 @@ public class AstBuilder : TSqlFragmentVisitor {
         if (stream == null || stream.Count == 0) return f.GetType().Name;
         var start = f.StartOffset;
         var end = start + f.FragmentLength;
-        return string.Concat(stream
-            .Where(t => t.Offset >= start && t.Offset < end)
-            .Select(t => t.Text))
-            .Trim();
+        var sb = new StringBuilder();
+        foreach (var t in stream)
+            if (t.Offset >= start && t.Offset < end)
+                sb.Append(t.Text);
+        return sb.ToString().Trim();
     }
 
     private static SqlNode Node(string type, TSqlFragment f, Dictionary<string, object?> props) =>
