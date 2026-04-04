@@ -12,7 +12,6 @@ import {
     indent,
     line,
     softline,
-    ifBreak,
     fill,
     appendTrailingLines,
 } from './utils.js';

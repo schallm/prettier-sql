@@ -16,7 +16,7 @@ import {
     lineSuffix,
     appendTrailingLines,
 } from './utils.js';
-import { prop, propArr, propStr, propBool, schemaObjectName, assignmentOp } from './helpers.js';
+import { prop, propArr, propStr, assignmentOp } from './helpers.js';
 import {
     printExpression,
     printBoolExpr,

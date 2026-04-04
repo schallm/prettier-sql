@@ -535,7 +535,6 @@ export function printCreateTrigger(node: SqlNode, opts: Options): Doc {
 
 function printSequenceOptions(node: SqlNode, opts: Options): Doc[] {
     const parts: Doc[] = [];
-    const dataType = propStr(node, 'dataType'); // emitted inline on header line, not here
     const startWith = propStr(node, 'startWith');
     if (startWith != null) parts.push(hardline, keyword('START WITH', opts), ' ', startWith);
     const restartWith = propStr(node, 'restartWith');
