@@ -356,14 +356,12 @@ when not matched by target then
 merge into Books as tgt
 using BookUpdates as src on tgt.Id = src.Id
 when matched and tgt.Price <> src.Price then
-  update set
-    tgt.Price = src.Price
+  update set tgt.Price = src.Price
 when not matched by target then
   insert (Title, Price, InStock)
   values (src.Title, src.Price, 1)
 when not matched by source then
-  update set
-    tgt.InStock = 0;
+  update set tgt.InStock = 0;
 
 merge into Books as tgt
 using BookUpdates as src on tgt.Id = src.Id

@@ -883,14 +883,14 @@ function printMergeClause(node: SqlNode, opts: Options): Doc {
                 : keyword('WHEN NOT MATCHED BY SOURCE', opts);
 
     const predPart: Doc = predicate ? [' ', keyword('AND', opts), ' ', printBool(predicate, opts)] : '';
+    const actionDoc = action ? printMergeAction(action, opts) : '';
+    const density = getDensity(opts);
+    const thenAction: Doc =
+        density === 'compact'
+            ? [' ', keyword('THEN', opts), ' ', actionDoc]
+            : [' ', keyword('THEN', opts), indent([hardline, actionDoc])];
 
-    return [
-        condKw,
-        predPart,
-        ' ',
-        keyword('THEN', opts),
-        indent([hardline, action ? printMergeAction(action, opts) : '']),
-    ];
+    return [condKw, predPart, thenAction];
 }
 
 function printMergeAction(node: SqlNode, opts: Options): Doc {
@@ -902,7 +902,12 @@ function printMergeAction(node: SqlNode, opts: Options): Doc {
                 const opStr = assignmentOp(propStr(sc, 'operator') ?? 'Equals');
                 return [col ? printNode(col, opts) : '', ' ', opStr, ' ', val ? printNode(val, opts) : ''] as Doc;
             });
-            return [keyword('UPDATE SET', opts), indent([hardline, join([',', hardline], setParts)])];
+            const density = getDensity(opts);
+            const setBody: Doc =
+                density !== 'spacious' && setParts.length === 1
+                    ? [' ', setParts[0]!]
+                    : indent([hardline, join(hardSep(opts), setParts)]);
+            return [keyword('UPDATE SET', opts), setBody];
         }
         case 'MergeInsertAction': {
             const columns = propArr(node, 'columns');
@@ -933,5 +938,7 @@ function printMergeValues(source: SqlNode, opts: Options): Doc {
     // MERGE INSERT has exactly one VALUES row
     const row = rows[0] as SqlNode;
     const vals = propArr(row, 'values').map((v) => printNode(v, opts));
-    return [hardline, keyword('VALUES', opts), ' (', join(', ', vals), ')'];
+    const valuesDoc: Doc = [keyword('VALUES', opts), ' (', join(', ', vals), ')'];
+    const density = getDensity(opts);
+    return density === 'compact' ? [' ', valuesDoc] : [hardline, valuesDoc];
 }

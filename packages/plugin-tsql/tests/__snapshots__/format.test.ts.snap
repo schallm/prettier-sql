@@ -420,8 +420,7 @@ exports[`MERGE statement > MERGE with AND predicate on WHEN MATCHED 1`] = `
 "merge into Books as t
 using ArchivedBooks as s on t.BookId = s.BookId
 when matched and t.Price <> s.Price then
-  update set
-    t.Price = s.Price;"
+  update set t.Price = s.Price;"
 `;
 
 exports[`MERGE statement > MERGE with subquery as source 1`] = `
@@ -499,8 +498,7 @@ exports[`OUTPUT clause > MERGE with OUTPUT $action and inserted/deleted columns 
 "merge into Books as t
 using ArchivedBooks as s on t.BookId = s.BookId
 when matched then
-  update set
-    t.Price = s.Price
+  update set t.Price = s.Price
 when not matched by target then
   insert (BookId, Title, Price)
   values (s.BookId, s.Title, s.Price)
@@ -513,8 +511,7 @@ exports[`OUTPUT clause > MERGE with OUTPUT INTO table variable 1`] = `
 "merge into Books as t
 using ArchivedBooks as s on t.BookId = s.BookId
 when matched then
-  update set
-    t.Price = s.Price
+  update set t.Price = s.Price
 output
   $action,
   inserted.BookId,
