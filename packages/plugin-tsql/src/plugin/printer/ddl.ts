@@ -93,21 +93,19 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
     switch (node.type) {
         case 'UniqueConstraint': {
             const isPK = propBool(node, 'isPrimaryKey');
-            const cols = node.props?.['columns'];
-            const colList = Array.isArray(cols) ? (cols as string[]).join(', ') : '';
+            const cols = Array.isArray(node.props?.['columns']) ? (node.props?.['columns'] as string[]) : [];
             const kw = isPK ? keyword('PRIMARY KEY', opts) : keyword('UNIQUE', opts);
-            return [namePrefix, kw, ' (', colList, ')'];
+            const colsDoc = group(['(', indent([softline, join([',', line], cols)]), softline, ')']);
+            return group([namePrefix, indent([softline, kw, ' ', colsDoc])]);
         }
         case 'CheckConstraint': {
             const expr = prop(node, 'expression');
             return [namePrefix, keyword('CHECK', opts), ' (', expr ? printBool(expr, opts) : '', ')'];
         }
         case 'ForeignKeyConstraint': {
-            const cols = node.props?.['columns'];
+            const cols = Array.isArray(node.props?.['columns']) ? (node.props?.['columns'] as string[]) : [];
+            const refCols = Array.isArray(node.props?.['refColumns']) ? (node.props?.['refColumns'] as string[]) : [];
             const refTable = prop(node, 'refTable');
-            const refCols = node.props?.['refColumns'];
-            const colList = Array.isArray(cols) ? (cols as string[]).join(', ') : '';
-            const refColList = Array.isArray(refCols) ? (refCols as string[]).join(', ') : '';
             const refName = refTable ? schemaObjectName(refTable) : '';
             const deleteAction = propStr(node, 'deleteAction');
             const updateAction = propStr(node, 'updateAction');
@@ -119,6 +117,8 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
                         .toUpperCase(),
                     opts,
                 );
+            const fkColsDoc = group(['(', indent([softline, join([',', line], cols)]), softline, ')']);
+            const refColsDoc = group(['(', indent([softline, join([',', line], refCols)]), softline, ')']);
             return [
                 group([
                     namePrefix,
@@ -126,10 +126,9 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
                         softline,
                         group([
                             keyword('FOREIGN KEY', opts),
-                            ' (',
-                            colList,
-                            ')',
-                            indent([line, keyword('REFERENCES', opts), ' ', refName, ' (', refColList, ')']),
+                            ' ',
+                            fkColsDoc,
+                            indent([line, keyword('REFERENCES', opts), ' ', refName, ' ', refColsDoc]),
                         ]),
                         deleteAction ? [line, keyword('ON DELETE', opts), ' ', refActionKw(deleteAction)] : '',
                         updateAction ? [line, keyword('ON UPDATE', opts), ' ', refActionKw(updateAction)] : '',
@@ -175,8 +174,16 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         // All elements share the same IF EXISTS flag (SQL only allows one DROP per statement)
         const ifExists = elements[0]?.ifExists ?? false;
         const isConstraint = elements[0]?.elementType === 'Constraint';
-        const nameList = elements.map((e) => e.name).join(', ');
         const dropKw = isConstraint ? keyword('DROP CONSTRAINT', opts) : keyword('DROP COLUMN', opts);
+        const nameList: Doc = group([
+            indent([
+                softline,
+                join(
+                    [',', line],
+                    elements.map((e) => e.name),
+                ),
+            ]),
+        ]);
         return [
             keyword('ALTER TABLE', opts),
             ' ',
@@ -194,8 +201,10 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         const enforcement = propStr(node, 'constraintEnforcement');
         const constraintNames = node.props?.['constraintNames'] as string[] | null | undefined;
         const enforcementKw = enforcement === 'Check' ? keyword('CHECK', opts) : keyword('NOCHECK', opts);
-        const nameList =
-            constraintNames && constraintNames.length > 0 ? constraintNames.join(', ') : keyword('ALL', opts);
+        const nameList: Doc =
+            constraintNames && constraintNames.length > 0
+                ? group([indent([softline, join([',', line], constraintNames)])])
+                : keyword('ALL', opts);
         return [
             keyword('ALTER TABLE', opts),
             ' ',
@@ -339,7 +348,12 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
 
     const includePart: Doc =
         Array.isArray(includeColumns) && includeColumns.length > 0
-            ? [hardline, keyword('INCLUDE', opts), ' (', (includeColumns as string[]).join(', '), ')']
+            ? [
+                  hardline,
+                  keyword('INCLUDE', opts),
+                  ' ',
+                  group(['(', indent([softline, join([',', line], includeColumns as string[])]), softline, ')']),
+              ]
             : '';
 
     return group([
@@ -943,9 +957,8 @@ export function printCreatePartitionScheme(node: SqlNode, opts: Options): Doc {
     const fileGroups = propArr(node, 'fileGroups');
     const fgDocs = fileGroups.map((fg) => String(fg));
 
-    const toClause: Doc = isAll
-        ? [keyword('ALL TO', opts), ' (', join(', ', fgDocs), ')']
-        : [keyword('TO', opts), ' (', join(', ', fgDocs), ')'];
+    const fgListDoc = group(['(', indent([softline, join([',', line], fgDocs)]), softline, ')']);
+    const toClause: Doc = isAll ? [keyword('ALL TO', opts), ' ', fgListDoc] : [keyword('TO', opts), ' ', fgListDoc];
 
     return [
         keyword('CREATE PARTITION SCHEME', opts),

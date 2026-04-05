@@ -46,7 +46,8 @@ function printSecurityTarget(target: Record<string, unknown>, opts: Options): Do
     const className = securityObjectKindMap[kind] ?? kind.toUpperCase();
     const prefix: Doc = className ? [keyword(className, opts), '::'] : '';
     let result: Doc = [prefix, objName ?? ''];
-    if (cols && cols.length > 0) result = [result, ' (', join(', ', cols), ')'];
+    if (cols && cols.length > 0)
+        result = [result, ' ', group(['(', indent([softline, join([',', line], cols)]), softline, ')'])];
     return result;
 }
 
@@ -60,7 +61,8 @@ function printPermission(p: Record<string, unknown>, opts: Options): Doc {
     const name = ((p['name'] as string) ?? '').toUpperCase();
     const cols = p['columns'] as string[] | undefined;
     const parts: Doc[] = [keyword(name, opts)];
-    if (cols && cols.length > 0) parts.push(' (', join(', ', cols), ')');
+    if (cols && cols.length > 0)
+        parts.push(' ', group(['(', indent([softline, join([',', line], cols)]), softline, ')']));
     return parts;
 }
 

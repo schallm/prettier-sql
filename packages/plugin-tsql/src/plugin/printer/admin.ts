@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '../parser/types.js';
 import type { Options } from './utils.js';
-import { keyword, hardline, join, indent, group, line, ifExistsDoc } from './utils.js';
+import { keyword, hardline, join, indent, group, line, softline, ifExistsDoc } from './utils.js';
 import { propStr, propBool } from './helpers.js';
 
 // ---------------------------------------------------------------------------
@@ -224,10 +224,15 @@ export function printAlterDatabaseSet(node: SqlNode, opts: Options): Doc {
     const termination = propStr(node, 'termination');
 
     const optPart: Doc = options?.length
-        ? join(
-              [', '],
-              options.map((o) => keyword(o, opts)),
-          )
+        ? group([
+              indent([
+                  softline,
+                  join(
+                      [',', line],
+                      options.map((o) => keyword(o, opts)),
+                  ),
+              ]),
+          ])
         : '';
     const termPart: Doc = termination ? [' ', keyword(termination, opts)] : '';
 

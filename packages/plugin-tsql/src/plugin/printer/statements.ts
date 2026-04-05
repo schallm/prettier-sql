@@ -792,12 +792,19 @@ function printOutputIntoClause(node: SqlNode, opts: Options): Doc {
 
     const intoColsPart: Doc = intoColumns.length
         ? [
-              ' (',
-              join(
-                  ', ',
-                  intoColumns.map((c) => printNode(c, opts)),
-              ),
-              ')',
+              ' ',
+              group([
+                  '(',
+                  indent([
+                      softline,
+                      join(
+                          [',', line],
+                          intoColumns.map((c) => printNode(c, opts)),
+                      ),
+                  ]),
+                  softline,
+                  ')',
+              ]),
           ]
         : '';
 
@@ -913,14 +920,18 @@ function printMergeAction(node: SqlNode, opts: Options): Doc {
             const columns = propArr(node, 'columns');
             const source = prop(node, 'source');
             const colsPart: Doc = columns.length
-                ? [
+                ? group([
                       '(',
-                      join(
-                          ', ',
-                          columns.map((c) => printNode(c, opts)),
-                      ),
+                      indent([
+                          softline,
+                          join(
+                              [',', line],
+                              columns.map((c) => printNode(c, opts)),
+                          ),
+                      ]),
+                      softline,
                       ')',
-                  ]
+                  ])
                 : '';
             return [keyword('INSERT', opts), ' ', colsPart, source ? printMergeValues(source, opts) : ''];
         }
