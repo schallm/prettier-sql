@@ -170,5 +170,8 @@ In each diff block, `-` lines are the raw input and `+` lines are the formatted 
 ```diff
 - ALTER TABLE Orders ADD CONSTRAINT FK_Orders_Customers FOREIGN KEY(CustomerId) REFERENCES Customers(Id) ON DELETE CASCADE ON UPDATE NO ACTION
 + alter table Orders
-+ add constraint FK_Orders_Customers foreign key (CustomerId) references Customers (Id) on delete cascade on update no action;
++ add constraint FK_Orders_Customers
++   foreign key (CustomerId) references Customers (Id)
++   on delete cascade
++   on update no action;
 ```

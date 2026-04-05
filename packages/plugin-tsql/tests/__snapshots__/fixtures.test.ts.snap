@@ -110,7 +110,10 @@ exports[`fixtures > alter-table/constraints.sql 1`] = `
 add constraint UQ_Books_Isbn unique (Isbn);
 
 alter table Orders
-add constraint FK_Orders_Customers foreign key (CustomerId) references Customers (Id) on delete cascade on update no action;
+add constraint FK_Orders_Customers
+  foreign key (CustomerId) references Customers (Id)
+  on delete cascade
+  on update no action;
 
 alter table Books
 add constraint CK_Books_Price check (Price > 0);
@@ -123,7 +126,8 @@ drop constraint if exists CK_Books_Price;
 
 alter table Orders
 with check
-add constraint FK_Orders_Customers foreign key (CustomerId) references Customers (Id);
+add constraint FK_Orders_Customers
+  foreign key (CustomerId) references Customers (Id);
 
 alter table Orders
 nocheck constraint FK_Orders_Customers;
@@ -194,7 +198,8 @@ exports[`fixtures > create-table/with-constraints.sql 1`] = `
   Status nvarchar(50) default 'pending' not null,
   OrderDate datetime2 default getdate() not null,
   constraint PK_Orders primary key (Id),
-  constraint FK_Orders_Customers foreign key (CustomerId) references Customers (Id),
+  constraint FK_Orders_Customers
+    foreign key (CustomerId) references Customers (Id),
   constraint CK_Orders_Total check (Total >= 0)
 );"
 `;
@@ -216,7 +221,8 @@ create table OrderItems (
   Quantity int default 1 not null,
   constraint PK_OrderItems primary key (Id),
   constraint FK_OrderItems_Orders foreign key (OrderId) references Orders (Id),
-  constraint FK_OrderItems_Products foreign key (ProductId) references Products (Id)
+  constraint FK_OrderItems_Products
+    foreign key (ProductId) references Products (Id)
 );"
 `;
 

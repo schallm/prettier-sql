@@ -969,6 +969,19 @@ create table Orders (
 );
 ```
 
+`foreign key (cols) references table (cols)` is treated as a single unit and kept on one line when it fits. When the combined line is too long, `references` indents one extra level below `foreign key`. `on delete` and `on update` referential actions each appear on their own line at the same indent level as `foreign key`:
+
+```sql
+create table OrderItems (
+    Id int not null,
+    OrderId int not null,
+    constraint FK_OrderItems_Orders
+        foreign key (OrderId) references dbo.VeryLongSchemaName_Orders (OrderId)
+        on delete cascade
+        on update no action
+);
+```
+
 Computed columns use `AS`:
 
 ```sql

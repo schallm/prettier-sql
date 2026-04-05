@@ -120,19 +120,21 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
                     opts,
                 );
             return [
-                namePrefix,
-                keyword('FOREIGN KEY', opts),
-                ' (',
-                colList,
-                ') ',
-                keyword('REFERENCES', opts),
-                ' ',
-                refName,
-                ' (',
-                refColList,
-                ')',
-                deleteAction ? [' ', keyword('ON DELETE', opts), ' ', refActionKw(deleteAction)] : '',
-                updateAction ? [' ', keyword('ON UPDATE', opts), ' ', refActionKw(updateAction)] : '',
+                group([
+                    namePrefix,
+                    indent([
+                        softline,
+                        group([
+                            keyword('FOREIGN KEY', opts),
+                            ' (',
+                            colList,
+                            ')',
+                            indent([line, keyword('REFERENCES', opts), ' ', refName, ' (', refColList, ')']),
+                        ]),
+                        deleteAction ? [line, keyword('ON DELETE', opts), ' ', refActionKw(deleteAction)] : '',
+                        updateAction ? [line, keyword('ON UPDATE', opts), ' ', refActionKw(updateAction)] : '',
+                    ]),
+                ]),
             ];
         }
         default:

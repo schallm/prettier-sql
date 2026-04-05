@@ -122,7 +122,8 @@ exports[`CREATE TABLE formatting > table with foreign key constraint 1`] = `
   CustomerId int not null,
   Total decimal(18, 2) not null,
   constraint pk_orders primary key (OrderId),
-  constraint fk_orders_customers foreign key (CustomerId) references Customers (CustomerId)
+  constraint fk_orders_customers
+    foreign key (CustomerId) references Customers (CustomerId)
 );"
 `;
 
