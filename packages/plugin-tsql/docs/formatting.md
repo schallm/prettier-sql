@@ -957,6 +957,18 @@ create table Books (
 );
 ```
 
+Column lists in `PRIMARY KEY` and `UNIQUE` constraints stay on one line when they fit. When the constraint line exceeds `printWidth`, the constraint name becomes the header line and the key clause wraps to an indented line. When the column list itself is also too long, it breaks one column per line:
+
+```sql
+create table OrderItems (
+    Id int not null,
+    OrderId int not null,
+    ProductId int not null,
+    WarehouseId int not null,
+    constraint PK_OrderItems primary key (OrderId, ProductId, WarehouseId)
+);
+```
+
 With a foreign key:
 
 ```sql
@@ -1014,14 +1026,69 @@ with (data_compression = row, memory_optimized = off);
 
 ### ALTER TABLE
 
+**ADD / DROP COLUMN**
+
 ```sql
--- Add column
 alter table Books
 add Isbn nvarchar(20) null;
 
--- Drop column
 alter table Books
 drop column Isbn;
+```
+
+When dropping multiple columns, names stay on one line when they fit; otherwise they wrap one per line:
+
+```sql
+alter table Books
+drop column Isbn, Summary;
+
+alter table dbo.OrderItems
+drop column VeryLongColumnNameA, VeryLongColumnNameB, VeryLongColumnNameC;
+```
+
+**ADD / DROP CONSTRAINT**
+
+```sql
+alter table Books
+add constraint CK_Books_Price check (Price > 0);
+
+alter table Orders
+add constraint FK_Orders_Customers foreign key (CustomerId) references Customers (Id) on delete cascade;
+
+alter table Books
+drop constraint UQ_Books_Isbn;
+
+alter table Books
+drop constraint if exists CK_Books_Price;
+```
+
+When dropping multiple constraints, names wrap the same way as columns:
+
+```sql
+alter table dbo.OrderItems
+drop constraint if exists FK_OrderItems_Products, FK_OrderItems_Orders, FK_OrderItems_Coupons;
+```
+
+**CHECK / NOCHECK CONSTRAINT**
+
+Enables or disables constraint enforcement. Use `all` to target every constraint on the table, or list specific names (wrapping at `printWidth`):
+
+```sql
+alter table Orders
+check constraint all;
+
+alter table Orders
+nocheck constraint FK_Orders_Customers;
+
+alter table Orders
+check constraint FK_Orders_Customers, CK_Orders_Total;
+```
+
+**ALTER COLUMN**
+
+```sql
+alter table Books
+alter column Price decimal(12, 2) not null;
 ```
 
 ---
@@ -1047,7 +1114,7 @@ with (drop_existing = on);
 
 ### CREATE INDEX
 
-`CREATE INDEX` places the index name on the first line. `ON table (columns)` and the optional `INCLUDE` clause are each indented one level as sub-clauses of the statement. Each column includes an explicit `ASC` or `DESC` direction.
+`CREATE INDEX` places the index name on the first line. `ON table (columns)` and the optional `INCLUDE` clause are each indented one level as sub-clauses of the statement. Each column includes an explicit `ASC` or `DESC` direction. The `INCLUDE` column list wraps at `printWidth`.
 
 ```sql
 create nonclustered index IX_Books_Title
@@ -1066,6 +1133,12 @@ create nonclustered index IX_Books_AuthorId_Price
         Price desc
     )
     include (Title, InStock);
+
+create nonclustered index IX_Books_Covering
+    on Books (
+        AuthorId asc
+    )
+    include (Title, Price, InStock, PublishedDate, GenreId);
 ```
 
 ---
@@ -1811,7 +1884,7 @@ reconfigure with override;
 
 ### GRANT / DENY / REVOKE
 
-Permissions follow the verb inline and wrap to indented lines only when they exceed `printWidth`. The `ON` clause and the `TO`/`FROM` clause each go on their own line. The principal list after `TO`/`FROM` also wraps when it exceeds `printWidth`.
+Permissions follow the verb inline and wrap to indented lines only when they exceed `printWidth`. The `ON` clause and the `TO`/`FROM` clause each go on their own line. The principal list after `TO`/`FROM` also wraps when it exceeds `printWidth`. Column lists within a permission (e.g. `SELECT (col1, col2, ...)`) wrap at `printWidth` the same way.
 
 #### GRANT
 
