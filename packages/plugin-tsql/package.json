@@ -58,6 +58,7 @@
     "format:cs": "dotnet format src/dotnet/SqlScriptDom/SqlScriptDom.csproj",
     "format": "npm run format:ts && npm run format:md && npm run format:cs",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "publish:npm": "npm run build && npm test && npm publish"
   }
 }
