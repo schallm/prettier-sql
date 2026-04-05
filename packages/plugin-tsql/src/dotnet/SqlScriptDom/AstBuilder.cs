@@ -1208,6 +1208,8 @@ public class AstBuilder : TSqlFragmentVisitor {
                     ["columns"] = fk.Columns?.Select(col => (object?)col.Value).ToList(),
                     ["refTable"] = BuildSchemaObjectName(fk.ReferenceTableName),
                     ["refColumns"] = fk.ReferencedTableColumns?.Select(col => (object?)col.Value).ToList(),
+                    ["deleteAction"] = fk.DeleteAction == DeleteUpdateAction.NotSpecified ? null : fk.DeleteAction.ToString(),
+                    ["updateAction"] = fk.UpdateAction == DeleteUpdateAction.NotSpecified ? null : fk.UpdateAction.ToString(),
                 }),
             _ => Leaf("TableConstraint", c, RawText(c)),
         };
@@ -1229,9 +1231,20 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ?.Select(c => (object?)BuildColumnDefinition(c)).ToList();
             props["constraints"] = addElem.Definition?.TableConstraints
                 ?.Select(c => (object?)BuildTableConstraint(c)).ToList();
+            props["withCheckEnforcement"] = addElem.ExistingRowsCheckEnforcement == ConstraintEnforcement.NotSpecified
+                ? null : addElem.ExistingRowsCheckEnforcement.ToString();
         } else if (at is AlterTableDropTableElementStatement dropElem) {
             props["elements"] = dropElem.AlterTableDropTableElements
-                ?.Select(e => (object?)e.Name?.Value).ToList();
+                ?.Select(e => (object?)new Dictionary<string, object?> {
+                    ["name"] = e.Name?.Value,
+                    ["elementType"] = e.TableElementType.ToString(),
+                    ["ifExists"] = e.IsIfExists,
+                }).ToList();
+        } else if (at is AlterTableConstraintModificationStatement constraintMod) {
+            props["constraintEnforcement"] = constraintMod.ConstraintEnforcement.ToString();
+            props["constraintNames"] = constraintMod.ConstraintNames?.Count > 0
+                ? constraintMod.ConstraintNames.Select(n => (object?)n.Value).ToList()
+                : null;
         }
 
         return Node("AlterTableStatement", at, props);

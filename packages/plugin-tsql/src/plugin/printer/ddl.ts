@@ -109,6 +109,16 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
             const colList = Array.isArray(cols) ? (cols as string[]).join(', ') : '';
             const refColList = Array.isArray(refCols) ? (refCols as string[]).join(', ') : '';
             const refName = refTable ? schemaObjectName(refTable) : '';
+            const deleteAction = propStr(node, 'deleteAction');
+            const updateAction = propStr(node, 'updateAction');
+            const refActionKw = (action: string): Doc =>
+                keyword(
+                    action
+                        .replace(/([A-Z])/g, ' $1')
+                        .trim()
+                        .toUpperCase(),
+                    opts,
+                );
             return [
                 namePrefix,
                 keyword('FOREIGN KEY', opts),
@@ -121,6 +131,8 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
                 ' (',
                 refColList,
                 ')',
+                deleteAction ? [' ', keyword('ON DELETE', opts), ' ', refActionKw(deleteAction)] : '',
+                updateAction ? [' ', keyword('ON UPDATE', opts), ' ', refActionKw(updateAction)] : '',
             ];
         }
         default:
@@ -137,27 +149,63 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
     const name = schemaObjectName(prop(node, 'name'));
 
     if (alterType === 'AlterTableAddTableElementStatement') {
+        const withCheck = propStr(node, 'withCheckEnforcement');
+        const withCheckPrefix: Doc =
+            withCheck === 'Check'
+                ? [keyword('WITH CHECK', opts), hardline]
+                : withCheck === 'NoCheck'
+                  ? [keyword('WITH NOCHECK', opts), hardline]
+                  : '';
         const defs = [
             ...propArr(node, 'columns').map((c) => printColumnDef(c, opts)),
             ...propArr(node, 'constraints').map((c) => printConstraintDef(c, opts)),
         ];
         const addPart: Doc = defs.length === 1 ? [' ', defs[0]!] : indent([hardline, join([',', hardline], defs)]);
-        return [keyword('ALTER TABLE', opts), ' ', name, hardline, keyword('ADD', opts), addPart, ';'];
+        return [keyword('ALTER TABLE', opts), ' ', name, hardline, withCheckPrefix, keyword('ADD', opts), addPart, ';'];
     }
 
     if (alterType === 'AlterTableDropTableElementStatement') {
-        const elements = node.props?.['elements'];
-        const elemList = Array.isArray(elements) ? (elements as string[]).join(', ') : '';
-        return group([
+        const elements = (node.props?.['elements'] ?? []) as Array<{
+            name: string;
+            elementType: string;
+            ifExists: boolean;
+        }>;
+        // All elements share the same IF EXISTS flag (SQL only allows one DROP per statement)
+        const ifExists = elements[0]?.ifExists ?? false;
+        const isConstraint = elements[0]?.elementType === 'Constraint';
+        const nameList = elements.map((e) => e.name).join(', ');
+        const dropKw = isConstraint ? keyword('DROP CONSTRAINT', opts) : keyword('DROP COLUMN', opts);
+        return [
             keyword('ALTER TABLE', opts),
             ' ',
             name,
             hardline,
-            keyword('DROP COLUMN', opts),
+            dropKw,
+            ifExists ? [' ', keyword('IF EXISTS', opts)] : '',
             ' ',
-            elemList,
+            nameList,
             ';',
-        ]);
+        ];
+    }
+
+    if (alterType === 'AlterTableConstraintModificationStatement') {
+        const enforcement = propStr(node, 'constraintEnforcement');
+        const constraintNames = node.props?.['constraintNames'] as string[] | null | undefined;
+        const enforcementKw = enforcement === 'Check' ? keyword('CHECK', opts) : keyword('NOCHECK', opts);
+        const nameList =
+            constraintNames && constraintNames.length > 0 ? constraintNames.join(', ') : keyword('ALL', opts);
+        return [
+            keyword('ALTER TABLE', opts),
+            ' ',
+            name,
+            hardline,
+            enforcementKw,
+            ' ',
+            keyword('CONSTRAINT', opts),
+            ' ',
+            nameList,
+            ';',
+        ];
     }
 
     return [keyword('ALTER TABLE', opts), ' ', name, ' /* ', alterType, ' */;'];
