@@ -12,10 +12,10 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 
 **DML**
 
-- `SELECT`, `INSERT`, `UPDATE`, `DELETE`
-- `MERGE INTO … USING … ON … WHEN MATCHED/NOT MATCHED`
+- [`SELECT`](docs/examples.md#select-with-joins-and-where), [`INSERT`](docs/examples.md#insert), [`UPDATE`](docs/examples.md#update-with-join), [`DELETE`](docs/examples.md#delete-with-join)
+- [`MERGE INTO … USING … ON … WHEN MATCHED/NOT MATCHED`](docs/examples.md#merge)
 - `OUTPUT` / `OUTPUT INTO` on `INSERT`, `UPDATE`, `DELETE`, and `MERGE` (including `$action`, `inserted.*`, `deleted.*`)
-- CTEs, `UNION`/`UNION ALL`, subqueries, derived tables
+- [CTEs](docs/examples.md#cte-with-window-function), `UNION`/`UNION ALL`, subqueries, derived tables
 - `CASE` expressions (simple and searched), `IN`/`NOT IN`
 - `TOP (n)`, `TOP (n) PERCENT`, `TOP (n) WITH TIES`
 - `PIVOT` / `UNPIVOT`
@@ -24,7 +24,7 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - Temporal table queries — `FOR SYSTEM_TIME AS OF`, `FROM … TO`, `BETWEEN … AND`, `CONTAINED IN`, `ALL`
 - Joins: `INNER`, `LEFT`, `RIGHT`, `FULL OUTER`, `CROSS JOIN`, `CROSS APPLY`, `OUTER APPLY`; multiple joins, multi-predicate `ON`, self-joins, parenthesized joins, derived table joins
 - Table-valued functions (TVFs) in `FROM` clauses; table hints (`WITH (NOLOCK)`, etc.)
-- Window functions with `OVER` clause — `PARTITION BY`, `ORDER BY`, full frame support (`ROWS`/`RANGE BETWEEN … AND …`, `UNBOUNDED PRECEDING/FOLLOWING`, `CURRENT ROW`); `IGNORE NULLS`/`RESPECT NULLS`; named window references; named `WINDOW` clause
+- [Window functions](docs/examples.md#running-totals-with-over) with `OVER` clause — `PARTITION BY`, `ORDER BY`, full frame support (`ROWS`/`RANGE BETWEEN … AND …`, `UNBOUNDED PRECEDING/FOLLOWING`, `CURRENT ROW`); `IGNORE NULLS`/`RESPECT NULLS`; named window references; named `WINDOW` clause
 - Ordered set aggregates: `WITHIN GROUP (ORDER BY …)` for `STRING_AGG`, `PERCENTILE_CONT`/`PERCENTILE_DISC`, etc.
 - Expression functions: `CAST`, `CONVERT`, `TRY_CAST`, `TRY_CONVERT` (with full data type including length/precision), `IIF`, `COALESCE`, `NULLIF`, `AT TIME ZONE`, `IS [NOT] DISTINCT FROM`, `TRIM(LEADING|TRAILING|BOTH …)`, `PARSE`, `TRY_PARSE`
 - Sequence expressions: `NEXT VALUE FOR sequence [OVER (…)]`
@@ -35,8 +35,8 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 
 **DDL**
 
-- `CREATE TABLE` (columns, constraints, computed columns `AS expr [PERSISTED]`, `WITH` options such as `DATA_COMPRESSION`, `MEMORY_OPTIMIZED`), `ALTER TABLE` (ADD/DROP column, ADD/DROP/ENABLE/DISABLE constraint), `CREATE INDEX` (UNIQUE/CLUSTERED/NONCLUSTERED, ASC/DESC, INCLUDE), `ALTER INDEX … REBUILD/REORGANIZE/DISABLE`
-- `CREATE/ALTER/CREATE OR ALTER PROCEDURE`, `CREATE/ALTER/CREATE OR ALTER FUNCTION`, `CREATE/ALTER/CREATE OR ALTER VIEW`
+- `CREATE TABLE` (columns, constraints, computed columns `AS expr [PERSISTED]`, `WITH` options such as `DATA_COMPRESSION`, `MEMORY_OPTIMIZED`), [`ALTER TABLE`](docs/examples.md#alter-table) (ADD/DROP column, ADD/DROP/ENABLE/DISABLE constraint, ALTER COLUMN, SET, REBUILD, SWITCH), `CREATE INDEX` (UNIQUE/CLUSTERED/NONCLUSTERED, ASC/DESC, INCLUDE), `ALTER INDEX … REBUILD/REORGANIZE/DISABLE`
+- [`CREATE/ALTER/CREATE OR ALTER PROCEDURE`](docs/examples.md#create-procedure), `CREATE/ALTER/CREATE OR ALTER FUNCTION`, `CREATE/ALTER/CREATE OR ALTER VIEW`
 - `CREATE/ALTER TRIGGER` (DML triggers: AFTER/INSTEAD OF INSERT/UPDATE/DELETE)
 - `CREATE/ALTER/DROP SEQUENCE` with full options (START WITH, INCREMENT BY, MINVALUE/NO MINVALUE, MAXVALUE/NO MAXVALUE, CYCLE/NO CYCLE, CACHE/NO CACHE)
 - `BULK INSERT … FROM … WITH (options)`
@@ -159,6 +159,8 @@ See [docs/options.md](docs/options.md) for full details and examples.
 
 ## Quick Example
 
+See [docs/examples.md](docs/examples.md) for more before/after transformations.
+
 **Input**
 
 <!-- prettier-ignore -->
@@ -186,6 +188,7 @@ order by Books.Title asc;
 - [Getting Started](docs/getting-started.md) — installation, build from source, editor setup
 - [Options Reference](docs/options.md) — all options with before/after examples
 - [Formatting Rules](docs/formatting.md) — how each SQL construct is formatted
+- [Examples](docs/examples.md) — before/after transformations for common SQL patterns
 - [Architecture](docs/architecture.md) — how the plugin works internally
 
 ## Building from Source

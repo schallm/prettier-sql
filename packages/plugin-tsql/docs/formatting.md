@@ -871,8 +871,7 @@ using ArchivedBooks on
     Books.Id = ArchivedBooks.Id
     and Books.Name = ArchivedBooks.Name
 when matched then
-    update set
-        Price = ArchivedBooks.Price;
+    update set Price = ArchivedBooks.Price;
 ```
 
 An optional `and` predicate on a `when` clause stays inline with the condition keyword:
@@ -881,8 +880,7 @@ An optional `and` predicate on a `when` clause stays inline with the condition k
 merge into Books
 using ArchivedBooks on Books.Id = ArchivedBooks.Id
 when matched and Books.Price <> ArchivedBooks.Price then
-    update set
-        Price = ArchivedBooks.Price;
+    update set Price = ArchivedBooks.Price;
 ```
 
 A subquery source is indented inside parentheses:
@@ -909,8 +907,7 @@ MERGE with OUTPUT:
 merge into Books
 using ArchivedBooks on Books.Id = ArchivedBooks.Id
 when matched then
-    update set
-        Price = ArchivedBooks.Price
+    update set Price = ArchivedBooks.Price
 output $action, inserted.Id, deleted.Price;
 ```
 

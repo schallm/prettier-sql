@@ -894,13 +894,12 @@ describe('MERGE statement', () => {
                 update set t.Price = s.Price;
         `);
         expect(result).toMatchInlineSnapshot(`
-"merge into Books as t
-using ArchivedBooks as s on
-  t.BookId = s.BookId
-  and t.Name = s.Name
-when matched then
-  update set
-    t.Price = s.Price;"
+          "merge into Books as t
+          using ArchivedBooks as s on
+            t.BookId = s.BookId
+            and t.Name = s.Name
+          when matched then
+            update set t.Price = s.Price;"
         `);
     });
 
