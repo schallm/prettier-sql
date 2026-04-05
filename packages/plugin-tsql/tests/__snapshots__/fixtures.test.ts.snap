@@ -94,6 +94,17 @@ add
   Summary nvarchar(max) null;"
 `;
 
+exports[`fixtures > alter-table/alter-column.sql 1`] = `
+"alter table Books
+alter column Title nvarchar(500) null;
+
+alter table Books
+alter column Price decimal(12, 2) not null;
+
+alter table Books
+alter column Code varchar(20);"
+`;
+
 exports[`fixtures > alter-table/constraints.sql 1`] = `
 "alter table Books
 add constraint UQ_Books_Isbn unique (Isbn);
@@ -124,6 +135,26 @@ check constraint all;"
 exports[`fixtures > alter-table/drop-column.sql 1`] = `
 "alter table Books
 drop column Isbn, Summary;"
+`;
+
+exports[`fixtures > alter-table/set-rebuild-switch.sql 1`] = `
+"alter table Orders
+set (lock_escalation = auto);
+
+alter table Orders
+set (lock_escalation = disable);
+
+alter table Orders
+rebuild partition = all;
+
+alter table Orders
+rebuild partition = 3 with (data_compression = row);
+
+alter table Orders
+switch partition 3 to ArchivedOrders partition 1;
+
+alter table Orders
+switch to ArchivedOrders;"
 `;
 
 exports[`fixtures > create-table/basic.sql 1`] = `

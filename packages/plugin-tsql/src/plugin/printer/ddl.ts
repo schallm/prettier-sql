@@ -208,6 +208,97 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         ];
     }
 
+    if (alterType === 'AlterTableAlterColumnStatement') {
+        const column = propStr(node, 'column') ?? '';
+        const dataType = propStr(node, 'dataType') ?? '';
+        const nullable = node.props?.['nullable'];
+        const nullPart: Doc =
+            nullable === true
+                ? [' ', keyword('NULL', opts)]
+                : nullable === false
+                  ? [' ', keyword('NOT NULL', opts)]
+                  : '';
+        return [
+            keyword('ALTER TABLE', opts),
+            ' ',
+            name,
+            hardline,
+            keyword('ALTER COLUMN', opts),
+            ' ',
+            column,
+            ' ',
+            keyword(dataType, opts),
+            nullPart,
+            ';',
+        ];
+    }
+
+    if (alterType === 'AlterTableSetStatement') {
+        // Convert camelCase enum names to SQL_KEYWORD style: LockEscalation → LOCK_ESCALATION
+        const toSqlKw = (s: string) =>
+            s
+                .replace(/([A-Z])/g, '_$1')
+                .replace(/^_/, '')
+                .toUpperCase();
+        const options = (node.props?.['options'] ?? []) as Array<{ kind: string; value: string }>;
+        const optDocs = options.map((o) => [keyword(toSqlKw(o.kind), opts), ' = ', keyword(toSqlKw(o.value), opts)]);
+        return [
+            keyword('ALTER TABLE', opts),
+            ' ',
+            name,
+            hardline,
+            keyword('SET', opts),
+            ' (',
+            join(', ', optDocs),
+            ')',
+            ';',
+        ];
+    }
+
+    if (alterType === 'AlterTableRebuildStatement') {
+        const partitionAll = node.props?.['partitionAll'] as boolean | undefined;
+        const partitionNumber = propStr(node, 'partitionNumber');
+        const indexOptions = node.props?.['indexOptions'] as string[] | undefined;
+        const partDoc: Doc = partitionAll ? keyword('ALL', opts) : (partitionNumber ?? '');
+        const withDoc: Doc = indexOptions?.length
+            ? [' ', keyword('WITH', opts), ' (', join(', ', indexOptions), ')']
+            : '';
+        return [
+            keyword('ALTER TABLE', opts),
+            ' ',
+            name,
+            hardline,
+            keyword('REBUILD PARTITION =', opts),
+            ' ',
+            partDoc,
+            withDoc,
+            ';',
+        ];
+    }
+
+    if (alterType === 'AlterTableSwitchStatement') {
+        const sourcePartition = propStr(node, 'sourcePartition');
+        const targetTable = prop(node, 'targetTable');
+        const targetPartition = propStr(node, 'targetPartition');
+        const sourceDoc: Doc = sourcePartition ? [' ', keyword('PARTITION', opts), ' ', sourcePartition] : '';
+        const targetDoc: Doc = targetTable ? schemaObjectName(targetTable) : '';
+        const targetPartDoc: Doc = targetPartition ? [' ', keyword('PARTITION', opts), ' ', targetPartition] : '';
+        return [
+            keyword('ALTER TABLE', opts),
+            ' ',
+            name,
+            hardline,
+            keyword('SWITCH', opts),
+            sourceDoc,
+            ' ',
+            keyword('TO', opts),
+            ' ',
+            targetDoc,
+            targetPartDoc,
+            ';',
+        ];
+    }
+
     return [keyword('ALTER TABLE', opts), ' ', name, ' /* ', alterType, ' */;'];
 }
 

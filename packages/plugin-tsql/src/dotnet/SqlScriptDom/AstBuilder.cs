@@ -1245,6 +1245,27 @@ public class AstBuilder : TSqlFragmentVisitor {
             props["constraintNames"] = constraintMod.ConstraintNames?.Count > 0
                 ? constraintMod.ConstraintNames.Select(n => (object?)n.Value).ToList()
                 : null;
+        } else if (at is AlterTableAlterColumnStatement alterCol) {
+            props["column"] = alterCol.ColumnIdentifier?.Value;
+            props["dataType"] = alterCol.DataType != null ? RawText(alterCol.DataType) : null;
+            props["nullable"] = alterCol.AlterTableAlterColumnOption == AlterTableAlterColumnOption.Null ? (object?)true
+                : alterCol.AlterTableAlterColumnOption == AlterTableAlterColumnOption.NotNull ? false
+                : null;
+        } else if (at is AlterTableSetStatement setStmt) {
+            props["options"] = setStmt.Options?.Select(o => (object?)new Dictionary<string, object?> {
+                ["kind"] = o.OptionKind.ToString(),
+                ["value"] = o is LockEscalationTableOption le ? le.Value.ToString() : RawText(o),
+            }).ToList();
+        } else if (at is AlterTableRebuildStatement rebuild) {
+            props["partitionAll"] = rebuild.Partition?.All == true ? (object?)true : null;
+            props["partitionNumber"] = (rebuild.Partition?.Number as IntegerLiteral)?.Value;
+            props["indexOptions"] = rebuild.IndexOptions?.Count > 0
+                ? rebuild.IndexOptions.Select(o => (object?)RawText(o)).ToList()
+                : null;
+        } else if (at is AlterTableSwitchStatement switchStmt) {
+            props["sourcePartition"] = (switchStmt.SourcePartitionNumber as IntegerLiteral)?.Value;
+            props["targetTable"] = BuildSchemaObjectName(switchStmt.TargetTable);
+            props["targetPartition"] = (switchStmt.TargetPartitionNumber as IntegerLiteral)?.Value;
         }
 
         return Node("AlterTableStatement", at, props);
