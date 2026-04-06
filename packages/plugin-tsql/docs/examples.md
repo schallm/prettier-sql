@@ -12,20 +12,20 @@ In each diff block, `-` lines are the raw input and `+` lines are the formatted 
 ### SELECT with JOINs and WHERE
 
 ```diff
-- SELECT b.Id,b.Title,b.Price,a.FirstName,a.LastName FROM Books b INNER JOIN Authors a ON b.AuthorId=a.Id WHERE b.InStock=1 AND b.Price<50 ORDER BY b.Price DESC
+- SELECT Books.Id,Books.Title,Books.Price,Authors.FirstName,Authors.LastName FROM Books INNER JOIN Authors ON Books.AuthorId=Authors.Id WHERE Books.InStock=1 AND Books.Price<50 ORDER BY Books.Price DESC
 + select
-+   b.Id,
-+   b.Title,
-+   b.Price,
-+   a.FirstName,
-+   a.LastName
++   Books.Id,
++   Books.Title,
++   Books.Price,
++   Authors.FirstName,
++   Authors.LastName
 + from
-+   Books as b
-+   inner join Authors as a on b.AuthorId = a.Id
++   Books
++   inner join Authors on Books.AuthorId = Authors.Id
 + where
-+   b.InStock = 1
-+   and b.Price < 50
-+ order by b.Price desc;
++   Books.InStock = 1
++   and Books.Price < 50
++ order by Books.Price desc;
 ```
 
 ### JOIN types
@@ -33,42 +33,42 @@ In each diff block, `-` lines are the raw input and `+` lines are the formatted 
 **LEFT JOIN** — rows from the left table even when there is no match:
 
 ```diff
-- SELECT b.Title, a.FirstName, a.LastName FROM Books b LEFT JOIN Authors a ON b.AuthorId = a.Id WHERE a.Id IS NULL
+- SELECT Books.Title, Authors.FirstName, Authors.LastName FROM Books LEFT JOIN Authors ON Books.AuthorId = Authors.Id WHERE Authors.Id IS NULL
 + select
-+   b.Title,
-+   a.FirstName,
-+   a.LastName
++   Books.Title,
++   Authors.FirstName,
++   Authors.LastName
 + from
-+   Books as b
-+   left join Authors as a on b.AuthorId = a.Id
-+ where a.Id is null;
++   Books
++   left join Authors on Books.AuthorId = Authors.Id
++ where Authors.Id is null;
 ```
 
 **FULL JOIN** — all rows from both sides:
 
 ```diff
-- SELECT b.Title, a.FirstName FROM Books b FULL OUTER JOIN Authors a ON b.AuthorId = a.Id
+- SELECT Books.Title, Authors.FirstName FROM Books FULL OUTER JOIN Authors ON Books.AuthorId = Authors.Id
 + select
-+   b.Title,
-+   a.FirstName
++   Books.Title,
++   Authors.FirstName
 + from
-+   Books as b
-+   full join Authors as a on b.AuthorId = a.Id;
++   Books
++   full join Authors on Books.AuthorId = Authors.Id;
 ```
 
 **CROSS JOIN** — Cartesian product:
 
 ```diff
-- SELECT c.Name AS Category, s.Name AS SubCategory FROM Categories c CROSS JOIN SubCategories s ORDER BY c.Name, s.Name
+- SELECT Categories.Name AS Category, SubCategories.Name AS SubCategory FROM Categories CROSS JOIN SubCategories ORDER BY Categories.Name, SubCategories.Name
 + select
-+   c.Name as Category,
-+   s.Name as SubCategory
++   Categories.Name as Category,
++   SubCategories.Name as SubCategory
 + from
-+   Categories as c
-+   cross join SubCategories as s
++   Categories
++   cross join SubCategories
 + order by
-+   c.Name asc,
-+   s.Name asc;
++   Categories.Name asc,
++   SubCategories.Name asc;
 ```
 
 ### CASE expression
@@ -119,11 +119,11 @@ In each diff block, `-` lines are the raw input and `+` lines are the formatted 
 **Subquery:**
 
 ```diff
-- SELECT Id, Title FROM Books b WHERE AuthorId NOT IN (SELECT AuthorId FROM BannedAuthors)
+- SELECT Id, Title FROM Books WHERE AuthorId NOT IN (SELECT AuthorId FROM BannedAuthors)
 + select
 +   Id,
 +   Title
-+ from Books as b
++ from Books
 + where AuthorId not in (
 +   select AuthorId
 +   from BannedAuthors
@@ -133,15 +133,15 @@ In each diff block, `-` lines are the raw input and `+` lines are the formatted 
 ### EXISTS
 
 ```diff
-- SELECT Id, Title FROM Books b WHERE EXISTS (SELECT 1 FROM OrderItems oi WHERE oi.BookId = b.Id)
+- SELECT Id, Title FROM Books WHERE EXISTS (SELECT 1 FROM OrderItems WHERE OrderItems.BookId = Books.Id)
 + select
 +   Id,
 +   Title
-+ from Books as b
++ from Books
 + where exists (
 +   select 1
-+   from OrderItems as oi
-+   where oi.BookId = b.Id
++   from OrderItems
++   where OrderItems.BookId = Books.Id
 + );
 ```
 
@@ -210,45 +210,45 @@ In each diff block, `-` lines are the raw input and `+` lines are the formatted 
 ### UPDATE with JOIN
 
 ```diff
-- UPDATE b SET b.Price=b.Price*0.9,b.InStock=1 FROM Books b INNER JOIN Genres g ON b.GenreId=g.Id WHERE g.Name='Fiction' AND b.Price>20
-+ update b
+- UPDATE Books SET Books.Price=Books.Price*0.9,Books.InStock=1 FROM Books INNER JOIN Genres ON Books.GenreId=Genres.Id WHERE Genres.Name='Fiction' AND Books.Price>20
++ update Books
 + set
-+   b.Price = b.Price * 0.9,
-+   b.InStock = 1
++   Books.Price = Books.Price * 0.9,
++   Books.InStock = 1
 + from
-+   Books as b
-+   inner join Genres as g on b.GenreId = g.Id
++   Books
++   inner join Genres on Books.GenreId = Genres.Id
 + where
-+   g.Name = 'Fiction'
-+   and b.Price > 20;
++   Genres.Name = 'Fiction'
++   and Books.Price > 20;
 ```
 
 ### DELETE with JOIN
 
 ```diff
-- DELETE oi FROM OrderItems oi INNER JOIN Orders o ON oi.OrderId=o.Id WHERE o.OrderDate<'2020-01-01' AND o.Total<10
-+ delete from oi
+- DELETE OrderItems FROM OrderItems INNER JOIN Orders ON OrderItems.OrderId=Orders.Id WHERE Orders.OrderDate<'2020-01-01' AND Orders.Total<10
++ delete from OrderItems
 + from
-+   OrderItems as oi
-+   inner join Orders as o on oi.OrderId = o.Id
++   OrderItems
++   inner join Orders on OrderItems.OrderId = Orders.Id
 + where
-+   o.OrderDate < '2020-01-01'
-+   and o.Total < 10;
++   Orders.OrderDate < '2020-01-01'
++   and Orders.Total < 10;
 ```
 
 ### MERGE
 
 ```diff
-- MERGE INTO Books AS tgt USING BookUpdates AS src ON tgt.Id=src.Id WHEN MATCHED AND tgt.Price<>src.Price THEN UPDATE SET tgt.Price=src.Price,tgt.InStock=src.InStock WHEN NOT MATCHED BY TARGET THEN INSERT(Title,AuthorId,Price,InStock) VALUES(src.Title,src.AuthorId,src.Price,src.InStock) WHEN NOT MATCHED BY SOURCE THEN DELETE;
-+ merge into Books as tgt
-+ using BookUpdates as src on tgt.Id = src.Id
-+ when matched and tgt.Price <> src.Price then
+- MERGE INTO Books USING BookUpdates ON Books.Id=BookUpdates.Id WHEN MATCHED AND Books.Price<>BookUpdates.Price THEN UPDATE SET Books.Price=BookUpdates.Price,Books.InStock=BookUpdates.InStock WHEN NOT MATCHED BY TARGET THEN INSERT(Title,AuthorId,Price,InStock) VALUES(BookUpdates.Title,BookUpdates.AuthorId,BookUpdates.Price,BookUpdates.InStock) WHEN NOT MATCHED BY SOURCE THEN DELETE;
++ merge into Books
++ using BookUpdates on Books.Id = BookUpdates.Id
++ when matched and Books.Price <> BookUpdates.Price then
 +   update set
-+     tgt.Price = src.Price,
-+     tgt.InStock = src.InStock
++     Books.Price = BookUpdates.Price,
++     Books.InStock = BookUpdates.InStock
 + when not matched by target then
 +   insert (Title, AuthorId, Price, InStock)
-+   values (src.Title, src.AuthorId, src.Price, src.InStock)
++   values (BookUpdates.Title, BookUpdates.AuthorId, BookUpdates.Price, BookUpdates.InStock)
 + when not matched by source then
 +   delete;
 ```
@@ -297,25 +297,25 @@ referential action, and check constraint:
 ### CREATE VIEW
 
 ```diff
-- CREATE VIEW dbo.BookSummary AS SELECT b.Id, b.Title, b.Price, g.Name AS Genre FROM Books b INNER JOIN Genres g ON b.GenreId = g.Id WHERE b.InStock = 1
+- CREATE VIEW dbo.BookSummary AS SELECT Books.Id, Books.Title, Books.Price, Genres.Name AS Genre FROM Books INNER JOIN Genres ON Books.GenreId = Genres.Id WHERE Books.InStock = 1
 + create view dbo.BookSummary
 + as
 + select
-+   b.Id,
-+   b.Title,
-+   b.Price,
-+   g.Name as Genre
++   Books.Id,
++   Books.Title,
++   Books.Price,
++   Genres.Name as Genre
 + from
-+   Books as b
-+   inner join Genres as g on b.GenreId = g.Id
-+ where b.InStock = 1;
++   Books
++   inner join Genres on Books.GenreId = Genres.Id
++ where Books.InStock = 1;
 + go
 ```
 
 ### CREATE PROCEDURE
 
 ```diff
-- CREATE PROCEDURE dbo.GetBooksByAuthor @AuthorId INT, @MinPrice DECIMAL(10,2)=0 AS BEGIN SET NOCOUNT ON; SELECT b.Id,b.Title,b.Price FROM Books b WHERE b.AuthorId=@AuthorId AND b.Price>=@MinPrice ORDER BY b.Price END
+- CREATE PROCEDURE dbo.GetBooksByAuthor @AuthorId INT, @MinPrice DECIMAL(10,2)=0 AS BEGIN SET NOCOUNT ON; SELECT Books.Id,Books.Title,Books.Price FROM Books WHERE Books.AuthorId=@AuthorId AND Books.Price>=@MinPrice ORDER BY Books.Price END
 + create procedure dbo.GetBooksByAuthor
 +   @AuthorId int,
 +   @MinPrice decimal(10,2) = 0
@@ -324,14 +324,14 @@ referential action, and check constraint:
 +   set nocount on;
 +
 +   select
-+     b.Id,
-+     b.Title,
-+     b.Price
-+   from Books as b
++     Books.Id,
++     Books.Title,
++     Books.Price
++   from Books
 +   where
-+     b.AuthorId = @AuthorId
-+     and b.Price >= @MinPrice
-+   order by b.Price asc;
++     Books.AuthorId = @AuthorId
++     and Books.Price >= @MinPrice
++   order by Books.Price asc;
 + end;
 + go
 ```
