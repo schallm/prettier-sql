@@ -1,0 +1,9 @@
+{
+    "name": "prettier-tsql-bundled",
+    "private": true,
+    "type": "module",
+    "dependencies": {
+        "prettier": "^3.0.0",
+        "prettier-plugin-tsql": "^0.3.0"
+    }
+}

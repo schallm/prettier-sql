@@ -1,0 +1,17 @@
+# Build output
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# VSIX output
+*.vsix
+
+# Node
+bundled/node_modules/
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
