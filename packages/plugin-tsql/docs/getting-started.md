@@ -52,6 +52,9 @@ SSMS 22 is built on the Visual Studio 2026 shell and supports third-party extens
 extension brings Prettier formatting to Visual Studio 2022 and 2026, and can load custom
 plugins including `prettier-plugin-tsql`.
 
+> **Node.js is required.** Prettier is a Node.js library and must be invoked via a `node`
+> process. npm and a project are _not_ required — see setup below.
+
 > **Experimental** — this integration has not been formally tested. Plugin loading and
 > `.sql` file triggering depend on PrettierX64 internals that are not fully documented.
 > See [Limitations](#limitations) below before relying on it.
