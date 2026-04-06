@@ -16,13 +16,14 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - [`MERGE INTO … USING … ON … WHEN MATCHED/NOT MATCHED`](docs/examples.md#merge)
 - `OUTPUT` / `OUTPUT INTO` on `INSERT`, `UPDATE`, `DELETE`, and `MERGE` (including `$action`, `inserted.*`, `deleted.*`)
 - [CTEs](docs/examples.md#cte-with-window-function), `UNION`/`UNION ALL`, subqueries, derived tables
-- `CASE` expressions (simple and searched), `IN`/`NOT IN`
+- [`EXISTS` / `NOT EXISTS`](docs/examples.md#exists), [`GROUP BY` / `HAVING`](docs/examples.md#group-by-and-having)
+- [`CASE` expressions](docs/examples.md#case-expression) (simple and searched), [`IN`/`NOT IN`](docs/examples.md#in--not-in) (value lists and subqueries)
 - `TOP (n)`, `TOP (n) PERCENT`, `TOP (n) WITH TIES`
 - `PIVOT` / `UNPIVOT`
 - `FOR XML` (`AUTO`, `PATH`, `RAW`, `EXPLICIT`, `XMLSCHEMA`, `ELEMENTS`, `ROOT`, `TYPE`, etc.) and `FOR JSON` (`AUTO`, `PATH`, `ROOT`, `INCLUDE_NULL_VALUES`, `WITHOUT_ARRAY_WRAPPER`)
 - `TABLESAMPLE [SYSTEM] (n PERCENT|ROWS) [REPEATABLE(seed)]`
 - Temporal table queries — `FOR SYSTEM_TIME AS OF`, `FROM … TO`, `BETWEEN … AND`, `CONTAINED IN`, `ALL`
-- Joins: `INNER`, `LEFT`, `RIGHT`, `FULL OUTER`, `CROSS JOIN`, `CROSS APPLY`, `OUTER APPLY`; multiple joins, multi-predicate `ON`, self-joins, parenthesized joins, derived table joins
+- [Joins](docs/examples.md#join-types): `INNER`, `LEFT`, `RIGHT`, `FULL OUTER`, `CROSS JOIN`, `CROSS APPLY`, `OUTER APPLY`; multiple joins, multi-predicate `ON`, self-joins, parenthesized joins, derived table joins
 - Table-valued functions (TVFs) in `FROM` clauses; table hints (`WITH (NOLOCK)`, etc.)
 - [Window functions](docs/examples.md#running-totals-with-over) with `OVER` clause — `PARTITION BY`, `ORDER BY`, full frame support (`ROWS`/`RANGE BETWEEN … AND …`, `UNBOUNDED PRECEDING/FOLLOWING`, `CURRENT ROW`); `IGNORE NULLS`/`RESPECT NULLS`; named window references; named `WINDOW` clause
 - Ordered set aggregates: `WITHIN GROUP (ORDER BY …)` for `STRING_AGG`, `PERCENTILE_CONT`/`PERCENTILE_DISC`, etc.
@@ -35,8 +36,8 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 
 **DDL**
 
-- `CREATE TABLE` (columns, constraints, computed columns `AS expr [PERSISTED]`, `WITH` options such as `DATA_COMPRESSION`, `MEMORY_OPTIMIZED`), [`ALTER TABLE`](docs/examples.md#alter-table) (ADD/DROP column, ADD/DROP/ENABLE/DISABLE constraint, ALTER COLUMN, SET, REBUILD, SWITCH), `CREATE INDEX` (UNIQUE/CLUSTERED/NONCLUSTERED, ASC/DESC, INCLUDE), `ALTER INDEX … REBUILD/REORGANIZE/DISABLE`
-- [`CREATE/ALTER/CREATE OR ALTER PROCEDURE`](docs/examples.md#create-procedure), `CREATE/ALTER/CREATE OR ALTER FUNCTION`, `CREATE/ALTER/CREATE OR ALTER VIEW`
+- [`CREATE TABLE`](docs/examples.md#create-table) (columns, constraints, computed columns `AS expr [PERSISTED]`, `WITH` options such as `DATA_COMPRESSION`, `MEMORY_OPTIMIZED`), [`ALTER TABLE`](docs/examples.md#alter-table) (ADD/DROP column, ADD/DROP/ENABLE/DISABLE constraint, ALTER COLUMN, SET, REBUILD, SWITCH), `CREATE INDEX` (UNIQUE/CLUSTERED/NONCLUSTERED, ASC/DESC, INCLUDE), `ALTER INDEX … REBUILD/REORGANIZE/DISABLE`
+- [`CREATE/ALTER/CREATE OR ALTER PROCEDURE`](docs/examples.md#create-procedure), `CREATE/ALTER/CREATE OR ALTER FUNCTION`, [`CREATE/ALTER/CREATE OR ALTER VIEW`](docs/examples.md#create-view)
 - `CREATE/ALTER TRIGGER` (DML triggers: AFTER/INSTEAD OF INSERT/UPDATE/DELETE)
 - `CREATE/ALTER/DROP SEQUENCE` with full options (START WITH, INCREMENT BY, MINVALUE/NO MINVALUE, MAXVALUE/NO MAXVALUE, CYCLE/NO CYCLE, CACHE/NO CACHE)
 - `BULK INSERT … FROM … WITH (options)`
@@ -59,8 +60,8 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 **Procedural / Control Flow**
 
 - `USE`, `SET NOCOUNT/ANSI_NULLS/QUOTED_IDENTIFIER/XACT_ABORT/…` ON/OFF, `SET IDENTITY_INSERT`, `SET TRANSACTION ISOLATION LEVEL`, `SET STATISTICS`, `WAITFOR DELAY/TIME`
-- `DECLARE`, `SET @var`, `SET ROWCOUNT`, `PRINT`, `RETURN`, `EXECUTE`, `TRUNCATE TABLE`
-- `IF`/`ELSE`, `WHILE`, `BREAK`, `CONTINUE`, `GOTO`/label, `THROW`, `RAISERROR`, `TRY/CATCH`
+- [`DECLARE`, `SET @var`](docs/examples.md#declare-and-variables), `SET ROWCOUNT`, `PRINT`, `RETURN`, `EXECUTE`, `TRUNCATE TABLE`
+- [`IF`/`ELSE`](docs/examples.md#if--else), `WHILE`, `BREAK`, `CONTINUE`, `GOTO`/label, `THROW`, `RAISERROR`, `TRY/CATCH`
 - `BEGIN`/`COMMIT`/`ROLLBACK TRANSACTION`
 - `DECLARE CURSOR` / `OPEN` / `FETCH NEXT/PRIOR/FIRST/LAST/ABSOLUTE/RELATIVE` / `CLOSE` / `DEALLOCATE`
 - `EXECUTE AS` (CALLER / USER / LOGIN / SELF / OWNER, with `WITH NO REVERT`) / `REVERT`
@@ -68,7 +69,7 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 
 **Security**
 
-- `GRANT` / `DENY` / `REVOKE` — all securable classes (OBJECT, SCHEMA, DATABASE, SERVER, LOGIN, USER, ROLE, ASSEMBLY, …), column lists, WITH GRANT OPTION, CASCADE, GRANT OPTION FOR, AS clause, multiple principals
+- [`GRANT` / `DENY` / `REVOKE`](docs/examples.md#grant--deny--revoke) — all securable classes (OBJECT, SCHEMA, DATABASE, SERVER, LOGIN, USER, ROLE, ASSEMBLY, …), column lists, WITH GRANT OPTION, CASCADE, GRANT OPTION FOR, AS clause, multiple principals
 - `CREATE/ALTER/DROP USER` — FOR LOGIN, WITHOUT LOGIN, FROM EXTERNAL PROVIDER, WITH options
 - `CREATE/ALTER/DROP LOGIN` — password (HASHED/MUST_CHANGE), FROM WINDOWS, FROM CERTIFICATE/ASYMMETRIC KEY, ENABLE/DISABLE, ADD/DROP CREDENTIAL
 - `CREATE/ALTER/DROP ROLE` — AUTHORIZATION owner, ADD/DROP MEMBER, WITH NAME rename

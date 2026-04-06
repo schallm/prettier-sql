@@ -175,3 +175,249 @@ In each diff block, `-` lines are the raw input and `+` lines are the formatted 
 +   on delete cascade
 +   on update no action;
 ```
+
+---
+
+## CREATE TABLE
+
+Full table definition with identity column, nullable column, primary key, foreign key with referential action, and check constraint:
+
+```diff
+- CREATE TABLE Orders(Id INT IDENTITY(1,1) NOT NULL, CustomerId INT NOT NULL, Total DECIMAL(18,2) NOT NULL, OrderDate DATE NOT NULL, CONSTRAINT PK_Orders PRIMARY KEY(Id), CONSTRAINT FK_Orders_Customers FOREIGN KEY(CustomerId) REFERENCES Customers(Id) ON DELETE CASCADE, CONSTRAINT CK_Orders_Total CHECK(Total >= 0))
++ create table Orders (
++   Id int identity(1, 1) not null,
++   CustomerId int not null,
++   Total decimal(18, 2) not null,
++   OrderDate date not null,
++   constraint PK_Orders primary key (Id),
++   constraint FK_Orders_Customers
++     foreign key (CustomerId) references Customers (Id)
++     on delete cascade,
++   constraint CK_Orders_Total check (Total >= 0)
++ );
+```
+
+---
+
+## CREATE VIEW
+
+```diff
+- CREATE VIEW dbo.BookSummary AS SELECT b.Id, b.Title, b.Price, g.Name AS Genre FROM Books b INNER JOIN Genres g ON b.GenreId = g.Id WHERE b.InStock = 1
++ create view dbo.BookSummary
++ as
++ select
++   b.Id,
++   b.Title,
++   b.Price,
++   g.Name as Genre
++ from
++   Books as b
++   inner join Genres as g on b.GenreId = g.Id
++ where b.InStock = 1;
++ go
+```
+
+---
+
+## JOIN types
+
+**LEFT JOIN** — rows from the left table even when there is no match:
+
+```diff
+- SELECT b.Title, a.FirstName, a.LastName FROM Books b LEFT JOIN Authors a ON b.AuthorId = a.Id WHERE a.Id IS NULL
++ select
++   b.Title,
++   a.FirstName,
++   a.LastName
++ from
++   Books as b
++   left join Authors as a on b.AuthorId = a.Id
++ where a.Id is null;
+```
+
+**FULL JOIN** — all rows from both sides:
+
+```diff
+- SELECT b.Title, a.FirstName FROM Books b FULL OUTER JOIN Authors a ON b.AuthorId = a.Id
++ select
++   b.Title,
++   a.FirstName
++ from
++   Books as b
++   full join Authors as a on b.AuthorId = a.Id;
+```
+
+**CROSS JOIN** — Cartesian product:
+
+```diff
+- SELECT c.Name AS Category, s.Name AS SubCategory FROM Categories c CROSS JOIN SubCategories s ORDER BY c.Name, s.Name
++ select
++   c.Name as Category,
++   s.Name as SubCategory
++ from
++   Categories as c
++   cross join SubCategories as s
++ order by
++   c.Name asc,
++   s.Name asc;
+```
+
+---
+
+## CASE expression
+
+**Searched CASE** — each `WHEN` tests a condition:
+
+```diff
+- SELECT Id, CASE WHEN Price < 10 THEN 'Budget' WHEN Price < 30 THEN 'Mid' ELSE 'Premium' END AS Cat FROM Books
++ select
++   Id,
++   case
++     when Price < 10 then 'Budget'
++     when Price < 30 then 'Mid'
++     else 'Premium'
++   end as Cat
++ from Books;
+```
+
+**Simple CASE** — matches a single expression:
+
+```diff
+- SELECT Id, CASE GenreId WHEN 1 THEN 'Fiction' WHEN 2 THEN 'Non-Fiction' ELSE 'Other' END AS Genre FROM Books
++ select
++   Id,
++   case GenreId
++     when 1 then 'Fiction'
++     when 2 then 'Non-Fiction'
++     else 'Other'
++   end as Genre
++ from Books;
+```
+
+---
+
+## IN / NOT IN
+
+**Value list:**
+
+```diff
+- SELECT Id, Title FROM Books WHERE GenreId IN (1, 2, 3) AND Status NOT IN ('Draft', 'Archived')
++ select
++   Id,
++   Title
++ from Books
++ where
++   GenreId in (1, 2, 3)
++   and Status not in ('Draft', 'Archived');
+```
+
+**Subquery:**
+
+```diff
+- SELECT Id, Title FROM Books b WHERE AuthorId NOT IN (SELECT AuthorId FROM BannedAuthors)
++ select
++   Id,
++   Title
++ from Books as b
++ where AuthorId not in (
++   select AuthorId
++   from BannedAuthors
++ );
+```
+
+---
+
+## EXISTS
+
+```diff
+- SELECT Id, Title FROM Books b WHERE EXISTS (SELECT 1 FROM OrderItems oi WHERE oi.BookId = b.Id)
++ select
++   Id,
++   Title
++ from Books as b
++ where exists (
++   select 1
++   from OrderItems as oi
++   where oi.BookId = b.Id
++ );
+```
+
+---
+
+## GROUP BY and HAVING
+
+```diff
+- SELECT AuthorId, COUNT(*) AS BookCount, AVG(Price) AS AvgPrice FROM Books WHERE InStock=1 GROUP BY AuthorId HAVING COUNT(*)>5 ORDER BY BookCount DESC
++ select
++   AuthorId,
++   count(*) as BookCount,
++   avg(Price) as AvgPrice
++ from Books
++ where InStock = 1
++ group by AuthorId
++ having count(*) > 5
++ order by BookCount desc;
+```
+
+---
+
+## DECLARE and variables
+
+Multiple variables in a single `DECLARE` are split to one per statement. Blank lines separate the declaration block from the statements that follow:
+
+```diff
+- DECLARE @MinPrice DECIMAL(10,2), @MaxPrice DECIMAL(10,2); SET @MinPrice = 10.00; SET @MaxPrice = 50.00; SELECT Id, Title, Price FROM Books WHERE Price BETWEEN @MinPrice AND @MaxPrice
++ declare @MinPrice decimal(10, 2);
++ declare @MaxPrice decimal(10, 2);
++
++ set @MinPrice = 10.00;
++
++ set @MaxPrice = 50.00;
++
++ select
++   Id,
++   Title,
++   Price
++ from Books
++ where Price between @MinPrice and @MaxPrice;
+```
+
+---
+
+## IF / ELSE
+
+```diff
+- IF EXISTS (SELECT 1 FROM Books WHERE Price < 0) BEGIN RAISERROR('Invalid price', 16, 1); END ELSE BEGIN PRINT 'Prices OK'; END
++ if exists (
++   select 1
++   from Books
++   where Price < 0
++ )
++ begin
++   raiserror ('Invalid price', 16, 1);
++ end
++ else
++ begin
++   print 'Prices OK';
++ end
+```
+
+---
+
+## GRANT / DENY / REVOKE
+
+```diff
+- GRANT SELECT, INSERT, UPDATE ON OBJECT::dbo.Books TO AppUser WITH GRANT OPTION
++ grant select, insert, update
++ on object::dbo.Books
++ to AppUser
++ with grant option;
+```
+
+```diff
+- DENY DELETE ON OBJECT::dbo.Books TO GuestUser CASCADE
++ deny delete
++ on object::dbo.Books
++ to GuestUser
++ cascade;
+```
