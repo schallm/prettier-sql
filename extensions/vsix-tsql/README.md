@@ -23,13 +23,32 @@ Format T-SQL / SQL Server scripts using [Prettier](https://prettier.io/), powere
 
 Install from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/), or download the `.vsix` file and install via **Extensions → Manage Extensions → Install from VSIX**.
 
-## Default Formatting Options
+## Formatting Options
 
-| Option | Default |
-|--------|---------|
-| `printWidth` | `120` |
-| `tabWidth` | `4` |
-| Parser | `tsql` |
+### T-SQL Options
+
+| Option | Default | Values |
+|--------|---------|--------|
+| `sqlKeywordCase` | `lower` | `lower`, `upper`, `preserve` |
+| `sqlDensity` | `standard` | `compact`, `standard`, `spacious` |
+| `sqlCommaStyle` | `trailing` | `trailing`, `leading` |
+
+**`sqlKeywordCase`** — Casing for SQL keywords (`SELECT`, `FROM`, `WHERE`, data types, built-in functions, etc.).
+
+**`sqlDensity`** — Controls vertical spacing:
+- `compact` — fits as much as possible on each line, wrapping at `printWidth`
+- `standard` — one clause per line; single predicates stay inline
+- `spacious` — every predicate on its own line, even single ones
+
+**`sqlCommaStyle`** — Comma position in column lists (`SELECT`, `GROUP BY`, `ORDER BY`, CTE lists, `INSERT`, `UPDATE SET`). Function arguments always use trailing commas.
+
+### Standard Prettier Options
+
+| Option | Extension Default | Prettier Default |
+|--------|------------------|-----------------|
+| `printWidth` | `120` | `80` |
+| `tabWidth` | `4` | `2` |
+| `useTabs` | — | `false` |
 
 ## License
 
