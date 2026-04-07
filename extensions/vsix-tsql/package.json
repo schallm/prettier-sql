@@ -1,0 +1,8 @@
+{
+    "name": "prettier-tsql-vsix",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "generate-notices": "node scripts/generate-notices.mjs"
+    }
+}

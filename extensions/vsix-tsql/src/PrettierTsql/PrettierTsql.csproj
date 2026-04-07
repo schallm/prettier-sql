@@ -31,6 +31,20 @@
     </VSCTCompile>
   </ItemGroup>
 
+  <!-- Regenerate THIRD_PARTY_NOTICES.txt before each build -->
+  <Target Name="GenerateThirdPartyNotices" BeforeTargets="Build">
+    <Exec Command="node &quot;$(MSBuildThisFileDirectory)..\..\scripts\generate-notices.mjs&quot;" />
+  </Target>
+
+  <!-- Include the notices file in the VSIX -->
+  <ItemGroup>
+    <Content Include="..\..\THIRD_PARTY_NOTICES.txt">
+      <Link>THIRD_PARTY_NOTICES.txt</Link>
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
   <!-- Bundle the Node.js formatter and its dependencies into the VSIX -->
   <ItemGroup>
     <Content Include="..\..\bundled\**" Exclude="..\..\bundled\node_modules\**">
