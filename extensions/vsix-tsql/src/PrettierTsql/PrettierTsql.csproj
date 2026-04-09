@@ -22,6 +22,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Required for OleMenuCommandService (inherits MenuCommandService from System.Design) -->
+    <Reference Include="System.Design" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="source.extension.vsixmanifest">
       <SubType>Designer</SubType>
     </Content>
