@@ -33,8 +33,9 @@ jobs:
       - name: Install bundled dependencies
         run: npm install
         working-directory: bundled
+      - uses: microsoft/setup-msbuild@v2
       - name: Build VSIX
-        run: dotnet build src/PrettierTsql.slnx --configuration Release
+        run: msbuild src/PrettierTsql.slnx /p:Configuration=Release /p:DeployExtension=false
       - name: Find VSIX path
         id: vsix
         shell: pwsh
