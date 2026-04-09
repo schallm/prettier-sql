@@ -3,6 +3,7 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "generate-notices": "node scripts/generate-notices.mjs"
+        "generate-notices": "node scripts/generate-notices.mjs",
+        "test": "node --test test/*.test.mjs"
     }
 }
