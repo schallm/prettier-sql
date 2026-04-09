@@ -24,6 +24,10 @@ jobs:
       - name: Build VSIX
         run: dotnet build src/PrettierTsql.slnx --configuration Release
 
+      - name: List build output
+        shell: pwsh
+        run: Get-ChildItem -Recurse -Include "*.vsix","*.dll" src/PrettierTsql/bin | Select-Object FullName
+
       - name: Find VSIX path
         id: vsix
         shell: pwsh
