@@ -42,7 +42,9 @@ internal sealed class FormatCommand {
             cmd.Enabled = GetActiveTextView() != null && GetActiveSqlFilePath() != null;
     }
 
+#pragma warning disable VSTHRD100 // async void is required for OleMenuCommand event handlers
     private async void Execute(object sender, EventArgs e) {
+#pragma warning restore VSTHRD100
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
         var textView = GetActiveTextView();

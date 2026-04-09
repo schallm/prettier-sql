@@ -18,7 +18,7 @@
   <ItemGroup>
     <!-- VS SDK — keep version in sync with oldest targeted VS (17.0 = VS 2022) -->
     <PackageReference Include="Microsoft.VisualStudio.SDK" Version="17.0.31902.203" ExcludeAssets="runtime" />
-    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="17.10.2199" />
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="17.11.414" />
   </ItemGroup>
 
   <ItemGroup>
