@@ -16,6 +16,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install bundled dependencies
+        run: npm install
+        working-directory: bundled
       - name: Build VSIX
         run: dotnet build src/PrettierTsql.slnx --configuration Release
 

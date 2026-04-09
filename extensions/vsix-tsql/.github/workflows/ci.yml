@@ -15,6 +15,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install bundled dependencies
+        run: npm install
+        working-directory: bundled
       - run: npm test
 
   build:
