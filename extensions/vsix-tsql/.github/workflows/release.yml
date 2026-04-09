@@ -28,6 +28,7 @@ jobs:
           echo "name=$(basename $path)" >> $GITHUB_OUTPUT
 
       - name: Publish to Visual Studio Marketplace
+        if: secrets.MARKETPLACE_PAT != ''
         shell: bash
         run: |
           vsix_publisher="C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VSSDK/VisualStudioIntegration/Tools/Bin/VsixPublisher.exe"
