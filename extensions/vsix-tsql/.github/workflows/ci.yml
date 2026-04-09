@@ -37,11 +37,12 @@ jobs:
         run: dotnet build src/PrettierTsql.slnx --configuration Release
       - name: Find VSIX path
         id: vsix
-        shell: bash
+        shell: pwsh
         run: |
-          path=$(find src -name "*.vsix" | head -1)
-          echo "path=$path" >> $GITHUB_OUTPUT
-          echo "Found: $path"
+          $vsix = Get-ChildItem -Recurse -Filter "*.vsix" | Select-Object -First 1
+          if (-not $vsix) { Write-Error "No .vsix file found"; exit 1 }
+          Write-Host "Found: $($vsix.FullName)"
+          echo "path=$($vsix.FullName)" >> $env:GITHUB_OUTPUT
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v4
         with:

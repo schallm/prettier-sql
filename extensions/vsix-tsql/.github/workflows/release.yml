@@ -26,11 +26,13 @@ jobs:
 
       - name: Find VSIX path
         id: vsix
-        shell: bash
+        shell: pwsh
         run: |
-          path=$(find src -name "*.vsix" | head -1)
-          echo "path=$path" >> $GITHUB_OUTPUT
-          echo "name=$(basename $path)" >> $GITHUB_OUTPUT
+          $vsix = Get-ChildItem -Recurse -Filter "*.vsix" | Select-Object -First 1
+          if (-not $vsix) { Write-Error "No .vsix file found"; exit 1 }
+          Write-Host "Found: $($vsix.FullName)"
+          echo "path=$($vsix.FullName)" >> $env:GITHUB_OUTPUT
+          echo "name=$($vsix.Name)" >> $env:GITHUB_OUTPUT
 
       - name: Publish to Visual Studio Marketplace
         if: env.MARKETPLACE_PAT != ''
