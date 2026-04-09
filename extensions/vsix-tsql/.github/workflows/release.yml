@@ -25,11 +25,15 @@ jobs:
       - name: Restore NuGet packages
         run: nuget restore src/PrettierTsql.slnx
       - name: Build VSIX
-        run: msbuild src/PrettierTsql.slnx /p:Configuration=Release /p:DeployExtension=false
+        run: msbuild src/PrettierTsql.slnx /p:Configuration=Release /p:DeployExtension=false /p:GenerateVsixContainer=true /t:Restore;Build;CreateVsixContainer
 
       - name: List build output
         shell: pwsh
-        run: Get-ChildItem -Recurse -Include "*.vsix","*.dll" src/PrettierTsql/bin | Select-Object FullName
+        run: |
+          Write-Host "=== VSIX files anywhere ==="
+          Get-ChildItem -Recurse -Filter "*.vsix" -ErrorAction SilentlyContinue | Select-Object FullName
+          Write-Host "=== bin directory ==="
+          Get-ChildItem -Recurse src/PrettierTsql/bin -Exclude "node_modules" | Where-Object { -not $_.PSIsContainer } | Select-Object FullName | Where-Object { $_.FullName -notmatch "node_modules" }
 
       - name: Find VSIX path
         id: vsix
