@@ -65,4 +65,41 @@
     </Content>
   </ItemGroup>
 
+  <!-- Include LICENSE.txt in the VSIX (referenced by source.extension.vsixmanifest) -->
+  <ItemGroup>
+    <Content Include="..\..\LICENSE.txt">
+      <Link>LICENSE.txt</Link>
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!-- Required for SDK-style projects: import the VSSDK targets that define CreateVsixContainer -->
+  <Import Project="$(VsSDKInstall)\Microsoft.VsSDK.targets" />
+
+  <!-- Fix VSSDK intermediate path properties: Microsoft.VsSDK.targets evaluates these in a
+       PropertyGroup before the SDK targets set IntermediateOutputPath, so they resolve to
+       \filename. Override them inside a target where IntermediateOutputPath is fully resolved. -->
+  <Target Name="FixVssdkIntermediatePaths" BeforeTargets="MergeCtoResource;CreateVsixContainer;GenerateFileManifest;GenerateResourcePackagesManifest;DetokenizeVsixManifestFile;GeneratePkgDef">
+    <PropertyGroup>
+      <IntermediateVsixManifest>$(IntermediateOutputPath)$(VsixManifestFileName)</IntermediateVsixManifest>
+      <FileManifest>$(IntermediateOutputPath)files.json</FileManifest>
+      <TemplateFileManifest>$(IntermediateOutputPath)templateFiles.json</TemplateFileManifest>
+      <ResourceManifest>$(IntermediateOutputPath)resources.json</ResourceManifest>
+      <CtoFileManifest>$(IntermediateOutputPath)ctoFiles.json</CtoFileManifest>
+      <CtoCacheFile>$(IntermediateOutputPath)mergeCto.cache</CtoCacheFile>
+      <CreateTemplateManifestsCacheFile>$(IntermediateOutputPath)createTemplateManifests.cache</CreateTemplateManifestsCacheFile>
+      <ResourcePackagesManifest Condition="'$(GenerateResourcePackages)' == 'true'">$(IntermediateOutputPath)resourcePackages.json</ResourcePackagesManifest>
+      <TemplateOutputDirectory>$(IntermediateOutputPath)</TemplateOutputDirectory>
+      <TargetVsixContainerName>$(AssemblyName).vsix</TargetVsixContainerName>
+      <TargetVsixContainer>$(OutDir)$(TargetVsixContainerName)</TargetVsixContainer>
+      <!-- TargetPath is also empty at project-load time; fix it here so GeneratePkgDef finds the assembly -->
+      <CreatePkgDefAssemblyToProcess>$(TargetPath)</CreatePkgDefAssemblyToProcess>
+    </PropertyGroup>
+  </Target>
+
+  <!-- SDK-style projects override PrepareForRunDependsOn, removing the VSSDK hooks that normally
+       call GeneratePkgDef and CreateVsixContainer. Invoke them explicitly after the build. -->
+  <Target Name="InvokeCreateVsixContainer" AfterTargets="Build" DependsOnTargets="GeneratePkgDef;CreateVsixContainer" />
+
 </Project>
