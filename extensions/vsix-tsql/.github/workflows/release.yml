@@ -11,6 +11,8 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+    env:
+      MARKETPLACE_PAT: ${{ secrets.MARKETPLACE_PAT }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -31,7 +33,7 @@ jobs:
           echo "name=$(basename $path)" >> $GITHUB_OUTPUT
 
       - name: Publish to Visual Studio Marketplace
-        if: secrets.MARKETPLACE_PAT != ''
+        if: env.MARKETPLACE_PAT != ''
         shell: bash
         run: |
           vsix_publisher="C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VSSDK/VisualStudioIntegration/Tools/Bin/VsixPublisher.exe"
