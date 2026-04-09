@@ -23,8 +23,8 @@ jobs:
   build:
     name: Build VSIX
     runs-on: windows-latest
-    # Only on PRs and direct pushes to main — not on every branch push
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    # Only on PRs — main pushes are covered by the release workflow on tags
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
