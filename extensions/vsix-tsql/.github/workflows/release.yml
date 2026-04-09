@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build VSIX
+        run: dotnet build src/PrettierTsql.slnx --configuration Release
+
+      - name: Find VSIX path
+        id: vsix
+        shell: bash
+        run: |
+          path=$(find src/PrettierTsql/bin/Release -name "*.vsix" | head -1)
+          echo "path=$path" >> $GITHUB_OUTPUT
+          echo "name=$(basename $path)" >> $GITHUB_OUTPUT
+
+      - name: Publish to Visual Studio Marketplace
+        shell: bash
+        run: |
+          vsix_publisher="C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VSSDK/VisualStudioIntegration/Tools/Bin/VsixPublisher.exe"
+          if [ ! -f "$vsix_publisher" ]; then
+            vsix_publisher="C:/Program Files/Microsoft Visual Studio/2022/Professional/VSSDK/VisualStudioIntegration/Tools/Bin/VsixPublisher.exe"
+          fi
+          if [ ! -f "$vsix_publisher" ]; then
+            vsix_publisher="C:/Program Files/Microsoft Visual Studio/2022/Community/VSSDK/VisualStudioIntegration/Tools/Bin/VsixPublisher.exe"
+          fi
+          "$vsix_publisher" publish \
+            -payload "${{ steps.vsix.outputs.path }}" \
+            -publishManifest publishManifest.json \
+            -personalAccessToken "${{ secrets.MARKETPLACE_PAT }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.vsix.outputs.path }}
+          generate_release_notes: true
