@@ -25,11 +25,13 @@ There are no automated tests yet.
 The project has two runtimes that communicate via stdin/stdout:
 
 **C# side** (`src/PrettierTsql/`):
+
 - `PrettierTsqlPackage.cs` — AsyncPackage entry point; auto-loads when a `.sql`/`.tsql` file opens
 - `FormatCommand.cs` — Handles `Ctrl+K, Ctrl+J`; reads editor text, calls `NodeRunner`, replaces buffer
 - `NodeRunner.cs` — Spawns `node bundled/format.mjs`, pipes SQL via stdin, reads formatted SQL from stdout
 
 **Node.js side** (`bundled/`):
+
 - `format.mjs` — Reads SQL from stdin, calls `prettier.format()` with `prettier-plugin-tsql`, writes to stdout
 - Exit codes: `0` = success, `1` = formatting error, `2` = parse/usage error
 

@@ -12,6 +12,9 @@ obj/
 bundled/node_modules/
 node_modules/
 
+# Claude Code local settings
+.claude/settings.local.json
+
 # OS
 .DS_Store
 Thumbs.db
