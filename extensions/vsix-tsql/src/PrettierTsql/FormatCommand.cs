@@ -39,7 +39,7 @@ internal sealed class FormatCommand {
     private void OnBeforeQueryStatus(object sender, EventArgs e) {
         ThreadHelper.ThrowIfNotOnUIThread();
         if (sender is OleMenuCommand cmd)
-            cmd.Enabled = GetActiveTextView() != null && IsActiveSqlFile();
+            cmd.Enabled = GetActiveTextView() != null && GetActiveSqlFilePath() != null;
     }
 
     private async void Execute(object sender, EventArgs e) {
@@ -52,9 +52,11 @@ internal sealed class FormatCommand {
         var sql = snapshot.GetText();
         if (string.IsNullOrWhiteSpace(sql)) return;
 
+        var filePath = GetActiveSqlFilePath();
+
         string formatted;
         try {
-            formatted = await NodeRunner.FormatAsync(sql);
+            formatted = await NodeRunner.FormatAsync(sql, filePath: filePath);
         } catch (FormattingException ex) {
             ShowError(ex.Message);
             return;
@@ -87,22 +89,23 @@ internal sealed class FormatCommand {
         return (viewHostObj as IWpfTextViewHost)?.TextView;
     }
 
-    private static bool IsActiveSqlFile() {
+    private static string? GetActiveSqlFilePath() {
         ThreadHelper.ThrowIfNotOnUIThread();
         var monitorSelection = ServiceProvider.GlobalProvider.GetService(typeof(SVsShellMonitorSelection))
             as IVsMonitorSelection;
-        if (monitorSelection == null) return true; // default allow
+        if (monitorSelection == null) return null;
 
         monitorSelection.GetCurrentElementValue(
             (uint)VSConstants.VSSELELEMID.SEID_DocumentFrame, out var frameObj);
 
         if (frameObj is IVsWindowFrame frame) {
             frame.GetProperty((int)__VSFPROPID.VSFPROPID_pszMkDocument, out var docPath);
-            if (docPath is string path)
-                return path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase)
-                    || path.EndsWith(".tsql", StringComparison.OrdinalIgnoreCase);
+            if (docPath is string path &&
+                (path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase) ||
+                 path.EndsWith(".tsql", StringComparison.OrdinalIgnoreCase)))
+                return path;
         }
-        return false;
+        return null;
     }
 
     private void ShowError(string message) {

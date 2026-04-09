@@ -2,7 +2,8 @@
  * Formatting shim invoked by the VS extension.
  *
  * Reads SQL from stdin, formats it with prettier-plugin-tsql, writes result to stdout.
- * Options are passed as a JSON string in the first CLI argument.
+ * argv[2] — optional JSON string of Prettier option overrides
+ * argv[3] — optional file path used to resolve the nearest .prettierrc / prettier.config.*
  *
  * Exit codes:
  *   0 — success
@@ -26,6 +27,7 @@ let prettier, plugin;
 try {
     prettier = await import(prettierPath + '/index.mjs');
     plugin = require(pluginPath);
+    plugin = plugin.default ?? plugin;
 } catch (e) {
     process.stderr.write(`Failed to load dependencies: ${e.message}\n`);
     process.exit(2);
@@ -42,6 +44,16 @@ if (process.argv[2]) {
     }
 }
 
+// Resolve .prettierrc / prettier.config.* from the file's directory (argv[3])
+let configOptions = {};
+if (process.argv[3]) {
+    try {
+        configOptions = await prettier.resolveConfig(process.argv[3]) ?? {};
+    } catch {
+        // ignore config resolution errors
+    }
+}
+
 // Read SQL from stdin
 let input;
 try {
@@ -51,13 +63,14 @@ try {
     process.exit(2);
 }
 
-// Format
+// Format — merge order: extension defaults < .prettierrc < explicit options arg
 try {
     const result = await prettier.format(input, {
         parser: 'tsql',
         plugins: [plugin],
         printWidth: 120,
         tabWidth: 4,
+        ...configOptions,
         ...userOptions,
     });
     process.stdout.write(result);

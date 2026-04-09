@@ -19,13 +19,21 @@ internal static class NodeRunner {
     /// </summary>
     /// <param name="sql">Raw SQL text.</param>
     /// <param name="optionsJson">Optional JSON string of Prettier options to override defaults.</param>
+    /// <param name="filePath">Optional path to the SQL file, used to resolve a .prettierrc config.</param>
     /// <returns>Formatted SQL, or throws <see cref="FormattingException"/> on error.</returns>
-    public static async Task<string> FormatAsync(string sql, string? optionsJson = null) {
+    public static async Task<string> FormatAsync(string sql, string? optionsJson = null, string? filePath = null) {
         var node = FindNode();
         var script = BundledScriptPath();
-        var args = optionsJson != null
-            ? $"\"{script}\" \"{EscapeArg(optionsJson)}\""
-            : $"\"{script}\"";
+
+        string args;
+        if (filePath != null) {
+            var opts = EscapeArg(optionsJson ?? "{}");
+            args = $"\"{script}\" \"{opts}\" \"{EscapeArg(filePath)}\"";
+        } else if (optionsJson != null) {
+            args = $"\"{script}\" \"{EscapeArg(optionsJson)}\"";
+        } else {
+            args = $"\"{script}\"";
+        }
 
         var psi = new ProcessStartInfo(node, args) {
             RedirectStandardInput  = true,
