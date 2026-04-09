@@ -26,7 +26,7 @@ jobs:
         id: vsix
         shell: bash
         run: |
-          path=$(find src/PrettierTsql/bin/Release -name "*.vsix" | head -1)
+          path=$(find src -name "*.vsix" | head -1)
           echo "path=$path" >> $GITHUB_OUTPUT
           echo "name=$(basename $path)" >> $GITHUB_OUTPUT
 
