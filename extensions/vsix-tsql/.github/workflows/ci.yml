@@ -37,7 +37,8 @@ jobs:
       - name: Restore NuGet packages
         run: nuget restore src/PrettierTsql.slnx
       - name: Build VSIX
-        run: msbuild src/PrettierTsql.slnx /p:Configuration=Release /p:DeployExtension=false
+        shell: cmd
+        run: msbuild src/PrettierTsql.slnx /p:Configuration=Release /p:DeployExtension=false /p:GenerateVsixContainer=true /t:Restore;Build;CreateVsixContainer
       - name: Find VSIX path
         id: vsix
         shell: pwsh
