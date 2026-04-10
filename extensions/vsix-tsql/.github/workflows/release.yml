@@ -21,11 +21,10 @@ jobs:
       - name: Install bundled dependencies
         run: npm install
         working-directory: bundled
+      - uses: microsoft/setup-msbuild@v2
       - name: Build VSIX
         shell: cmd
-        run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat"
-          msbuild src/PrettierTsql.slnx /p:Configuration=Release /p:DeployExtension=false /t:Restore;Build
+        run: msbuild src/PrettierTsql.slnx /p:Configuration=Release /p:DeployExtension=false /t:Restore;Build
 
       - name: List build output
         shell: pwsh
