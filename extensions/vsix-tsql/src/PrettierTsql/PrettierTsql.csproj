@@ -74,8 +74,13 @@
     </Content>
   </ItemGroup>
 
-  <!-- Required for SDK-style projects: import the VSSDK targets that define CreateVsixContainer -->
-  <Import Project="$(VsSDKInstall)\Microsoft.VsSDK.targets" />
+  <!-- Required for SDK-style projects: import the VSSDK targets that define CreateVsixContainer.
+       Uses VSToolsPath (set by setup-msbuild / VS dev environment) with a fallback to VsSDKInstall
+       (set by Microsoft.VSSDK.BuildTools NuGet package after restore). -->
+  <Import Project="$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets"
+          Condition="'$(VSToolsPath)' != '' and Exists('$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets')" />
+  <Import Project="$(VsSDKInstall)\Microsoft.VsSDK.targets"
+          Condition="'$(VSToolsPath)' == '' and '$(VsSDKInstall)' != '' and Exists('$(VsSDKInstall)\Microsoft.VsSDK.targets')" />
 
   <!-- Fix VSSDK intermediate path properties: Microsoft.VsSDK.targets evaluates these in a
        PropertyGroup before the SDK targets set IntermediateOutputPath, so they resolve to
