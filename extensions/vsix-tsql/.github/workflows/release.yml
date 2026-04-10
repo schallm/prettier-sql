@@ -22,9 +22,12 @@ jobs:
         run: npm install
         working-directory: bundled
       - uses: microsoft/setup-msbuild@v2
+      - name: Restore NuGet packages
+        shell: cmd
+        run: msbuild src/PrettierTsql.slnx /t:Restore
       - name: Build VSIX
         shell: cmd
-        run: msbuild src/PrettierTsql.slnx /p:Configuration=Release /p:DeployExtension=false /t:Restore;Build
+        run: msbuild src/PrettierTsql.slnx /p:Configuration=Release /p:DeployExtension=false /t:Build
 
       - name: List build output
         shell: pwsh
