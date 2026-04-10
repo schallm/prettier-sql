@@ -11,14 +11,20 @@ Prettier T-SQL is a Visual Studio extension (VSIX) that formats T-SQL files usin
 > **Windows only.** The project targets `net48` (.NET Framework 4.8) and uses `Microsoft.VSSDK.BuildTools` for VSIX packaging — neither has cross-platform support. Builds must run on Windows with the Visual Studio SDK installed.
 
 ```bash
-# Build the VSIX
-dotnet build src/PrettierTsql.slnx
+# Install Node dependencies (required before building)
+cd bundled && npm install
+
+# Build the VSIX — must be two separate steps so NuGet restore creates
+# the generated props file that sets VSToolsPath before the build reads it
+msbuild src/PrettierTsql.slnx /t:Restore
+msbuild src/PrettierTsql.slnx /p:Configuration=Release /p:DeployExtension=false /t:Build
+
+# Run Node tests (cross-platform)
+npm test
 
 # Generate third-party notices (runs automatically as a pre-build step)
 node scripts/generate-notices.mjs
 ```
-
-There are no automated tests yet.
 
 ## Architecture
 
