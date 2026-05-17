@@ -258,6 +258,34 @@ where
   and PublishedDate < dateadd(year, -10, getdate());"
 `;
 
+exports[`fixtures > execute/dynamic-sql.sql 1`] = `
+"execute (@sql);
+
+execute (@sql1 + @sql2);"
+`;
+
+exports[`fixtures > execute/proc-call.sql 1`] = `
+"execute dbo.GetAvailableBooks;
+
+execute dbo.GetBooksByGenre
+  @GenreId = 3;
+
+execute dbo.UpdateBookPrice
+  @BookId = 42,
+  @NewPrice = 19.99;
+
+execute dbo.GetCount
+  @Result = @count output;"
+`;
+
+exports[`fixtures > execute/proc-variable.sql 1`] = `
+"execute @procName;
+
+execute @procName
+  @param1,
+  @param2;"
+`;
+
 exports[`fixtures > function/multi-statement-tvf.sql 1`] = `
 "create function GetTopBooks(@MaxPrice decimal(10, 2)) returns @result table (
   Id int not null,

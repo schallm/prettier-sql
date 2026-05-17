@@ -296,8 +296,20 @@ export function printWhile(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printExecute(node: SqlNode, opts: Options): Doc {
+    const sqlStrings = propArr(node, 'sqlStrings');
+
+    // EXECUTE (@sql) or EXECUTE (@sql1 + @sql2)
+    if (sqlStrings.length > 0) {
+        const strDocs = sqlStrings.map((s) => printNode(s, opts));
+        const innerDoc = strDocs.length === 1 ? strDocs[0]! : join([' + '], strDocs);
+        return [keyword('EXECUTE', opts), ' (', innerDoc, ');'];
+    }
+
     const procNode = prop(node, 'proc');
+    const procVar = propStr(node, 'procVar');
     const parameters = propArr(node, 'parameters');
+
+    const target: Doc = procNode ? schemaObjectName(procNode) : procVar ?? '';
 
     const paramDocs = parameters.map((p) => {
         const pname = propStr(p, 'name');
@@ -312,7 +324,7 @@ export function printExecute(node: SqlNode, opts: Options): Doc {
     return group([
         keyword('EXECUTE', opts),
         ' ',
-        schemaObjectName(procNode),
+        target,
         parameters.length > 0 ? indent([hardline, join([',', hardline], paramDocs)]) : '',
         ';',
     ]);

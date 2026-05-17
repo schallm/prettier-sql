@@ -1079,10 +1079,21 @@ public class AstBuilder : TSqlFragmentVisitor {
 
     private static SqlNode BuildExecute(ExecuteStatement es) {
         var spec = es.ExecuteSpecification;
+
+        // EXECUTE (@sql) or EXECUTE (@sql1 + @sql2) — dynamic SQL string list
+        if (spec?.ExecutableEntity is ExecutableStringList esl) {
+            var sqlStrings = esl.Strings.Select(s => (object?)BuildScalarExpression(s)).ToList();
+            return Node("ExecuteStatement", es, new Dictionary<string, object?> {
+                ["sqlStrings"] = sqlStrings,
+            });
+        }
+
         var execProc = spec?.ExecutableEntity as ExecutableProcedureReference;
-        var procNode = execProc != null
-            ? BuildSchemaObjectName(execProc.ProcedureReference?.ProcedureReference?.Name)
+        // Named proc: EXECUTE schema.proc | Variable proc: EXECUTE @var
+        var procNode = execProc?.ProcedureReference?.ProcedureReference?.Name != null
+            ? BuildSchemaObjectName(execProc.ProcedureReference.ProcedureReference.Name)
             : null;
+        var procVar = execProc?.ProcedureReference?.ProcedureVariable?.Name;
 
         var procParams = execProc?.Parameters;
         var parameters = procParams?.Select(p => (object?)Node("ExecuteParameter", p, new Dictionary<string, object?> {
@@ -1093,6 +1104,7 @@ public class AstBuilder : TSqlFragmentVisitor {
 
         return Node("ExecuteStatement", es, new Dictionary<string, object?> {
             ["proc"] = procNode,
+            ["procVar"] = procVar,
             ["parameters"] = parameters,
         });
     }
