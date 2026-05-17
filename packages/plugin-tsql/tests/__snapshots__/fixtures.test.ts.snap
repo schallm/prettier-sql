@@ -258,6 +258,25 @@ where
   and PublishedDate < dateadd(year, -10, getdate());"
 `;
 
+exports[`fixtures > delete/cte.sql 1`] = `
+"with cte as (
+  select Id
+  from Books
+  where InStock = 0
+)
+delete from Books
+from
+  Books
+  inner join cte on Books.Id = cte.Id;
+
+with old as (
+  select Id
+  from OrderItems
+  where OrderId = 99
+)
+delete from old;"
+`;
+
 exports[`fixtures > execute/dynamic-sql.sql 1`] = `
 "execute (@sql);
 
@@ -402,6 +421,20 @@ exports[`fixtures > insert/basic.sql 1`] = `
 values
   ('John Doe', 'john@example.com', 1),
   ('Jane Smith', 'jane@example.com', 1);"
+`;
+
+exports[`fixtures > insert/cte.sql 1`] = `
+"with src as (
+  select
+    Id,
+    Title
+  from StagingBooks
+)
+insert into Books (Id, Title)
+select
+  Id,
+  Title
+from src;"
 `;
 
 exports[`fixtures > insert/select-into.sql 1`] = `
@@ -1383,6 +1416,35 @@ set
   Title = 'Updated Title',
   Price = 29.99
 where Id = 42;"
+`;
+
+exports[`fixtures > update/cte.sql 1`] = `
+"with cte as (
+  select
+    Id,
+    Price
+  from Books
+  where InStock = 1
+)
+update Books
+set Price = Price * 0.9
+from
+  Books
+  inner join cte on Books.Id = cte.Id;
+
+with cte as (
+  select
+    Id,
+    Price,
+    row_number() over (
+      partition by AuthorId
+      order by Price desc
+    ) as rn
+  from Books
+)
+update cte
+set Price = Price * 0.9
+where rn = 1;"
 `;
 
 exports[`fixtures > update/join-update.sql 1`] = `
