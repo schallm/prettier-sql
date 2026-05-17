@@ -162,23 +162,34 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) =
     const distinctDoc = uniqueRowFilter === 'Distinct' ? [keyword('DISTINCT', opts), ' '] : [];
     const nullOnNullDoc = printNullOnNullClause(node, opts);
 
-    // TRIM(LEADING|TRAILING|BOTH [chars] FROM str) — SQL Server 2022+
+    // TRIM([LEADING|TRAILING|BOTH] [chars] FROM str) — SQL Server 2022+
+    // ScriptDOM always uses FROM syntax when TRIM has 2 params, with or without a direction keyword.
     const trimOptions = propStr(node, 'trimOptions');
-    if (trimOptions && name.toUpperCase() === 'TRIM') {
-        const dirDoc = keyword(trimOptions.toUpperCase(), opts);
-        if (args.length === 2) {
+    if (name.toUpperCase() === 'TRIM' && (trimOptions || args.length === 2)) {
+        if (trimOptions) {
+            const dirDoc = keyword(trimOptions.toUpperCase(), opts);
+            if (args.length === 2) {
+                return group([
+                    keyword('TRIM', opts),
+                    '(',
+                    indent([softline, dirDoc, ' ', args[0]!, ' ', keyword('FROM', opts), line, args[1]!]),
+                    softline,
+                    ')',
+                ]);
+            } else if (args.length === 1) {
+                return group([
+                    keyword('TRIM', opts),
+                    '(',
+                    indent([softline, dirDoc, ' ', keyword('FROM', opts), line, args[0]!]),
+                    softline,
+                    ')',
+                ]);
+            }
+        } else if (args.length === 2) {
             return group([
                 keyword('TRIM', opts),
                 '(',
-                indent([softline, dirDoc, ' ', args[0]!, ' ', keyword('FROM', opts), line, args[1]!]),
-                softline,
-                ')',
-            ]);
-        } else if (args.length === 1) {
-            return group([
-                keyword('TRIM', opts),
-                '(',
-                indent([softline, dirDoc, ' ', keyword('FROM', opts), line, args[0]!]),
+                indent([softline, args[0]!, ' ', keyword('FROM', opts), line, args[1]!]),
                 softline,
                 ')',
             ]);
