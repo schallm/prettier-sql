@@ -12,7 +12,7 @@ public static class SqlParser {
     };
 
     public static string Parse(string sql) {
-        var parser = new TSql170Parser(initialQuotedIdentifiers: false);
+        var parser = new TSql180Parser(initialQuotedIdentifiers: false);
         var fragment = parser.Parse(new StringReader(sql), out var errors);
 
         if (errors.Count > 0) {
