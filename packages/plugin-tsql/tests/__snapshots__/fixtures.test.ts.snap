@@ -1,5 +1,13 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`fixtures > admin/alter-database.sql 1`] = `
+"alter database SalesDB
+set automatic_index_compaction = on;
+
+alter database SalesDB
+set automatic_index_compaction = off;"
+`;
+
 exports[`fixtures > admin/backup-restore.sql 1`] = `
 "backup database Bookstore
   to disk = N'C:\\Backups\\Bookstore_Full.bak'
@@ -297,6 +305,15 @@ return (
     GenreId = @GenreId
     and InStock = 1
 );
+go"
+`;
+
+exports[`fixtures > function/trim.sql 1`] = `
+"create function dbo.TrimCharsFrom(@str nvarchar(max)) returns nvarchar(max)
+as
+begin
+  return trim(nchar(12288) from @str);
+end;
 go"
 `;
 

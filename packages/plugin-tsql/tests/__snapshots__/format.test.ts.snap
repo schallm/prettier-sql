@@ -713,7 +713,7 @@ from Books;"
 `;
 
 exports[`TRIM(direction ...) (SQL Server 2022+) > TRIM without direction still works 1`] = `
-"select trim(' ', Title)
+"select trim(' ' from Title)
 from Books;"
 `;
 

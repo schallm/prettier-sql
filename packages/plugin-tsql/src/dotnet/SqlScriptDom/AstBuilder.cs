@@ -2201,9 +2201,15 @@ public class AstBuilder : TSqlFragmentVisitor {
             // DatabaseOption raw text sometimes omits the option keyword (e.g. "RECOVERY FULL"
             // gives raw "FULL"), sometimes includes it (e.g. "QUERY_STORE = ON (...)" gives
             // raw "QUERY_STORE = ON (...)"). Prepend only when the raw text lacks the keyword.
+            // OnOffDatabaseOption always has raw text of just "ON"/"OFF" (no keyword prefix),
+            // and always uses "= ON/OFF" syntax rather than a plain space.
             ["options"] = stmt.Options?.Count > 0
                               ? stmt.Options.Select(o => {
                                   var name = DatabaseOptionKindToSql(o.OptionKind);
+                                  if (o is OnOffDatabaseOption onOff) {
+                                      var state = onOff.OptionState == OptionState.On ? "ON" : "OFF";
+                                      return (object?)$"{name} = {state}";
+                                  }
                                   var val = RawText(o).Trim();
                                   var text = val.StartsWith(name, StringComparison.OrdinalIgnoreCase)
                                              ? val

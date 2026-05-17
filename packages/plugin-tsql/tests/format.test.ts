@@ -1318,7 +1318,7 @@ describe('Database administration', () => {
 
     it('ALTER DATABASE SET with termination', async () => {
         const r = await fmt('ALTER DATABASE AdventureWorks SET AUTO_CLOSE ON WITH NO_WAIT');
-        expect(r).toContain('set auto_close on with no_wait');
+        expect(r).toContain('set auto_close = on with no_wait');
     });
 
     it('ALTER DATABASE SET CURRENT', async () => {
