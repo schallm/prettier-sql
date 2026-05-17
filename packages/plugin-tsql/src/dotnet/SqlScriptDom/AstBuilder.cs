@@ -263,6 +263,20 @@ public class AstBuilder : TSqlFragmentVisitor {
         });
     }
 
+    private static SqlNode BuildInlineDerivedTable(InlineDerivedTable idt) {
+        var rows = idt.RowValues?.Select(rv => {
+            var values = rv.ColumnValues?.Select(v => (object?)BuildScalarExpression(v)).ToList();
+            return (object?)Node("ValuesRow", rv, new Dictionary<string, object?> { ["values"] = values });
+        }).ToList();
+        var alias = idt.Alias?.Value;
+        var columns = idt.Columns?.Select(c => (object?)(c.Value ?? "")).ToList();
+        return Node("InlineDerivedTable", idt, new Dictionary<string, object?> {
+            ["rows"] = rows,
+            ["alias"] = alias,
+            ["columns"] = columns,
+        });
+    }
+
     private static SqlNode BuildBinaryExpr(BinaryExpression bin) =>
         Node("BinaryExpression", bin, new Dictionary<string, object?> {
             ["operator"] = bin.BinaryExpressionType.ToString(),
@@ -375,6 +389,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             BooleanTernaryExpression between => BuildBetween(between),
             FullTextPredicate ftp => BuildFullTextPredicate(ftp),
             DistinctPredicate dp => BuildDistinctPredicate(dp),
+            SubqueryComparisonPredicate scp => BuildSubqueryComparison(scp),
             _ => Leaf("BooleanExpression", expr, RawText(expr)),
         };
     }
@@ -414,6 +429,16 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["left"] = BuildScalarExpression(dp.FirstExpression),
             ["right"] = BuildScalarExpression(dp.SecondExpression),
             ["isNot"] = dp.IsNot,
+        });
+
+    private static SqlNode BuildSubqueryComparison(SubqueryComparisonPredicate scp) =>
+        Node("SubqueryComparisonPredicate", scp, new Dictionary<string, object?> {
+            ["expr"] = BuildScalarExpression(scp.Expression),
+            ["operator"] = scp.ComparisonType.ToString(),
+            ["quantifier"] = scp.SubqueryComparisonPredicateType == SubqueryComparisonPredicateType.None
+                ? null
+                : scp.SubqueryComparisonPredicateType.ToString().ToUpper(),
+            ["subquery"] = BuildQueryExpression(scp.Subquery?.QueryExpression),
         });
 
     private static SqlNode BuildInPredicate(InPredicate inPred) =>
@@ -462,6 +487,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             BulkOpenRowset bulkOr => BuildBulkOpenRowset(bulkOr),
             PivotedTableReference piv => BuildPivotedTableRef(piv),
             UnpivotedTableReference unpiv => BuildUnpivotedTableRef(unpiv),
+            InlineDerivedTable idt => BuildInlineDerivedTable(idt),
             _ => Leaf("TableReference", tableRef, RawText(tableRef)),
         };
     }

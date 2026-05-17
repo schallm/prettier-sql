@@ -887,6 +887,8 @@ export function printBoolExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode
             return printFullTextPredicate(node, opts, printFn);
         case 'DistinctPredicate':
             return printDistinctPredicate(node, opts, printFn);
+        case 'SubqueryComparisonPredicate':
+            return printSubqueryComparison(node, opts, printFn);
         default:
             return node.text ?? `/* ${node.type} */`;
     }
@@ -933,6 +935,24 @@ function printDistinctPredicate(node: SqlNode, opts: Options, printFn: (n: SqlNo
         opKw,
         ' ',
         right ? printExpression(right, opts, printFn) : '',
+    ]);
+}
+
+function printSubqueryComparison(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const expr = prop(node, 'expr');
+    const op = cmpOp(propStr(node, 'operator') ?? '');
+    const quantifier = propStr(node, 'quantifier'); // ALL, ANY, or null
+    const subquery = prop(node, 'subquery');
+    const subDoc = subquery
+        ? group(['(', indent([softline, printQueryExpression(subquery, opts, printFn)]), softline, ')'])
+        : '';
+    return group([
+        expr ? printExpression(expr, opts, printFn) : '',
+        ' ',
+        op,
+        quantifier ? [' ', keyword(quantifier, opts)] : '',
+        ' ',
+        subDoc,
     ]);
 }
 
@@ -1111,6 +1131,8 @@ export function printTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode
             return printPivotedTableRef(node, opts, printFn);
         case 'UnpivotedTableReference':
             return printUnpivotedTableRef(node, opts, printFn);
+        case 'InlineDerivedTable':
+            return printInlineDerivedTable(node, opts, printFn);
         default:
             return node.text ?? `/* ${node.type} */`;
     }
@@ -1247,6 +1269,27 @@ function printJoinParenthesis(node: SqlNode, opts: Options, printFn: (n: SqlNode
     const join = prop(node, 'join');
     const joinDoc = join ? printTableRef(join, opts, printFn) : '';
     return ['(', indent([hardline, joinDoc]), hardline, ')'];
+}
+
+function printInlineDerivedTable(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const rows = propArr(node, 'rows');
+    const alias = propStr(node, 'alias');
+    const columns = node.props?.['columns'] as string[] | undefined;
+    const rowDocs = rows.map((r) => {
+        const vals = propArr(r, 'values').map((v) => printExpression(v, opts, printFn));
+        return group(['(', indent([softline, join([',', line], vals)]), softline, ')']);
+    });
+    const colsDef: Doc = columns?.length ? ['(', columns.join(', '), ')'] : '';
+    const aliasDoc: Doc = alias ? [' ', keyword('AS', opts), ' ', alias, colsDef] : '';
+    return group([
+        '(',
+        keyword('VALUES', opts),
+        ' ',
+        indent([softline, join([',', line], rowDocs)]),
+        softline,
+        ')',
+        aliasDoc,
+    ]);
 }
 
 function printQueryDerivedTable(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {

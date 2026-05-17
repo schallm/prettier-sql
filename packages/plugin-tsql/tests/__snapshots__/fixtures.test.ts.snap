@@ -994,6 +994,22 @@ from Books
 for browse;"
 `;
 
+exports[`fixtures > select/inline-values.sql 1`] = `
+"select
+  v.Id,
+  v.Name
+from (values (1, 'Alice'), (2, 'Bob')) as v(Id, Name);
+
+select v.Id
+from (values (1), (2), (3)) as v(Id);
+
+select
+  p.ProductId,
+  p.Price
+from (values (101, 9.99), (102, 14.99), (103, 4.99)) as p(ProductId, Price)
+where p.Price < 10;"
+`;
+
 exports[`fixtures > select/joins.sql 1`] = `
 "-- INNER JOIN (keyword form)
 select
@@ -1192,6 +1208,30 @@ where
     from Genres
     where Name = 'Fiction'
   );"
+`;
+
+exports[`fixtures > select/subquery-predicate.sql 1`] = `
+"select Id
+from Books
+where Price > all (
+  select Price
+  from ArchivedBooks
+);
+
+select Id
+from Books
+where Price = any (
+  select Price
+  from FeaturedBooks
+);
+
+select Id
+from Books
+where Price >= any (
+  select min(Price)
+  from Books
+  where InStock = 1
+);"
 `;
 
 exports[`fixtures > select/tablesample-temporal.sql 1`] = `
