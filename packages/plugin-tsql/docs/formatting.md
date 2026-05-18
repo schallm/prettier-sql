@@ -813,15 +813,28 @@ where InStock = 1;
 
 ### INSERT
 
-The column list stays inline when it fits; it wraps to indented lines only when it would exceed `printWidth`. The values list is always indented:
+The column list stays inline when it fits; it wraps to indented lines only when it would exceed `printWidth`. A single-values row sits on the same line as `values`:
 
 ```sql
 insert into Customers (Name, Email, Active)
-values
-    ('Jane Smith', 'jane@example.com', 1);
+values ('Jane Smith', 'jane@example.com', 1);
 ```
 
-Multiple rows stay on one line each (wrapping only if a single row exceeds `printWidth`):
+When the values are too long to fit on one line, the opening `(` stays with `values` and each value moves to its own indented line, with the closing `)` back at the `values` level — matching the layout used by the column list:
+
+```sql
+insert into Books (Title, AuthorId, GenreId, Price, InStock, PublishedDate)
+values (
+    'The Pragmatic Programmer: From Journeyman to Master',
+    1,
+    2,
+    39.99,
+    1,
+    '2019-09-23'
+);
+```
+
+Multiple rows always break with one row per line, each indented under `values`:
 
 ```sql
 insert into Genres (Id, Name)
@@ -846,8 +859,7 @@ INSERT with OUTPUT (see [OUTPUT clause](#output-clause) below):
 ```sql
 insert into Books (Title, Price)
 output inserted.Id, inserted.Title
-values
-    ('New Book', 9.99);
+values ('New Book', 9.99);
 ```
 
 ---

@@ -562,8 +562,7 @@ end
 
 begin try
   insert into Books (Title, Price, InStock)
-  values
-    ('New Book', 19.99, 1);
+  values ('New Book', 19.99, 1);
 end try
 begin catch
   declare @msg nvarchar(4000) = error_message();
@@ -678,8 +677,7 @@ begin try
   begin transaction;
 
   insert into Orders (CustomerId, Total)
-  values
-    (1, 99.99);
+  values (1, 99.99);
 
   commit transaction;
 end try
@@ -905,8 +903,7 @@ select $PARTITION.PF_OrderDate(OrderDate)
 from Orders;
 
 insert into Books (Title, Price, InStock)
-values
-  ('Clean Code', 39.99, default);
+values ('Clean Code', 39.99, default);
 
 select
   identity(int, 1, 1) as Id,
@@ -1314,6 +1311,156 @@ drop sequence OrderSeq;
 drop sequence if exists OrderSeq;
 
 drop sequence dbo.InvoiceSeq, dbo.OrderSeq;"
+`;
+
+exports[`fixtures > shared/dml/delete.sql 1`] = `
+"delete from books
+where
+  in_stock = 0
+  and price < 5;"
+`;
+
+exports[`fixtures > shared/dml/insert.sql 1`] = `
+"insert into books (title, author_id, price, in_stock)
+values ('The Pragmatic Programmer', 1, 39.99, 1);"
+`;
+
+exports[`fixtures > shared/dml/update.sql 1`] = `
+"update books
+set
+  price = price * 0.9,
+  in_stock = 1
+where
+  author_id = 1
+  and price > 20;"
+`;
+
+exports[`fixtures > shared/select/aggregates.sql 1`] = `
+"select
+  author_id,
+  count(*) as book_count,
+  avg(price) as avg_price
+from books
+where in_stock = 1
+group by author_id
+having count(*) > 5
+order by book_count desc;"
+`;
+
+exports[`fixtures > shared/select/basic.sql 1`] = `
+"select
+  id,
+  title,
+  price
+from books
+where in_stock = 1
+order by price asc;
+
+select
+  id,
+  title,
+  price
+from books
+where
+  in_stock = 1
+  and price < 50
+order by price desc;"
+`;
+
+exports[`fixtures > shared/select/case.sql 1`] = `
+"select
+  id,
+  case
+    when price < 10 then 'Budget'
+    when price < 30 then 'Mid'
+    else 'Premium'
+  end as tier
+from books;
+
+select
+  id,
+  case genre_id
+    when 1 then 'Fiction'
+    when 2 then 'Non-Fiction'
+    else 'Other'
+  end as genre
+from books;"
+`;
+
+exports[`fixtures > shared/select/cte.sql 1`] = `
+"with top_authors as (
+  select
+    author_id,
+    count(*) as book_count
+  from books
+  group by author_id
+  having count(*) > 5
+)
+select
+  a.first_name,
+  a.last_name,
+  t.book_count
+from
+  authors as a
+  inner join top_authors as t on a.id = t.author_id
+order by t.book_count desc;"
+`;
+
+exports[`fixtures > shared/select/joins.sql 1`] = `
+"select
+  b.id,
+  b.title,
+  a.first_name,
+  a.last_name
+from
+  books as b
+  inner join authors as a on b.author_id = a.id;
+
+select
+  b.title,
+  a.first_name
+from
+  books as b
+  left join authors as a on b.author_id = a.id
+where a.id is null;
+
+select
+  b.title,
+  a.first_name
+from
+  books as b
+  full join authors as a on b.author_id = a.id;"
+`;
+
+exports[`fixtures > shared/select/subqueries.sql 1`] = `
+"select
+  id,
+  title
+from books
+where author_id in (
+  select id
+  from authors
+  where country = 'USA'
+);
+
+select
+  id,
+  title
+from books
+where exists (
+  select 1
+  from order_items
+  where order_items.book_id = books.id
+);
+
+select
+  id,
+  title
+from books
+where author_id not in (
+  select author_id
+  from banned_authors
+);"
 `;
 
 exports[`fixtures > stored-proc/basic.sql 1`] = `

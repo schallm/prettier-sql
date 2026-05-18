@@ -667,6 +667,10 @@ function printValuesSource(node: SqlNode, opts: Options): Doc {
         return rowNode.trailingComment ? [rowDoc, lineSuffix([' ', rowNode.trailingComment])] : rowDoc;
     });
 
+    if (rows.length === 1) {
+        return [hardline, keyword('VALUES', opts), ' ', rowDocs[0]];
+    }
+
     return [hardline, keyword('VALUES', opts), indent([hardline, join(hardSep(opts), rowDocs)])];
 }
 

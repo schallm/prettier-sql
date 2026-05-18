@@ -223,11 +223,37 @@ In each diff block, `-` lines are the raw input and `+` lines are the formatted 
 
 ### INSERT
 
+Single-values rows sit inline with `values` when they fit within `printWidth`:
+
 ```diff
-- INSERT INTO Books(Title,AuthorId,GenreId,Price,InStock,PublishedDate) VALUES('The Pragmatic Programmer',1,2,39.99,1,'2019-09-23')
+- INSERT INTO Books(Title,Price,InStock) VALUES('The Pragmatic Programmer',39.99,1)
++ insert into Books (Title, Price, InStock)
++ values ('The Pragmatic Programmer', 39.99, 1);
+```
+
+When the values are too long to fit inline, the opening `(` stays with `values` and each value gets its own line:
+
+```diff
+- INSERT INTO Books(Title,AuthorId,GenreId,Price,InStock,PublishedDate) VALUES('The Pragmatic Programmer: From Journeyman to Master',1,2,39.99,1,'2019-09-23')
 + insert into Books (Title, AuthorId, GenreId, Price, InStock, PublishedDate)
++ values (
++   'The Pragmatic Programmer: From Journeyman to Master',
++   1,
++   2,
++   39.99,
++   1,
++   '2019-09-23'
++ );
+```
+
+Multiple rows always break with one row per line:
+
+```diff
+- INSERT INTO Genres(Id,Name) VALUES(1,'Fiction'),(2,'Non-Fiction')
++ insert into Genres (Id, Name)
 + values
-+   ('The Pragmatic Programmer', 1, 2, 39.99, 1, '2019-09-23');
++   (1, 'Fiction'),
++   (2, 'Non-Fiction');
 ```
 
 ### UPDATE with JOIN
