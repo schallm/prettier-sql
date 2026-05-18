@@ -43,19 +43,34 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static string? RawTextOrNull(TSqlFragment? f) => f == null ? null : RawText(f);
 
     private static SqlNode? BuildIdentifier(Identifier? id) =>
-        id == null ? null : Leaf("Identifier", id, id.Value);
+        id == null ? null : Leaf("Identifier", id, QuotedName(id));
+
+    /// <summary>
+    /// Returns the identifier value, wrapping it in square brackets only when the
+    /// name contains characters that are invalid in an unquoted T-SQL identifier
+    /// (spaces, hyphens, leading digits, etc.).  Plain names like "Books" or
+    /// "dbo" are returned as-is; "My Column" becomes "[My Column]".
+    /// </summary>
+    private static string? QuotedName(Identifier? id) {
+        if (id == null) return null;
+        var v = id.Value;
+        if (string.IsNullOrEmpty(v)) return v;
+        bool needsBrackets = !System.Text.RegularExpressions.Regex.IsMatch(
+            v, @"^[A-Za-z_@#][A-Za-z0-9_@#$]*$");
+        return needsBrackets ? $"[{v}]" : v;
+    }
 
     private static SqlNode? BuildSchemaObjectName(SchemaObjectName? name) =>
         name == null ? null : new SqlNode(
             "SchemaObjectName",
             name.StartOffset,
             name.StartOffset + name.FragmentLength,
-            name.BaseIdentifier?.Value,
+            QuotedName(name.BaseIdentifier),
             new Dictionary<string, object?> {
-                ["schema"] = name.SchemaIdentifier?.Value,
-                ["database"] = name.DatabaseIdentifier?.Value,
-                ["server"] = name.ServerIdentifier?.Value,
-                ["name"] = name.BaseIdentifier?.Value,
+                ["schema"] = QuotedName(name.SchemaIdentifier),
+                ["database"] = QuotedName(name.DatabaseIdentifier),
+                ["server"] = QuotedName(name.ServerIdentifier),
+                ["name"] = QuotedName(name.BaseIdentifier),
             });
 
     private static SqlNode? BuildScalarExpression(ScalarExpression? expr) {
@@ -102,7 +117,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         if (col.ColumnType == ColumnType.Wildcard)
             return Leaf("WildcardColumn", col, "*");
 
-        var parts = col.MultiPartIdentifier?.Identifiers.Select(i => i.Value).ToList();
+        var parts = col.MultiPartIdentifier?.Identifiers.Select(i => QuotedName(i)).ToList();
         return new SqlNode(
             "ColumnReference",
             col.StartOffset,
@@ -239,7 +254,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         if (fc is BrowseForClause) return Node("ForBrowseClause", fc, new Dictionary<string, object?>());
         if (fc is ReadOnlyForClause) return Node("ForReadOnlyClause", fc, new Dictionary<string, object?>());
         if (fc is UpdateForClause upd) {
-            var cols = upd.Columns?.Select(c => (object?)(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()?.Value ?? "")).ToList();
+            var cols = upd.Columns?.Select(c => (object?)(QuotedName(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()) ?? "")).ToList();
             return Node("ForUpdateClause", fc, new Dictionary<string, object?> { ["columns"] = cols });
         }
         return Leaf("ForClause", fc, RawText(fc));
@@ -248,26 +263,26 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildPivotedTableRef(PivotedTableReference piv) {
         var inColumns = piv.InColumns?.Select(c => (object?)(c.Value ?? "")).ToList();
         var valueColumns = piv.ValueColumns?.Select(c =>
-            (object?)(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()?.Value ?? "")).ToList();
+            (object?)(QuotedName(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()) ?? "")).ToList();
         return Node("PivotedTableReference", piv, new Dictionary<string, object?> {
             ["tableRef"] = BuildTableReference(piv.TableReference),
-            ["aggregateFn"] = piv.AggregateFunctionIdentifier?.Identifiers?.LastOrDefault()?.Value,
+            ["aggregateFn"] = QuotedName(piv.AggregateFunctionIdentifier?.Identifiers?.LastOrDefault()),
             ["valueColumns"] = valueColumns,
-            ["pivotColumn"] = piv.PivotColumn?.MultiPartIdentifier?.Identifiers?.LastOrDefault()?.Value,
+            ["pivotColumn"] = QuotedName(piv.PivotColumn?.MultiPartIdentifier?.Identifiers?.LastOrDefault()),
             ["inColumns"] = inColumns,
-            ["alias"] = piv.Alias?.Value,
+            ["alias"] = QuotedName(piv.Alias),
         });
     }
 
     private static SqlNode BuildUnpivotedTableRef(UnpivotedTableReference unpiv) {
         var inColumns = unpiv.InColumns?.Select(c =>
-            (object?)(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()?.Value ?? "")).ToList();
+            (object?)(QuotedName(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()) ?? "")).ToList();
         return Node("UnpivotedTableReference", unpiv, new Dictionary<string, object?> {
             ["tableRef"] = BuildTableReference(unpiv.TableReference),
-            ["valueColumn"] = unpiv.ValueColumn?.Value,
-            ["pivotColumn"] = unpiv.PivotColumn?.Value,
+            ["valueColumn"] = QuotedName(unpiv.ValueColumn),
+            ["pivotColumn"] = QuotedName(unpiv.PivotColumn),
             ["inColumns"] = inColumns,
-            ["alias"] = unpiv.Alias?.Value,
+            ["alias"] = QuotedName(unpiv.Alias),
         });
     }
 
@@ -276,8 +291,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             var values = rv.ColumnValues?.Select(v => (object?)BuildScalarExpression(v)).ToList();
             return (object?)Node("ValuesRow", rv, new Dictionary<string, object?> { ["values"] = values });
         }).ToList();
-        var alias = idt.Alias?.Value;
-        var columns = idt.Columns?.Select(c => (object?)(c.Value ?? "")).ToList();
+        var alias = QuotedName(idt.Alias);
+        var columns = idt.Columns?.Select(c => (object?)(QuotedName(c) ?? "")).ToList();
         return Node("InlineDerivedTable", idt, new Dictionary<string, object?> {
             ["rows"] = rows,
             ["alias"] = alias,
@@ -504,7 +519,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         var hints = MapList(named.TableHints, h => (object?)h.HintKind.ToString().ToUpper());
         return Node("NamedTableReference", named, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(named.SchemaObject),
-            ["alias"] = named.Alias?.Value,
+            ["alias"] = QuotedName(named.Alias),
             ["hints"] = hints,
             ["tableSample"] = named.TableSampleClause != null ? BuildTableSample(named.TableSampleClause) : null,
             ["temporal"] = named.TemporalClause != null ? BuildTemporalClause(named.TemporalClause) : null,
@@ -534,7 +549,7 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildQueryDerivedTable(QueryDerivedTable sub) =>
         Node("QueryDerivedTable", sub, new Dictionary<string, object?> {
             ["query"] = BuildQueryExpression(sub.QueryExpression),
-            ["alias"] = sub.Alias?.Value,
+            ["alias"] = QuotedName(sub.Alias),
         });
 
     private static SqlNode BuildSchemaObjectFunctionTableRef(SchemaObjectFunctionTableReference tvf) {
@@ -542,7 +557,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         return Node("SchemaObjectFunctionTableReference", tvf, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(tvf.SchemaObject),
             ["args"] = args,
-            ["alias"] = tvf.Alias?.Value,
+            ["alias"] = QuotedName(tvf.Alias),
         });
     }
 
@@ -596,7 +611,9 @@ public class AstBuilder : TSqlFragmentVisitor {
         SelectStarExpression star => Leaf("SelectStar", star, RawText(star)),
         SelectScalarExpression scalar => Node("SelectScalar", scalar, new Dictionary<string, object?> {
             ["expression"] = BuildScalarExpression(scalar.Expression),
-            ["alias"] = scalar.ColumnName?.Value,
+            ["alias"] = scalar.ColumnName?.Identifier != null
+                ? QuotedName(scalar.ColumnName.Identifier)
+                : scalar.ColumnName?.Value,
         }),
         SelectSetVariable sv => Node("SelectSetVariable", sv, new Dictionary<string, object?> {
             ["variable"] = sv.Variable?.Name,
@@ -937,10 +954,10 @@ public class AstBuilder : TSqlFragmentVisitor {
             "CommonTableExpression",
             cte.StartOffset,
             cte.StartOffset + cte.FragmentLength,
-            cte.ExpressionName?.Value,
+            QuotedName(cte.ExpressionName),
             new Dictionary<string, object?> {
-                ["name"] = cte.ExpressionName?.Value,
-                ["columns"] = cte.Columns?.Select(c => (object?)c.Value).ToList(),
+                ["name"] = QuotedName(cte.ExpressionName),
+                ["columns"] = cte.Columns?.Select(c => (object?)QuotedName(c)).ToList(),
                 ["query"] = BuildQueryExpression(cte.QueryExpression),
             });
 
@@ -1183,9 +1200,9 @@ public class AstBuilder : TSqlFragmentVisitor {
                 "ColumnDefinition",
                 col.StartOffset,
                 col.StartOffset + col.FragmentLength,
-                col.ColumnIdentifier?.Value,
+                QuotedName(col.ColumnIdentifier),
                 new Dictionary<string, object?> {
-                    ["name"] = col.ColumnIdentifier?.Value,
+                    ["name"] = QuotedName(col.ColumnIdentifier),
                     ["computedExpression"] = BuildScalarExpression(col.ComputedColumnExpression),
                     ["isPersisted"] = col.IsPersisted ? (object?)true : null,
                 });
@@ -1198,9 +1215,9 @@ public class AstBuilder : TSqlFragmentVisitor {
             "ColumnDefinition",
             col.StartOffset,
             col.StartOffset + col.FragmentLength,
-            col.ColumnIdentifier?.Value,
+            QuotedName(col.ColumnIdentifier),
             new Dictionary<string, object?> {
-                ["name"] = col.ColumnIdentifier?.Value,
+                ["name"] = QuotedName(col.ColumnIdentifier),
                 ["dataType"] = dataTypeName,
                 ["dataTypeParams"] = dt is ParameterizedDataTypeReference pdt
                     ? pdt.Parameters?.Select(p => (object?)p.Value).ToList()
@@ -2000,7 +2017,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["flags"] = RawTextOrNull(ox.Flags),
             ["withItems"] = MapList(ox.SchemaDeclarationItems, i => (object?)BuildSchemaItem(i)),
             ["tableName"] = ox.TableName != null ? BuildSchemaObjectName(ox.TableName) : null,
-            ["alias"] = ox.Alias?.Value,
+            ["alias"] = QuotedName(ox.Alias),
         });
 
     private static SqlNode BuildOpenJsonTableReference(OpenJsonTableReference oj) =>
@@ -2008,7 +2025,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["variable"] = RawTextOrNull(oj.Variable),
             ["rowPattern"] = RawTextOrNull(oj.RowPattern),
             ["withItems"] = MapList(oj.SchemaDeclarationItems, i => (object?)BuildSchemaItem(i)),
-            ["alias"] = oj.Alias?.Value,
+            ["alias"] = QuotedName(oj.Alias),
         });
 
     // -------------------------------------------------------------------------
@@ -2026,14 +2043,14 @@ public class AstBuilder : TSqlFragmentVisitor {
             // Third argument: either an ad-hoc query string or a remote schema object name
             ["query"] = RawTextOrNull(or.Query),
             ["object"] = or.Object != null ? BuildSchemaObjectName(or.Object) : null,
-            ["alias"] = or.Alias?.Value,
+            ["alias"] = QuotedName(or.Alias),
         });
 
     private static SqlNode BuildBulkOpenRowset(BulkOpenRowset bulk) =>
         Node("BulkOpenRowset", bulk, new Dictionary<string, object?> {
             ["dataFiles"] = MapList(bulk.DataFiles, f => (object?)RawText(f)),
             ["options"] = MapList(bulk.Options, o => (object?)RawText(o)),
-            ["alias"] = bulk.Alias?.Value,
+            ["alias"] = QuotedName(bulk.Alias),
         });
 
     // -------------------------------------------------------------------------
@@ -2518,7 +2535,7 @@ public class AstBuilder : TSqlFragmentVisitor {
     // -------------------------------------------------------------------------
 
     private static SqlNode BuildEnableDisableTrigger(EnableDisableTriggerStatement et) {
-        var names = et.TriggerNames?.Select(n => (object?)(n.BaseIdentifier?.Value ?? RawText(n).Trim())).ToList();
+        var names = et.TriggerNames?.Select(n => (object?)(QuotedName(n.BaseIdentifier) ?? RawText(n).Trim())).ToList();
         var scope = et.TriggerObject?.TriggerScope.ToString() ?? "Normal";
         var targetName = scope == "Normal" ? BuildSchemaObjectName(et.TriggerObject?.Name) : null;
         return Node("EnableDisableTriggerStatement", et, new Dictionary<string, object?> {
@@ -2546,11 +2563,11 @@ public class AstBuilder : TSqlFragmentVisitor {
 
     private static SqlNode BuildCreateStatistics(CreateStatisticsStatement cs) {
         var cols = cs.Columns?.Select(c => (object?)(
-            c.MultiPartIdentifier?.Identifiers?.LastOrDefault()?.Value ?? RawText(c).Trim()
+            QuotedName(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()) ?? RawText(c).Trim()
         )).ToList();
         var opts = cs.StatisticsOptions?.Select(o => (object?)StatisticsOptionText(o)).ToList();
         return Node("CreateStatisticsStatement", cs, new Dictionary<string, object?> {
-            ["name"] = cs.Name?.Value,
+            ["name"] = QuotedName(cs.Name),
             ["onName"] = BuildSchemaObjectName(cs.OnName),
             ["columns"] = cols,
             ["filterPredicate"] = cs.FilterPredicate != null ? RawText(cs.FilterPredicate).Trim() : null,
@@ -2582,11 +2599,11 @@ public class AstBuilder : TSqlFragmentVisitor {
 
     private static SqlNode BuildCreateColumnStoreIndex(CreateColumnStoreIndexStatement csi) {
         var cols = csi.Columns?.Select(c => (object?)(
-            c.MultiPartIdentifier?.Identifiers?.LastOrDefault()?.Value ?? RawText(c).Trim()
+            QuotedName(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()) ?? RawText(c).Trim()
         )).ToList();
         var opts = csi.IndexOptions?.Select(o => (object?)RawText(o).Trim()).ToList();
         return Node("CreateColumnStoreIndexStatement", csi, new Dictionary<string, object?> {
-            ["name"] = csi.Name?.Value,
+            ["name"] = QuotedName(csi.Name),
             ["clustered"] = csi.Clustered,
             ["onName"] = BuildSchemaObjectName(csi.OnName),
             ["columns"] = cols,

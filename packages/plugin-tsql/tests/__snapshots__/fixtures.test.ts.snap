@@ -1167,9 +1167,9 @@ pivot (
 
 select
   CustomerId,
-  2022,
-  2023,
-  2024
+  [2022],
+  [2023],
+  [2024]
 from (
   select
     CustomerId,
@@ -1187,6 +1187,33 @@ from PivotedSales
 unpivot (
   Amount for Quarter in (Q1, Q2, Q3, Q4)
 ) as UnpivotTable;"
+`;
+
+exports[`fixtures > select/quoted-identifiers.sql 1`] = `
+"-- Brackets stripped when not needed
+select
+  Books.Id,
+  Books.Title
+from Books
+where Books.InStock = 1;
+
+-- Brackets preserved when name contains spaces
+select
+  [My Table].[Book Id],
+  [My Table].[Book Title]
+from [My Table];
+
+-- Brackets preserved when name starts with digit
+select [123abc]
+from [My Schema].[My Table];
+
+-- Mixed: some need brackets, some don't
+select
+  Books.Id,
+  [My Table].[Book Title]
+from
+  Books
+  inner join [My Table] on Books.Id = [My Table].[Book Id];"
 `;
 
 exports[`fixtures > select/subquery.sql 1`] = `
