@@ -177,6 +177,29 @@ where Id not in (
 );
 ```
 
+##### ANY / ALL subquery predicates
+
+`ANY` and `ALL` compare a scalar expression against every row returned by a subquery. The subquery is indented inside parentheses, exactly like a subquery in `IN`:
+
+```sql
+select Id
+from Books
+where Price > all (
+    select Price
+    from ArchivedBooks
+);
+```
+
+```sql
+select Id
+from Books
+where Price > any (
+    select Price
+    from ArchivedBooks
+    where InStock = 1
+);
+```
+
 #### GROUP BY / HAVING
 
 ```sql
@@ -316,6 +339,25 @@ select
     coalesce(Price, 0.00) as Price,
     nullif(GenreId, 0) as GenreId
 from Books;
+```
+
+##### TRIM with FROM
+
+`TRIM(chars FROM str)` — trimming a specific character set — preserves the `FROM` keyword inline:
+
+```sql
+select trim(nchar(12288) from @str);
+```
+
+Inside a function body the result formats like any scalar expression:
+
+```sql
+create function dbo.TrimCharsFrom(@str nvarchar(max)) returns nvarchar(max)
+as
+begin
+  return trim(nchar(12288) from @str);
+end;
+go
 ```
 
 ##### AT TIME ZONE
@@ -537,6 +579,32 @@ from (
     group by GenreId
 ) as t
 where AvgPrice > 25;
+```
+
+#### Inline VALUES derived table
+
+A `VALUES(...)` constructor used as a derived table in `FROM` is formatted inline when it fits within `printWidth`, or broken across lines when it exceeds it. The alias and column list follow with no space between the alias name and the column list:
+
+```sql
+-- fits on one line: stays inline
+select
+  v.Id,
+  v.Name
+from (values (1, 'Alice'), (2, 'Bob')) as v(Id, Name);
+```
+
+```sql
+-- exceeds printWidth: rows break onto their own indented lines
+select
+  v.ProductId,
+  v.Name,
+  v.Price
+from (values
+  (101, 'Widget Pro', 29.99),
+  (102, 'Gadget Plus', 49.99),
+  (103, 'Doohickey', 9.99)
+) as v(ProductId, Name, Price)
+where v.Price < 40;
 ```
 
 #### Subqueries
@@ -1765,6 +1833,40 @@ truncate table Books;
 
 ---
 
+### EXECUTE
+
+`EXECUTE` (or `EXEC`) calls a stored procedure, runs a string of dynamic SQL, or calls a procedure through a variable name.
+
+Named procedure call — arguments with `@param = value` syntax stay on one line when they fit within `printWidth`; each argument wraps to its own indented line when they don't:
+
+```sql
+execute dbo.GetBooks
+    @Genre = 3;
+
+execute dbo.UpdateBookPrice
+    @BookId = 42,
+    @NewPrice = 19.99;
+```
+
+Positional arguments follow the same rule:
+
+```sql
+execute dbo.GetBooks
+    3;
+
+execute @procName
+    @param1,
+    @param2;
+```
+
+Dynamic SQL — the expression inside `(...)` is kept as-is within the parentheses:
+
+```sql
+execute (@sql);
+
+execute (@sql1 + @sql2);
+```
+
 ### Control flow: BREAK / CONTINUE / GOTO / label
 
 ```sql
@@ -2321,6 +2423,13 @@ set auto_close off with no_wait;
 Option names and values are SQL keywords and respect `sqlKeywordCase`. The option value,
 including nested clauses like `QUERY_STORE = ON (...)`, is fully cased. `DATABASE CURRENT`
 is used when there is no explicit database name.
+
+SQL Server 2025 options such as `AUTOMATIC_INDEX_COMPACTION` follow the same layout:
+
+```sql
+alter database SalesDB
+set automatic_index_compaction = on;
+```
 
 #### COLLATE / MODIFY NAME
 

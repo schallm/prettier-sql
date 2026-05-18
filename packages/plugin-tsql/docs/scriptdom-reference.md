@@ -9,11 +9,12 @@ discovered while building `AstBuilder.cs`.
 ## Parser
 
 ```csharp
-var parser = new TSql170Parser(initialQuotedIdentifiers: false);
+var parser = new TSql180Parser(initialQuotedIdentifiers: false);
 var fragment = parser.Parse(new StringReader(sql), out var errors);
 ```
 
-- Use `TSql170Parser` (SQL Server 2022+) for the widest syntax support.
+- Use `TSql180Parser` (SQL Server 2025) for the widest syntax support. The previous
+  `TSql170Parser` (SQL Server 2022) is a drop-in replacement when 2025 syntax is not required.
 - `initialQuotedIdentifiers: false` matches SQL Server's default `QUOTED_IDENTIFIER OFF` boot
   state; setting it `true` would reject some valid identifiers.
 - Parse errors come back as `IList<ParseError>` — each has `.Message`, `.Line`, `.Column`,

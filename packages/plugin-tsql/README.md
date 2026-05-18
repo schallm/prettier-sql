@@ -2,7 +2,7 @@
 
 > **Beta** — covers the vast majority of T-SQL; a small number of less-common statements fall back to original source text (see [Pending implementation](#pending-implementation)). Breaking changes possible before 1.0.
 
-A [Prettier](https://prettier.io) plugin that formats T-SQL (SQL Server) using Microsoft's official `Microsoft.SqlServer.TransactSql.ScriptDom` parser — the same parser SQL Server itself uses.
+A [Prettier](https://prettier.io) plugin that formats T-SQL (SQL Server) using Microsoft's official `Microsoft.SqlServer.TransactSql.ScriptDom` parser — the same parser SQL Server itself uses. Supports SQL Server syntax up to and including **SQL Server 2025** (via `TSql180Parser`).
 
 **Requires [.NET 8+ Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)** to be installed on your machine (the SDK is not needed).
 
@@ -17,7 +17,8 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - `OUTPUT` / `OUTPUT INTO` on `INSERT`, `UPDATE`, `DELETE`, and `MERGE` (including `$action`, `inserted.*`, `deleted.*`)
 - [CTEs](docs/examples.md#cte-with-window-function), `UNION`/`UNION ALL`, subqueries, derived tables
 - [`EXISTS` / `NOT EXISTS`](docs/examples.md#exists), [`GROUP BY` / `HAVING`](docs/examples.md#group-by-and-having)
-- [`CASE` expressions](docs/examples.md#case-expression) (simple and searched), [`IN`/`NOT IN`](docs/examples.md#in--not-in) (value lists and subqueries)
+- [`CASE` expressions](docs/examples.md#case-expression) (simple and searched), [`IN`/`NOT IN`](docs/examples.md#in--not-in) (value lists and subqueries), [`ANY`/`ALL` subquery predicates](docs/examples.md#any--all)
+- [Inline `VALUES(...)` derived tables](docs/examples.md#inline-values-derived-table) in `FROM`
 - `TOP (n)`, `TOP (n) PERCENT`, `TOP (n) WITH TIES`
 - `PIVOT` / `UNPIVOT`
 - `FOR XML` (`AUTO`, `PATH`, `RAW`, `EXPLICIT`, `XMLSCHEMA`, `ELEMENTS`, `ROOT`, `TYPE`, etc.) and `FOR JSON` (`AUTO`, `PATH`, `ROOT`, `INCLUDE_NULL_VALUES`, `WITHOUT_ARRAY_WRAPPER`)
@@ -27,7 +28,7 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - Table-valued functions (TVFs) in `FROM` clauses; table hints (`WITH (NOLOCK)`, etc.)
 - [Window functions](docs/examples.md#window-functions-with-over) with `OVER` clause — `PARTITION BY`, `ORDER BY`, full frame support (`ROWS`/`RANGE BETWEEN … AND …`, `UNBOUNDED PRECEDING/FOLLOWING`, `CURRENT ROW`); `IGNORE NULLS`/`RESPECT NULLS`; named window references; named `WINDOW` clause
 - Ordered set aggregates: `WITHIN GROUP (ORDER BY …)` for `STRING_AGG`, `PERCENTILE_CONT`/`PERCENTILE_DISC`, etc.
-- Expression functions: `CAST`, `CONVERT`, `TRY_CAST`, `TRY_CONVERT` (with full data type including length/precision), `IIF`, `COALESCE`, `NULLIF`, `AT TIME ZONE`, `IS [NOT] DISTINCT FROM`, `TRIM(LEADING|TRAILING|BOTH …)`, `PARSE`, `TRY_PARSE`
+- Expression functions: `CAST`, `CONVERT`, `TRY_CAST`, `TRY_CONVERT` (with full data type including length/precision), `IIF`, `COALESCE`, `NULLIF`, `AT TIME ZONE`, `IS [NOT] DISTINCT FROM`, `TRIM(LEADING|TRAILING|BOTH …)`, `TRIM(chars FROM str)`, `PARSE`, `TRY_PARSE`
 - Sequence expressions: `NEXT VALUE FOR sequence [OVER (…)]`
 - JSON functions: `JSON_OBJECT(key: value, …)`, `JSON_ARRAY(…)`, `JSON_ARRAYAGG(… ORDER BY …)` with `ABSENT|NULL ON NULL`
 - Full-text predicates: `CONTAINS`/`FREETEXT` (single column, multi-column, wildcard, `LANGUAGE`); `CONTAINSTABLE`/`FREETEXTTABLE` as join sources
@@ -49,7 +50,7 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - `DROP TABLE/PROCEDURE/VIEW/FUNCTION/INDEX/TRIGGER/SEQUENCE/SYNONYM/SCHEMA` (with `IF EXISTS`)
 - `DROP DATABASE` (with `IF EXISTS`, multiple databases)
 - `CREATE DATABASE` (with optional `COLLATE`, file group specs, snapshot)
-- `ALTER DATABASE` — `SET` (any option with proper keyword reconstruction), `COLLATE`, `MODIFY NAME`, `ADD/REMOVE FILE`, `ADD/REMOVE FILEGROUP`, `MODIFY FILE`, `MODIFY FILEGROUP`, `REBUILD LOG`, `SCOPED CONFIGURATION SET/CLEAR`
+- `ALTER DATABASE` — `SET` (any option with proper keyword reconstruction, including SQL Server 2025 options such as `AUTOMATIC_INDEX_COMPACTION`), `COLLATE`, `MODIFY NAME`, `ADD/REMOVE FILE`, `ADD/REMOVE FILEGROUP`, `MODIFY FILE`, `MODIFY FILEGROUP`, `REBUILD LOG`, `SCOPED CONFIGURATION SET/CLEAR`
 
 **Database Administration**
 
@@ -60,7 +61,7 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 **Procedural / Control Flow**
 
 - `USE`, `SET NOCOUNT/ANSI_NULLS/QUOTED_IDENTIFIER/XACT_ABORT/…` ON/OFF, `SET IDENTITY_INSERT`, `SET TRANSACTION ISOLATION LEVEL`, `SET STATISTICS`, `WAITFOR DELAY/TIME`
-- [`DECLARE`, `SET @var`](docs/examples.md#declare-and-variables), `SET ROWCOUNT`, `PRINT`, `RETURN`, `EXECUTE`, `TRUNCATE TABLE`
+- [`DECLARE`, `SET @var`](docs/examples.md#declare-and-variables), `SET ROWCOUNT`, `PRINT`, `RETURN`, [`EXECUTE`](docs/examples.md#execute) (named proc, dynamic SQL, variable proc name), `TRUNCATE TABLE`
 - [`IF`/`ELSE`](docs/examples.md#if--else), `WHILE`, `BREAK`, `CONTINUE`, `GOTO`/label, `THROW`, `RAISERROR`, `TRY/CATCH`
 - `BEGIN`/`COMMIT`/`ROLLBACK TRANSACTION`
 - `DECLARE CURSOR` / `OPEN` / `FETCH NEXT/PRIOR/FIRST/LAST/ABSOLUTE/RELATIVE` / `CLOSE` / `DEALLOCATE`

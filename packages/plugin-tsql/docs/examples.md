@@ -130,6 +130,29 @@ In each diff block, `-` lines are the raw input and `+` lines are the formatted 
 + );
 ```
 
+### ANY / ALL
+
+```diff
+- SELECT Id FROM Books WHERE Price > ALL(SELECT Price FROM ArchivedBooks WHERE InStock=0)
++ select Id
++ from Books
++ where Price > all (
++   select Price
++   from ArchivedBooks
++   where InStock = 0
++ );
+```
+
+### Inline VALUES derived table
+
+```diff
+- SELECT v.Id, v.Name FROM (VALUES (1,'Alice'),(2,'Bob')) AS v(Id,Name)
++ select
++   v.Id,
++   v.Name
++ from (values (1, 'Alice'), (2, 'Bob')) as v(Id, Name);
+```
+
 ### EXISTS
 
 ```diff
@@ -360,6 +383,23 @@ the declaration block from the statements that follow:
 +   Price
 + from Books
 + where Price between @MinPrice and @MaxPrice;
+```
+
+### EXECUTE
+
+Named proc call with `@param = value` arguments:
+
+```diff
+- EXECUTE dbo.GetBooks @Genre=3
++ execute dbo.GetBooks
++   @Genre = 3;
+```
+
+Dynamic SQL — concatenation expression is preserved inside the parentheses:
+
+```diff
+- EXECUTE(@sql1+@sql2)
++ execute (@sql1 + @sql2);
 ```
 
 ### IF / ELSE
