@@ -1,7 +1,18 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '../parser/types.js';
 import type { Options } from './utils.js';
-import { keyword, hardline, join, indent, hardSep, commentsBlock } from './utils.js';
+import {
+    keyword,
+    hardline,
+    join,
+    indent,
+    group,
+    softline,
+    softSep,
+    hardSep,
+    getDensity,
+    commentsBlock,
+} from './utils.js';
 import { prop, propArr, propStr, propBool, rangeVarName } from './helpers.js';
 import { printExpression } from './expressions.js';
 
@@ -14,7 +25,6 @@ type PrintFn = (node: SqlNode) => Doc;
 export function printScript(node: SqlNode, opts: Options): Doc {
     const statements = propArr(node, 'statements');
     if (statements.length === 0) return '';
-
     const docs = statements.map((s) => printStatementWithComments(s, opts));
     return [...join([hardline, hardline], docs), hardline];
 }
@@ -32,98 +42,118 @@ function printStatementWithComments(node: SqlNode, opts: Options): Doc {
 
 export function printStatement(node: SqlNode, opts: Options): Doc {
     switch (node.type) {
-        case 'SelectStatement': return printSelect(node, opts);
-        case 'InsertStatement': return printInsert(node, opts);
-        case 'UpdateStatement': return printUpdate(node, opts);
-        case 'DeleteStatement': return printDelete(node, opts);
-        case 'CreateTableStatement': return printCreateTable(node, opts);
-        case 'AlterTableStatement': return printAlterTable(node, opts);
-        case 'CreateViewStatement': return printCreateView(node, opts);
+        case 'SelectStatement':        return printSelect(node, opts);
+        case 'InsertStatement':        return printInsert(node, opts);
+        case 'UpdateStatement':        return printUpdate(node, opts);
+        case 'DeleteStatement':        return printDelete(node, opts);
+        case 'SetOpStatement':         return printSetOp(node, opts);
+        case 'ValuesStatement':        return printValues(node, opts);
+        case 'CreateTableStatement':   return printCreateTable(node, opts);
+        case 'AlterTableStatement':    return printAlterTable(node, opts);
+        case 'CreateViewStatement':    return printCreateView(node, opts);
         case 'CreateFunctionStatement': return printCreateFunction(node, opts);
-        case 'CreateIndexStatement': return printCreateIndex(node, opts);
-        case 'DropStatement': return printDrop(node, opts);
+        case 'CreateIndexStatement':   return printCreateIndex(node, opts);
+        case 'DropStatement':          return printDrop(node, opts);
         default: return node.text ?? node.type;
     }
+}
+
+/**
+ * Print a SELECT or SET-op as a query expression (no trailing semicolon).
+ * Used when a query appears as a sub-expression: subquery, CTE body, INSERT source.
+ */
+export function printQueryExpr(node: SqlNode, opts: Options): Doc {
+    if (node.type === 'SetOpStatement') return printSetOpBody(node, opts);
+    return printSelectBody(node, opts);
+}
+
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+function pn(opts: Options): PrintFn {
+    return function printNode(n: SqlNode): Doc {
+        return n.type.endsWith('Statement')
+            ? printQueryExpr(n, opts)
+            : printExpression(n, opts, printNode);
+    };
+}
+
+/**
+ * Density-aware boolean clause (WHERE / HAVING / ON CONFLICT WHERE).
+ * Single predicate: inline in compact/standard; indented in spacious.
+ * Multi-predicate (BoolExpr AND/OR): always indented.
+ */
+function printBoolClause(kw: string, where: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const mk = (k: string) => keyword(k, opts);
+    const density = getDensity(opts);
+    const isMulti = where.type === 'BoolExpr';
+    const inline = density !== 'spacious' && !isMulti;
+    const body = printNode(where);
+    return [mk(kw), inline ? [' ', body] : indent([hardline, body])];
 }
 
 // ---------------------------------------------------------------------------
 // SELECT
 // ---------------------------------------------------------------------------
 
-function printSelect(node: SqlNode, opts: Options): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
-    function printNode(n: SqlNode): Doc { return n.type.endsWith('Statement') ? printStatement(n, opts) : printExpression(n, opts, printNode); }
+function printSelectBody(node: SqlNode, opts: Options): Doc {
+    const mk = (k: string) => keyword(k, opts);
+    const printNode = pn(opts);
 
-    const ctes = prop(node, 'ctes');
-    const distinct = propBool(node, 'distinct');
-    const targetList = propArr(node, 'targetList');
-    const from = propArr(node, 'from');
-    const where = prop(node, 'where');
-    const groupBy = propArr(node, 'groupBy');
-    const having = prop(node, 'having');
-    const orderBy = propArr(node, 'orderBy');
-    const limit = prop(node, 'limit');
-    const offset = prop(node, 'offset');
+    const ctes      = prop(node, 'ctes');
+    const distinct  = propBool(node, 'distinct');
+    const targets   = propArr(node, 'targetList');
+    const from      = propArr(node, 'from');
+    const where     = prop(node, 'where');
+    const groupBy   = propArr(node, 'groupBy');
+    const having    = prop(node, 'having');
+    const orderBy   = propArr(node, 'orderBy');
+    const limit     = prop(node, 'limit');
+    const offset    = prop(node, 'offset');
 
     const parts: Doc[] = [];
 
     if (ctes) {
-        const cteList = propArr(ctes, 'ctes');
+        const cteList   = propArr(ctes, 'ctes');
         const recursive = propBool(ctes, 'recursive');
-        const cteKw = recursive ? mk('WITH RECURSIVE') : mk('WITH');
+        const cteKw     = recursive ? mk('WITH RECURSIVE') : mk('WITH');
         const cteDocs = cteList.map((cte) => {
-            const cteName = propStr(cte, 'name') ?? '';
-            const cteQuery = prop(cte, 'query');
-            return [cteName, ' ', mk('AS'), ' (', indent([hardline, cteQuery ? printNode(cteQuery) : '']), hardline, ')'];
+            const name  = propStr(cte, 'name') ?? '';
+            const query = prop(cte, 'query');
+            return [name, ' ', mk('AS'), ' (', indent([hardline, query ? printNode(query) : '']), hardline, ')'];
         });
         parts.push([cteKw, indent([hardline, join([',', hardline], cteDocs)])]);
     }
 
     const selectKw = distinct ? [mk('SELECT'), ' ', mk('DISTINCT')] : mk('SELECT');
-    if (targetList.length === 1) {
-        parts.push([selectKw, ' ', printNode(targetList[0]!)]);
-    } else {
-        parts.push([selectKw, indent([hardline, join(hardSep(opts), targetList.map(printNode))])]);
-    }
+    parts.push([selectKw, indent([hardline, join(hardSep(opts), targets.map(printNode))])]);
 
     if (from.length > 0) {
-        const fromDocs = from.map(printNode);
-        if (fromDocs.length === 1) {
-            parts.push([mk('FROM'), ' ', fromDocs[0]!]);
-        } else {
-            parts.push([mk('FROM'), indent([hardline, join([',', hardline], fromDocs)])]);
-        }
+        // Always indent from items so JOINs align properly under FROM
+        parts.push([mk('FROM'), indent([hardline, join([',', hardline], from.map(printNode))])]);
     }
 
-    if (where) {
-        parts.push(printWhereClause(where, opts, printNode));
-    }
+    if (where) parts.push(printBoolClause('WHERE', where, opts, printNode));
 
     if (groupBy.length > 0) {
-        parts.push([mk('GROUP BY'), ' ', join([', '], groupBy.map(printNode))]);
+        parts.push([mk('GROUP BY'), indent([hardline, join(hardSep(opts), groupBy.map(printNode))])]);
     }
 
-    if (having) {
-        parts.push([mk('HAVING'), ' ', printNode(having)]);
-    }
+    if (having) parts.push(printBoolClause('HAVING', having, opts, printNode));
 
     if (orderBy.length > 0) {
-        if (orderBy.length === 1) {
-            parts.push([mk('ORDER BY'), ' ', printNode(orderBy[0]!)]);
-        } else {
-            parts.push([mk('ORDER BY'), indent([hardline, join(hardSep(opts), orderBy.map(printNode))])]);
-        }
+        parts.push([mk('ORDER BY'), indent([hardline, join(hardSep(opts), orderBy.map(printNode))])]);
     }
 
-    if (limit) {
-        parts.push([mk('LIMIT'), ' ', printNode(limit)]);
-    }
+    if (limit)  parts.push([mk('LIMIT'), ' ', printNode(limit)]);
+    if (offset) parts.push([mk('OFFSET'), ' ', printNode(offset)]);
 
-    if (offset) {
-        parts.push([mk('OFFSET'), ' ', printNode(offset)]);
-    }
+    return group(join(hardline, parts));
+}
 
-    return [join(hardline, parts), ';'];
+function printSelect(node: SqlNode, opts: Options): Doc {
+    return [printSelectBody(node, opts), ';'];
 }
 
 // ---------------------------------------------------------------------------
@@ -131,27 +161,37 @@ function printSelect(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 function printInsert(node: SqlNode, opts: Options): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
-    function printNode(n: SqlNode): Doc { return n.type.endsWith('Statement') ? printStatement(n, opts) : printExpression(n, opts, printNode); }
+    const mk = (k: string) => keyword(k, opts);
+    const printNode = pn(opts);
 
-    const target = prop(node, 'target');
-    const columns = propArr(node, 'columns');
-    const source = prop(node, 'source');
+    const target      = prop(node, 'target');
+    const columns     = propArr(node, 'columns');
+    const source      = prop(node, 'source');
+    const onConflict  = prop(node, 'onConflict');
+    const returning   = propArr(node, 'returning');
 
-    const targetName = rangeVarName(target);
-    const colList = columns.length > 0
-        ? [' (', join(', ', columns.map((c) => propStr(c, 'name') ?? '')), ')']
+    const colsPart: Doc = columns.length > 0
+        ? group([' (', indent([softline, join(softSep(opts), columns.map((c) => propStr(c, 'name') ?? ''))]), softline, ')'])
         : '';
 
+    // VALUES gets its own formatting function; a SELECT source goes on a new line
+    const sourcePart: Doc = source?.type === 'ValuesStatement'
+        ? printValuesRows(source, opts, printNode)
+        : source
+          ? [hardline, printQueryExpr(source, opts)]
+          : '';
+
     const parts: Doc[] = [
-        [mk('INSERT INTO'), ' ', targetName, colList],
+        [mk('INSERT INTO'), ' ', rangeVarName(target), colsPart, sourcePart],
     ];
 
-    if (source) {
-        parts.push(printNode(source));
+    if (onConflict) parts.push(printOnConflict(onConflict, opts, printNode));
+
+    if (returning.length > 0) {
+        parts.push([mk('RETURNING'), indent([hardline, join(hardSep(opts), returning.map(printNode))])]);
     }
 
-    return [join(hardline, parts), ';'];
+    return group([join(hardline, parts), ';']);
 }
 
 // ---------------------------------------------------------------------------
@@ -159,32 +199,43 @@ function printInsert(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 function printUpdate(node: SqlNode, opts: Options): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
-    function printNode(n: SqlNode): Doc { return n.type.endsWith('Statement') ? printStatement(n, opts) : printExpression(n, opts, printNode); }
+    const mk = (k: string) => keyword(k, opts);
+    const printNode = pn(opts);
 
-    const target = prop(node, 'target');
-    const sets = propArr(node, 'sets');
-    const from = propArr(node, 'from');
-    const where = prop(node, 'where');
+    const target    = prop(node, 'target');
+    const sets      = propArr(node, 'sets');
+    const from      = propArr(node, 'from');
+    const where     = prop(node, 'where');
+    const returning = propArr(node, 'returning');
+
+    const density   = getDensity(opts);
+    const setDocs   = sets.map((s) => {
+        const name = propStr(s, 'name') ?? '';
+        const val  = prop(s, 'val');
+        return [name, ' = ', val ? printNode(val) : ''] as Doc;
+    });
 
     const parts: Doc[] = [
         [mk('UPDATE'), ' ', rangeVarName(target)],
-        [mk('SET'), indent([hardline, join(hardSep(opts), sets.map((s) => {
-            const name = propStr(s, 'name') ?? '';
-            const val = prop(s, 'val');
-            return [name, ' = ', val ? printNode(val) : ''];
-        }))])],
+        [
+            mk('SET'),
+            density !== 'spacious' && setDocs.length === 1
+                ? [' ', setDocs[0]!]
+                : indent([hardline, join(hardSep(opts), setDocs)]),
+        ],
     ];
 
     if (from.length > 0) {
-        parts.push([mk('FROM'), ' ', join([', '], from.map(printNode))]);
+        parts.push([mk('FROM'), indent([hardline, join([',', hardline], from.map(printNode))])]);
     }
 
-    if (where) {
-        parts.push(printWhereClause(where, opts, printNode));
+    if (where) parts.push(printBoolClause('WHERE', where, opts, printNode));
+
+    if (returning.length > 0) {
+        parts.push([mk('RETURNING'), indent([hardline, join(hardSep(opts), returning.map(printNode))])]);
     }
 
-    return [join(hardline, parts), ';'];
+    return group([join(hardline, parts), ';']);
 }
 
 // ---------------------------------------------------------------------------
@@ -192,26 +243,127 @@ function printUpdate(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 function printDelete(node: SqlNode, opts: Options): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
-    function printNode(n: SqlNode): Doc { return n.type.endsWith('Statement') ? printStatement(n, opts) : printExpression(n, opts, printNode); }
+    const mk = (k: string) => keyword(k, opts);
+    const printNode = pn(opts);
 
-    const target = prop(node, 'target');
-    const using = propArr(node, 'using');
-    const where = prop(node, 'where');
+    const target    = prop(node, 'target');
+    const using     = propArr(node, 'using');
+    const where     = prop(node, 'where');
+    const returning = propArr(node, 'returning');
 
     const parts: Doc[] = [
         [mk('DELETE FROM'), ' ', rangeVarName(target)],
     ];
 
     if (using.length > 0) {
-        parts.push([mk('USING'), ' ', join([', '], using.map(printNode))]);
+        parts.push([mk('USING'), indent([hardline, join([',', hardline], using.map(printNode))])]);
     }
 
-    if (where) {
-        parts.push(printWhereClause(where, opts, printNode));
+    if (where) parts.push(printBoolClause('WHERE', where, opts, printNode));
+
+    if (returning.length > 0) {
+        parts.push([mk('RETURNING'), indent([hardline, join(hardSep(opts), returning.map(printNode))])]);
     }
 
-    return [join(hardline, parts), ';'];
+    return group([join(hardline, parts), ';']);
+}
+
+// ---------------------------------------------------------------------------
+// SET operations (UNION / INTERSECT / EXCEPT)
+// ---------------------------------------------------------------------------
+
+function printSetOpBody(node: SqlNode, opts: Options): Doc {
+    const mk    = (k: string) => keyword(k, opts);
+    const op    = propStr(node, 'op') ?? 'UNION';
+    const all   = propBool(node, 'all');
+    const lhs   = prop(node, 'lhs');
+    const rhs   = prop(node, 'rhs');
+    const opKw  = all ? mk(`${op} ALL`) : mk(op);
+
+    return [
+        lhs ? printQueryExpr(lhs, opts) : '',
+        hardline, opKw, hardline,
+        rhs ? printQueryExpr(rhs, opts) : '',
+    ];
+}
+
+function printSetOp(node: SqlNode, opts: Options): Doc {
+    return [printSetOpBody(node, opts), ';'];
+}
+
+// ---------------------------------------------------------------------------
+// VALUES
+// ---------------------------------------------------------------------------
+
+/**
+ * Render VALUES rows without a trailing semicolon — used as INSERT source.
+ * Uses softSep within each row and hardSep between rows, matching tsql style.
+ */
+function printValuesRows(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const mk      = (k: string) => keyword(k, opts);
+    const rows    = propArr(node, 'rows');
+    const rowDocs = rows.map((row) => {
+        const items = propArr(row, 'items').map(printNode);
+        return group(['(', indent([softline, join(softSep(opts), items)]), softline, ')']);
+    });
+
+    if (rowDocs.length === 1) {
+        return [hardline, mk('VALUES'), ' ', rowDocs[0]!];
+    }
+    return [hardline, mk('VALUES'), indent([hardline, join(hardSep(opts), rowDocs)])];
+}
+
+function printValues(node: SqlNode, opts: Options): Doc {
+    return [printValuesRows(node, opts, pn(opts)), ';'];
+}
+
+// ---------------------------------------------------------------------------
+// ON CONFLICT
+// ---------------------------------------------------------------------------
+
+function printOnConflict(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const mk         = (k: string) => keyword(k, opts);
+    const action     = propStr(node, 'action') ?? 'NOTHING';
+    const target     = prop(node, 'target');
+    const sets       = propArr(node, 'sets');
+    const where      = prop(node, 'where');
+
+    let targetDoc: Doc = '';
+    if (target) {
+        const cols       = propArr(target, 'columns');
+        const constraint = propStr(target, 'constraint');
+        if (constraint) {
+            targetDoc = [' ', mk('ON CONSTRAINT'), ' ', constraint];
+        } else if (cols.length > 0) {
+            targetDoc = group([' (', indent([softline, join(softSep(opts), cols.map((c) => propStr(c, 'name') ?? ''))]), softline, ')']);
+        }
+    }
+
+    if (action === 'NOTHING') {
+        return [mk('ON CONFLICT'), targetDoc, ' ', mk('DO NOTHING')];
+    }
+
+    // DO UPDATE SET
+    const setDocs = sets.map((s) => {
+        const name = propStr(s, 'name') ?? '';
+        const val  = prop(s, 'val');
+        return [name, ' = ', val ? printNode(val) : ''] as Doc;
+    });
+
+    const density = getDensity(opts);
+    const parts: Doc[] = [
+        [mk('ON CONFLICT'), targetDoc, ' ', mk('DO UPDATE')],
+        [
+            mk('SET'),
+            density !== 'spacious' && setDocs.length === 1
+                ? [' ', setDocs[0]!]
+                : indent([hardline, join(hardSep(opts), setDocs)]),
+        ],
+    ];
+
+    if (where) parts.push(printBoolClause('WHERE', where, opts, printNode));
+
+    return join(hardline, parts);
 }
 
 // ---------------------------------------------------------------------------
@@ -219,25 +371,22 @@ function printDelete(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 function printCreateTable(node: SqlNode, opts: Options): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
-    function printNode(n: SqlNode): Doc { return n.type.endsWith('Statement') ? printStatement(n, opts) : printExpression(n, opts, printNode); }
+    const mk       = (k: string) => keyword(k, opts);
+    const printNode = pn(opts);
+    const name     = prop(node, 'name');
+    const columns  = propArr(node, 'columns');
 
-    const name = prop(node, 'name');
-    const columns = propArr(node, 'columns');
-
-    const colDocs = columns.map(printNode);
     return [
         mk('CREATE TABLE'), ' ', rangeVarName(name), ' (',
-        indent([hardline, join([',', hardline], colDocs)]),
+        indent([hardline, join([',', hardline], columns.map(printNode))]),
         hardline, ');',
     ];
 }
 
 function printAlterTable(node: SqlNode, opts: Options): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
-    function printNode(n: SqlNode): Doc { return n.type.endsWith('Statement') ? printStatement(n, opts) : printExpression(n, opts, printNode); }
-
-    const name = prop(node, 'name');
+    const mk       = (k: string) => keyword(k, opts);
+    const printNode = pn(opts);
+    const name     = prop(node, 'name');
     const commands = propArr(node, 'commands');
 
     return [
@@ -248,24 +397,22 @@ function printAlterTable(node: SqlNode, opts: Options): Doc {
 }
 
 function printCreateView(node: SqlNode, opts: Options): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
-    function printNode(n: SqlNode): Doc { return n.type.endsWith('Statement') ? printStatement(n, opts) : printExpression(n, opts, printNode); }
-
-    const name = prop(node, 'name');
-    const body = prop(node, 'body');
+    const mk    = (k: string) => keyword(k, opts);
+    const name  = prop(node, 'name');
+    const body  = prop(node, 'body');
 
     return [
         mk('CREATE VIEW'), ' ', rangeVarName(name), hardline,
         mk('AS'), hardline,
-        body ? printNode(body) : '',
+        body ? printQueryExpr(body, opts) : '',
+        ';',
     ];
 }
 
 function printCreateFunction(node: SqlNode, opts: Options): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
-    function printNode(n: SqlNode): Doc { return n.type.endsWith('Statement') ? printStatement(n, opts) : printExpression(n, opts, printNode); }
-
-    const name = propStr(node, 'name') ?? '';
+    const mk         = (k: string) => keyword(k, opts);
+    const printNode  = pn(opts);
+    const name       = propStr(node, 'name') ?? '';
     const parameters = propArr(node, 'parameters');
 
     return [
@@ -276,13 +423,12 @@ function printCreateFunction(node: SqlNode, opts: Options): Doc {
 }
 
 function printCreateIndex(node: SqlNode, opts: Options): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
-    function printNode(n: SqlNode): Doc { return n.type.endsWith('Statement') ? printStatement(n, opts) : printExpression(n, opts, printNode); }
-
-    const unique = propBool(node, 'unique');
+    const mk        = (k: string) => keyword(k, opts);
+    const printNode = pn(opts);
+    const unique    = propBool(node, 'unique');
     const indexName = propStr(node, 'indexName') ?? '';
-    const relation = prop(node, 'relation');
-    const columns = propArr(node, 'columns');
+    const relation  = prop(node, 'relation');
+    const columns   = propArr(node, 'columns');
 
     return [
         unique ? [mk('CREATE UNIQUE INDEX'), ' '] : [mk('CREATE INDEX'), ' '],
@@ -292,24 +438,15 @@ function printCreateIndex(node: SqlNode, opts: Options): Doc {
 }
 
 function printDrop(node: SqlNode, opts: Options): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const mk         = (k: string) => keyword(k, opts);
     const objectType = propStr(node, 'objectType') ?? '';
-    const ifExists = propBool(node, 'ifExists');
-    const cascade = propBool(node, 'cascade');
+    const ifExists   = propBool(node, 'ifExists');
+    const cascade    = propBool(node, 'cascade');
 
     return [
         mk('DROP'), ' ', objectType,
         ifExists ? [' ', mk('IF EXISTS')] : '',
-        cascade ? [' ', mk('CASCADE')] : '',
+        cascade  ? [' ', mk('CASCADE')]   : '',
         ';',
     ];
-}
-
-// ---------------------------------------------------------------------------
-// Shared helpers
-// ---------------------------------------------------------------------------
-
-function printWhereClause(where: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
-    return [mk('WHERE'), ' ', printNode(where)];
 }
