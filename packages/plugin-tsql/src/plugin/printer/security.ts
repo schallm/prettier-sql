@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '../parser/types.js';
 import type { Options } from './utils.js';
-import { keyword, hardline, join, indent, group, line, softline, ifExistsDoc } from './utils.js';
+import { keyword, hardline, join, indent, group, line, softline, ifExistsDoc, parenList } from './utils.js';
 import { propStr, propBool } from './helpers.js';
 
 // ---------------------------------------------------------------------------
@@ -46,8 +46,7 @@ function printSecurityTarget(target: Record<string, unknown>, opts: Options): Do
     const className = securityObjectKindMap[kind] ?? kind.toUpperCase();
     const prefix: Doc = className ? [keyword(className, opts), '::'] : '';
     let result: Doc = [prefix, objName ?? ''];
-    if (cols && cols.length > 0)
-        result = [result, ' ', group(['(', indent([softline, join([',', line], cols)]), softline, ')'])];
+    if (cols && cols.length > 0) result = [result, ' ', parenList(cols)];
     return result;
 }
 
@@ -61,8 +60,7 @@ function printPermission(p: Record<string, unknown>, opts: Options): Doc {
     const name = ((p['name'] as string) ?? '').toUpperCase();
     const cols = p['columns'] as string[] | undefined;
     const parts: Doc[] = [keyword(name, opts)];
-    if (cols && cols.length > 0)
-        parts.push(' ', group(['(', indent([softline, join([',', line], cols)]), softline, ')']));
+    if (cols && cols.length > 0) parts.push(' ', parenList(cols));
     return parts;
 }
 

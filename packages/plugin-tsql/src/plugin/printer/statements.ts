@@ -15,6 +15,7 @@ import {
     softline,
     lineSuffix,
     appendTrailingLines,
+    parenList,
 } from './utils.js';
 import { prop, propArr, propStr, assignmentOp } from './helpers.js';
 import {
@@ -189,6 +190,18 @@ function printBoolDoc(where: SqlNode, opts: Options): Doc {
 
 function printTable(node: SqlNode, opts: Options): Doc {
     return printTableRef(node, opts, (n) => printNode(n, opts));
+}
+
+/**
+ * Print a clause keyword followed by a boolean expression.
+ * Single-predicate stays inline (` WHERE x = 1`); multi-predicate breaks to
+ * an indented block. In spacious mode all predicates are always indented.
+ */
+function printBoolClause(kw: string, where: SqlNode, opts: Options): Doc {
+    const density = getDensity(opts);
+    const inline = density !== 'spacious' && where.type !== 'BooleanBinary';
+    const body = printBoolDoc(where, opts);
+    return [keyword(kw, opts), inline ? [' ', body] : indent([hardline, body])];
 }
 
 // ---------------------------------------------------------------------------
@@ -542,9 +555,7 @@ function printCtes(node: SqlNode, opts: Options): Doc[] {
         const cols = cte.props?.['columns'] as string[] | undefined;
         const query = prop(cte, 'query');
 
-        const colsPart: Doc = cols?.length
-            ? [' ', group(['(', indent([softline, join([',', line], cols)]), softline, ')'])]
-            : '';
+        const colsPart: Doc = cols?.length ? [' ', parenList(cols)] : '';
 
         // trailing: align subsequent CTEs under "with " with 4 spaces
         // leading:  no prefix — the separator provides ", " before the CTE name
@@ -710,14 +721,7 @@ function printUpdate(node: SqlNode, opts: Options): Doc {
     if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
     else if (output) parts.push(hardline, printOutputClause(output, opts));
 
-    if (where) {
-        const inline = density !== 'spacious' && where.type !== 'BooleanBinary';
-        parts.push(
-            hardline,
-            keyword('WHERE', opts),
-            inline ? [' ', printBoolDoc(where, opts)] : indent([hardline, printBoolDoc(where, opts)]),
-        );
-    }
+    if (where) parts.push(hardline, printBoolClause('WHERE', where, opts));
 
     parts.push(';');
     return group(parts);
@@ -729,7 +733,6 @@ function printUpdate(node: SqlNode, opts: Options): Doc {
 
 function printDelete(node: SqlNode, opts: Options): Doc {
     const ctesDocs = printCtes(node, opts);
-    const density = getDensity(opts);
     const target = prop(node, 'target');
     const from = prop(node, 'from');
     const where = prop(node, 'where');
@@ -756,14 +759,7 @@ function printDelete(node: SqlNode, opts: Options): Doc {
     if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
     else if (output) parts.push(hardline, printOutputClause(output, opts));
 
-    if (where) {
-        const inline = density !== 'spacious' && where.type !== 'BooleanBinary';
-        parts.push(
-            hardline,
-            keyword('WHERE', opts),
-            inline ? [' ', printBoolDoc(where, opts)] : indent([hardline, printBoolDoc(where, opts)]),
-        );
-    }
+    if (where) parts.push(hardline, printBoolClause('WHERE', where, opts));
 
     parts.push(';');
     return group(parts);

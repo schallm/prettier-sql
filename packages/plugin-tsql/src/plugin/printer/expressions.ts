@@ -14,6 +14,8 @@ import {
     softline,
     fill,
     appendTrailingLines,
+    parenList,
+    aliasDoc,
 } from './utils.js';
 import { prop, propArr, propStr, propBool, schemaObjectName, assignmentOp } from './helpers.js';
 
@@ -720,7 +722,7 @@ function printGroupingSets(node: SqlNode, opts: Options, printFn: (n: SqlNode) =
 
 function printCompositeGroup(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
     const items = propArr(node, 'items').map((e) => printExpression(e, opts, printFn));
-    return group(['(', indent([softline, join([',', line], items)]), softline, ')']);
+    return parenList(items);
 }
 
 function printBinaryQuery(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
@@ -1147,7 +1149,7 @@ function printNamedTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) 
     const alias = propStr(node, 'alias');
     const hints = node.props?.['hints'] as string[] | undefined;
     const nameDoc: Doc = schemaObjectName(prop(node, 'name'));
-    const aliasDoc: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
+    const aliasPart: Doc = aliasDoc(alias, opts);
     const hintsDoc: Doc = hints?.length
         ? [
               ' ',
@@ -1165,7 +1167,7 @@ function printNamedTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) 
     const sampleDoc: Doc = tableSample ? printTableSample(tableSample, opts, printFn) : '';
     const temporalDoc: Doc = temporal ? printTemporalClause(temporal, opts, printFn) : '';
     // Order: name, temporal, alias, tablesample, hints
-    return [nameDoc, temporalDoc, aliasDoc, sampleDoc, hintsDoc];
+    return [nameDoc, temporalDoc, aliasPart, sampleDoc, hintsDoc];
 }
 
 function joinTypeKeyword(jt: string, opts: Options): Doc {
@@ -1282,10 +1284,10 @@ function printInlineDerivedTable(node: SqlNode, opts: Options, printFn: (n: SqlN
     const columns = node.props?.['columns'] as string[] | undefined;
     const rowDocs = rows.map((r) => {
         const vals = propArr(r, 'values').map((v) => printExpression(v, opts, printFn));
-        return group(['(', indent([softline, join([',', line], vals)]), softline, ')']);
+        return parenList(vals);
     });
     const colsDef: Doc = columns?.length ? ['(', columns.join(', '), ')'] : '';
-    const aliasDoc: Doc = alias ? [' ', keyword('AS', opts), ' ', alias, colsDef] : '';
+    const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias, colsDef] : '';
     return group([
         '(',
         keyword('VALUES', opts),
@@ -1293,7 +1295,7 @@ function printInlineDerivedTable(node: SqlNode, opts: Options, printFn: (n: SqlN
         indent([softline, join([',', line], rowDocs)]),
         softline,
         ')',
-        aliasDoc,
+        aliasPart,
     ]);
 }
 
@@ -1314,8 +1316,8 @@ function printSchemaObjectFunctionTableRef(node: SqlNode, opts: Options, printFn
         ', ',
         args.map((a) => printExpression(a, opts, printFn)),
     );
-    const aliasDoc: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
-    return [schemaObjectName(prop(node, 'name')), '(', argsDoc, ')', aliasDoc];
+    const aliasPart: Doc = aliasDoc(alias, opts);
+    return [schemaObjectName(prop(node, 'name')), '(', argsDoc, ')', aliasPart];
 }
 
 // ---------------------------------------------------------------------------
@@ -1367,8 +1369,8 @@ function printFullTextTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNod
     if (language) args.push(', ', keyword('LANGUAGE', opts), ' ', language);
     if (topN) args.push(', ', printExpression(topN, opts, printFn));
 
-    const aliasDoc: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
-    return [fnKw, '(', ...args, ')', aliasDoc];
+    const aliasPart: Doc = aliasDoc(alias, opts);
+    return [fnKw, '(', ...args, ')', aliasPart];
 }
 
 function rowsetWithClause(items: SqlNode[], opts: Options): Doc {
@@ -1405,7 +1407,7 @@ function printOpenXmlTableRef(node: SqlNode, opts: Options): Doc {
         : tableName
           ? [' ', keyword('WITH', opts), ' ', schemaObjectName(tableName)]
           : '';
-    const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
+    const aliasPart: Doc = aliasDoc(alias, opts);
     return [keyword('OPENXML', opts), '(', ...args, ')', withPart, aliasPart];
 }
 
@@ -1419,7 +1421,7 @@ function printOpenJsonTableRef(node: SqlNode, opts: Options): Doc {
     if (rowPattern) args.push(', ', rowPattern);
 
     const withPart: Doc = withItems.length ? rowsetWithClause(withItems, opts) : '';
-    const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
+    const aliasPart: Doc = aliasDoc(alias, opts);
     return [keyword('OPENJSON', opts), '(', ...args, ')', withPart, aliasPart];
 }
 
@@ -1445,7 +1447,7 @@ function printOpenRowsetTableRef(node: SqlNode, opts: Options): Doc {
     // Third argument: either an ad-hoc query string or a remote schema object name
     const third: Doc = query ? query : schemaObjectName(obj);
 
-    const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
+    const aliasPart: Doc = aliasDoc(alias, opts);
     return [
         group([
             keyword('OPENROWSET', opts),
@@ -1466,7 +1468,7 @@ function printBulkOpenRowset(node: SqlNode, opts: Options): Doc {
     const dataFile = dataFiles?.[0] ?? '';
     const allArgs: Doc[] = [keyword('BULK', opts), ' ', dataFile, ...(options ?? []).map((o): Doc => [',', line, o])];
 
-    const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
+    const aliasPart: Doc = aliasDoc(alias, opts);
     return [group([keyword('OPENROWSET', opts), '(', indent([softline, ...allArgs]), softline, ')']), aliasPart];
 }
 
@@ -1661,7 +1663,7 @@ function printPivotedTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode
     const tableDoc = tableRef ? printTableRef(tableRef, opts, printFn) : '';
     const aggArgs = (valueColumns ?? []).join(', ');
     const inCols = (inColumns ?? []).map((c) => `[${c}]`).join(', ');
-    const aliasDoc: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
+    const aliasPart: Doc = aliasDoc(alias, opts);
 
     return group([
         tableDoc,
@@ -1686,7 +1688,7 @@ function printPivotedTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode
         ]),
         softline,
         ')',
-        aliasDoc,
+        aliasPart,
     ]);
 }
 
@@ -1699,7 +1701,7 @@ function printUnpivotedTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNo
 
     const tableDoc = tableRef ? printTableRef(tableRef, opts, printFn) : '';
     const inCols = (inColumns ?? []).join(', ');
-    const aliasDoc: Doc = alias ? [' ', keyword('AS', opts), ' ', alias] : '';
+    const aliasPart: Doc = aliasDoc(alias, opts);
 
     return group([
         tableDoc,
@@ -1721,6 +1723,6 @@ function printUnpivotedTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNo
         ]),
         softline,
         ')',
-        aliasDoc,
+        aliasPart,
     ]);
 }

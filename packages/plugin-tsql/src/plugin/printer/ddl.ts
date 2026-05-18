@@ -1,11 +1,41 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '../parser/types.js';
 import type { Options } from './utils.js';
-import { keyword, hardline, join, indent, group, softline, line, ifExistsDoc } from './utils.js';
+import { keyword, hardline, join, indent, group, softline, line, ifExistsDoc, commentsBlock, parenList } from './utils.js';
 import { prop, propArr, propStr, propBool, schemaObjectName } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
 import { printStatementWithComments, printNode, printBool, qexpr } from './statements.js';
+
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+/** Render ` NULL` / ` NOT NULL` from a tristate `nullable` prop value. */
+function nullablePart(nullable: unknown, opts: Options): Doc {
+    if (nullable === true) return [' ', keyword('NULL', opts)];
+    if (nullable === false) return [' ', keyword('NOT NULL', opts)];
+    return '';
+}
+
+/**
+ * Render a `WITH opt1, opt2, ...` clause where each option is keyword-cased.
+ * Stays inline when it fits; breaks one-per-line under WITH otherwise.
+ * Returns an empty string when no options are supplied.
+ */
+function withOptionsClause(options: string[] | null | undefined, opts: Options): Doc {
+    if (!options?.length) return '';
+    return group([
+        keyword('WITH', opts),
+        indent([
+            line,
+            join(
+                [',', line],
+                options.map((o) => keyword(o, opts)),
+            ),
+        ]),
+    ]);
+}
 
 // ---------------------------------------------------------------------------
 // CREATE TABLE
@@ -25,7 +55,7 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
                   hardline,
                   keyword('WITH', opts),
                   ' ',
-                  group(['(', indent([softline, join([',', line], options)]), softline, ')']),
+                  parenList(options),
               ]
             : '';
     return group([
@@ -80,8 +110,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         parts.push(' ', keyword('IDENTITY', opts), `(${seed}, ${inc})`);
     }
     if (defaultValue) parts.push(' ', keyword('DEFAULT', opts), ' ', printNode(defaultValue, opts));
-    if (isNullable === false) parts.push(' ', keyword('NOT NULL', opts));
-    else if (isNullable === true) parts.push(' ', keyword('NULL', opts));
+    parts.push(nullablePart(isNullable, opts));
 
     return parts;
 }
@@ -95,7 +124,7 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
             const isPK = propBool(node, 'isPrimaryKey');
             const cols = Array.isArray(node.props?.['columns']) ? (node.props?.['columns'] as string[]) : [];
             const kw = isPK ? keyword('PRIMARY KEY', opts) : keyword('UNIQUE', opts);
-            const colsDoc = group(['(', indent([softline, join([',', line], cols)]), softline, ')']);
+            const colsDoc = parenList(cols);
             return group([namePrefix, indent([softline, kw, ' ', colsDoc])]);
         }
         case 'CheckConstraint': {
@@ -117,8 +146,8 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
                         .toUpperCase(),
                     opts,
                 );
-            const fkColsDoc = group(['(', indent([softline, join([',', line], cols)]), softline, ')']);
-            const refColsDoc = group(['(', indent([softline, join([',', line], refCols)]), softline, ')']);
+            const fkColsDoc = parenList(cols);
+            const refColsDoc = parenList(refCols);
             return [
                 group([
                     namePrefix,
@@ -222,13 +251,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
     if (alterType === 'AlterTableAlterColumnStatement') {
         const column = propStr(node, 'column') ?? '';
         const dataType = propStr(node, 'dataType') ?? '';
-        const nullable = node.props?.['nullable'];
-        const nullPart: Doc =
-            nullable === true
-                ? [' ', keyword('NULL', opts)]
-                : nullable === false
-                  ? [' ', keyword('NOT NULL', opts)]
-                  : '';
+        const nullPart = nullablePart(node.props?.['nullable'], opts);
         return [
             keyword('ALTER TABLE', opts),
             ' ',
@@ -352,7 +375,7 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
                   hardline,
                   keyword('INCLUDE', opts),
                   ' ',
-                  group(['(', indent([softline, join([',', line], includeColumns as string[])]), softline, ')']),
+                  parenList(includeColumns as string[]),
               ]
             : '';
 
@@ -453,12 +476,8 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
 
     const bodyDocs = body.map((s) => printStatementWithComments(s, opts));
 
-    const preBody: Doc = node.preBodyComments?.length
-        ? (node.preBodyComments as string[]).flatMap((c): Doc[] => [hardline, c])
-        : '';
-    const postParam: Doc = node.postParamComments?.length
-        ? (node.postParamComments as string[]).flatMap((c): Doc[] => [hardline, c])
-        : '';
+    const preBody = commentsBlock(node.preBodyComments);
+    const postParam = commentsBlock(node.postParamComments);
 
     const procKw =
         node.type === 'CreateOrAlterProcedureStatement'
@@ -502,12 +521,8 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
         return [pName, ' ', keyword(dt, opts)] as Doc;
     });
 
-    const preBody: Doc = node.preBodyComments?.length
-        ? (node.preBodyComments as string[]).flatMap((c): Doc[] => [hardline, c])
-        : '';
-    const postParam: Doc = node.postParamComments?.length
-        ? (node.postParamComments as string[]).flatMap((c): Doc[] => [hardline, c])
-        : '';
+    const preBody = commentsBlock(node.preBodyComments);
+    const postParam = commentsBlock(node.postParamComments);
 
     const fnKw =
         node.type === 'CreateOrAlterFunctionStatement'
@@ -604,7 +619,7 @@ export function printCreateView(node: SqlNode, opts: Options): Doc {
               : keyword('CREATE VIEW', opts);
 
     const colsPart: Doc = columns?.length
-        ? [' ', group(['(', indent([softline, join([',', line], columns)]), softline, ')'])]
+        ? [' ', parenList(columns)]
         : '';
 
     const withPart: Doc = withOptions?.length
@@ -619,9 +634,7 @@ export function printCreateView(node: SqlNode, opts: Options): Doc {
           ]
         : '';
 
-    const preBodyPart: Doc = node.preBodyComments?.length
-        ? (node.preBodyComments as string[]).flatMap((c): Doc[] => [hardline, c])
-        : '';
+    const preBodyPart = commentsBlock(node.preBodyComments);
 
     return group([
         kw,
@@ -773,9 +786,6 @@ export function printBulkInsert(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printCreateTypeUddt(node: SqlNode, opts: Options): Doc {
-    const nullable = node.props?.['nullable'];
-    const nullablePart: Doc =
-        nullable === false ? [' ', keyword('NOT NULL', opts)] : nullable === true ? [' ', keyword('NULL', opts)] : '';
     return [
         keyword('CREATE TYPE', opts),
         ' ',
@@ -784,7 +794,7 @@ export function printCreateTypeUddt(node: SqlNode, opts: Options): Doc {
         keyword('FROM', opts),
         ' ',
         keyword(propStr(node, 'dataType') ?? '', opts),
-        nullablePart,
+        nullablePart(node.props?.['nullable'], opts),
         ';',
     ];
 }
@@ -957,7 +967,7 @@ export function printCreatePartitionScheme(node: SqlNode, opts: Options): Doc {
     const fileGroups = propArr(node, 'fileGroups');
     const fgDocs = fileGroups.map((fg) => String(fg));
 
-    const fgListDoc = group(['(', indent([softline, join([',', line], fgDocs)]), softline, ')']);
+    const fgListDoc = parenList(fgDocs);
     const toClause: Doc = isAll ? [keyword('ALL TO', opts), ' ', fgListDoc] : [keyword('TO', opts), ' ', fgListDoc];
 
     return [
@@ -1003,7 +1013,7 @@ export function printCreateColumnStoreIndex(node: SqlNode, opts: Options): Doc {
     const parts: Doc[] = [keyword('CREATE', opts), ' ', clusterKw, keyword('COLUMNSTORE INDEX', opts), ' ', name];
     parts.push([hardline, keyword('ON', opts), ' ', onName ? schemaObjectName(onName) : '']);
     if (columns?.length) {
-        parts.push([' ', group(['(', indent([softline, join([',', line], columns)]), softline, ')'])]);
+        parts.push([' ', parenList(columns)]);
     }
     if (filterPredicate) parts.push([hardline, keyword('WHERE', opts), ' ', filterPredicate]);
     if (options?.length) {
@@ -1069,24 +1079,10 @@ export function printCreateStatistics(node: SqlNode, opts: Options): Doc {
     const parts: Doc[] = [keyword('CREATE STATISTICS', opts), ' ', name];
     parts.push([hardline, keyword('ON', opts), ' ', onName ? schemaObjectName(onName) : '']);
     if (columns?.length) {
-        parts.push([' ', group(['(', indent([softline, join([',', line], columns)]), softline, ')'])]);
+        parts.push([' ', parenList(columns)]);
     }
     if (filterPredicate) parts.push([hardline, keyword('WHERE', opts), ' ', filterPredicate]);
-    if (options?.length) {
-        parts.push([
-            hardline,
-            group([
-                keyword('WITH', opts),
-                indent([
-                    line,
-                    join(
-                        [',', line],
-                        options.map((o) => keyword(o, opts)),
-                    ),
-                ]),
-            ]),
-        ]);
-    }
+    if (options?.length) parts.push([hardline, withOptionsClause(options, opts)]);
     parts.push(';');
     return parts;
 }
@@ -1097,24 +1093,8 @@ export function printUpdateStatistics(node: SqlNode, opts: Options): Doc {
     const options = node.props?.['options'] as string[] | undefined;
 
     const parts: Doc[] = [keyword('UPDATE STATISTICS', opts), ' ', table ? schemaObjectName(table) : ''];
-    if (subElements?.length) {
-        parts.push([' ', group(['(', indent([softline, join([',', line], subElements)]), softline, ')'])]);
-    }
-    if (options?.length) {
-        parts.push([
-            hardline,
-            group([
-                keyword('WITH', opts),
-                indent([
-                    line,
-                    join(
-                        [',', line],
-                        options.map((o) => keyword(o, opts)),
-                    ),
-                ]),
-            ]),
-        ]);
-    }
+    if (subElements?.length) parts.push([' ', parenList(subElements)]);
+    if (options?.length) parts.push([hardline, withOptionsClause(options, opts)]);
     parts.push(';');
     return parts;
 }

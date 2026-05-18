@@ -7,8 +7,6 @@ namespace PrettierTsql;
 /// Walks the ScriptDom fragment tree and builds a simplified SqlNode tree.
 /// </summary>
 public class AstBuilder : TSqlFragmentVisitor {
-    private readonly Stack<SqlNode> _stack = new();
-
     public SqlNode? Root { get; private set; }
 
     // -------------------------------------------------------------------------
@@ -33,6 +31,16 @@ public class AstBuilder : TSqlFragmentVisitor {
 
     private static SqlNode Node(string type, TSqlFragment f, Dictionary<string, object?> props) =>
         new(type, f.StartOffset, f.StartOffset + f.FragmentLength, null, props);
+
+    /// <summary>
+    /// Project a ScriptDom collection to a serializable List&lt;object?&gt;, or null when empty/null.
+    /// Avoids the repeated `coll?.Count > 0 ? coll.Select(...).ToList() : null` idiom.
+    /// </summary>
+    private static List<object?>? MapList<T>(IList<T>? items, Func<T, object?> map) =>
+        items == null || items.Count == 0 ? null : items.Select(map).ToList();
+
+    /// <summary>Convenience: RawText(x) when not null, else null.</summary>
+    private static string? RawTextOrNull(TSqlFragment? f) => f == null ? null : RawText(f);
 
     private static SqlNode? BuildIdentifier(Identifier? id) =>
         id == null ? null : Leaf("Identifier", id, id.Value);
@@ -171,7 +179,7 @@ public class AstBuilder : TSqlFragmentVisitor {
 
     private static SqlNode BuildIdentityFunctionCall(IdentityFunctionCall ifc) =>
         Node("IdentityFunctionCall", ifc, new Dictionary<string, object?> {
-            ["dataType"] = ifc.DataType != null ? RawText(ifc.DataType) : null,
+            ["dataType"] = RawTextOrNull(ifc.DataType),
             ["seed"] = BuildScalarExpression(ifc.Seed),
             ["increment"] = BuildScalarExpression(ifc.Increment),
         });
@@ -323,13 +331,13 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildCastCall(CastCall cast) =>
         Node("CastCall", cast, new Dictionary<string, object?> {
             ["expr"] = BuildScalarExpression(cast.Parameter),
-            ["dataType"] = cast.DataType != null ? RawText(cast.DataType) : null,
+            ["dataType"] = RawTextOrNull(cast.DataType),
         });
 
     private static SqlNode BuildConvertCall(ConvertCall conv) =>
         Node("ConvertCall", conv, new Dictionary<string, object?> {
             ["expr"] = BuildScalarExpression(conv.Parameter),
-            ["dataType"] = conv.DataType != null ? RawText(conv.DataType) : null,
+            ["dataType"] = RawTextOrNull(conv.DataType),
             ["style"] = BuildScalarExpression(conv.Style),
         });
 
@@ -354,13 +362,13 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildTryCastCall(TryCastCall tryCast) =>
         Node("TryCastCall", tryCast, new Dictionary<string, object?> {
             ["expr"] = BuildScalarExpression(tryCast.Parameter),
-            ["dataType"] = tryCast.DataType != null ? RawText(tryCast.DataType) : null,
+            ["dataType"] = RawTextOrNull(tryCast.DataType),
         });
 
     private static SqlNode BuildTryConvertCall(TryConvertCall tryConv) =>
         Node("TryConvertCall", tryConv, new Dictionary<string, object?> {
             ["expr"] = BuildScalarExpression(tryConv.Parameter),
-            ["dataType"] = tryConv.DataType != null ? RawText(tryConv.DataType) : null,
+            ["dataType"] = RawTextOrNull(tryConv.DataType),
             ["style"] = BuildScalarExpression(tryConv.Style),
         });
 
@@ -493,9 +501,7 @@ public class AstBuilder : TSqlFragmentVisitor {
     }
 
     private static SqlNode BuildNamedTableRef(NamedTableReference named) {
-        var hints = named.TableHints?.Count > 0
-            ? named.TableHints.Select(h => (object?)h.HintKind.ToString().ToUpper()).ToList()
-            : null;
+        var hints = MapList(named.TableHints, h => (object?)h.HintKind.ToString().ToUpper());
         return Node("NamedTableReference", named, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(named.SchemaObject),
             ["alias"] = named.Alias?.Value,
@@ -897,9 +903,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         var ctes = sel.WithCtesAndXmlNamespaces?.CommonTableExpressions
             ?.Select(c => (object?)BuildCte(c)).ToList();
 
-        var optimizerHints = sel.OptimizerHints?.Count > 0
-            ? sel.OptimizerHints.Select(h => (object?)BuildOptimizerHint(h)).ToList()
-            : null;
+        var optimizerHints = MapList(sel.OptimizerHints, h => (object?)BuildOptimizerHint(h));
 
         return Node("SelectStatement", sel, new Dictionary<string, object?> {
             ["ctes"] = ctes,
@@ -1163,9 +1167,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ?.Select(c => (object?)BuildColumnDefinition(c)).ToList();
         var constraints = ct.Definition?.TableConstraints
             ?.Select(c => (object?)BuildTableConstraint(c)).ToList();
-        var options = ct.Options?.Count > 0
-            ? ct.Options.Select(o => (object?)SerializeTableOption(o)).ToList()
-            : null;
+        var options = MapList(ct.Options, o => (object?)SerializeTableOption(o));
 
         return Node("CreateTableStatement", ct, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(ct.SchemaObjectName),
@@ -1280,12 +1282,10 @@ public class AstBuilder : TSqlFragmentVisitor {
                 }).ToList();
         } else if (at is AlterTableConstraintModificationStatement constraintMod) {
             props["constraintEnforcement"] = constraintMod.ConstraintEnforcement.ToString();
-            props["constraintNames"] = constraintMod.ConstraintNames?.Count > 0
-                ? constraintMod.ConstraintNames.Select(n => (object?)n.Value).ToList()
-                : null;
+            props["constraintNames"] = MapList(constraintMod.ConstraintNames, n => (object?)n.Value);
         } else if (at is AlterTableAlterColumnStatement alterCol) {
             props["column"] = alterCol.ColumnIdentifier?.Value;
-            props["dataType"] = alterCol.DataType != null ? RawText(alterCol.DataType) : null;
+            props["dataType"] = RawTextOrNull(alterCol.DataType);
             props["nullable"] = alterCol.AlterTableAlterColumnOption == AlterTableAlterColumnOption.Null ? (object?)true
                 : alterCol.AlterTableAlterColumnOption == AlterTableAlterColumnOption.NotNull ? false
                 : null;
@@ -1297,9 +1297,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         } else if (at is AlterTableRebuildStatement rebuild) {
             props["partitionAll"] = rebuild.Partition?.All == true ? (object?)true : null;
             props["partitionNumber"] = (rebuild.Partition?.Number as IntegerLiteral)?.Value;
-            props["indexOptions"] = rebuild.IndexOptions?.Count > 0
-                ? rebuild.IndexOptions.Select(o => (object?)RawText(o)).ToList()
-                : null;
+            props["indexOptions"] = MapList(rebuild.IndexOptions, o => (object?)RawText(o));
         } else if (at is AlterTableSwitchStatement switchStmt) {
             props["sourcePartition"] = (switchStmt.SourcePartitionNumber as IntegerLiteral)?.Value;
             props["targetTable"] = BuildSchemaObjectName(switchStmt.TargetTable);
@@ -1414,18 +1412,8 @@ public class AstBuilder : TSqlFragmentVisitor {
         return Leaf("FunctionOption", opt, optText);
     }
 
-    private static SqlNode BuildCreateProcedureStatement(CreateProcedureStatement cp) {
-        var parms = cp.Parameters?.Select(p => (object?)BuildProcedureParameter(p)).ToList();
-        var stmts = cp.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
-
-        return Node("CreateProcedureStatement", cp, new Dictionary<string, object?> {
-            ["name"] = BuildSchemaObjectName(cp.ProcedureReference?.Name),
-            ["parameters"] = parms,
-            ["options"] = BuildProcedureOptions(cp.Options),
-            ["bodyStart"] = cp.StatementList?.StartOffset,
-            ["body"] = stmts,
-        });
-    }
+    private static SqlNode BuildCreateProcedureStatement(CreateProcedureStatement cp) =>
+        BuildProcedureStatement("CreateProcedureStatement", cp);
 
     private static SqlNode BuildProcedureParameter(ProcedureParameter p) =>
         new SqlNode(
@@ -1435,7 +1423,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             p.VariableName?.Value,
             new Dictionary<string, object?> {
                 ["name"] = p.VariableName?.Value,
-                ["dataType"] = p.DataType != null ? RawText(p.DataType) : null,
+                ["dataType"] = RawTextOrNull(p.DataType),
                 ["defaultValue"] = p.Value != null ? BuildScalarExpression(p.Value) : null,
                 ["output"] = p.Modifier == ParameterModifier.Output,
                 ["readonly"] = p.Modifier == ParameterModifier.ReadOnly,
@@ -1445,46 +1433,8 @@ public class AstBuilder : TSqlFragmentVisitor {
     // DDL: CREATE FUNCTION
     // -------------------------------------------------------------------------
 
-    private static SqlNode BuildCreateFunctionStatement(CreateFunctionStatement cf) {
-        var parms = cf.Parameters?.Select(p => (object?)BuildProcedureParameter(p)).ToList();
-        string bodyType;
-        object? body;
-
-        if (cf.ReturnType is SelectFunctionReturnType selRet) {
-            bodyType = "table";
-            // Unwrap QueryParenthesisExpression: we emit RETURN (...) ourselves
-            QueryExpression? qexpr = selRet.SelectStatement?.QueryExpression;
-            while (qexpr is QueryParenthesisExpression qpe) qexpr = qpe.QueryExpression;
-            body = BuildQueryExpression(qexpr);
-        } else if (cf.ReturnType is TableValuedFunctionReturnType tvf) {
-            bodyType = "inline-table";
-            body = cf.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
-            return Node("CreateFunctionStatement", cf, new Dictionary<string, object?> {
-                ["name"] = BuildSchemaObjectName(cf.Name),
-                ["parameters"] = parms,
-                ["options"] = BuildFunctionOptions(cf.Options),
-                ["bodyStart"] = cf.StatementList?.StartOffset,
-                ["bodyType"] = bodyType,
-                ["body"] = body,
-                ["returnVar"] = tvf.DeclareTableVariableBody?.VariableName?.Value,
-                ["returnColumns"] = tvf.DeclareTableVariableBody?.Definition?.ColumnDefinitions
-                    ?.Select(c => (object?)BuildColumnDefinition(c)).ToList(),
-            });
-        } else {
-            bodyType = "scalar";
-            body = cf.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
-        }
-
-        return Node("CreateFunctionStatement", cf, new Dictionary<string, object?> {
-            ["name"] = BuildSchemaObjectName(cf.Name),
-            ["parameters"] = parms,
-            ["options"] = BuildFunctionOptions(cf.Options),
-            ["bodyStart"] = cf.StatementList?.StartOffset,
-            ["returnType"] = cf.ReturnType != null ? RawText(cf.ReturnType) : null,
-            ["bodyType"] = bodyType,
-            ["body"] = body,
-        });
-    }
+    private static SqlNode BuildCreateFunctionStatement(CreateFunctionStatement cf) =>
+        BuildFunctionStatement("CreateFunctionStatement", cf);
 
     // -------------------------------------------------------------------------
     // DDL: CREATE / ALTER / CREATE OR ALTER VIEW
@@ -1519,17 +1469,8 @@ public class AstBuilder : TSqlFragmentVisitor {
     // DDL: CREATE OR ALTER PROCEDURE
     // -------------------------------------------------------------------------
 
-    private static SqlNode BuildCreateOrAlterProcedure(CreateOrAlterProcedureStatement cap) {
-        var parms = cap.Parameters?.Select(p => (object?)BuildProcedureParameter(p)).ToList();
-        var stmts = cap.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
-        return Node("CreateOrAlterProcedureStatement", cap, new Dictionary<string, object?> {
-            ["name"] = BuildSchemaObjectName(cap.ProcedureReference?.Name),
-            ["parameters"] = parms,
-            ["options"] = BuildProcedureOptions(cap.Options),
-            ["bodyStart"] = cap.StatementList?.StartOffset,
-            ["body"] = stmts,
-        });
-    }
+    private static SqlNode BuildCreateOrAlterProcedure(CreateOrAlterProcedureStatement cap) =>
+        BuildProcedureStatement("CreateOrAlterProcedureStatement", cap);
 
     // -------------------------------------------------------------------------
     // DDL: TRUNCATE TABLE
@@ -1682,7 +1623,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["functionType"] = ftp.FullTextFunctionType.ToString(),
             ["columns"] = ftp.Columns?.Select(c => (object?)BuildColumnRef(c)).ToList(),
             ["value"] = BuildScalarExpression(ftp.Value),
-            ["language"] = ftp.LanguageTerm != null ? RawText(ftp.LanguageTerm) : null,
+            ["language"] = RawTextOrNull(ftp.LanguageTerm),
         });
 
     private static SqlNode BuildFullTextTableReference(FullTextTableReference ftt) =>
@@ -1692,7 +1633,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["columns"] = ftt.Columns?.Select(c => (object?)BuildColumnRef(c)).ToList(),
             ["searchCondition"] = BuildScalarExpression(ftt.SearchCondition),
             ["topN"] = BuildScalarExpression(ftt.TopN),
-            ["language"] = ftt.Language != null ? RawText(ftt.Language) : null,
+            ["language"] = RawTextOrNull(ftt.Language),
             ["alias"] = ftt.Alias?.Value,
         });
 
@@ -1731,7 +1672,7 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildWaitFor(WaitForStatement wf) =>
         Node("WaitForStatement", wf, new Dictionary<string, object?> {
             ["option"] = wf.WaitForOption.ToString(),
-            ["parameter"] = wf.Parameter != null ? RawText(wf.Parameter) : null,
+            ["parameter"] = RawTextOrNull(wf.Parameter),
         });
 
     private static string SetOptionsToSql(SetOptions opt) => opt switch {
@@ -1809,7 +1750,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["parameters"] = parms,
             ["options"] = BuildFunctionOptions(f.Options),
             ["bodyStart"] = f.StatementList?.StartOffset,
-            ["returnType"] = f.ReturnType != null ? RawText(f.ReturnType) : null,
+            ["returnType"] = RawTextOrNull(f.ReturnType),
             ["bodyType"] = bodyType,
             ["body"] = body,
         });
@@ -1903,7 +1844,7 @@ public class AstBuilder : TSqlFragmentVisitor {
 
         foreach (var opt in options ?? []) {
             if (opt is DataTypeSequenceOption dtOpt) {
-                dataType = dtOpt.DataType != null ? RawText(dtOpt.DataType) : null;
+                dataType = RawTextOrNull(dtOpt.DataType);
             } else if (opt is ScalarExpressionSequenceOption seOpt && seOpt.OptionValue != null) {
                 var val = RawText(seOpt.OptionValue);
                 switch (seOpt.OptionKind) {
@@ -2001,7 +1942,7 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildAlterPartitionScheme(AlterPartitionSchemeStatement aps) =>
         Node("AlterPartitionSchemeStatement", aps, new Dictionary<string, object?> {
             ["name"] = aps.Name?.Value,
-            ["fileGroup"] = aps.FileGroup != null ? RawText(aps.FileGroup) : null,
+            ["fileGroup"] = RawTextOrNull(aps.FileGroup),
         });
 
     private static SqlNode BuildDropPartitionScheme(DropPartitionSchemeStatement dps) =>
@@ -2017,8 +1958,8 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildBulkInsert(BulkInsertStatement bulk) =>
         Node("BulkInsertStatement", bulk, new Dictionary<string, object?> {
             ["table"] = BuildSchemaObjectName(bulk.To),
-            ["from"] = bulk.From != null ? RawText(bulk.From) : null,
-            ["options"] = bulk.Options?.Select(o => (object?)RawText(o)).ToList(),
+            ["from"] = RawTextOrNull(bulk.From),
+            ["options"] = MapList(bulk.Options, o => (object?)RawText(o)),
         });
 
     // -------------------------------------------------------------------------
@@ -2028,7 +1969,7 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildCreateTypeUddt(CreateTypeUddtStatement ctud) =>
         Node("CreateTypeUddtStatement", ctud, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(ctud.Name),
-            ["dataType"] = ctud.DataType != null ? RawText(ctud.DataType) : null,
+            ["dataType"] = RawTextOrNull(ctud.DataType),
             ["nullable"] = ctud.NullableConstraint?.Nullable,
         });
 
@@ -2054,23 +1995,19 @@ public class AstBuilder : TSqlFragmentVisitor {
 
     private static SqlNode BuildOpenXmlTableReference(OpenXmlTableReference ox) =>
         Node("OpenXmlTableReference", ox, new Dictionary<string, object?> {
-            ["variable"] = ox.Variable != null ? RawText(ox.Variable) : null,
-            ["rowPattern"] = ox.RowPattern != null ? RawText(ox.RowPattern) : null,
-            ["flags"] = ox.Flags != null ? RawText(ox.Flags) : null,
-            ["withItems"] = ox.SchemaDeclarationItems?.Count > 0
-                             ? ox.SchemaDeclarationItems.Select(i => (object?)BuildSchemaItem(i)).ToList()
-                             : null,
+            ["variable"] = RawTextOrNull(ox.Variable),
+            ["rowPattern"] = RawTextOrNull(ox.RowPattern),
+            ["flags"] = RawTextOrNull(ox.Flags),
+            ["withItems"] = MapList(ox.SchemaDeclarationItems, i => (object?)BuildSchemaItem(i)),
             ["tableName"] = ox.TableName != null ? BuildSchemaObjectName(ox.TableName) : null,
             ["alias"] = ox.Alias?.Value,
         });
 
     private static SqlNode BuildOpenJsonTableReference(OpenJsonTableReference oj) =>
         Node("OpenJsonTableReference", oj, new Dictionary<string, object?> {
-            ["variable"] = oj.Variable != null ? RawText(oj.Variable) : null,
-            ["rowPattern"] = oj.RowPattern != null ? RawText(oj.RowPattern) : null,
-            ["withItems"] = oj.SchemaDeclarationItems?.Count > 0
-                             ? oj.SchemaDeclarationItems.Select(i => (object?)BuildSchemaItem(i)).ToList()
-                             : null,
+            ["variable"] = RawTextOrNull(oj.Variable),
+            ["rowPattern"] = RawTextOrNull(oj.RowPattern),
+            ["withItems"] = MapList(oj.SchemaDeclarationItems, i => (object?)BuildSchemaItem(i)),
             ["alias"] = oj.Alias?.Value,
         });
 
@@ -2080,26 +2017,22 @@ public class AstBuilder : TSqlFragmentVisitor {
 
     private static SqlNode BuildOpenRowsetTableReference(OpenRowsetTableReference or) =>
         Node("OpenRowsetTableReference", or, new Dictionary<string, object?> {
-            ["providerName"] = or.ProviderName != null ? RawText(or.ProviderName) : null,
+            ["providerName"] = RawTextOrNull(or.ProviderName),
             // Connection: either a single provider string or three-part datasource;userid;password
-            ["providerString"] = or.ProviderString != null ? RawText(or.ProviderString) : null,
-            ["dataSource"] = or.DataSource != null ? RawText(or.DataSource) : null,
-            ["userId"] = or.UserId != null ? RawText(or.UserId) : null,
-            ["password"] = or.Password != null ? RawText(or.Password) : null,
+            ["providerString"] = RawTextOrNull(or.ProviderString),
+            ["dataSource"] = RawTextOrNull(or.DataSource),
+            ["userId"] = RawTextOrNull(or.UserId),
+            ["password"] = RawTextOrNull(or.Password),
             // Third argument: either an ad-hoc query string or a remote schema object name
-            ["query"] = or.Query != null ? RawText(or.Query) : null,
+            ["query"] = RawTextOrNull(or.Query),
             ["object"] = or.Object != null ? BuildSchemaObjectName(or.Object) : null,
             ["alias"] = or.Alias?.Value,
         });
 
     private static SqlNode BuildBulkOpenRowset(BulkOpenRowset bulk) =>
         Node("BulkOpenRowset", bulk, new Dictionary<string, object?> {
-            ["dataFiles"] = bulk.DataFiles?.Count > 0
-                            ? bulk.DataFiles.Select(f => (object?)RawText(f)).ToList()
-                            : null,
-            ["options"] = bulk.Options?.Count > 0
-                            ? bulk.Options.Select(o => (object?)RawText(o)).ToList()
-                            : null,
+            ["dataFiles"] = MapList(bulk.DataFiles, f => (object?)RawText(f)),
+            ["options"] = MapList(bulk.Options, o => (object?)RawText(o)),
             ["alias"] = bulk.Alias?.Value,
         });
 
@@ -2117,12 +2050,8 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildDbcc(DbccStatement stmt) =>
         Node("DbccStatement", stmt, new Dictionary<string, object?> {
             ["command"] = stmt.Command.ToString().ToUpperInvariant(),
-            ["literals"] = stmt.Literals?.Count > 0
-                                 ? stmt.Literals.Select(l => (object?)RawText(l)).ToList()
-                                 : null,
-            ["options"] = stmt.Options?.Count > 0
-                                 ? stmt.Options.Select(o => (object?)RawText(o)).ToList()
-                                 : null,
+            ["literals"] = MapList(stmt.Literals, l => (object?)RawText(l)),
+            ["options"] = MapList(stmt.Options, o => (object?)RawText(o)),
             ["optionsUseJoin"] = stmt.OptionsUseJoin,
         });
 
@@ -2154,16 +2083,10 @@ public class AstBuilder : TSqlFragmentVisitor {
 
     private static SqlNode BuildBackupStatement(string type, BackupStatement stmt) =>
         Node(type, stmt, new Dictionary<string, object?> {
-            ["database"] = stmt.DatabaseName != null ? RawText(stmt.DatabaseName) : null,
-            ["devices"] = stmt.Devices?.Count > 0
-                           ? stmt.Devices.Select(d => (object?)BuildDeviceInfoText(d)).ToList()
-                           : null,
-            ["options"] = stmt.Options?.Count > 0
-                           ? stmt.Options.Select(o => (object?)BackupOptionText(o)).ToList()
-                           : null,
-            ["mirrorTo"] = stmt.MirrorToClauses?.Count > 0
-                           ? stmt.MirrorToClauses.Select(m => (object?)RawText(m)).ToList()
-                           : null,
+            ["database"] = RawTextOrNull(stmt.DatabaseName),
+            ["devices"] = MapList(stmt.Devices, d => (object?)BuildDeviceInfoText(d)),
+            ["options"] = MapList(stmt.Options, o => (object?)BackupOptionText(o)),
+            ["mirrorTo"] = MapList(stmt.MirrorToClauses, m => (object?)RawText(m)),
         });
 
     private static SqlNode BuildBackupDatabase(BackupDatabaseStatement stmt) =>
@@ -2203,13 +2126,9 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildRestore(RestoreStatement stmt) =>
         Node("RestoreStatement", stmt, new Dictionary<string, object?> {
             ["kind"] = RestoreKindToSql(stmt.Kind),
-            ["database"] = stmt.DatabaseName != null ? RawText(stmt.DatabaseName) : null,
-            ["devices"] = stmt.Devices?.Count > 0
-                           ? stmt.Devices.Select(d => (object?)BuildDeviceInfoText(d)).ToList()
-                           : null,
-            ["options"] = stmt.Options?.Count > 0
-                           ? stmt.Options.Select(o => (object?)RestoreOptionText(o)).ToList()
-                           : null,
+            ["database"] = RawTextOrNull(stmt.DatabaseName),
+            ["devices"] = MapList(stmt.Devices, d => (object?)BuildDeviceInfoText(d)),
+            ["options"] = MapList(stmt.Options, o => (object?)RestoreOptionText(o)),
         });
 
     private static SqlNode BuildCreateDatabase(CreateDatabaseStatement stmt) =>
@@ -2217,16 +2136,10 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["name"] = stmt.DatabaseName?.Value,
             ["collation"] = stmt.Collation?.Value,
             ["snapshot"] = stmt.DatabaseSnapshot?.Value,
-            ["copyOf"] = stmt.CopyOf != null ? RawText(stmt.CopyOf) : null,
-            ["fileGroups"] = stmt.FileGroups?.Count > 0
-                             ? stmt.FileGroups.Select(fg => (object?)RawText(fg)).ToList()
-                             : null,
-            ["logOn"] = stmt.LogOn?.Count > 0
-                             ? stmt.LogOn.Select(l => (object?)RawText(l)).ToList()
-                             : null,
-            ["options"] = stmt.Options?.Count > 0
-                             ? stmt.Options.Select(o => (object?)RawText(o)).ToList()
-                             : null,
+            ["copyOf"] = RawTextOrNull(stmt.CopyOf),
+            ["fileGroups"] = MapList(stmt.FileGroups, fg => (object?)RawText(fg)),
+            ["logOn"] = MapList(stmt.LogOn, l => (object?)RawText(l)),
+            ["options"] = MapList(stmt.Options, o => (object?)RawText(o)),
         });
 
     // Helper: produce "CURRENT" or the actual database name for ALTER DATABASE statements
@@ -2241,21 +2154,19 @@ public class AstBuilder : TSqlFragmentVisitor {
             // raw "QUERY_STORE = ON (...)"). Prepend only when the raw text lacks the keyword.
             // OnOffDatabaseOption always has raw text of just "ON"/"OFF" (no keyword prefix),
             // and always uses "= ON/OFF" syntax rather than a plain space.
-            ["options"] = stmt.Options?.Count > 0
-                              ? stmt.Options.Select(o => {
-                                  var name = DatabaseOptionKindToSql(o.OptionKind);
-                                  if (o is OnOffDatabaseOption onOff) {
-                                      var state = onOff.OptionState == OptionState.On ? "ON" : "OFF";
-                                      return (object?)$"{name} = {state}";
-                                  }
-                                  var val = RawText(o).Trim();
-                                  var text = val.StartsWith(name, StringComparison.OrdinalIgnoreCase)
-                                             ? val
-                                             : (val.Length > 0 ? $"{name} {val}" : name);
-                                  return (object?)text;
-                              }).ToList()
-                              : null,
-            ["termination"] = stmt.Termination != null ? RawText(stmt.Termination) : null,
+            ["options"] = MapList(stmt.Options, o => {
+                var name = DatabaseOptionKindToSql(o.OptionKind);
+                if (o is OnOffDatabaseOption onOff) {
+                    var state = onOff.OptionState == OptionState.On ? "ON" : "OFF";
+                    return (object?)$"{name} = {state}";
+                }
+                var val = RawText(o).Trim();
+                var text = val.StartsWith(name, StringComparison.OrdinalIgnoreCase)
+                    ? val
+                    : (val.Length > 0 ? $"{name} {val}" : name);
+                return (object?)text;
+            }),
+            ["termination"] = RawTextOrNull(stmt.Termination),
         });
 
     private static SqlNode BuildAlterDatabaseCollate(AlterDatabaseCollateStatement stmt) =>
@@ -2304,9 +2215,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["database"] = AlterDbName(stmt),
             ["fileGroup"] = stmt.FileGroup?.Value,
             ["isLog"] = stmt.IsLog,
-            ["files"] = stmt.FileDeclarations?.Count > 0
-                            ? stmt.FileDeclarations.Select(f => (object?)RawText(f)).ToList()
-                            : null,
+            ["files"] = MapList(stmt.FileDeclarations, f => (object?)RawText(f)),
         });
 
     private static SqlNode BuildAlterDatabaseAddFileGroup(AlterDatabaseAddFileGroupStatement stmt) =>
@@ -2332,7 +2241,7 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildAlterDatabaseModifyFile(AlterDatabaseModifyFileStatement stmt) =>
         Node("AlterDatabaseModifyFileStatement", stmt, new Dictionary<string, object?> {
             ["database"] = AlterDbName(stmt),
-            ["file"] = stmt.FileDeclaration != null ? RawText(stmt.FileDeclaration) : null,
+            ["file"] = RawTextOrNull(stmt.FileDeclaration),
         });
 
     private static string ModifyFileGroupOptionToSql(ModifyFileGroupOption opt) => opt switch {
@@ -2356,7 +2265,7 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildAlterDatabaseRebuildLog(AlterDatabaseRebuildLogStatement stmt) =>
         Node("AlterDatabaseRebuildLogStatement", stmt, new Dictionary<string, object?> {
             ["database"] = AlterDbName(stmt),
-            ["file"] = stmt.FileDeclaration != null ? RawText(stmt.FileDeclaration) : null,
+            ["file"] = RawTextOrNull(stmt.FileDeclaration),
         });
 
     private static SqlNode? BuildOutputClause(OutputClause? output) {
@@ -2386,7 +2295,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         ["permissions"] = s.Permissions?.Select(p => (object?)BuildPermission(p)).ToList(),
         ["target"] = BuildSecurityTarget(s.SecurityTargetObject),
         ["principals"] = s.Principals?.Select(p => (object?)BuildSecurityPrincipal(p)).ToList(),
-        ["asClause"] = s.AsClause != null ? RawText(s.AsClause) : null,
+        ["asClause"] = RawTextOrNull(s.AsClause),
     };
 
     private static SqlNode BuildGrant(GrantStatement s) {
@@ -2411,9 +2320,7 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static object? BuildPermission(Permission p) {
         // Join identifier Values to form the permission keyword (e.g. "ALTER ANY USER")
         var name = string.Join(" ", p.Identifiers?.Select(id => id.Value ?? "") ?? []);
-        var cols = p.Columns?.Count > 0
-            ? p.Columns.Select(c => RawText(c)).ToList<object?>()
-            : null;
+        var cols = MapList(p.Columns, c => (object?)RawText(c));
         return new Dictionary<string, object?> { ["name"] = name, ["columns"] = cols };
     }
 
@@ -2421,16 +2328,14 @@ public class AstBuilder : TSqlFragmentVisitor {
         if (target == null) return null;
         return new Dictionary<string, object?> {
             ["objectKind"] = target.ObjectKind.ToString(),
-            ["objectName"] = target.ObjectName != null ? RawText(target.ObjectName) : null,
-            ["columns"] = target.Columns?.Count > 0
-                             ? target.Columns.Select(c => RawText(c)).ToList<object?>()
-                             : null,
+            ["objectName"] = RawTextOrNull(target.ObjectName),
+            ["columns"] = MapList(target.Columns, c => (object?)RawText(c)),
         };
     }
 
     private static object? BuildSecurityPrincipal(SecurityPrincipal p) => new Dictionary<string, object?> {
         ["principalType"] = p.PrincipalType.ToString(),
-        ["name"] = p.Identifier != null ? RawText(p.Identifier) : null,
+        ["name"] = RawTextOrNull(p.Identifier),
     };
 
     // -------------------------------------------------------------------------
@@ -2440,8 +2345,8 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static object? BuildPrincipalOption(PrincipalOption opt) => opt switch {
         PasswordAlterPrincipalOption popt => new Dictionary<string, object?> {
             ["kind"] = "Password",
-            ["password"] = popt.Password != null ? RawText(popt.Password) : null,
-            ["oldPassword"] = popt.OldPassword != null ? RawText(popt.OldPassword) : null,
+            ["password"] = RawTextOrNull(popt.Password),
+            ["oldPassword"] = RawTextOrNull(popt.OldPassword),
             ["mustChange"] = popt.MustChange,
             ["unlock"] = popt.Unlock,
             ["hashed"] = popt.Hashed,
@@ -2452,7 +2357,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         },
         LiteralPrincipalOption litOpt => new Dictionary<string, object?> {
             ["kind"] = opt.OptionKind.ToString(),
-            ["value"] = litOpt.Value != null ? RawText(litOpt.Value) : null,
+            ["value"] = RawTextOrNull(litOpt.Value),
         },
         IdentifierPrincipalOption idOpt => new Dictionary<string, object?> {
             ["kind"] = opt.OptionKind.ToString(),
@@ -2495,7 +2400,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         switch (s.Source) {
             case PasswordCreateLoginSource pcs:
                 props["sourceType"] = "Password";
-                props["password"] = pcs.Password != null ? RawText(pcs.Password) : null;
+                props["password"] = RawTextOrNull(pcs.Password);
                 props["hashed"] = pcs.Hashed;
                 props["mustChange"] = pcs.MustChange;
                 props["options"] = BuildPrincipalOptions(pcs.Options);
@@ -2513,7 +2418,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                 props["sourceName"] = aks.Key?.Value;
                 break;
             default:
-                props["sourceType"] = s.Source != null ? RawText(s.Source) : null;
+                props["sourceType"] = RawTextOrNull(s.Source);
                 break;
         }
         return Node("CreateLoginStatement", s, props);

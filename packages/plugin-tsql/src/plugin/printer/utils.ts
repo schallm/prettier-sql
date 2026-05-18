@@ -60,6 +60,30 @@ export function appendTrailingLines(doc: Doc, comment: string | undefined): Doc 
 }
 
 /**
+ * Emit a list of comments each preceded by a hardline.
+ * Used for leadingComments / preBodyComments / postParamComments arrays.
+ */
+export function commentsBlock(comments: string[] | undefined): Doc {
+    if (!comments?.length) return '';
+    return comments.flatMap((c): Doc[] => [hardline, c]);
+}
+
+/**
+ * Render `( a, b, c )` as a soft-wrapped group: stays inline when it fits,
+ * each item on its own indented line when it doesn't.
+ */
+export function parenList(items: Doc[]): Doc {
+    return group(['(', indent([softline, join([',', line], items)]), softline, ')']);
+}
+
+/**
+ * Render ` AS alias` when alias is set, or an empty string.
+ */
+export function aliasDoc(alias: string | null | undefined, opts: Options): Doc {
+    return alias ? [' ', keyword('AS', opts), ' ', alias] : '';
+}
+
+/**
  * Separator for hardline-broken lists (standard/spacious density).
  * trailing: `[',', hardline]`  leading: `[hardline, ', ']`
  */
