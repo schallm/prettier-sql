@@ -52,7 +52,7 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
 
 function printSelect(node: SqlNode, opts: Options): Doc {
     const mk = (kw: string) => keyword(kw, opts);
-    function printNode(n: SqlNode): Doc { return printExpression(n, opts, printNode); }
+    function printNode(n: SqlNode): Doc { return n.type.endsWith('Statement') ? printStatement(n, opts) : printExpression(n, opts, printNode); }
 
     const ctes = prop(node, 'ctes');
     const distinct = propBool(node, 'distinct');
@@ -132,7 +132,7 @@ function printSelect(node: SqlNode, opts: Options): Doc {
 
 function printInsert(node: SqlNode, opts: Options): Doc {
     const mk = (kw: string) => keyword(kw, opts);
-    function printNode(n: SqlNode): Doc { return printExpression(n, opts, printNode); }
+    function printNode(n: SqlNode): Doc { return n.type.endsWith('Statement') ? printStatement(n, opts) : printExpression(n, opts, printNode); }
 
     const target = prop(node, 'target');
     const columns = propArr(node, 'columns');
@@ -160,7 +160,7 @@ function printInsert(node: SqlNode, opts: Options): Doc {
 
 function printUpdate(node: SqlNode, opts: Options): Doc {
     const mk = (kw: string) => keyword(kw, opts);
-    function printNode(n: SqlNode): Doc { return printExpression(n, opts, printNode); }
+    function printNode(n: SqlNode): Doc { return n.type.endsWith('Statement') ? printStatement(n, opts) : printExpression(n, opts, printNode); }
 
     const target = prop(node, 'target');
     const sets = propArr(node, 'sets');
@@ -193,7 +193,7 @@ function printUpdate(node: SqlNode, opts: Options): Doc {
 
 function printDelete(node: SqlNode, opts: Options): Doc {
     const mk = (kw: string) => keyword(kw, opts);
-    function printNode(n: SqlNode): Doc { return printExpression(n, opts, printNode); }
+    function printNode(n: SqlNode): Doc { return n.type.endsWith('Statement') ? printStatement(n, opts) : printExpression(n, opts, printNode); }
 
     const target = prop(node, 'target');
     const using = propArr(node, 'using');
@@ -220,7 +220,7 @@ function printDelete(node: SqlNode, opts: Options): Doc {
 
 function printCreateTable(node: SqlNode, opts: Options): Doc {
     const mk = (kw: string) => keyword(kw, opts);
-    function printNode(n: SqlNode): Doc { return printExpression(n, opts, printNode); }
+    function printNode(n: SqlNode): Doc { return n.type.endsWith('Statement') ? printStatement(n, opts) : printExpression(n, opts, printNode); }
 
     const name = prop(node, 'name');
     const columns = propArr(node, 'columns');
@@ -235,7 +235,7 @@ function printCreateTable(node: SqlNode, opts: Options): Doc {
 
 function printAlterTable(node: SqlNode, opts: Options): Doc {
     const mk = (kw: string) => keyword(kw, opts);
-    function printNode(n: SqlNode): Doc { return printExpression(n, opts, printNode); }
+    function printNode(n: SqlNode): Doc { return n.type.endsWith('Statement') ? printStatement(n, opts) : printExpression(n, opts, printNode); }
 
     const name = prop(node, 'name');
     const commands = propArr(node, 'commands');
@@ -249,7 +249,7 @@ function printAlterTable(node: SqlNode, opts: Options): Doc {
 
 function printCreateView(node: SqlNode, opts: Options): Doc {
     const mk = (kw: string) => keyword(kw, opts);
-    function printNode(n: SqlNode): Doc { return printExpression(n, opts, printNode); }
+    function printNode(n: SqlNode): Doc { return n.type.endsWith('Statement') ? printStatement(n, opts) : printExpression(n, opts, printNode); }
 
     const name = prop(node, 'name');
     const body = prop(node, 'body');
@@ -263,7 +263,7 @@ function printCreateView(node: SqlNode, opts: Options): Doc {
 
 function printCreateFunction(node: SqlNode, opts: Options): Doc {
     const mk = (kw: string) => keyword(kw, opts);
-    function printNode(n: SqlNode): Doc { return printExpression(n, opts, printNode); }
+    function printNode(n: SqlNode): Doc { return n.type.endsWith('Statement') ? printStatement(n, opts) : printExpression(n, opts, printNode); }
 
     const name = propStr(node, 'name') ?? '';
     const parameters = propArr(node, 'parameters');
@@ -277,7 +277,7 @@ function printCreateFunction(node: SqlNode, opts: Options): Doc {
 
 function printCreateIndex(node: SqlNode, opts: Options): Doc {
     const mk = (kw: string) => keyword(kw, opts);
-    function printNode(n: SqlNode): Doc { return printExpression(n, opts, printNode); }
+    function printNode(n: SqlNode): Doc { return n.type.endsWith('Statement') ? printStatement(n, opts) : printExpression(n, opts, printNode); }
 
     const unique = propBool(node, 'unique');
     const indexName = propStr(node, 'indexName') ?? '';

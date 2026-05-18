@@ -2,13 +2,14 @@ import type { Doc } from 'prettier';
 import type { SqlNode } from '../parser/types.js';
 import type { Options } from './utils.js';
 import { keyword, join, indent, hardline, aliasDoc } from './utils.js';
+import { printStatement } from './statements.js';
 import { prop, propArr, propStr, propBool, rangeVarName } from './helpers.js';
 
 type PrintFn = (node: SqlNode) => Doc;
 
 export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     switch (node.type) {
-        case 'SelectStatement': return printSelectExpr(node, opts, printNode);
+        case 'SelectStatement': return printStatement(node, opts);
         case 'Literal': return node.text ?? '';
         case 'ColumnRef': return propStr(node, 'name') ?? '';
         case 'BinaryExpr': return printBinaryExpr(node, opts, printNode);
@@ -39,14 +40,6 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'WithClause': return '';
         default: return node.text ?? `/* unknown: ${node.type} */`;
     }
-}
-
-// ---------------------------------------------------------------------------
-// SELECT as subexpression (subquery in FROM etc.)
-// ---------------------------------------------------------------------------
-
-function printSelectExpr(node: SqlNode, _opts: Options, printNode: PrintFn): Doc {
-    return printNode(node);
 }
 
 // ---------------------------------------------------------------------------
