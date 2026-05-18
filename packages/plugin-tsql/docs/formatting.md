@@ -586,24 +586,25 @@ where AvgPrice > 25;
 A `VALUES(...)` constructor used as a derived table in `FROM` is formatted inline when it fits within `printWidth`, or broken across lines when it exceeds it. The alias and column list follow with no space between the alias name and the column list:
 
 ```sql
--- fits on one line: stays inline
+-- fits within printWidth: stays inline with from
 select
-  v.Id,
-  v.Name
+    v.Id,
+    v.Name
 from (values (1, 'Alice'), (2, 'Bob')) as v(Id, Name);
 ```
 
 ```sql
--- exceeds printWidth: rows break onto their own indented lines
+-- exceeds printWidth: from breaks to its own line and rows indent further
 select
-  v.ProductId,
-  v.Name,
-  v.Price
-from (values
-  (101, 'Widget Pro', 29.99),
-  (102, 'Gadget Plus', 49.99),
-  (103, 'Doohickey', 9.99)
-) as v(ProductId, Name, Price)
+    v.ProductId,
+    v.Name,
+    v.Price
+from
+    (values
+        (101, 'Widget Pro', 29.99),
+        (102, 'Gadget Plus', 49.99),
+        (103, 'Doohickey', 9.99)
+    ) as v(ProductId, Name, Price)
 where v.Price < 40;
 ```
 

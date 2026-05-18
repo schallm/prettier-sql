@@ -617,12 +617,17 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
         const tableRefs = propArr(from, 'tableReferences');
         const fromDocs = tableRefs.map((tr) => printTableRef(tr, opts, printFn));
         // standard: single table (no joins) stays inline; multiple/joins each on own line
+        // InlineDerivedTable uses a softline so it stays inline when it fits but breaks
+        // FROM onto its own line (with the values block indented) when it doesn't
         const singleTable =
             density === 'standard' &&
             tableRefs.length === 1 &&
             tableRefs[0]!.type !== 'QualifiedJoin' &&
-            tableRefs[0]!.type !== 'UnqualifiedJoin';
-        if (singleTable) {
+            tableRefs[0]!.type !== 'UnqualifiedJoin' &&
+            tableRefs[0]!.type !== 'InlineDerivedTable';
+        if (tableRefs.length === 1 && tableRefs[0]!.type === 'InlineDerivedTable') {
+            parts.push(hardline, group([keyword('FROM', opts), indent([line, fromDocs[0]!])]));
+        } else if (singleTable) {
             parts.push(hardline, keyword('FROM', opts), ' ', fromDocs[0]!);
         } else {
             parts.push(hardline, keyword('FROM', opts), indent([hardline, join(hardSep(opts), fromDocs)]));
