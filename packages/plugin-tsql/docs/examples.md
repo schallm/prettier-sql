@@ -448,6 +448,31 @@ Dynamic SQL — concatenation expression is preserved inside the parentheses:
 
 ---
 
+## Identifiers
+
+### Bracket quoting
+
+Redundant brackets are stripped from identifiers that don't need them. Brackets are preserved when a name contains spaces, special characters, or starts with a digit.
+
+```diff
+- SELECT [Books].[Id], [Books].[Title] FROM [Books] WHERE [Books].[InStock] = 1
++ select
++   Books.Id,
++   Books.Title
++ from Books
++ where Books.InStock = 1;
+```
+
+Names that require brackets are left bracketed:
+
+```diff
+- SELECT [My Table].[Book Id] FROM [My Table]
++ select [My Table].[Book Id]
++ from [My Table];
+```
+
+---
+
 ## Security
 
 ### GRANT / DENY / REVOKE

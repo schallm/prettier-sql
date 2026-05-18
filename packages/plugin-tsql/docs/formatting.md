@@ -2299,6 +2299,36 @@ go
 
 ---
 
+### Identifiers and bracket quoting
+
+Square-bracket quoting (`[name]`) is preserved only when the identifier requires it — that is, when the name contains spaces, special characters, or starts with a digit. Redundant brackets around plain identifiers are stripped.
+
+```sql
+-- input: brackets around plain names are dropped
+select [Books].[Id], [Books].[Title]
+from [Books]
+where [Books].[InStock] = 1;
+
+-- output
+select
+    Books.Id,
+    Books.Title
+from Books
+where Books.InStock = 1;
+```
+
+```sql
+-- input: brackets around names with spaces are kept
+select [My Table].[Book Id]
+from [My Table];
+
+-- output (unchanged — brackets are required)
+select [My Table].[Book Id]
+from [My Table];
+```
+
+---
+
 ### GO Batch Separators
 
 The following statement types must be alone in a batch and automatically get a `go` appended:
