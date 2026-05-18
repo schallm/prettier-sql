@@ -1225,6 +1225,35 @@ data ?| array['a', 'b']
 data ?& array['a', 'b']
 ```
 
+### XML functions
+
+`XMLELEMENT`, `XMLFOREST`, `XMLCONCAT`, and `XMLPI` are printed using SQL standard syntax. `XMLATTRIBUTES(...)` is reconstructed from the named-argument list.
+
+```sql
+xmlelement(name foo, 'bar')
+
+xmlelement(name order, xmlattributes(o.orderid), o.ordername)
+
+xmlforest(title, author as written_by)
+
+xmlconcat(xmlelement(name a, 1), xmlelement(name b, 2))
+
+-- XMLAGG (aggregate function)
+xmlagg(xmlelement(name item, title) order by title)
+```
+
+### SQL/JSON functions (PostgreSQL 16+)
+
+`JSON_QUERY`, `JSON_EXISTS`, and `JSON_VALUE` with optional `RETURNING` type.
+
+```sql
+json_query(data, '$.name')
+
+json_exists(data, '$.active')
+
+json_value(data, '$.price' returning numeric)
+```
+
 ### ARRAY constructor
 
 ```sql

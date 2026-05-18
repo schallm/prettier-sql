@@ -119,7 +119,8 @@ Expression/sub-expression printer. Dispatches on `node.type`.
 Currently covers: Literal, ColumnRef, BinaryExpr, BoolExpr, FunctionCall, Cast, SubLink,
 CaseExpr, NullTest, BooleanTest, ResTarget, RangeVar, JoinExpr, Subquery, RangeFunction,
 SortItem, ColumnDef, Constraint, AlterCmd, FunctionParam, IndexElem, ArrayExpr, Coalesce,
-RowExpr, ParamRef, ExprList, GroupingFunc, IntervalLiteral, RangeTableSample, TableLikeClause.
+RowExpr, ParamRef, ExprList, GroupingFunc, IntervalLiteral, RangeTableSample, TableLikeClause,
+XmlExpr, JsonFuncExpr.
 
 ## SqlNode shape produced by AstBuilder
 
@@ -174,8 +175,8 @@ npm run test:watch   # vitest watch
 
 ## What's NOT yet implemented
 
-- **XMLELEMENT / XMLFOREST / XMLTABLE / XMLAGG** — XML construction and query functions
-- **SQL/JSON functions** — `JSON_TABLE`, `JSON_QUERY`, `JSON_EXISTS`, `JSON_VALUE` (PostgreSQL 16+)
+- **XMLTABLE** — `XMLTABLE(xpath COLUMNS ...)` tabular XML query; complex dedicated parse node
+- **JSON_TABLE** — `JSON_TABLE(data, path COLUMNS ...)` PostgreSQL 16+; complex dedicated parse node
 - **Procedural / PL/pgSQL** — out of scope for now
 - **Density-aware WHERE** — currently always inline; tsql has compact/standard/spacious logic
 - **Leading comma style** — `sqlCommaStyle: 'leading'` is wired up in utils but not used in SELECT lists
