@@ -1133,6 +1133,24 @@ where price not between 10 and 50;
 "
 `;
 
+exports[`fixtures > select/json-functions.sql 1`] = `
+"select
+  json_query(data, '$.name')
+from
+  events;
+
+select
+  json_exists(data, '$.active')
+from
+  events;
+
+select
+  json_value(data, '$.price' returning numeric)
+from
+  events;
+"
+`;
+
 exports[`fixtures > select/lateral.sql 1`] = `
 "select
   b.id,
@@ -1290,6 +1308,30 @@ select
   price,
   rank() over (partition by author_id order by price desc) as price_rank,
   avg(price) over (partition by author_id) as avg_price
+from
+  books;
+"
+`;
+
+exports[`fixtures > select/xml-functions.sql 1`] = `
+"select
+  xmlelement(name foo, 'bar');
+
+select
+  xmlelement(name order, xmlattributes(o.orderid), o.ordername)
+from
+  orders as o;
+
+select
+  xmlforest(title, author as written_by)
+from
+  books;
+
+select
+  xmlconcat(xmlelement(name a, 1), xmlelement(name b, 2));
+
+select
+  xmlagg(xmlelement(name item, title) order by title)
 from
   books;
 "

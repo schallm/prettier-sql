@@ -51,6 +51,8 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'IntervalLiteral':  return printIntervalLiteral(node, opts, printNode);
         case 'RangeTableSample': return printRangeTableSample(node, opts, printNode);
         case 'TableLikeClause':  return printTableLikeClause(node, opts);
+        case 'XmlExpr':          return printXmlExpr(node, opts, printNode);
+        case 'JsonFuncExpr':     return printJsonFuncExpr(node, opts, printNode);
         default: return node.text ?? `/* unknown: ${node.type} */`;
     }
 }
@@ -622,4 +624,61 @@ function printGroupingFunc(node: SqlNode, opts: Options, printNode: PrintFn): Do
     const mk   = (kw: string) => keyword(kw, opts);
     const args = propArr(node, 'args');
     return [mk('GROUPING'), '(', join(', ', args.map(printNode)), ')'];
+}
+
+function printXmlExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const mk        = (kw: string) => keyword(kw, opts);
+    const op        = propStr(node, 'op') ?? 'XMLEXPR';
+    const name      = propStr(node, 'name');
+    const args      = propArr(node, 'args');
+    const namedArgs = propArr(node, 'namedArgs');
+
+    if (op === 'XMLELEMENT') {
+        const parts: Doc[] = [mk('NAME'), ' ', name ?? ''];
+        if (namedArgs.length > 0) {
+            // namedArgs correspond to xmlattributes() arguments
+            const attrItems = namedArgs.map((a) => {
+                const alias  = propStr(a, 'name');
+                const val    = prop(a, 'val');
+                const valDoc = val ? printNode(val) : '';
+                return alias ? [valDoc, ' ', mk('AS'), ' ', alias] as Doc : valDoc;
+            });
+            parts.push(', ', mk('XMLATTRIBUTES'), '(', join(', ', attrItems), ')');
+        }
+        for (const a of args) parts.push(', ', printNode(a));
+        return [mk('XMLELEMENT'), '(', ...parts, ')'];
+    }
+    if (op === 'XMLFOREST') {
+        const items = namedArgs.map((a) => {
+            const alias = propStr(a, 'name');
+            const val   = prop(a, 'val');
+            const valDoc = val ? printNode(val) : '';
+            return alias ? [valDoc, ' ', mk('AS'), ' ', alias] as Doc : valDoc;
+        });
+        return [mk('XMLFOREST'), '(', join(', ', items), ')'];
+    }
+    if (op === 'XMLPI') {
+        const items: Doc[] = [mk('NAME'), ' ', name ?? ''];
+        if (args.length > 0) items.push(', ', printNode(args[0]!));
+        return [mk('XMLPI'), '(', ...items, ')'];
+    }
+    // XMLCONCAT, XMLPARSE, XMLROOT, XMLSERIALIZE — simple arg list
+    const allArgs = [...namedArgs, ...args].map(printNode);
+    return [mk(op), '(', join(', ', allArgs), ')'];
+}
+
+function printJsonFuncExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const mk        = (kw: string) => keyword(kw, opts);
+    const op        = propStr(node, 'op') ?? 'JSON_QUERY';
+    const context   = prop(node, 'context');
+    const path      = prop(node, 'path');
+    const returning = propStr(node, 'returning');
+
+    const parts: Doc[] = [
+        context ? printNode(context) : '',
+        ', ',
+        path ? printNode(path) : '',
+    ];
+    if (returning) parts.push(' ', mk('RETURNING'), ' ', returning);
+    return [mk(op), '(', ...parts, ')'];
 }

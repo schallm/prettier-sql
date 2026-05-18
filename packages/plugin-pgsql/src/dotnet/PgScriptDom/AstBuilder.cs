@@ -421,6 +421,8 @@ public class AstBuilder {
             Node.NodeOneofCase.GroupingFunc => BuildGroupingFunc(node.GroupingFunc),
             Node.NodeOneofCase.Constraint   => BuildConstraint(node.Constraint),
             Node.NodeOneofCase.MergeWhenClause => BuildMergeWhen(node.MergeWhenClause),
+            Node.NodeOneofCase.XmlExpr      => BuildXmlExpr(node.XmlExpr),
+            Node.NodeOneofCase.JsonFuncExpr => BuildJsonFuncExpr(node.JsonFuncExpr),
             _ => new SqlNode("RawExpr", 0, 0, node.NodeCase.ToString(), null),
         };
     }
@@ -1972,6 +1974,49 @@ public class AstBuilder {
         new("GroupingFunc", 0, 0, null, BuildProps(
             ("args", MapList(g.Args, BuildExpr))
         ));
+
+    private SqlNode BuildXmlExpr(XmlExpr xe) {
+        var op = xe.Op switch {
+            XmlExprOp.IsXmlelement => "XMLELEMENT",
+            XmlExprOp.IsXmlforest  => "XMLFOREST",
+            XmlExprOp.IsXmlconcat  => "XMLCONCAT",
+            XmlExprOp.IsXmlparse   => "XMLPARSE",
+            XmlExprOp.IsXmlpi      => "XMLPI",
+            XmlExprOp.IsXmlroot    => "XMLROOT",
+            XmlExprOp.IsXmlserialize => "XMLSERIALIZE",
+            XmlExprOp.IsDocument   => "IS DOCUMENT",
+            _ => xe.Op.ToString(),
+        };
+        // NamedArgs are ResTarget nodes (val + name) used in XMLELEMENT attributes / XMLFOREST cols
+        var namedArgs = MapList(xe.NamedArgs, n =>
+            n.NodeCase == Node.NodeOneofCase.ResTarget ? BuildResTarget(n.ResTarget) : BuildExpr(n));
+        return new SqlNode("XmlExpr", 0, 0, null, BuildProps(
+            ("op",        op),
+            ("name",      string.IsNullOrEmpty(xe.Name) ? null : xe.Name),
+            ("args",      MapList(xe.Args, BuildExpr)),
+            ("namedArgs", namedArgs)
+        ));
+    }
+
+    private SqlNode BuildJsonFuncExpr(JsonFuncExpr je) {
+        var op = je.Op switch {
+            JsonExprOp.JsonQueryOp  => "JSON_QUERY",
+            JsonExprOp.JsonExistsOp => "JSON_EXISTS",
+            JsonExprOp.JsonValueOp  => "JSON_VALUE",
+            _ => je.Op.ToString(),
+        };
+        var context = je.ContextItem != null ? BuildExpr(je.ContextItem.RawExpr) : null;
+        var path    = je.Pathspec != null ? BuildExpr(je.Pathspec) : null;
+        string? returning = null;
+        if (je.Output?.TypeName != null)
+            returning = BuildPgTypeName(je.Output.TypeName);
+        return new SqlNode("JsonFuncExpr", 0, 0, null, BuildProps(
+            ("op",        op),
+            ("context",   context),
+            ("path",      path),
+            ("returning", returning)
+        ));
+    }
 
     // Helper to extract a string or bool value from a DefElem Arg
     private static object? BuildDefElemValue(DefElem de) {
