@@ -581,6 +581,175 @@ values
 "
 `;
 
+exports[`fixtures > p4/create-aggregate.sql 1`] = `
+"create aggregate my_avg (double precision) (
+  sfunc = float8_accum,
+  stype = double precision[],
+  initcond = '{0,0,0}'
+);
+"
+`;
+
+exports[`fixtures > p4/create-collation.sql 1`] = `
+"create collation my_coll (locale = 'en-US');
+
+create collation my_coll2 from "en-US";
+"
+`;
+
+exports[`fixtures > p4/create-operator.sql 1`] = `
+"create operator === (
+  leftarg = integer,
+  rightarg = integer,
+  procedure = int4eq
+);
+"
+`;
+
+exports[`fixtures > p4/foreign-data-wrappers.sql 1`] = `
+"create server my_server
+foreign data wrapper postgres_fdw options (host 'localhost', port '5432');
+
+create foreign table remote_orders (
+  id integer,
+  amount numeric
+)
+server my_server options (table_name 'orders');
+
+create user mapping for current_user
+server my_server options (user 'remote_user', password 'secret');
+
+import foreign schema public
+from server my_server
+into local_schema;
+"
+`;
+
+exports[`fixtures > p4/interval-modifiers.sql 1`] = `
+"select
+  interval '1' year;
+
+select
+  interval '1:30' hour to minute;
+
+select
+  interval '1 2:03:04' day to second;
+
+select
+  interval '5 years' year to month;
+"
+`;
+
+exports[`fixtures > p4/logical-replication.sql 1`] = `
+"create publication my_pub
+for table orders, users;
+
+create subscription my_sub
+connection 'host=localhost dbname=mydb'
+publication my_pub;
+
+drop subscription my_sub;
+"
+`;
+
+exports[`fixtures > p4/partitioning.sql 1`] = `
+"create table orders (
+  id integer not null,
+  region text not null
+)
+partition by range (region);
+
+create table orders_us
+partition of orders
+for values from ('US') to ('ZZ');
+
+create table orders_default
+partition of orders
+default;
+
+create table measurements (
+  city_id integer not null,
+  logdate date not null
+)
+partition by list (city_id);
+"
+`;
+
+exports[`fixtures > p4/recursive-cte-search-cycle.sql 1`] = `
+"with recursive
+  t as (
+    select
+      id,
+      parent_id
+    from
+      tree
+    union all
+    select
+      tree.id,
+      tree.parent_id
+    from
+      tree
+      join t on t.id = tree.parent_id
+  )
+  search breadth first by id set ordercol
+  cycle id set is_cycle using path
+select
+  *
+from
+  t;
+"
+`;
+
+exports[`fixtures > p4/security-label.sql 1`] = `
+"security label for my_provider on table orders is 'sensitive';
+
+security label for my_provider on column orders.amount is 'pii';
+"
+`;
+
+exports[`fixtures > p4/table-like.sql 1`] = `
+"create table orders_copy (
+  like orders including all
+);
+
+create table orders_partial (
+  extra_col text,
+  like orders including defaults including indexes
+);
+"
+`;
+
+exports[`fixtures > p4/tablesample.sql 1`] = `
+"select
+  id,
+  name
+from
+  users tablesample bernoulli(10);
+
+select
+  count(*)
+from
+  orders tablesample system(5) repeatable (42);
+"
+`;
+
+exports[`fixtures > p4/vacuum-analyze.sql 1`] = `
+"vacuum orders;
+
+vacuum verbose orders;
+
+vacuum (full, analyze) orders;
+
+analyze orders;
+
+cluster orders using orders_region_idx;
+
+reindex table orders;
+
+reindex (verbose) table orders;
+"
+`;
+
 exports[`fixtures > select/advanced.sql 1`] = `
 "select
   interval '1 day',

@@ -94,6 +94,21 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'UnlistenStatement':      return printUnlisten(node, opts);
         case 'NotifyStatement':        return printNotify(node, opts);
         case 'LockStatement':          return printLockTable(node, opts);
+        case 'CreateTablePartitionOfStatement': return printCreateTablePartitionOf(node, opts);
+        case 'VacuumStatement':        return printVacuum(node, opts);
+        case 'ClusterStatement':       return printCluster(node, opts);
+        case 'ReindexStatement':       return printReindex(node, opts);
+        case 'CreateForeignServerStatement':   return printCreateForeignServer(node, opts);
+        case 'CreateForeignTableStatement':    return printCreateForeignTable(node, opts);
+        case 'CreateUserMappingStatement':     return printCreateUserMapping(node, opts);
+        case 'ImportForeignSchemaStatement':   return printImportForeignSchema(node, opts);
+        case 'CreatePublicationStatement':     return printCreatePublication(node, opts);
+        case 'CreateSubscriptionStatement':    return printCreateSubscription(node, opts);
+        case 'DropSubscriptionStatement':      return printDropSubscription(node, opts);
+        case 'CreateAggregateStatement':       return printCreateAggregate(node, opts);
+        case 'CreateOperatorStatement':        return printCreateOperator(node, opts);
+        case 'CreateCollationStatement':       return printCreateCollation(node, opts);
+        case 'SecurityLabelStatement':         return printSecurityLabel(node, opts);
         default: return node.text ?? node.type;
     }
 }
@@ -150,7 +165,23 @@ function printCtes(ctes: SqlNode, opts: Options, printNode: PrintFn): Doc[] {
     const cteDocs = cteList.map((cte) => {
         const name  = propStr(cte, 'name') ?? '';
         const query = prop(cte, 'query');
-        return [name, ' ', mk('AS'), ' (', indent([hardline, query ? printNode(query) : '']), hardline, ')'];
+        const search = prop(cte, 'search');
+        const cycle  = prop(cte, 'cycle');
+        const parts: Doc[] = [name, ' ', mk('AS'), ' (', indent([hardline, query ? printNode(query) : '']), hardline, ')'];
+        if (search) {
+            const breadthFirst = propBool(search, 'breadthFirst');
+            const cols = (search.props?.['columns'] as string[] | undefined) ?? [];
+            const seqCol = propStr(search, 'seqColumn') ?? '';
+            const firstLast = breadthFirst ? mk('BREADTH FIRST') : mk('DEPTH FIRST');
+            parts.push(hardline, mk('SEARCH'), ' ', firstLast, ' ', mk('BY'), ' ', join(', ', cols), ' ', mk('SET'), ' ', seqCol);
+        }
+        if (cycle) {
+            const cols = (cycle.props?.['columns'] as string[] | undefined) ?? [];
+            const markCol = propStr(cycle, 'markColumn') ?? '';
+            const pathCol = propStr(cycle, 'pathColumn') ?? '';
+            parts.push(hardline, mk('CYCLE'), ' ', join(', ', cols), ' ', mk('SET'), ' ', markCol, ' ', mk('USING'), ' ', pathCol);
+        }
+        return parts;
     });
     return [[cteKw, indent([hardline, join([',', hardline], cteDocs)])]];
 }
@@ -473,11 +504,19 @@ function printCreateTable(node: SqlNode, opts: Options): Doc {
     const printNode = pn(opts);
     const name     = prop(node, 'name');
     const columns  = propArr(node, 'columns');
+    const partitionBy = prop(node, 'partitionBy');
+
+    const partitionDoc: Doc = partitionBy
+        ? [hardline, mk('PARTITION BY'), ' ', mk(propStr(partitionBy, 'strategy') ?? 'RANGE'),
+           ' (', join(', ', (partitionBy.props?.['columns'] as string[] | undefined) ?? []), ')']
+        : '';
 
     return [
         mk('CREATE TABLE'), ' ', rangeVarName(name), ' (',
         indent([hardline, join([',', hardline], columns.map(printNode))]),
-        hardline, ');',
+        hardline, ')',
+        partitionDoc,
+        ';',
     ];
 }
 
@@ -1367,6 +1406,289 @@ function printLockTable(node: SqlNode, opts: Options): Doc {
         mk('LOCK TABLE'), ' ', join(', ', relations.map(rangeVarName)),
         ' ', mk('IN'), ' ', mk(mode), ' ', mk('MODE'),
         nowait ? [' ', mk('NOWAIT')] : '',
+        ';',
+    ];
+}
+
+// ---------------------------------------------------------------------------
+// P4: CREATE TABLE PARTITION OF
+// ---------------------------------------------------------------------------
+
+function printCreateTablePartitionOf(node: SqlNode, opts: Options): Doc {
+    const mk     = (k: string) => keyword(k, opts);
+    const name   = prop(node, 'name');
+    const parent = prop(node, 'parent');
+    const bound  = prop(node, 'bound');
+
+    let boundDoc: Doc = '';
+    if (bound) {
+        const isDefault = propBool(bound, 'isDefault');
+        if (isDefault) {
+            boundDoc = [hardline, mk('DEFAULT')];
+        } else {
+            const lower = (bound.props?.['lower'] as string[] | undefined) ?? [];
+            const upper = (bound.props?.['upper'] as string[] | undefined) ?? [];
+            if (lower.length > 0 || upper.length > 0) {
+                boundDoc = [
+                    hardline, mk('FOR VALUES FROM'),
+                    ' (', join(', ', lower), ')',
+                    ' ', mk('TO'),
+                    ' (', join(', ', upper), ')',
+                ];
+            }
+        }
+    }
+
+    return [
+        mk('CREATE TABLE'), ' ', rangeVarName(name), hardline,
+        indent([mk('PARTITION OF'), ' ', rangeVarName(parent)]),
+        boundDoc,
+        ';',
+    ];
+}
+
+// ---------------------------------------------------------------------------
+// P4: VACUUM / ANALYZE / CLUSTER / REINDEX
+// ---------------------------------------------------------------------------
+
+function printVacuum(node: SqlNode, opts: Options): Doc {
+    const mk        = (k: string) => keyword(k, opts);
+    const isVacuum  = propBool(node, 'isVacuum');
+    const options   = (node.props?.['options'] as string[] | undefined) ?? [];
+    const relations = propArr(node, 'relations');
+
+    const relDoc: Doc = relations.length > 0
+        ? [' ', join(', ', relations.map(rangeVarName))]
+        : '';
+
+    if (!isVacuum) {
+        return [[mk('ANALYZE'), relDoc], ';'];
+    }
+
+    if (options.length === 0) {
+        return [[mk('VACUUM'), relDoc], ';'];
+    }
+    if (options.length === 1 && (options[0] === 'VERBOSE' || options[0] === 'ANALYZE')) {
+        return [[mk('VACUUM'), ' ', mk(options[0]!), relDoc], ';'];
+    }
+    return [[mk('VACUUM'), ' (', join(', ', options.map((o) => mk(o.toLowerCase()))), ')', relDoc], ';'];
+}
+
+function printCluster(node: SqlNode, opts: Options): Doc {
+    const mk       = (k: string) => keyword(k, opts);
+    const relation = prop(node, 'relation');
+    const indexName = propStr(node, 'indexName');
+
+    return [
+        [mk('CLUSTER'), ' ', rangeVarName(relation),
+         indexName ? [' ', mk('USING'), ' ', indexName] : ''],
+        ';',
+    ];
+}
+
+function printReindex(node: SqlNode, opts: Options): Doc {
+    const mk       = (k: string) => keyword(k, opts);
+    const kind     = propStr(node, 'kind') ?? 'TABLE';
+    const relation = prop(node, 'relation');
+    const options  = (node.props?.['options'] as string[] | undefined) ?? [];
+
+    const optDoc: Doc = options.length > 0
+        ? [' (', join(', ', options.map((o) => mk(o.toLowerCase()))), ')']
+        : '';
+
+    return [
+        [mk('REINDEX'), optDoc, ' ', mk(kind), ' ', rangeVarName(relation)],
+        ';',
+    ];
+}
+
+// ---------------------------------------------------------------------------
+// P4: Foreign Data Wrappers
+// ---------------------------------------------------------------------------
+
+function printFdwOptions(node: SqlNode, opts: Options): Doc {
+    const mk = (k: string) => keyword(k, opts);
+    const options = propArr(node, 'options');
+    if (options.length === 0) return '';
+    const pairs = options.map((o) => {
+        const key = propStr(o, 'key') ?? '';
+        const val = propStr(o, 'val') ?? '';
+        return [key, " '", val, "'"].join('') as Doc;
+    });
+    return [' ', mk('OPTIONS'), ' (', join(', ', pairs), ')'];
+}
+
+function printCreateForeignServer(node: SqlNode, opts: Options): Doc {
+    const mk      = (k: string) => keyword(k, opts);
+    const name    = propStr(node, 'name') ?? '';
+    const fdwName = propStr(node, 'fdwName') ?? '';
+
+    return [
+        [mk('CREATE SERVER'), ' ', name, hardline,
+         indent([mk('FOREIGN DATA WRAPPER'), ' ', fdwName]),
+         printFdwOptions(node, opts)],
+        ';',
+    ];
+}
+
+function printCreateForeignTable(node: SqlNode, opts: Options): Doc {
+    const mk         = (k: string) => keyword(k, opts);
+    const printNode  = pn(opts);
+    const name       = prop(node, 'name');
+    const columns    = propArr(node, 'columns');
+    const serverName = propStr(node, 'serverName') ?? '';
+
+    return [
+        mk('CREATE FOREIGN TABLE'), ' ', rangeVarName(name), ' (',
+        indent([hardline, join([',', hardline], columns.map(printNode))]),
+        hardline, ')',
+        hardline, indent([mk('SERVER'), ' ', serverName]),
+        printFdwOptions(node, opts),
+        ';',
+    ];
+}
+
+function printCreateUserMapping(node: SqlNode, opts: Options): Doc {
+    const mk         = (k: string) => keyword(k, opts);
+    const user       = propStr(node, 'user') ?? '';
+    const serverName = propStr(node, 'serverName') ?? '';
+
+    return [
+        [mk('CREATE USER MAPPING FOR'), ' ', mk(user), hardline,
+         indent([mk('SERVER'), ' ', serverName]),
+         printFdwOptions(node, opts)],
+        ';',
+    ];
+}
+
+function printImportForeignSchema(node: SqlNode, opts: Options): Doc {
+    const mk           = (k: string) => keyword(k, opts);
+    const remoteSchema = propStr(node, 'remoteSchema') ?? '';
+    const serverName   = propStr(node, 'serverName') ?? '';
+    const localSchema  = propStr(node, 'localSchema') ?? '';
+
+    return [
+        [mk('IMPORT FOREIGN SCHEMA'), ' ', remoteSchema, hardline,
+         mk('FROM SERVER'), ' ', serverName, hardline,
+         mk('INTO'), ' ', localSchema],
+        ';',
+    ];
+}
+
+// ---------------------------------------------------------------------------
+// P4: Logical Replication
+// ---------------------------------------------------------------------------
+
+function printCreatePublication(node: SqlNode, opts: Options): Doc {
+    const mk     = (k: string) => keyword(k, opts);
+    const name   = propStr(node, 'name') ?? '';
+    const tables = propArr(node, 'tables');
+    const forAll = propBool(node, 'forAllTables');
+
+    let forPart: Doc;
+    if (forAll) {
+        forPart = [' ', mk('FOR ALL TABLES')];
+    } else if (tables.length > 0) {
+        forPart = [hardline, indent([mk('FOR TABLE'), ' ', join(', ', tables.map(rangeVarName))])];
+    } else {
+        forPart = '';
+    }
+
+    return [[mk('CREATE PUBLICATION'), ' ', name, forPart], ';'];
+}
+
+function printCreateSubscription(node: SqlNode, opts: Options): Doc {
+    const mk           = (k: string) => keyword(k, opts);
+    const name         = propStr(node, 'name') ?? '';
+    const conninfo     = propStr(node, 'conninfo') ?? '';
+    const publications = (node.props?.['publications'] as string[] | undefined) ?? [];
+
+    return [
+        [mk('CREATE SUBSCRIPTION'), ' ', name, hardline,
+         indent([mk('CONNECTION'), " '", conninfo, "'"]), hardline,
+         indent([mk('PUBLICATION'), ' ', join(', ', publications)])],
+        ';',
+    ];
+}
+
+function printDropSubscription(node: SqlNode, opts: Options): Doc {
+    const mk       = (k: string) => keyword(k, opts);
+    const name     = propStr(node, 'name') ?? '';
+    const ifExists = propBool(node, 'ifExists');
+
+    return [
+        [mk('DROP SUBSCRIPTION'), ifExists ? [' ', mk('IF EXISTS')] : '', ' ', name],
+        ';',
+    ];
+}
+
+// ---------------------------------------------------------------------------
+// P4: CREATE AGGREGATE / OPERATOR / COLLATION
+// ---------------------------------------------------------------------------
+
+function printDefOptions(options: SqlNode[], _opts: Options): Doc {
+    return join([',', hardline], options.map((o) => {
+        const key = propStr(o, 'key') ?? '';
+        const val = propStr(o, 'val');
+        return val ? [key, ' = ', val] as Doc : [key] as Doc;
+    }));
+}
+
+function printCreateAggregate(node: SqlNode, opts: Options): Doc {
+    const mk       = (k: string) => keyword(k, opts);
+    const name     = propStr(node, 'name') ?? '';
+    const argTypes = (node.props?.['argTypes'] as string[] | undefined) ?? [];
+    const options  = propArr(node, 'options');
+
+    return [
+        mk('CREATE AGGREGATE'), ' ', name, ' (', join(', ', argTypes.map((t) => mk(t))), ') (',
+        indent([hardline, printDefOptions(options, opts)]),
+        hardline, ');',
+    ];
+}
+
+function printCreateOperator(node: SqlNode, opts: Options): Doc {
+    const mk      = (k: string) => keyword(k, opts);
+    const name    = propStr(node, 'name') ?? '';
+    const options = propArr(node, 'options');
+
+    return [
+        mk('CREATE OPERATOR'), ' ', name, ' (',
+        indent([hardline, printDefOptions(options, opts)]),
+        hardline, ');',
+    ];
+}
+
+function printCreateCollation(node: SqlNode, opts: Options): Doc {
+    const mk       = (k: string) => keyword(k, opts);
+    const name     = propStr(node, 'name') ?? '';
+    const fromName = propStr(node, 'fromName');
+    const options  = propArr(node, 'options');
+
+    if (fromName) {
+        return [[mk('CREATE COLLATION'), ' ', name, ' ', mk('FROM'), ' ', `"${fromName}"`], ';'];
+    }
+
+    return [
+        mk('CREATE COLLATION'), ' ', name, ' (',
+        printDefOptions(options, opts),
+        ');',
+    ];
+}
+
+// ---------------------------------------------------------------------------
+// P4: Security Labels
+// ---------------------------------------------------------------------------
+
+function printSecurityLabel(node: SqlNode, opts: Options): Doc {
+    const mk      = (k: string) => keyword(k, opts);
+    const provider = propStr(node, 'provider') ?? '';
+    const objType  = propStr(node, 'objType') ?? 'table';
+    const objName  = propStr(node, 'objName') ?? '';
+    const label    = propStr(node, 'label') ?? '';
+
+    return [
+        [mk('SECURITY LABEL FOR'), ' ', provider, ' ', mk('ON'), ' ', mk(objType), ' ', objName, ' ', mk('IS'), " '", label, "'"],
         ';',
     ];
 }

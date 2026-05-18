@@ -47,8 +47,10 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'Subscript':      return printSubscript(node, opts, printNode);
         case 'NamedArg':       return printNamedArg(node, opts, printNode);
         case 'GroupingSet':    return printGroupingSet(node, opts, printNode);
-        case 'GroupingFunc':   return printGroupingFunc(node, opts, printNode);
-        case 'IntervalLiteral': return printIntervalLiteral(node, opts, printNode);
+        case 'GroupingFunc':     return printGroupingFunc(node, opts, printNode);
+        case 'IntervalLiteral':  return printIntervalLiteral(node, opts, printNode);
+        case 'RangeTableSample': return printRangeTableSample(node, opts, printNode);
+        case 'TableLikeClause':  return printTableLikeClause(node, opts);
         default: return node.text ?? `/* unknown: ${node.type} */`;
     }
 }
@@ -536,9 +538,35 @@ function printQuantifiedExpr(node: SqlNode, opts: Options, printNode: PrintFn): 
 }
 
 function printIntervalLiteral(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const mk    = (kw: string) => keyword(kw, opts);
     const value = prop(node, 'value');
-    return [mk('INTERVAL'), ' ', value ? printNode(value) : ''];
+    const field = propStr(node, 'field');
+    return [mk('INTERVAL'), ' ', value ? printNode(value) : '', field ? [' ', mk(field)] : ''];
+}
+
+function printRangeTableSample(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const mk         = (kw: string) => keyword(kw, opts);
+    const relation   = prop(node, 'relation');
+    const method     = propStr(node, 'method') ?? 'bernoulli';
+    const args       = propArr(node, 'args');
+    const repeatable = prop(node, 'repeatable');
+
+    return [
+        relation ? printNode(relation) : '',
+        ' ', mk('TABLESAMPLE'), ' ', mk(method.toUpperCase()),
+        '(', join(', ', args.map(printNode)), ')',
+        repeatable ? [' ', mk('REPEATABLE'), ' (', printNode(repeatable), ')'] : '',
+    ];
+}
+
+function printTableLikeClause(node: SqlNode, opts: Options): Doc {
+    const mk        = (kw: string) => keyword(kw, opts);
+    const relation  = prop(node, 'relation');
+    const including = (node.props?.['including'] as string[] | undefined) ?? [];
+    return [
+        mk('LIKE'), ' ', rangeVarName(relation),
+        ...including.map((opt) => [' ', mk('INCLUDING'), ' ', mk(opt)] as Doc),
+    ];
 }
 
 function printSubscript(node: SqlNode, _opts: Options, printNode: PrintFn): Doc {

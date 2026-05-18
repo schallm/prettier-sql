@@ -49,38 +49,52 @@ public class AstBuilder {
             Node.NodeOneofCase.CallStmt => BuildCall(stmt.CallStmt, start, end),
             Node.NodeOneofCase.DoStmt => BuildDo(stmt.DoStmt, start, end),
             Node.NodeOneofCase.MergeStmt => BuildMerge(stmt.MergeStmt, start, end),
-            Node.NodeOneofCase.GrantStmt            => BuildGrant(stmt.GrantStmt, start, end),
-            Node.NodeOneofCase.CreateRoleStmt       => BuildCreateRole(stmt.CreateRoleStmt, start, end),
-            Node.NodeOneofCase.AlterRoleStmt        => BuildAlterRole(stmt.AlterRoleStmt, start, end),
-            Node.NodeOneofCase.RenameStmt           => BuildRename(stmt.RenameStmt, start, end),
-            Node.NodeOneofCase.VariableShowStmt     => BuildVariableShow(stmt.VariableShowStmt, start, end),
-            Node.NodeOneofCase.CompositeTypeStmt    => BuildCreateCompositeType(stmt.CompositeTypeStmt, start, end),
-            Node.NodeOneofCase.CreateEnumStmt       => BuildCreateEnumType(stmt.CreateEnumStmt, start, end),
-            Node.NodeOneofCase.AlterEnumStmt        => BuildAlterEnum(stmt.AlterEnumStmt, start, end),
-            Node.NodeOneofCase.CreateSeqStmt        => BuildCreateSeq(stmt.CreateSeqStmt, start, end),
-            Node.NodeOneofCase.AlterSeqStmt         => BuildAlterSeq(stmt.AlterSeqStmt, start, end),
-            Node.NodeOneofCase.CreateSchemaStmt     => BuildCreateSchema(stmt.CreateSchemaStmt, start, end),
-            Node.NodeOneofCase.CreateExtensionStmt  => BuildCreateExtension(stmt.CreateExtensionStmt, start, end),
-            Node.NodeOneofCase.CreateTableAsStmt    => BuildCreateTableAs(stmt.CreateTableAsStmt, start, end),
-            Node.NodeOneofCase.CreateTrigStmt       => BuildCreateTrigger(stmt.CreateTrigStmt, start, end),
-            Node.NodeOneofCase.CommentStmt          => BuildComment(stmt.CommentStmt, start, end),
-            Node.NodeOneofCase.AlterFunctionStmt    => BuildAlterFunction(stmt.AlterFunctionStmt, start, end),
-            Node.NodeOneofCase.RefreshMatViewStmt   => BuildRefreshMatView(stmt.RefreshMatViewStmt, start, end),
-            Node.NodeOneofCase.RuleStmt             => BuildRule(stmt.RuleStmt, start, end),
-            Node.NodeOneofCase.CreatePolicyStmt     => BuildCreatePolicy(stmt.CreatePolicyStmt, start, end),
-            Node.NodeOneofCase.AlterPolicyStmt      => BuildAlterPolicy(stmt.AlterPolicyStmt, start, end),
-            Node.NodeOneofCase.DeclareCursorStmt    => BuildDeclareCursor(stmt.DeclareCursorStmt, start, end),
-            Node.NodeOneofCase.FetchStmt            => BuildFetch(stmt.FetchStmt, start, end),
-            Node.NodeOneofCase.ClosePortalStmt      => BuildClosePortal(stmt.ClosePortalStmt, start, end),
-            Node.NodeOneofCase.CopyStmt             => BuildCopy(stmt.CopyStmt, start, end),
-            Node.NodeOneofCase.ExplainStmt          => BuildExplain(stmt.ExplainStmt, start, end),
-            Node.NodeOneofCase.PrepareStmt          => BuildPrepare(stmt.PrepareStmt, start, end),
-            Node.NodeOneofCase.ExecuteStmt          => BuildExecute(stmt.ExecuteStmt, start, end),
-            Node.NodeOneofCase.DeallocateStmt       => BuildDeallocate(stmt.DeallocateStmt, start, end),
-            Node.NodeOneofCase.ListenStmt           => BuildListen(stmt.ListenStmt, start, end),
-            Node.NodeOneofCase.UnlistenStmt         => BuildUnlisten(stmt.UnlistenStmt, start, end),
-            Node.NodeOneofCase.NotifyStmt           => BuildNotify(stmt.NotifyStmt, start, end),
-            Node.NodeOneofCase.LockStmt             => BuildLock(stmt.LockStmt, start, end),
+            Node.NodeOneofCase.GrantStmt                => BuildGrant(stmt.GrantStmt, start, end),
+            Node.NodeOneofCase.CreateRoleStmt           => BuildCreateRole(stmt.CreateRoleStmt, start, end),
+            Node.NodeOneofCase.AlterRoleStmt            => BuildAlterRole(stmt.AlterRoleStmt, start, end),
+            Node.NodeOneofCase.RenameStmt               => BuildRename(stmt.RenameStmt, start, end),
+            Node.NodeOneofCase.VariableShowStmt         => BuildVariableShow(stmt.VariableShowStmt, start, end),
+            Node.NodeOneofCase.CompositeTypeStmt        => BuildCreateCompositeType(stmt.CompositeTypeStmt, start, end),
+            Node.NodeOneofCase.CreateEnumStmt           => BuildCreateEnumType(stmt.CreateEnumStmt, start, end),
+            Node.NodeOneofCase.AlterEnumStmt            => BuildAlterEnum(stmt.AlterEnumStmt, start, end),
+            Node.NodeOneofCase.CreateSeqStmt            => BuildCreateSeq(stmt.CreateSeqStmt, start, end),
+            Node.NodeOneofCase.AlterSeqStmt             => BuildAlterSeq(stmt.AlterSeqStmt, start, end),
+            Node.NodeOneofCase.CreateSchemaStmt         => BuildCreateSchema(stmt.CreateSchemaStmt, start, end),
+            Node.NodeOneofCase.CreateExtensionStmt      => BuildCreateExtension(stmt.CreateExtensionStmt, start, end),
+            Node.NodeOneofCase.CreateTableAsStmt        => BuildCreateTableAs(stmt.CreateTableAsStmt, start, end),
+            Node.NodeOneofCase.CreateTrigStmt           => BuildCreateTrigger(stmt.CreateTrigStmt, start, end),
+            Node.NodeOneofCase.CommentStmt              => BuildComment(stmt.CommentStmt, start, end),
+            Node.NodeOneofCase.AlterFunctionStmt        => BuildAlterFunction(stmt.AlterFunctionStmt, start, end),
+            Node.NodeOneofCase.RefreshMatViewStmt       => BuildRefreshMatView(stmt.RefreshMatViewStmt, start, end),
+            Node.NodeOneofCase.RuleStmt                 => BuildRule(stmt.RuleStmt, start, end),
+            Node.NodeOneofCase.CreatePolicyStmt         => BuildCreatePolicy(stmt.CreatePolicyStmt, start, end),
+            Node.NodeOneofCase.AlterPolicyStmt          => BuildAlterPolicy(stmt.AlterPolicyStmt, start, end),
+            Node.NodeOneofCase.DeclareCursorStmt        => BuildDeclareCursor(stmt.DeclareCursorStmt, start, end),
+            Node.NodeOneofCase.FetchStmt                => BuildFetch(stmt.FetchStmt, start, end),
+            Node.NodeOneofCase.ClosePortalStmt          => BuildClosePortal(stmt.ClosePortalStmt, start, end),
+            Node.NodeOneofCase.CopyStmt                 => BuildCopy(stmt.CopyStmt, start, end),
+            Node.NodeOneofCase.ExplainStmt              => BuildExplain(stmt.ExplainStmt, start, end),
+            Node.NodeOneofCase.PrepareStmt              => BuildPrepare(stmt.PrepareStmt, start, end),
+            Node.NodeOneofCase.ExecuteStmt              => BuildExecute(stmt.ExecuteStmt, start, end),
+            Node.NodeOneofCase.DeallocateStmt           => BuildDeallocate(stmt.DeallocateStmt, start, end),
+            Node.NodeOneofCase.ListenStmt               => BuildListen(stmt.ListenStmt, start, end),
+            Node.NodeOneofCase.UnlistenStmt             => BuildUnlisten(stmt.UnlistenStmt, start, end),
+            Node.NodeOneofCase.NotifyStmt               => BuildNotify(stmt.NotifyStmt, start, end),
+            Node.NodeOneofCase.LockStmt                 => BuildLock(stmt.LockStmt, start, end),
+            Node.NodeOneofCase.VacuumStmt               => BuildVacuum(stmt.VacuumStmt, start, end),
+            Node.NodeOneofCase.ClusterStmt              => BuildCluster(stmt.ClusterStmt, start, end),
+            Node.NodeOneofCase.ReindexStmt              => BuildReindex(stmt.ReindexStmt, start, end),
+            Node.NodeOneofCase.CreateForeignServerStmt  => BuildCreateForeignServer(stmt.CreateForeignServerStmt, start, end),
+            Node.NodeOneofCase.CreateForeignTableStmt   => BuildCreateForeignTable(stmt.CreateForeignTableStmt, start, end),
+            Node.NodeOneofCase.CreateUserMappingStmt    => BuildCreateUserMapping(stmt.CreateUserMappingStmt, start, end),
+            Node.NodeOneofCase.ImportForeignSchemaStmt  => BuildImportForeignSchema(stmt.ImportForeignSchemaStmt, start, end),
+            Node.NodeOneofCase.CreatePublicationStmt    => BuildCreatePublication(stmt.CreatePublicationStmt, start, end),
+            Node.NodeOneofCase.AlterPublicationStmt     => BuildAlterPublication(stmt.AlterPublicationStmt, start, end),
+            Node.NodeOneofCase.CreateSubscriptionStmt   => BuildCreateSubscription(stmt.CreateSubscriptionStmt, start, end),
+            Node.NodeOneofCase.AlterSubscriptionStmt    => BuildAlterSubscription(stmt.AlterSubscriptionStmt, start, end),
+            Node.NodeOneofCase.DropSubscriptionStmt     => BuildDropSubscription(stmt.DropSubscriptionStmt, start, end),
+            Node.NodeOneofCase.DefineStmt               => BuildDefine(stmt.DefineStmt, start, end),
+            Node.NodeOneofCase.SecLabelStmt             => BuildSecLabel(stmt.SecLabelStmt, start, end),
             _ => Fallback(start, end),
         };
     }
@@ -222,11 +236,93 @@ public class AstBuilder {
     // DDL
     // -------------------------------------------------------------------------
 
-    private SqlNode BuildCreateTable(CreateStmt s, int start, int end) =>
-        new("CreateTableStatement", start, end, null, BuildProps(
-            ("name", BuildRangeVar(s.Relation)),
-            ("columns", MapList(s.TableElts, BuildTableElement))
+    private SqlNode BuildCreateTable(CreateStmt s, int start, int end) {
+        // PARTITION OF: inherits from a parent table
+        if (s.InhRelations.Count > 0 && s.Partbound != null) {
+            var parent = s.InhRelations[0].NodeCase == Node.NodeOneofCase.RangeVar
+                ? BuildRangeVar(s.InhRelations[0].RangeVar)
+                : null;
+            SqlNode? bound = BuildPartitionBound(s.Partbound);
+            return new SqlNode("CreateTablePartitionOfStatement", start, end, null, BuildProps(
+                ("name",   BuildRangeVar(s.Relation)),
+                ("parent", parent),
+                ("bound",  bound)
+            ));
+        }
+
+        // PARTITION BY: table with partition strategy
+        SqlNode? partitionBy = null;
+        if (s.Partspec != null) {
+            var strategy = s.Partspec.Strategy switch {
+                PartitionStrategy.Range => "range",
+                PartitionStrategy.List  => "list",
+                PartitionStrategy.Hash  => "hash",
+                _                      => s.Partspec.Strategy.ToString().ToLower(),
+            };
+            var cols = s.Partspec.PartParams
+                .Select(n => {
+                    if (n.NodeCase == Node.NodeOneofCase.PartitionElem) {
+                        var pe = n.PartitionElem;
+                        if (!string.IsNullOrEmpty(pe.Name)) return pe.Name;
+                        // Expression-based partition element: extract ColumnRef name
+                        if (pe.Expr?.NodeCase == Node.NodeOneofCase.ColumnRef) {
+                            var fields = pe.Expr.ColumnRef.Fields;
+                            if (fields.Count > 0 && fields[0].NodeCase == Node.NodeOneofCase.String)
+                                return fields[0].String.Sval;
+                        }
+                    }
+                    return null;
+                })
+                .Where(c => !string.IsNullOrEmpty(c))
+                .Cast<string>()
+                .ToList();
+            partitionBy = new SqlNode("PartitionBy", 0, 0, null, BuildProps(
+                ("strategy", strategy),
+                ("columns",  cols.Count > 0 ? (object?)cols : null)
+            ));
+        }
+
+        return new SqlNode("CreateTableStatement", start, end, null, BuildProps(
+            ("name",        BuildRangeVar(s.Relation)),
+            ("columns",     MapList(s.TableElts, BuildTableElement)),
+            ("partitionBy", partitionBy)
         ));
+    }
+
+    private SqlNode? BuildPartitionBound(PartitionBoundSpec pb) {
+        if (pb.IsDefault) {
+            return new SqlNode("PartitionBound", 0, 0, null, BuildProps(("isDefault", true)));
+        }
+        var lowerDatums = pb.Lowerdatums.Select(BuildPartitionDatum).OfType<string>().ToList();
+        var upperDatums = pb.Upperdatums.Select(BuildPartitionDatum).OfType<string>().ToList();
+        var listDatums  = pb.Listdatums.Select(n => {
+            if (n.NodeCase == Node.NodeOneofCase.AConst) {
+                var v = BuildAConst(n.AConst);
+                return v.Text;
+            }
+            return null;
+        }).OfType<string>().ToList();
+
+        return new SqlNode("PartitionBound", 0, 0, null, BuildProps(
+            ("lower",      lowerDatums.Count > 0 ? (object?)lowerDatums : null),
+            ("upper",      upperDatums.Count > 0 ? (object?)upperDatums : null),
+            ("listDatums", listDatums.Count  > 0 ? (object?)listDatums  : null)
+        ));
+    }
+
+    private static string? BuildPartitionDatum(Node n) {
+        if (n.NodeCase == Node.NodeOneofCase.AConst) {
+            var v = BuildAConst(n.AConst);
+            return v.Text;
+        }
+        if (n.NodeCase == Node.NodeOneofCase.ColumnRef && n.ColumnRef.Fields.Count > 0) {
+            var name = n.ColumnRef.Fields[0].NodeCase == Node.NodeOneofCase.String
+                ? n.ColumnRef.Fields[0].String.Sval
+                : "";
+            return name.ToUpper();
+        }
+        return null;
+    }
 
     private SqlNode BuildAlterTable(AlterTableStmt s, int start, int end) =>
         new("AlterTableStatement", start, end, null, BuildProps(
@@ -555,9 +651,15 @@ public class AstBuilder {
         var typeName = t.TypeName != null ? BuildPgTypeName(t.TypeName) : null;
         var arg      = BuildExpr(t.Arg);
 
-        // INTERVAL 'value' — reconstruct SQL standard literal form
-        if (typeName == "interval")
-            return new SqlNode("IntervalLiteral", 0, 0, null, BuildProps(("value", arg)));
+        // INTERVAL 'value' or INTERVAL 'value' field_modifier
+        if (typeName != null && typeName.StartsWith("interval")) {
+            // typeName may be "interval" or "interval YEAR TO MONTH" etc.
+            var field = typeName == "interval" ? null : typeName.Substring("interval ".Length);
+            return new SqlNode("IntervalLiteral", 0, 0, null, BuildProps(
+                ("value", arg),
+                ("field", field)
+            ));
+        }
 
         // All other type casts: emit Cast node (printer renders as expr::type)
         return new SqlNode("Cast", 0, 0, null, BuildProps(
@@ -662,8 +764,22 @@ public class AstBuilder {
         Node.NodeOneofCase.JoinExpr => BuildJoinExpr(n.JoinExpr),
         Node.NodeOneofCase.RangeSubselect => BuildRangeSubselect(n.RangeSubselect),
         Node.NodeOneofCase.RangeFunction => BuildRangeFunction(n.RangeFunction),
+        Node.NodeOneofCase.RangeTableSample => BuildRangeTableSample(n.RangeTableSample),
         _ => new SqlNode("RawFrom", 0, 0, n.NodeCase.ToString(), null),
     };
+
+    private SqlNode BuildRangeTableSample(RangeTableSample r) {
+        var relation = r.Relation != null ? BuildFromItem(r.Relation) : null;
+        var method = r.Method.Count > 0 && r.Method[0].NodeCase == Node.NodeOneofCase.String
+            ? r.Method[0].String.Sval
+            : null;
+        return new SqlNode("RangeTableSample", 0, 0, null, BuildProps(
+            ("relation",   relation),
+            ("method",     method),
+            ("args",       MapList(r.Args, BuildExpr)),
+            ("repeatable", r.Repeatable != null ? BuildExpr(r.Repeatable) : null)
+        ));
+    }
 
     private static SqlNode BuildRangeVar(RangeVar? r) {
         if (r == null) return new SqlNode("RangeVar", 0, 0, null, null);
@@ -731,9 +847,48 @@ public class AstBuilder {
                 Node.NodeOneofCase.DeleteStmt => BuildDelete(cte.Ctequery.DeleteStmt, 0, _sql.Length),
                 _ => null,
             };
+
+            SqlNode? search = null;
+            if (cte.SearchClause != null) {
+                var sc = cte.SearchClause;
+                var cols = sc.SearchColList
+                    .Select(c => c.NodeCase == Node.NodeOneofCase.String ? c.String.Sval
+                        : c.NodeCase == Node.NodeOneofCase.ColumnRef && c.ColumnRef.Fields.Count > 0
+                            && c.ColumnRef.Fields[0].NodeCase == Node.NodeOneofCase.String
+                            ? c.ColumnRef.Fields[0].String.Sval : null)
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .Cast<string>()
+                    .ToList();
+                search = new SqlNode("CTESearch", 0, 0, null, BuildProps(
+                    ("breadthFirst", sc.SearchBreadthFirst ? true : null),
+                    ("columns",      cols.Count > 0 ? (object?)cols : null),
+                    ("seqColumn",    string.IsNullOrEmpty(sc.SearchSeqColumn) ? null : sc.SearchSeqColumn)
+                ));
+            }
+
+            SqlNode? cycle = null;
+            if (cte.CycleClause != null) {
+                var cc = cte.CycleClause;
+                var cols = cc.CycleColList
+                    .Select(c => c.NodeCase == Node.NodeOneofCase.String ? c.String.Sval
+                        : c.NodeCase == Node.NodeOneofCase.ColumnRef && c.ColumnRef.Fields.Count > 0
+                            && c.ColumnRef.Fields[0].NodeCase == Node.NodeOneofCase.String
+                            ? c.ColumnRef.Fields[0].String.Sval : null)
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .Cast<string>()
+                    .ToList();
+                cycle = new SqlNode("CTECycle", 0, 0, null, BuildProps(
+                    ("columns",    cols.Count > 0 ? (object?)cols : null),
+                    ("markColumn", string.IsNullOrEmpty(cc.CycleMarkColumn) ? null : cc.CycleMarkColumn),
+                    ("pathColumn", string.IsNullOrEmpty(cc.CyclePathColumn) ? null : cc.CyclePathColumn)
+                ));
+            }
+
             return new SqlNode("CTE", 0, 0, null, BuildProps(
-                ("name",  cte.Ctename),
-                ("query", query)
+                ("name",   cte.Ctename),
+                ("query",  query),
+                ("search", search),
+                ("cycle",  cycle)
             ));
         });
         return new SqlNode("WithClause", 0, 0, null, BuildProps(
@@ -773,8 +928,33 @@ public class AstBuilder {
     private SqlNode? BuildTableElement(Node n) => n.NodeCase switch {
         Node.NodeOneofCase.ColumnDef => BuildColumnDef(n.ColumnDef),
         Node.NodeOneofCase.Constraint => BuildConstraint(n.Constraint),
+        Node.NodeOneofCase.TableLikeClause => BuildTableLikeClause(n.TableLikeClause),
         _ => null,
     };
+
+    private static SqlNode BuildTableLikeClause(TableLikeClause t) {
+        var opts = (int)t.Options;
+        List<string> including;
+        if (opts == 0) {
+            including = new List<string>();
+        } else if (opts > 0x01FF) {
+            including = new List<string> { "ALL" };
+        } else {
+            including = new List<string>();
+            if ((opts & 0x0001) != 0) including.Add("COMMENTS");
+            if ((opts & 0x0004) != 0) including.Add("CONSTRAINTS");
+            if ((opts & 0x0008) != 0) including.Add("DEFAULTS");
+            if ((opts & 0x0010) != 0) including.Add("GENERATED");
+            if ((opts & 0x0020) != 0) including.Add("IDENTITY");
+            if ((opts & 0x0040) != 0) including.Add("INDEXES");
+            if ((opts & 0x0080) != 0) including.Add("STATISTICS");
+            if ((opts & 0x0100) != 0) including.Add("STORAGE");
+        }
+        return new SqlNode("TableLikeClause", 0, 0, null, BuildProps(
+            ("relation",  BuildRangeVar(t.Relation)),
+            ("including", including.Count > 0 ? (object?)including : null)
+        ));
+    }
 
     private SqlNode BuildColumnDef(ColumnDef cd) =>
         new("ColumnDef", 0, 0, null, BuildProps(
@@ -906,9 +1086,51 @@ public class AstBuilder {
         ["bool"]   = "boolean",
     };
 
+    // INTERVAL typmod bitmask → SQL standard field name (actual pgsqlparser values)
+    private static readonly Dictionary<int, string> _intervalMasks = new() {
+        [4]    = "YEAR",
+        [2]    = "MONTH",
+        [6]    = "YEAR TO MONTH",
+        [8]    = "DAY",
+        [1024] = "HOUR",
+        [2048] = "MINUTE",
+        [4096] = "SECOND",
+        [1032] = "DAY TO HOUR",
+        [3080] = "DAY TO MINUTE",
+        [7176] = "DAY TO SECOND",
+        [3072] = "HOUR TO MINUTE",
+        [7168] = "HOUR TO SECOND",
+        [6144] = "MINUTE TO SECOND",
+    };
+
     private static string BuildPgTypeName(TypeName t) {
         var raw = string.Join(".", t.Names.Select(n => n.String.Sval).Where(s => s != "pg_catalog"));
         var name = _typeAliases.TryGetValue(raw, out var alias) ? alias : raw;
+
+        // Special handling for INTERVAL: typmods encode the field range as a bitmask
+        if (raw == "interval" && t.Typmods.Count > 0) {
+            var firstMod = t.Typmods[0];
+            int mask = firstMod.NodeCase switch {
+                Node.NodeOneofCase.Integer => firstMod.Integer.Ival,
+                Node.NodeOneofCase.AConst when firstMod.AConst.ValCase == A_Const.ValOneofCase.Ival => firstMod.AConst.Ival.Ival,
+                _ => 0,
+            };
+            if (mask > 0 && _intervalMasks.TryGetValue(mask, out var fieldName)) {
+                name = $"interval {fieldName}";
+            }
+            // Optional precision is second typmod
+            if (t.Typmods.Count > 1) {
+                var precMod = t.Typmods[1];
+                string? prec = precMod.NodeCase switch {
+                    Node.NodeOneofCase.Integer => precMod.Integer.Ival.ToString(),
+                    Node.NodeOneofCase.AConst when precMod.AConst.ValCase == A_Const.ValOneofCase.Ival => precMod.AConst.Ival.Ival.ToString(),
+                    _ => null,
+                };
+                if (prec != null) name += $"({prec})";
+            }
+            if (t.ArrayBounds.Count > 0) name += "[]";
+            return name;
+        }
 
         if (t.Typmods.Count > 0) {
             var mods = t.Typmods
@@ -1764,6 +1986,283 @@ public class AstBuilder {
             Node.NodeOneofCase.AConst when de.Arg.AConst.ValCase == A_Const.ValOneofCase.Boolval => de.Arg.AConst.Boolval.Boolval ? "true" : "false",
             _ => null,
         };
+    }
+
+    // -------------------------------------------------------------------------
+    // P4: VACUUM / ANALYZE / CLUSTER / REINDEX
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildVacuum(VacuumStmt s, int start, int end) {
+        var isVacuum = s.IsVacuumcmd;
+        var opts = s.Options
+            .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
+            .Select(n => n.DefElem.Defname.ToUpper())
+            .ToList();
+        var rels = s.Rels
+            .Where(n => n.NodeCase == Node.NodeOneofCase.VacuumRelation)
+            .Select(n => BuildRangeVar(n.VacuumRelation.Relation))
+            .ToList();
+
+        return new SqlNode("VacuumStatement", start, end, null, BuildProps(
+            ("isVacuum",  isVacuum ? true : null),
+            ("options",   opts.Count > 0 ? (object?)opts : null),
+            ("relations", rels.Count > 0 ? (object?)rels : null)
+        ));
+    }
+
+    private static SqlNode BuildCluster(ClusterStmt s, int start, int end) =>
+        new("ClusterStatement", start, end, null, BuildProps(
+            ("relation",  s.Relation != null ? BuildRangeVar(s.Relation) : null),
+            ("indexName", string.IsNullOrEmpty(s.Indexname) ? null : s.Indexname)
+        ));
+
+    private static SqlNode BuildReindex(ReindexStmt s, int start, int end) {
+        var kind = s.Kind switch {
+            ReindexObjectType.ReindexObjectTable    => "TABLE",
+            ReindexObjectType.ReindexObjectIndex    => "INDEX",
+            ReindexObjectType.ReindexObjectSchema   => "SCHEMA",
+            ReindexObjectType.ReindexObjectDatabase => "DATABASE",
+            _                                       => "TABLE",
+        };
+        var opts = s.Params
+            .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
+            .Select(n => n.DefElem.Defname.ToUpper())
+            .ToList();
+        return new SqlNode("ReindexStatement", start, end, null, BuildProps(
+            ("kind",     kind),
+            ("relation", s.Relation != null ? BuildRangeVar(s.Relation) : null),
+            ("options",  opts.Count > 0 ? (object?)opts : null)
+        ));
+    }
+
+    // -------------------------------------------------------------------------
+    // P4: Foreign Data Wrappers
+    // -------------------------------------------------------------------------
+
+    private static List<(string key, string val)> BuildDefElemOptions(IEnumerable<Node> nodes) {
+        return nodes
+            .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
+            .Select(n => {
+                var de = n.DefElem;
+                string val = de.Arg?.NodeCase switch {
+                    Node.NodeOneofCase.String => de.Arg.String.Sval,
+                    Node.NodeOneofCase.AConst when de.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval
+                        => de.Arg.AConst.Sval.Sval,
+                    _ => "",
+                };
+                return (de.Defname, val);
+            })
+            .ToList();
+    }
+
+    private static object? OptionsToObject(List<(string key, string val)> opts) {
+        if (opts.Count == 0) return null;
+        return opts.Select(o => new SqlNode("FdwOption", 0, 0, null, BuildProps(
+            ("key", o.key),
+            ("val", o.val)
+        ))).ToList();
+    }
+
+    private static SqlNode BuildCreateForeignServer(CreateForeignServerStmt s, int start, int end) {
+        var opts = BuildDefElemOptions(s.Options);
+        return new SqlNode("CreateForeignServerStatement", start, end, null, BuildProps(
+            ("name",    s.Servername),
+            ("fdwName", s.Fdwname),
+            ("options", OptionsToObject(opts))
+        ));
+    }
+
+    private SqlNode BuildCreateForeignTable(CreateForeignTableStmt s, int start, int end) {
+        var columns = s.BaseStmt != null ? MapList(s.BaseStmt.TableElts, BuildTableElement) : null;
+        var opts = BuildDefElemOptions(s.Options);
+        return new SqlNode("CreateForeignTableStatement", start, end, null, BuildProps(
+            ("name",       s.BaseStmt?.Relation != null ? BuildRangeVar(s.BaseStmt.Relation) : null),
+            ("columns",    columns),
+            ("serverName", s.Servername),
+            ("options",    OptionsToObject(opts))
+        ));
+    }
+
+    private static SqlNode BuildCreateUserMapping(CreateUserMappingStmt s, int start, int end) {
+        var roleText = s.User?.Roletype switch {
+            RoleSpecType.RolespecCurrentUser  => "current_user",
+            RoleSpecType.RolespecCurrentRole  => "current_role",
+            RoleSpecType.RolespecSessionUser  => "session_user",
+            RoleSpecType.RolespecPublic       => "public",
+            _                                 => s.User?.Rolename ?? "current_user",
+        };
+        var opts = BuildDefElemOptions(s.Options);
+        return new SqlNode("CreateUserMappingStatement", start, end, null, BuildProps(
+            ("user",       roleText),
+            ("serverName", s.Servername),
+            ("options",    OptionsToObject(opts))
+        ));
+    }
+
+    private static SqlNode BuildImportForeignSchema(ImportForeignSchemaStmt s, int start, int end) =>
+        new("ImportForeignSchemaStatement", start, end, null, BuildProps(
+            ("remoteSchema", s.RemoteSchema),
+            ("serverName",   s.ServerName),
+            ("localSchema",  s.LocalSchema)
+        ));
+
+    // -------------------------------------------------------------------------
+    // P4: Logical Replication
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildCreatePublication(CreatePublicationStmt s, int start, int end) {
+        var tables = s.Pubobjects
+            .Where(n => n.NodeCase == Node.NodeOneofCase.PublicationObjSpec
+                && n.PublicationObjSpec.Pubobjtype == PublicationObjSpecType.PublicationobjTable)
+            .Select(n => BuildRangeVar(n.PublicationObjSpec.Pubtable?.Relation))
+            .ToList();
+        return new SqlNode("CreatePublicationStatement", start, end, null, BuildProps(
+            ("name",        s.Pubname),
+            ("forAllTables", s.ForAllTables ? true : null),
+            ("tables",      tables.Count > 0 ? (object?)tables : null)
+        ));
+    }
+
+    private static SqlNode BuildAlterPublication(AlterPublicationStmt s, int start, int end) =>
+        new("AlterPublicationStatement", start, end, null, BuildProps(
+            ("name", s.Pubname)
+        ));
+
+    private static SqlNode BuildCreateSubscription(CreateSubscriptionStmt s, int start, int end) {
+        var publications = s.Publication
+            .Where(n => n.NodeCase == Node.NodeOneofCase.String)
+            .Select(n => n.String.Sval)
+            .ToList();
+        return new SqlNode("CreateSubscriptionStatement", start, end, null, BuildProps(
+            ("name",         s.Subname),
+            ("conninfo",     s.Conninfo),
+            ("publications", publications.Count > 0 ? (object?)publications : null)
+        ));
+    }
+
+    private static SqlNode BuildAlterSubscription(AlterSubscriptionStmt s, int start, int end) =>
+        new("AlterSubscriptionStatement", start, end, null, BuildProps(
+            ("name", s.Subname)
+        ));
+
+    private static SqlNode BuildDropSubscription(DropSubscriptionStmt s, int start, int end) =>
+        new("DropSubscriptionStatement", start, end, null, BuildProps(
+            ("name",     s.Subname),
+            ("ifExists", s.MissingOk ? true : null)
+        ));
+
+    // -------------------------------------------------------------------------
+    // P4: DefineStmt (CREATE AGGREGATE / OPERATOR / COLLATION)
+    // -------------------------------------------------------------------------
+
+    private SqlNode BuildDefine(DefineStmt s, int start, int end) {
+        var name = string.Join(".", s.Defnames.Select(n => n.NodeCase == Node.NodeOneofCase.String
+            ? n.String.Sval
+            : n.NodeCase.ToString()));
+
+        var defList = s.Definition
+            .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
+            .Select(n => {
+                var de = n.DefElem;
+                string argStr = BuildDefElemStringValue(de);
+                return new SqlNode("DefOption", 0, 0, null, BuildProps(
+                    ("key", de.Defname),
+                    ("val", argStr.Length > 0 ? argStr : null)
+                ));
+            })
+            .ToList();
+
+        switch (s.Kind) {
+            case ObjectType.ObjectAggregate: {
+                var argTypes = new List<string>();
+                if (s.Args.Count > 0 && s.Args[0].NodeCase == Node.NodeOneofCase.List) {
+                    foreach (var item in s.Args[0].List.Items) {
+                        if (item.NodeCase == Node.NodeOneofCase.FunctionParameter && item.FunctionParameter.ArgType != null) {
+                            argTypes.Add(BuildPgTypeName(item.FunctionParameter.ArgType));
+                        }
+                    }
+                }
+                return new SqlNode("CreateAggregateStatement", start, end, null, BuildProps(
+                    ("name",     name),
+                    ("argTypes", argTypes.Count > 0 ? (object?)argTypes : null),
+                    ("options",  defList.Count > 0 ? (object?)defList : null)
+                ));
+            }
+            case ObjectType.ObjectOperator: {
+                return new SqlNode("CreateOperatorStatement", start, end, null, BuildProps(
+                    ("name",    name),
+                    ("options", defList.Count > 0 ? (object?)defList : null)
+                ));
+            }
+            case ObjectType.ObjectCollation: {
+                var fromDef = s.Definition.FirstOrDefault(n =>
+                    n.NodeCase == Node.NodeOneofCase.DefElem && n.DefElem.Defname == "from");
+                if (fromDef != null) {
+                    var fromVal = GetFromDefElemCollationName(fromDef.DefElem);
+                    return new SqlNode("CreateCollationStatement", start, end, null, BuildProps(
+                        ("name",     name),
+                        ("fromName", fromVal)
+                    ));
+                }
+                return new SqlNode("CreateCollationStatement", start, end, null, BuildProps(
+                    ("name",    name),
+                    ("options", defList.Count > 0 ? (object?)defList : null)
+                ));
+            }
+            default:
+                return Fallback(start, end);
+        }
+    }
+
+    private static string BuildDefElemStringValue(DefElem de) {
+        if (de.Arg == null) return "";
+        return de.Arg.NodeCase switch {
+            Node.NodeOneofCase.String   => $"'{de.Arg.String.Sval.Replace("'", "''")}'",
+            Node.NodeOneofCase.TypeName => BuildPgTypeName(de.Arg.TypeName),
+            Node.NodeOneofCase.AConst when de.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval
+                => $"'{de.Arg.AConst.Sval.Sval.Replace("'", "''")}'",
+            Node.NodeOneofCase.AConst when de.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival
+                => de.Arg.AConst.Ival.Ival.ToString(),
+            _ => "",
+        };
+    }
+
+    private static string? GetFromDefElemCollationName(DefElem de) {
+        if (de.Arg?.NodeCase == Node.NodeOneofCase.List && de.Arg.List.Items.Count > 0) {
+            var item = de.Arg.List.Items[0];
+            if (item.NodeCase == Node.NodeOneofCase.String) return item.String.Sval;
+        }
+        if (de.Arg?.NodeCase == Node.NodeOneofCase.String) return de.Arg.String.Sval;
+        return null;
+    }
+
+    // -------------------------------------------------------------------------
+    // P4: Security Labels
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildSecLabel(SecLabelStmt s, int start, int end) {
+        var objType = s.Objtype switch {
+            ObjectType.ObjectTable  => "table",
+            ObjectType.ObjectColumn => "column",
+            _                      => s.Objtype.ToString().ToLower(),
+        };
+
+        string? objName = null;
+        if (s.Object?.NodeCase == Node.NodeOneofCase.List) {
+            objName = string.Join(".", s.Object.List.Items
+                .Where(n => n.NodeCase == Node.NodeOneofCase.String)
+                .Select(n => n.String.Sval));
+        } else if (s.Object?.NodeCase == Node.NodeOneofCase.RangeVar) {
+            var rv = s.Object.RangeVar;
+            objName = string.IsNullOrEmpty(rv.Schemaname) ? rv.Relname : $"{rv.Schemaname}.{rv.Relname}";
+        }
+
+        return new SqlNode("SecurityLabelStatement", start, end, null, BuildProps(
+            ("provider", s.Provider),
+            ("objType",  objType),
+            ("objName",  objName),
+            ("label",    s.Label)
+        ));
     }
 
     private static SqlNode Fallback(int start, int end) =>
