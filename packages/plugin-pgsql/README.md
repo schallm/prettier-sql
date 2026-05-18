@@ -42,15 +42,77 @@ A [Prettier](https://prettier.io) plugin for PostgreSQL SQL. Parses SQL with [li
 - **Predicates** — IN / NOT IN, BETWEEN / NOT BETWEEN, LIKE / NOT LIKE, ILIKE / NOT ILIKE, SIMILAR TO, IS NULL / IS NOT NULL, IS DISTINCT FROM, ANY / ALL
 - **SQL value functions** — CURRENT_DATE, CURRENT_TIMESTAMP, CURRENT_USER, SESSION_USER, LOCALTIME, LOCALTIMESTAMP, and others
 
-### Pending
+### Pending Implementation
 
-- Column constraints in DDL (NOT NULL, DEFAULT, PRIMARY KEY, FOREIGN KEY, CHECK, UNIQUE) — column names and types are formatted; constraint keywords are currently dropped
-- MERGE statement
-- Named window clauses (`WINDOW w AS (...)`)
-- SELECT INTO
-- Type modifiers for INTERVAL fields (e.g. `INTERVAL HOUR TO MINUTE`)
-- Dollar-quoted strings (`$$...$$`)
-- PL/pgSQL procedural blocks
+Ordered by estimated real-world impact. Items in **P1** block common daily usage; **P4** items are specialist or rare.
+
+#### P1 — Foundational (blocks basic real-world schemas)
+
+| Feature | Notes |
+|---|---|
+| **Column constraints** | NOT NULL, DEFAULT, PRIMARY KEY, FOREIGN KEY, CHECK, UNIQUE — column names and types print; constraint clauses are currently dropped |
+| **Dollar-quoted strings** `$$...$$` | Required for CREATE FUNCTION / DO block bodies |
+| **Transaction control** | BEGIN / START TRANSACTION / COMMIT / ROLLBACK / SAVEPOINT / RELEASE SAVEPOINT / SET TRANSACTION ISOLATION LEVEL |
+| **MERGE** | Full MERGE statement (PostgreSQL 15+): WHEN MATCHED / WHEN NOT MATCHED / WHEN NOT MATCHED BY SOURCE |
+| **CALL** | Stored-procedure invocation: `CALL my_proc(arg1, arg2)` |
+
+#### P2 — Common production patterns
+
+| Feature | Notes |
+|---|---|
+| **GRANT / REVOKE** | All securable classes: TABLE, SEQUENCE, FUNCTION, SCHEMA, DATABASE, etc. |
+| **CREATE / ALTER / DROP ROLE** | User and role management |
+| **SET / SHOW / RESET** | Configuration: `SET search_path = myschema`, `SHOW work_mem`, `RESET ALL` |
+| **ALTER TABLE** extensions | RENAME COLUMN, ALTER COLUMN TYPE, SET/DROP DEFAULT, SET/DROP NOT NULL, RENAME TABLE |
+| **CREATE TYPE** | Composite (`AS (...)`), enum (`AS ENUM (...)`), range, base |
+| **ALTER TYPE** | ADD VALUE for enums; ADD ATTRIBUTE / DROP ATTRIBUTE for composite types |
+| **CREATE / ALTER SEQUENCE** | `START WITH`, `INCREMENT BY`, `MINVALUE`, `MAXVALUE`, `CYCLE` |
+| **CREATE SCHEMA** | `CREATE SCHEMA [IF NOT EXISTS] name [AUTHORIZATION role]` |
+| **CREATE EXTENSION** | `CREATE EXTENSION IF NOT EXISTS "uuid-ossp"` |
+| **CREATE TABLE AS** | `CREATE TABLE foo AS SELECT ...` and `CREATE MATERIALIZED VIEW` |
+| **Named WINDOW clauses** | `SELECT ... WINDOW w AS (PARTITION BY ...)` in SELECT |
+| **CREATE TRIGGER** | `CREATE TRIGGER ... BEFORE/AFTER ... ON ... FOR EACH ROW EXECUTE ...` |
+| **COMMENT ON** | `COMMENT ON TABLE / COLUMN / FUNCTION / ...` |
+
+#### P3 — Moderate usage
+
+| Feature | Notes |
+|---|---|
+| **ALTER FUNCTION / PROCEDURE** | Change volatility, cost, parallel safety, rename, set options |
+| **REFRESH MATERIALIZED VIEW** | `REFRESH MATERIALIZED VIEW [CONCURRENTLY] name` |
+| **SELECT INTO** | `SELECT ... INTO [TEMP] table` |
+| **CREATE RULE** | `CREATE RULE name AS ON event TO table DO [ALSO/INSTEAD] ...` |
+| **Row Security Policies** | `CREATE / ALTER / DROP POLICY` |
+| **Cursors** | `DECLARE CURSOR`, `FETCH`, `MOVE`, `CLOSE` |
+| **COPY** | `COPY table FROM/TO` — bulk data loading and export |
+| **EXPLAIN** | `EXPLAIN [ANALYZE] [VERBOSE] [FORMAT JSON] stmt` |
+| **PREPARE / EXECUTE / DEALLOCATE** | Server-side prepared statements |
+| **LISTEN / UNLISTEN / NOTIFY** | Async pub/sub: `LISTEN channel`, `NOTIFY channel, 'payload'` |
+| **LOCK TABLE** | `LOCK TABLE t IN ACCESS EXCLUSIVE MODE` |
+| **DO** | Anonymous PL/pgSQL blocks: `DO $$ BEGIN ... END $$` |
+| **GROUPING()** | `GROUPING(col)` predicate used alongside GROUPING SETS |
+| **NEXT VALUE FOR** | `NEXT VALUE FOR sequence_name` sequence expression |
+
+#### P4 — Specialist / Advanced
+
+| Feature | Notes |
+|---|---|
+| **Table partitioning** | `PARTITION BY RANGE/LIST/HASH`, `CREATE TABLE ... PARTITION OF`, partition bounds |
+| **TABLESAMPLE** | `FROM t TABLESAMPLE BERNOULLI(10)` / `SYSTEM(10)` |
+| **CREATE TABLE LIKE** | `CREATE TABLE new LIKE existing INCLUDING ALL` |
+| **Recursive CTE extensions** | `SEARCH BREADTH/DEPTH FIRST BY col`, `CYCLE col SET ...` |
+| **INTERVAL field modifiers** | `INTERVAL '1:30' HOUR TO MINUTE`, precision on INTERVAL |
+| **VACUUM / ANALYZE / CLUSTER / REINDEX** | Maintenance statements |
+| **Foreign data wrappers** | `CREATE SERVER`, `CREATE FOREIGN TABLE`, `CREATE USER MAPPING`, `IMPORT FOREIGN SCHEMA` |
+| **Logical replication** | `CREATE / ALTER / DROP PUBLICATION` and `SUBSCRIPTION` |
+| **CREATE AGGREGATE** | `CREATE AGGREGATE name (SFUNC = ..., STYPE = ...)` |
+| **CREATE OPERATOR** | `CREATE OPERATOR + (LEFTARG = ..., PROCEDURE = ...)` |
+| **XMLELEMENT / XMLFOREST / XMLTABLE / XMLAGG** | XML construction and query functions |
+| **SQL/JSON functions** | `JSON_TABLE`, `JSON_QUERY`, `JSON_EXISTS`, `JSON_VALUE` (PostgreSQL 16+) |
+| **CREATE COLLATION** | `CREATE COLLATION name (LOCALE = ...)` |
+| **ALTER ENUM** | `ALTER TYPE myenum ADD VALUE 'new_label'` |
+| **Security labels** | `SECURITY LABEL FOR provider ON object IS label` |
+| **PL/pgSQL** | Full procedural language (IF/ELSIF, LOOP, RETURN, EXCEPTION, DECLARE) — out of scope for a SQL formatter |
 
 ---
 
