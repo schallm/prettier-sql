@@ -44,6 +44,8 @@ To format on save, add to your VS Code settings:
 }
 ```
 
+> **After updating the plugin**, restart VS Code. The Prettier extension loads the plugin at startup and caches it for the session, so a running instance will not pick up a new version until restarted.
+
 ## SQL Server Management Studio 22 (Visual Studio 2026)
 
 SSMS 22 is built on the Visual Studio 2026 shell and supports third-party extensions
