@@ -38,6 +38,7 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'Coalesce': return printCoalesce(node, opts, printNode);
         case 'RowExpr': return ['(', join(', ', propArr(node, 'args').map(printNode)), ')'];
         case 'ParamRef': return node.text ?? '$?';
+        case 'SqlvalueFunction': return keyword(node.text ?? '', opts);
         case 'CTE': return printCteInline(node, opts, printNode);
         case 'WithClause': return '';
         case 'InExpr':         return printInExpr(node, opts, printNode);
@@ -73,13 +74,31 @@ function printBoolExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 
 function printFunctionCall(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const mk       = (kw: string) => keyword(kw, opts);
-    const name     = propStr(node, 'name') ?? '';
+    const rawName  = propStr(node, 'name') ?? '';
     const args     = propArr(node, 'args');
     const star     = propBool(node, 'star');
     const distinct = propBool(node, 'distinct');
     const aggOrder = propArr(node, 'aggOrder');
     const filter   = prop(node, 'filter');
     const over     = prop(node, 'over');
+
+    // SQL standard keyword-form functions — reconstruct readable syntax
+    if (rawName.startsWith('pg_catalog.')) {
+        const local = rawName.slice('pg_catalog.'.length);
+        switch (local) {
+            case 'substring': return printSubstringForm(args, opts, printNode);
+            case 'extract':   return printExtractForm(args, opts, printNode);
+            case 'ltrim':     return printTrimForm(args, 'LEADING',  opts, printNode);
+            case 'rtrim':     return printTrimForm(args, 'TRAILING', opts, printNode);
+            case 'btrim':     return printTrimForm(args, 'BOTH',     opts, printNode);
+            case 'position':  return printPositionForm(args, opts, printNode);
+            case 'timezone':  return printAtTimeZoneForm(args, opts, printNode);
+            case 'overlay':   return printOverlayForm(args, opts, printNode);
+        }
+    }
+
+    // Strip pg_catalog. schema prefix — it's an implementation detail, not user-facing
+    const name = rawName.startsWith('pg_catalog.') ? rawName.slice('pg_catalog.'.length) : rawName;
 
     const argDocs: Doc[] = star ? [mk('*')] : args.map(printNode);
     if (distinct) argDocs.unshift(mk('DISTINCT'), ' ');
@@ -99,6 +118,69 @@ function printFunctionCall(node: SqlNode, opts: Options, printNode: PrintFn): Do
 
     if (!over) return callDoc;
     return [callDoc, ' ', mk('OVER'), ' (', printWindowDef(over, opts, printNode), ')'];
+}
+
+// SUBSTRING(str FROM pattern)  — 2 args: regex form
+// SUBSTRING(str FROM pos FOR len) — 3 args: positional form
+function printSubstringForm(args: SqlNode[], opts: Options, printNode: PrintFn): Doc {
+    const mk = (kw: string) => keyword(kw, opts);
+    const [str, fromExpr, forExpr] = args;
+    if (!str) return mk('SUBSTRING') + '()';
+    if (forExpr) {
+        return [mk('SUBSTRING'), '(', printNode(str), ' ', mk('FROM'), ' ', printNode(fromExpr), ' ', mk('FOR'), ' ', printNode(forExpr), ')'];
+    }
+    return [mk('SUBSTRING'), '(', printNode(str), ' ', mk('FROM'), ' ', printNode(fromExpr ?? args[1]), ')'];
+}
+
+// EXTRACT(YEAR FROM expr)
+function printExtractForm(args: SqlNode[], opts: Options, printNode: PrintFn): Doc {
+    const mk = (kw: string) => keyword(kw, opts);
+    const [fieldArg, sourceArg] = args;
+    // fieldArg is a Literal whose text is "'year'" — strip quotes and apply keyword casing
+    const raw = (fieldArg as any)?.text as string ?? '';
+    const field = raw.replace(/^'|'$/g, '').toUpperCase();
+    return [mk('EXTRACT'), '(', mk(field), ' ', mk('FROM'), ' ', sourceArg ? printNode(sourceArg) : '', ')'];
+}
+
+// TRIM(LEADING chars FROM str) / TRIM(TRAILING ...) / TRIM(BOTH ...)
+function printTrimForm(args: SqlNode[], direction: string, opts: Options, printNode: PrintFn): Doc {
+    const mk = (kw: string) => keyword(kw, opts);
+    const [str, chars] = args;
+    if (!chars) {
+        // 1-arg: trim spaces — use directional shorthand
+        const fnName = direction === 'LEADING' ? 'LTRIM' : direction === 'TRAILING' ? 'RTRIM' : 'TRIM';
+        return [mk(fnName), '(', str ? printNode(str) : '', ')'];
+    }
+    return [mk('TRIM'), '(', mk(direction), ' ', printNode(chars), ' ', mk('FROM'), ' ', printNode(str), ')'];
+}
+
+// POSITION(substr IN str)  — note: pg_catalog.position(str, substr) has reversed args
+function printPositionForm(args: SqlNode[], opts: Options, printNode: PrintFn): Doc {
+    const mk = (kw: string) => keyword(kw, opts);
+    const [str, substr] = args;  // pg_catalog.position(haystack, needle)
+    return [mk('POSITION'), '(', substr ? printNode(substr) : '', ' ', mk('IN'), ' ', str ? printNode(str) : '', ')'];
+}
+
+// ts AT TIME ZONE tz  — pg_catalog.timezone(tz, ts) has reversed args
+function printAtTimeZoneForm(args: SqlNode[], opts: Options, printNode: PrintFn): Doc {
+    const mk = (kw: string) => keyword(kw, opts);
+    const [tz, ts] = args;  // pg_catalog.timezone(zone, timestamp)
+    return [ts ? printNode(ts) : '', ' ', mk('AT TIME ZONE'), ' ', tz ? printNode(tz) : ''];
+}
+
+// OVERLAY(str PLACING sub FROM pos FOR len)
+function printOverlayForm(args: SqlNode[], opts: Options, printNode: PrintFn): Doc {
+    const mk = (kw: string) => keyword(kw, opts);
+    const [str, placing, fromExpr, forExpr] = args;
+    const doc: Doc[] = [
+        mk('OVERLAY'), '(',
+        str     ? printNode(str)     : '', ' ', mk('PLACING'), ' ',
+        placing ? printNode(placing) : '', ' ', mk('FROM'), ' ',
+        fromExpr ? printNode(fromExpr) : '',
+    ];
+    if (forExpr) doc.push(' ', mk('FOR'), ' ', printNode(forExpr));
+    doc.push(')');
+    return doc;
 }
 
 function printWindowDef(node: SqlNode, opts: Options, printNode: PrintFn): Doc {

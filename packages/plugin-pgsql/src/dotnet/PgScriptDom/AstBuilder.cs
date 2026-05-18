@@ -234,6 +234,7 @@ public class AstBuilder {
             Node.NodeOneofCase.RangeSubselect => BuildRangeSubselect(node.RangeSubselect),
             Node.NodeOneofCase.RangeFunction => BuildRangeFunction(node.RangeFunction),
             Node.NodeOneofCase.List => BuildExprList(node.List),
+            Node.NodeOneofCase.SqlvalueFunction => BuildSqlvalueFunction(node.SqlvalueFunction),
             _ => new SqlNode("RawExpr", 0, 0, node.NodeCase.ToString(), null),
         };
     }
@@ -385,6 +386,28 @@ public class AstBuilder {
             ("filter",   f.AggFilter != null ? BuildExpr(f.AggFilter) : null),
             ("over",     f.Over != null ? BuildWindowDef(f.Over) : null)
         ));
+    }
+
+    private static SqlNode BuildSqlvalueFunction(SQLValueFunction f) {
+        var name = f.Op switch {
+            SQLValueFunctionOp.SvfopCurrentDate       => "CURRENT_DATE",
+            SQLValueFunctionOp.SvfopCurrentTime       => "CURRENT_TIME",
+            SQLValueFunctionOp.SvfopCurrentTimeN      => "CURRENT_TIME",
+            SQLValueFunctionOp.SvfopCurrentTimestamp  => "CURRENT_TIMESTAMP",
+            SQLValueFunctionOp.SvfopCurrentTimestampN => "CURRENT_TIMESTAMP",
+            SQLValueFunctionOp.SvfopLocaltime         => "LOCALTIME",
+            SQLValueFunctionOp.SvfopLocaltimeN        => "LOCALTIME",
+            SQLValueFunctionOp.SvfopLocaltimestamp    => "LOCALTIMESTAMP",
+            SQLValueFunctionOp.SvfopLocaltimestampN   => "LOCALTIMESTAMP",
+            SQLValueFunctionOp.SvfopCurrentRole       => "CURRENT_ROLE",
+            SQLValueFunctionOp.SvfopCurrentUser       => "CURRENT_USER",
+            SQLValueFunctionOp.SvfopUser              => "USER",
+            SQLValueFunctionOp.SvfopSessionUser       => "SESSION_USER",
+            SQLValueFunctionOp.SvfopCurrentCatalog    => "CURRENT_CATALOG",
+            SQLValueFunctionOp.SvfopCurrentSchema     => "CURRENT_SCHEMA",
+            _                                         => "CURRENT_TIMESTAMP",
+        };
+        return new SqlNode("SqlvalueFunction", 0, 0, name, null);
     }
 
     private SqlNode BuildWindowDef(WindowDef w) {
