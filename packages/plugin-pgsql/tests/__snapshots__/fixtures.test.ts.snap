@@ -1,14 +1,80 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`fixtures > ddl/column-constraints.sql 1`] = `
+"create table orders (
+  id integer primary key,
+  customer_id integer not null,
+  status text default 'pending',
+  code text unique,
+  amount numeric(10, 2) not null
+);
+
+create table products (
+  id integer primary key,
+  price numeric(10, 2) check (price > 0),
+  quantity integer check (quantity >= 0)
+);
+
+create table order_items (
+  id integer primary key,
+  order_id integer references orders (id) on delete cascade,
+  product_id integer references products (id) on update restrict
+);
+
+create table order_items2 (
+  id integer,
+  order_id integer,
+  primary key (id),
+  foreign key (order_id) references orders (id)
+);
+
+create table employees (
+  id integer,
+  salary numeric(10, 2),
+  constraint employees_pkey primary key (id),
+  constraint salary_positive check (salary > 0)
+);
+
+create table sales (
+  id integer primary key,
+  quantity integer not null,
+  unit_price numeric(10, 2) not null,
+  total numeric generated always as (quantity * unit_price) stored
+);
+
+create table seq_test (
+  id integer generated always as identity,
+  name text
+);
+"
+`;
+
 exports[`fixtures > ddl/column-types.sql 1`] = `
 "create table products (
   name varchar(100),
   description text,
   price numeric(10, 2),
-  quantity int4,
+  quantity integer,
   tags text[],
   created_at timestamptz
 );
+"
+`;
+
+exports[`fixtures > ddl/create-function.sql 1`] = `
+"create function get_book_count(p_author_id integer)
+returns bigint
+language sql
+as $$
+  select count(*) from books where author_id = p_author_id
+$$;
+
+create function full_name(first_name text, last_name text)
+returns text
+language sql
+as $$
+  select first_name || ' ' || last_name
+$$;
 "
 `;
 
@@ -18,6 +84,15 @@ where expires_at < now()
 returning
   id,
   user_id;
+"
+`;
+
+exports[`fixtures > dml/call.sql 1`] = `
+"call process_orders();
+
+call update_inventory(product_id => 42, delta => -5);
+
+call send_notification(1, 'hello', true);
 "
 `;
 
@@ -46,6 +121,90 @@ where (
   from
     updated
 );
+"
+`;
+
+exports[`fixtures > dml/do.sql 1`] = `
+"do $$
+BEGIN
+  RAISE NOTICE 'hello world';
+END
+$$
+language plpgsql;
+
+do $$
+  insert into audit_log (action) values ('startup')
+$$
+language sql;
+"
+`;
+
+exports[`fixtures > dml/merge.sql 1`] = `
+"merge into target as t
+using source as s
+on t.id = s.id
+when matched then
+  update set
+    name = s.name,
+    updated_at = now()
+when not matched then
+  insert (id, name, created_at)
+  values (s.id, s.name, now());
+
+merge into inventory as inv
+using incoming as inc
+on inv.product_id = inc.product_id
+when matched and inc.quantity = 0 then
+  delete
+when matched then
+  update set
+    quantity = inv.quantity + inc.quantity
+when not matched then
+  insert (product_id, quantity)
+  values (inc.product_id, inc.quantity);
+
+merge into employees as e
+using new_roster as nr
+on e.id = nr.id
+when matched then
+  update set
+    name = nr.name
+when not matched then
+  insert (id, name)
+  values (nr.id, nr.name)
+when not matched by source then
+  delete;
+"
+`;
+
+exports[`fixtures > dml/transaction.sql 1`] = `
+"begin;
+
+commit;
+
+rollback;
+
+savepoint sp1;
+
+release savepoint sp1;
+
+rollback to savepoint sp1;
+
+set transaction isolation level serializable;
+
+set transaction read only;
+
+set transaction read write, deferrable;
+
+begin isolation level read committed;
+
+begin read only;
+
+prepare transaction 'txn-1234';
+
+commit prepared 'txn-1234';
+
+rollback prepared 'txn-1234';
 "
 `;
 

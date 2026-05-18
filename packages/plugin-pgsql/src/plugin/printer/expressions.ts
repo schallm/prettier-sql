@@ -29,7 +29,7 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'RangeFunction': return printRangeFunction(node, opts, printNode);
         case 'SortItem': return printSortItem(node, opts, printNode);
         case 'ColumnDef': return printColumnDef(node, opts, printNode);
-        case 'Constraint': return printConstraint(node, opts);
+        case 'Constraint': return printConstraint(node, opts, printNode);
         case 'AlterCmd': return printAlterCmd(node, opts, printNode);
         case 'FunctionParam': return printFunctionParam(node, opts);
         case 'IndexElem': return propStr(node, 'name') ?? '';
@@ -338,19 +338,88 @@ function printSortItem(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 // DDL pieces
 // ---------------------------------------------------------------------------
 
-function printColumnDef(node: SqlNode, opts: Options, _printNode: PrintFn): Doc {
+function printColumnDef(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const mk = (kw: string) => keyword(kw, opts);
     const name = propStr(node, 'name') ?? '';
     const typeName = propStr(node, 'typeName') ?? '';
-    return [name, ' ', mk(typeName)];
+    const constraints = propArr(node, 'constraints');
+    const parts: Doc[] = [name, ' ', mk(typeName)];
+    for (const c of constraints) {
+        parts.push(' ', printConstraint(c, opts, printNode));
+    }
+    return parts;
 }
 
-function printConstraint(node: SqlNode, opts: Options): Doc {
+function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const mk = (kw: string) => keyword(kw, opts);
     const contype = propStr(node, 'contype') ?? '';
     const name = propStr(node, 'name');
-    const prefix = name ? [mk('CONSTRAINT'), ' ', name, ' '] : '';
-    return [prefix, mk(contype.replace(/_/g, ' '))];
+    const expr = prop(node, 'expr');
+    const pktable = prop(node, 'pktable');
+    const fkAttrs = (node.props?.['fkAttrs'] as string[] | undefined) ?? [];
+    const pkAttrs = (node.props?.['pkAttrs'] as string[] | undefined) ?? [];
+    const keys = (node.props?.['keys'] as string[] | undefined) ?? [];
+    const fkUpdAction = propStr(node, 'fkUpdAction');
+    const fkDelAction = propStr(node, 'fkDelAction');
+    const generatedWhen = propStr(node, 'generatedWhen');
+    const nullsNotDistinct = propBool(node, 'nullsNotDistinct');
+    const deferrable = propBool(node, 'deferrable');
+    const initDeferred = propBool(node, 'initDeferred');
+
+    const namePrefix: Doc = name ? [mk('CONSTRAINT'), ' ', name, ' '] : '';
+
+    switch (contype) {
+        case 'NULL':     return [namePrefix, mk('NULL')];
+        case 'NOT NULL': return [namePrefix, mk('NOT NULL')];
+
+        case 'DEFAULT':
+            return [namePrefix, mk('DEFAULT'), expr ? [' ', printNode(expr)] : ''];
+
+        case 'CHECK':
+            return [namePrefix, mk('CHECK'), ' (', expr ? printNode(expr) : '', ')'];
+
+        case 'PRIMARY KEY': {
+            const colList: Doc = keys.length > 0 ? [' (', keys.join(', '), ')'] : '';
+            return [namePrefix, mk('PRIMARY KEY'), colList];
+        }
+
+        case 'UNIQUE': {
+            const colList: Doc = keys.length > 0 ? [' (', keys.join(', '), ')'] : '';
+            const nnd: Doc = nullsNotDistinct ? [' ', mk('NULLS NOT DISTINCT')] : '';
+            return [namePrefix, mk('UNIQUE'), nnd, colList];
+        }
+
+        case 'FOREIGN KEY': {
+            // Column-level: REFERENCES table [(col, ...)] [ON UPDATE x] [ON DELETE y]
+            // Table-level:  FOREIGN KEY (fkAttrs) REFERENCES table [(pkAttrs)]
+            const fkColList: Doc = fkAttrs.length > 0 ? [' (', fkAttrs.join(', '), ')'] : '';
+            const pkColList: Doc = pkAttrs.length > 0 ? [' (', pkAttrs.join(', '), ')'] : '';
+            const pktableDoc: Doc = pktable ? printRangeVar(pktable, opts) : '';
+            const onUpdate: Doc = fkUpdAction ? [' ', mk('ON UPDATE'), ' ', mk(fkUpdAction)] : '';
+            const onDelete: Doc = fkDelAction ? [' ', mk('ON DELETE'), ' ', mk(fkDelAction)] : '';
+            const deferrableDoc: Doc = deferrable
+                ? [' ', mk('DEFERRABLE'), initDeferred ? [' ', mk('INITIALLY DEFERRED')] : [' ', mk('INITIALLY IMMEDIATE')]]
+                : '';
+            if (fkAttrs.length > 0) {
+                // table-level
+                return [namePrefix, mk('FOREIGN KEY'), fkColList, ' ', mk('REFERENCES'), ' ', pktableDoc, pkColList, onUpdate, onDelete, deferrableDoc];
+            }
+            // column-level
+            return [namePrefix, mk('REFERENCES'), ' ', pktableDoc, pkColList, onUpdate, onDelete, deferrableDoc];
+        }
+
+        case 'IDENTITY': {
+            const when: Doc = generatedWhen ? mk(generatedWhen) : mk('BY DEFAULT');
+            return [namePrefix, mk('GENERATED'), ' ', when, ' ', mk('AS IDENTITY')];
+        }
+
+        case 'GENERATED': {
+            return [namePrefix, mk('GENERATED ALWAYS AS'), ' (', expr ? printNode(expr) : '', ') ', mk('STORED')];
+        }
+
+        default:
+            return [namePrefix, mk(contype)];
+    }
 }
 
 function printAlterCmd(node: SqlNode, opts: Options, _printNode: PrintFn): Doc {

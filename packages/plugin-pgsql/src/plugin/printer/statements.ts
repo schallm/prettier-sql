@@ -55,6 +55,10 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'CreateIndexStatement':   return printCreateIndex(node, opts);
         case 'DropStatement':          return printDrop(node, opts);
         case 'TruncateStatement':      return printTruncate(node, opts);
+        case 'TransactionStatement':   return printTransaction(node, opts);
+        case 'CallStatement':          return printCall(node, opts);
+        case 'DoStatement':            return printDo(node, opts);
+        case 'MergeStatement':         return printMerge(node, opts);
         default: return node.text ?? node.type;
     }
 }
@@ -462,12 +466,22 @@ function printCreateFunction(node: SqlNode, opts: Options): Doc {
     const printNode  = pn(opts);
     const name       = propStr(node, 'name') ?? '';
     const parameters = propArr(node, 'parameters');
+    const returnType = propStr(node, 'returnType');
+    const language   = propStr(node, 'language');
+    const body       = propStr(node, 'body');
 
-    return [
+    const parts: Doc[] = [
         mk('CREATE FUNCTION'), ' ', name,
         '(', join(', ', parameters.map(printNode)), ')',
-        ';',
     ];
+
+    if (returnType) parts.push(hardline, mk('RETURNS'), ' ', mk(returnType));
+    if (language)   parts.push(hardline, mk('LANGUAGE'), ' ', language);
+    if (body != null) {
+        parts.push(hardline, mk('AS'), ' ', '$$', body, '$$');
+    }
+
+    return [join('', parts), ';'];
 }
 
 function printCreateIndex(node: SqlNode, opts: Options): Doc {
@@ -511,4 +525,116 @@ function printDrop(node: SqlNode, opts: Options): Doc {
         cascade  ? [' ', mk('CASCADE')]   : '',
         ';',
     ];
+}
+
+// ---------------------------------------------------------------------------
+// Transaction control
+// ---------------------------------------------------------------------------
+
+function printTransaction(node: SqlNode, opts: Options): Doc {
+    const mk = (k: string) => keyword(k, opts);
+    const kind = propStr(node, 'kind') ?? 'COMMIT';
+    const savepoint = propStr(node, 'savepoint');
+    const gid = propStr(node, 'gid');
+    const options = (node.props?.['options'] as string[] | undefined) ?? [];
+
+    const parts: Doc[] = [mk(kind)];
+
+    // SAVEPOINT, RELEASE SAVEPOINT, ROLLBACK TO SAVEPOINT all take a savepoint name
+    if (kind === 'RELEASE') parts.push(' ', mk('SAVEPOINT'));
+    if (kind === 'ROLLBACK TO') parts.push(' ', mk('SAVEPOINT'));
+    if (savepoint) parts.push(' ', savepoint);
+    if (gid) parts.push(' ', `'${gid}'`);
+    if (options.length > 0) parts.push(' ', join(', ', options.map((o) => mk(o))));
+
+    return [parts, ';'];
+}
+
+// ---------------------------------------------------------------------------
+// CALL
+// ---------------------------------------------------------------------------
+
+function printCall(node: SqlNode, opts: Options): Doc {
+    const mk = (k: string) => keyword(k, opts);
+    const printNode = pn(opts);
+    const call = prop(node, 'call');
+    return [[mk('CALL'), ' ', call ? printNode(call) : ''], ';'];
+}
+
+// ---------------------------------------------------------------------------
+// DO
+// ---------------------------------------------------------------------------
+
+function printDo(node: SqlNode, opts: Options): Doc {
+    const mk = (k: string) => keyword(k, opts);
+    const language = propStr(node, 'language') ?? 'plpgsql';
+    const body = propStr(node, 'body') ?? '';
+    // Standard convention: body first, LANGUAGE after
+    return [[mk('DO'), ' ', '$$', body, '$$', hardline, mk('LANGUAGE'), ' ', language], ';'];
+}
+
+// ---------------------------------------------------------------------------
+// MERGE
+// ---------------------------------------------------------------------------
+
+function printMerge(node: SqlNode, opts: Options): Doc {
+    const mk = (k: string) => keyword(k, opts);
+    const printNode = pn(opts);
+
+    const target    = prop(node, 'target');
+    const source    = prop(node, 'source');
+    const on        = prop(node, 'on');
+    const whens     = propArr(node, 'whens');
+    const returning = propArr(node, 'returning');
+    const ctes      = prop(node, 'ctes');
+
+    const parts: Doc[] = [];
+
+    if (ctes) parts.push(...printCtes(ctes, opts, printNode));
+
+    parts.push([mk('MERGE INTO'), ' ', target ? printNode(target) : '']);
+    parts.push([mk('USING'), ' ', source ? printNode(source) : '']);
+    parts.push([mk('ON'), ' ', on ? printNode(on) : '']);
+
+    for (const w of whens) {
+        const matchKind = propStr(w, 'matchKind') ?? 'MATCHED';
+        const cmd       = propStr(w, 'cmd') ?? 'DO NOTHING';
+        const condition = prop(w, 'condition');
+        const targets   = propArr(w, 'targets');
+        const values    = propArr(w, 'values');
+
+        let whenLine: Doc = [mk('WHEN'), ' ', mk(matchKind)];
+        if (condition) whenLine = [whenLine, ' ', mk('AND'), ' ', printNode(condition)];
+        whenLine = [whenLine, ' ', mk('THEN')];
+
+        let actionDoc: Doc;
+        if (cmd === 'DO NOTHING') {
+            actionDoc = mk('DO NOTHING');
+        } else if (cmd === 'DELETE') {
+            actionDoc = mk('DELETE');
+        } else if (cmd === 'UPDATE') {
+            // ResTarget: name=column, val=value → "col = val"
+            const assignments: Doc[] = targets.map((t) => {
+                const col = propStr(t, 'name') ?? '';
+                const val = prop(t, 'val');
+                return [col, ' = ', val ? printNode(val) : ''] as Doc;
+            });
+            actionDoc = [mk('UPDATE SET'), indent([hardline, join(hardSep(opts), assignments)])];
+        } else { // INSERT
+            const cols = targets.filter((t) => t.type === 'ResTarget').map((t) => propStr(t, 'name') ?? '');
+            const colList: Doc = cols.length > 0 ? [' (', join(', ', cols), ')'] : '';
+            const valList: Doc = values.length > 0
+                ? [mk('VALUES'), ' (', join(', ', values.map(printNode)), ')']
+                : [mk('DEFAULT VALUES')];
+            actionDoc = [mk('INSERT'), colList, hardline, valList];
+        }
+
+        parts.push([whenLine, indent([hardline, actionDoc])]);
+    }
+
+    if (returning.length > 0) {
+        parts.push([mk('RETURNING'), indent([hardline, join(hardSep(opts), returning.map(printNode))])]);
+    }
+
+    return [join(hardline, parts), ';'];
 }

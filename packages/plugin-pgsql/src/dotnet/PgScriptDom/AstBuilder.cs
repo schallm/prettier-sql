@@ -44,6 +44,11 @@ public class AstBuilder {
             Node.NodeOneofCase.IndexStmt => BuildCreateIndex(stmt.IndexStmt, start, end),
             Node.NodeOneofCase.DropStmt => BuildDrop(stmt.DropStmt, start, end),
             Node.NodeOneofCase.TruncateStmt => BuildTruncate(stmt.TruncateStmt, start, end),
+            Node.NodeOneofCase.TransactionStmt => BuildTransaction(stmt.TransactionStmt, start, end),
+            Node.NodeOneofCase.VariableSetStmt => BuildVariableSet(stmt.VariableSetStmt, start, end),
+            Node.NodeOneofCase.CallStmt => BuildCall(stmt.CallStmt, start, end),
+            Node.NodeOneofCase.DoStmt => BuildDo(stmt.DoStmt, start, end),
+            Node.NodeOneofCase.MergeStmt => BuildMerge(stmt.MergeStmt, start, end),
             _ => Fallback(start, end),
         };
     }
@@ -180,11 +185,33 @@ public class AstBuilder {
                 : null)
         ));
 
-    private SqlNode BuildCreateFunction(CreateFunctionStmt s, int start, int end) =>
-        new("CreateFunctionStatement", start, end, null, BuildProps(
-            ("name", s.Funcname.Count > 0 ? string.Join(".", s.Funcname.Select(n => n.String.Sval)) : null),
-            ("parameters", MapList(s.Parameters, BuildFunctionParam))
+    private SqlNode BuildCreateFunction(CreateFunctionStmt s, int start, int end) {
+        string? language = null;
+        string? body = null;
+        foreach (var o in s.Options) {
+            if (o.NodeCase != Node.NodeOneofCase.DefElem) continue;
+            var de = o.DefElem;
+            switch (de.Defname) {
+                case "language":
+                    if (de.Arg?.NodeCase == Node.NodeOneofCase.String)
+                        language = de.Arg.String.Sval;
+                    break;
+                case "as":
+                    // AS body is a List with one String item (dollar-quoted body contents)
+                    if (de.Arg?.NodeCase == Node.NodeOneofCase.List && de.Arg.List.Items.Count > 0
+                        && de.Arg.List.Items[0].NodeCase == Node.NodeOneofCase.String)
+                        body = de.Arg.List.Items[0].String.Sval;
+                    break;
+            }
+        }
+        return new SqlNode("CreateFunctionStatement", start, end, null, BuildProps(
+            ("name",       s.Funcname.Count > 0 ? string.Join(".", s.Funcname.Select(n => n.String.Sval)) : null),
+            ("parameters", MapList(s.Parameters, BuildFunctionParam)),
+            ("returnType", s.ReturnType != null ? BuildPgTypeName(s.ReturnType) : null),
+            ("language",   language),
+            ("body",       body)
         ));
+    }
 
     private SqlNode BuildCreateIndex(IndexStmt s, int start, int end) =>
         new("CreateIndexStatement", start, end, null, BuildProps(
@@ -238,6 +265,8 @@ public class AstBuilder {
             Node.NodeOneofCase.AIndirection => BuildIndirection(node.AIndirection),
             Node.NodeOneofCase.NamedArgExpr => BuildNamedArgExpr(node.NamedArgExpr),
             Node.NodeOneofCase.GroupingSet  => BuildGroupingSet(node.GroupingSet),
+            Node.NodeOneofCase.Constraint   => BuildConstraint(node.Constraint),
+            Node.NodeOneofCase.MergeWhenClause => BuildMergeWhen(node.MergeWhenClause),
             _ => new SqlNode("RawExpr", 0, 0, node.NodeCase.ToString(), null),
         };
     }
@@ -681,17 +710,75 @@ public class AstBuilder {
         _ => null,
     };
 
-    private SqlNode BuildColumnDef(ColumnDef c) =>
+    private SqlNode BuildColumnDef(ColumnDef cd) =>
         new("ColumnDef", 0, 0, null, BuildProps(
-            ("name", c.Colname),
-            ("typeName", c.TypeName != null ? BuildPgTypeName(c.TypeName) : null)
+            ("name",        cd.Colname),
+            ("typeName",    cd.TypeName != null ? BuildPgTypeName(cd.TypeName) : null),
+            ("constraints", cd.Constraints.Count > 0
+                ? (object?)cd.Constraints
+                    .Where(n => n.NodeCase == Node.NodeOneofCase.Constraint)
+                    .Select(n => BuildConstraint(n.Constraint))
+                    .ToList()
+                : null)
         ));
 
-    private static SqlNode BuildConstraint(Constraint c) =>
-        new("Constraint", 0, 0, null, BuildProps(
-            ("contype", c.Contype.ToString()),
-            ("name", c.Conname)
+    private SqlNode BuildConstraint(Constraint c) {
+        var contype = c.Contype switch {
+            ConstrType.ConstrNull              => "NULL",
+            ConstrType.ConstrNotnull           => "NOT NULL",
+            ConstrType.ConstrDefault           => "DEFAULT",
+            ConstrType.ConstrIdentity          => "IDENTITY",
+            ConstrType.ConstrGenerated         => "GENERATED",
+            ConstrType.ConstrCheck             => "CHECK",
+            ConstrType.ConstrPrimary           => "PRIMARY KEY",
+            ConstrType.ConstrUnique            => "UNIQUE",
+            ConstrType.ConstrForeign           => "FOREIGN KEY",
+            ConstrType.ConstrExclusion         => "EXCLUDE",
+            ConstrType.ConstrAttrDeferrable    => "DEFERRABLE",
+            ConstrType.ConstrAttrNotDeferrable => "NOT DEFERRABLE",
+            ConstrType.ConstrAttrDeferred      => "INITIALLY DEFERRED",
+            ConstrType.ConstrAttrImmediate     => "INITIALLY IMMEDIATE",
+            _                                  => c.Contype.ToString(),
+        };
+
+        // FK actions: 'a'=NO ACTION, 'r'=RESTRICT, 'c'=CASCADE, 'n'=SET NULL, 'd'=SET DEFAULT
+        string FkAction(string ch) => ch switch {
+            "r" => "RESTRICT",
+            "c" => "CASCADE",
+            "n" => "SET NULL",
+            "d" => "SET DEFAULT",
+            _   => "NO ACTION",
+        };
+
+        // Keys list (PRIMARY KEY / UNIQUE column list at table level)
+        var keys = c.Keys.Count > 0
+            ? (object?)c.Keys.Select(k => k.NodeCase == Node.NodeOneofCase.String ? k.String.Sval : "").ToList()
+            : null;
+
+        // FK columns
+        var fkAttrs = c.FkAttrs.Count > 0
+            ? (object?)c.FkAttrs.Select(k => k.String.Sval).ToList()
+            : null;
+        var pkAttrs = c.PkAttrs.Count > 0
+            ? (object?)c.PkAttrs.Select(k => k.String.Sval).ToList()
+            : null;
+
+        return new SqlNode("Constraint", 0, 0, null, BuildProps(
+            ("contype",          contype),
+            ("name",             string.IsNullOrEmpty(c.Conname) ? null : c.Conname),
+            ("expr",             c.RawExpr != null ? BuildExpr(c.RawExpr) : null),
+            ("keys",             keys),
+            ("nullsNotDistinct", c.NullsNotDistinct ? true : null),
+            ("pktable",          c.Pktable != null ? BuildRangeVar(c.Pktable) : null),
+            ("fkAttrs",          fkAttrs),
+            ("pkAttrs",          pkAttrs),
+            ("fkUpdAction",      string.IsNullOrEmpty(c.FkUpdAction) || c.FkUpdAction == "a" ? null : FkAction(c.FkUpdAction)),
+            ("fkDelAction",      string.IsNullOrEmpty(c.FkDelAction) || c.FkDelAction == "a" ? null : FkAction(c.FkDelAction)),
+            ("generatedWhen",    string.IsNullOrEmpty(c.GeneratedWhen) ? null : (c.GeneratedWhen == "a" ? "ALWAYS" : "BY DEFAULT")),
+            ("deferrable",       c.Deferrable ? true : null),
+            ("initDeferred",     c.Initdeferred ? true : null)
         ));
+    }
 
     private static SqlNode? BuildAlterCmd(Node n) {
         if (n.NodeCase != Node.NodeOneofCase.AlterTableCmd) return null;
@@ -717,8 +804,19 @@ public class AstBuilder {
         return new SqlNode("IndexElem", 0, 0, null, BuildProps(("name", n.IndexElem.Name)));
     }
 
+    // pg_catalog internal names → user-visible SQL standard names
+    private static readonly Dictionary<string, string> _typeAliases = new() {
+        ["int2"]   = "smallint",
+        ["int4"]   = "integer",
+        ["int8"]   = "bigint",
+        ["float4"] = "real",
+        ["float8"] = "double precision",
+        ["bool"]   = "boolean",
+    };
+
     private static string BuildPgTypeName(TypeName t) {
-        var name = string.Join(".", t.Names.Select(n => n.String.Sval).Where(s => s != "pg_catalog"));
+        var raw = string.Join(".", t.Names.Select(n => n.String.Sval).Where(s => s != "pg_catalog"));
+        var name = _typeAliases.TryGetValue(raw, out var alias) ? alias : raw;
 
         if (t.Typmods.Count > 0) {
             var mods = t.Typmods
@@ -820,6 +918,162 @@ public class AstBuilder {
             ("relations",   relations.Count > 0 ? (object?)relations : null),
             ("restartSeqs", s.RestartSeqs ? true : null),
             ("cascade",     s.Behavior == DropBehavior.DropCascade ? true : null)
+        ));
+    }
+
+    private static SqlNode BuildTransaction(TransactionStmt t, int start, int end) {
+        var kind = t.Kind switch {
+            TransactionStmtKind.TransStmtBegin            => "BEGIN",
+            TransactionStmtKind.TransStmtStart            => "START TRANSACTION",
+            TransactionStmtKind.TransStmtCommit           => "COMMIT",
+            TransactionStmtKind.TransStmtRollback         => "ROLLBACK",
+            TransactionStmtKind.TransStmtSavepoint        => "SAVEPOINT",
+            TransactionStmtKind.TransStmtRelease          => "RELEASE",
+            TransactionStmtKind.TransStmtRollbackTo       => "ROLLBACK TO",
+            TransactionStmtKind.TransStmtPrepare          => "PREPARE TRANSACTION",
+            TransactionStmtKind.TransStmtCommitPrepared   => "COMMIT PREPARED",
+            TransactionStmtKind.TransStmtRollbackPrepared => "ROLLBACK PREPARED",
+            _                                             => t.Kind.ToString(),
+        };
+
+        // Parse transaction mode options (isolation level, read only, deferrable)
+        var options = new List<string>();
+        foreach (var n in t.Options) {
+            if (n.NodeCase != Node.NodeOneofCase.DefElem) continue;
+            var de = n.DefElem;
+            switch (de.Defname) {
+                case "transaction_isolation": {
+                    string? isoLevel = de.Arg?.NodeCase == Node.NodeOneofCase.String
+                        ? de.Arg.String.Sval
+                        : de.Arg?.NodeCase == Node.NodeOneofCase.AConst && de.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval
+                            ? de.Arg.AConst.Sval.Sval
+                            : null;
+                    if (isoLevel != null) options.Add($"ISOLATION LEVEL {isoLevel.ToUpper()}");
+                    break;
+                }
+                case "transaction_read_only": {
+                    bool readOnly = de.Arg?.NodeCase == Node.NodeOneofCase.Integer
+                        ? de.Arg.Integer.Ival == 1
+                        : de.Arg?.NodeCase == Node.NodeOneofCase.AConst && de.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival
+                            && de.Arg.AConst.Ival.Ival == 1;
+                    options.Add(readOnly ? "READ ONLY" : "READ WRITE");
+                    break;
+                }
+                case "transaction_deferrable": {
+                    bool deferrable = de.Arg?.NodeCase == Node.NodeOneofCase.Integer
+                        ? de.Arg.Integer.Ival == 1
+                        : de.Arg?.NodeCase == Node.NodeOneofCase.AConst && de.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival
+                            && de.Arg.AConst.Ival.Ival == 1;
+                    options.Add(deferrable ? "DEFERRABLE" : "NOT DEFERRABLE");
+                    break;
+                }
+            }
+        }
+
+        return new SqlNode("TransactionStatement", start, end, null, BuildProps(
+            ("kind",      kind),
+            ("savepoint", string.IsNullOrEmpty(t.SavepointName) ? null : t.SavepointName),
+            ("gid",       string.IsNullOrEmpty(t.Gid) ? null : t.Gid),
+            ("options",   options.Count > 0 ? (object?)options : null)
+        ));
+    }
+
+    private static SqlNode BuildVariableSet(VariableSetStmt v, int start, int end) {
+        // SET TRANSACTION ... is a VariableSetStmt with kind=VarSetMulti, name="TRANSACTION"
+        // Map it to a TransactionStatement with kind "SET TRANSACTION"
+        if (v.Kind == VariableSetKind.VarSetMulti && v.Name == "TRANSACTION") {
+            var options = new List<string>();
+            foreach (var n in v.Args) {
+                if (n.NodeCase != Node.NodeOneofCase.DefElem) continue;
+                var de = n.DefElem;
+                switch (de.Defname) {
+                    case "transaction_isolation": {
+                        string? isoLevel = de.Arg?.NodeCase == Node.NodeOneofCase.String
+                            ? de.Arg.String.Sval
+                            : de.Arg?.NodeCase == Node.NodeOneofCase.AConst && de.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval
+                                ? de.Arg.AConst.Sval.Sval
+                                : null;
+                        if (isoLevel != null) options.Add($"ISOLATION LEVEL {isoLevel.ToUpper()}");
+                        break;
+                    }
+                    case "transaction_read_only": {
+                        bool readOnly = de.Arg?.NodeCase == Node.NodeOneofCase.Integer
+                            ? de.Arg.Integer.Ival == 1
+                            : de.Arg?.NodeCase == Node.NodeOneofCase.AConst && de.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival
+                                && de.Arg.AConst.Ival.Ival == 1;
+                        options.Add(readOnly ? "READ ONLY" : "READ WRITE");
+                        break;
+                    }
+                    case "transaction_deferrable": {
+                        bool deferrable = de.Arg?.NodeCase == Node.NodeOneofCase.Integer
+                            ? de.Arg.Integer.Ival == 1
+                            : de.Arg?.NodeCase == Node.NodeOneofCase.AConst && de.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival
+                                && de.Arg.AConst.Ival.Ival == 1;
+                        options.Add(deferrable ? "DEFERRABLE" : "NOT DEFERRABLE");
+                        break;
+                    }
+                }
+            }
+            return new SqlNode("TransactionStatement", start, end, null, BuildProps(
+                ("kind",    "SET TRANSACTION"),
+                ("options", options.Count > 0 ? (object?)options : null)
+            ));
+        }
+        return Fallback(start, end);
+    }
+
+    private SqlNode BuildCall(CallStmt c, int start, int end) =>
+        new("CallStatement", start, end, null, BuildProps(
+            ("call", BuildFuncCall(c.Funccall))
+        ));
+
+    private static SqlNode BuildDo(DoStmt d, int start, int end) {
+        string? language = null;
+        string? body = null;
+        foreach (var n in d.Args) {
+            if (n.NodeCase != Node.NodeOneofCase.DefElem) continue;
+            var de = n.DefElem;
+            if (de.Defname == "language" && de.Arg?.NodeCase == Node.NodeOneofCase.String)
+                language = de.Arg.String.Sval;
+            if (de.Defname == "as" && de.Arg?.NodeCase == Node.NodeOneofCase.String)
+                body = de.Arg.String.Sval;
+        }
+        return new SqlNode("DoStatement", start, end, null, BuildProps(
+            ("language", language),
+            ("body",     body)
+        ));
+    }
+
+    private SqlNode BuildMerge(MergeStmt m, int start, int end) =>
+        new("MergeStatement", start, end, null, BuildProps(
+            ("ctes",      m.WithClause != null ? BuildWithClause(m.WithClause) : null),
+            ("target",    BuildRangeVar(m.Relation)),
+            ("source",    m.SourceRelation != null ? BuildFromItem(m.SourceRelation) : null),
+            ("on",        BuildExpr(m.JoinCondition)),
+            ("whens",     MapList(m.MergeWhenClauses, BuildExpr)),
+            ("returning", MapList(m.ReturningList, BuildExpr))
+        ));
+
+    private SqlNode BuildMergeWhen(MergeWhenClause w) {
+        var matchKind = w.MatchKind switch {
+            MergeMatchKind.MergeWhenMatched            => "MATCHED",
+            MergeMatchKind.MergeWhenNotMatchedBySource => "NOT MATCHED BY SOURCE",
+            MergeMatchKind.MergeWhenNotMatchedByTarget => "NOT MATCHED",
+            _                                          => "MATCHED",
+        };
+        var cmd = w.CommandType switch {
+            CmdType.CmdInsert  => "INSERT",
+            CmdType.CmdUpdate  => "UPDATE",
+            CmdType.CmdDelete  => "DELETE",
+            CmdType.CmdNothing => "DO NOTHING",
+            _                  => "DO NOTHING",
+        };
+        return new SqlNode("MergeWhen", 0, 0, null, BuildProps(
+            ("matchKind", matchKind),
+            ("cmd",       cmd),
+            ("condition", BuildExpr(w.Condition)),
+            ("targets",   MapList(w.TargetList, BuildExpr)),
+            ("values",    MapList(w.Values, BuildExpr))
         ));
     }
 

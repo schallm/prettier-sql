@@ -699,18 +699,42 @@ truncate table sessions, temp_orders restart identity cascade;
 
 ### CREATE TABLE
 
-Column names and type names (including modifiers and array notation) are preserved. Column constraints (NOT NULL, DEFAULT, PRIMARY KEY, etc.) are not yet formatted — they are currently dropped from output.
+Column definitions include the full constraint set. Type names use SQL standard aliases (`integer` not `int4`, `bigint` not `int8`, etc.).
 
 ```sql
-create table products (
-  id integer,
+create table orders (
+  id integer primary key,
+  customer_id integer not null references customers (id) on delete cascade,
+  status text default 'pending' check (status in ('pending', 'shipped', 'cancelled')),
+  amount numeric(10, 2) not null,
+  code text unique,
   name varchar(100),
-  description text,
-  price numeric(10, 2),
-  quantity integer,
   tags text[],
-  created_at timestamptz,
-  updated_at timestamptz
+  created_at timestamptz
+);
+```
+
+Table-level constraints and named constraints:
+
+```sql
+create table order_items (
+  id integer,
+  order_id integer,
+  product_id integer,
+  constraint order_items_pkey primary key (id),
+  constraint fk_order foreign key (order_id) references orders (id),
+  constraint positive_qty check (quantity > 0)
+);
+```
+
+Generated columns and identity columns:
+
+```sql
+create table sales (
+  id integer generated always as identity,
+  quantity integer not null,
+  unit_price numeric(10, 2) not null,
+  total numeric generated always as (quantity * unit_price) stored
 );
 ```
 
@@ -754,6 +778,112 @@ drop table if exists temp_data;
 drop view active_users;
 
 drop index if exists idx_books_author;
+```
+
+---
+
+## Transaction Control
+
+All standard transaction statements are supported.
+
+```sql
+begin;
+
+commit;
+
+rollback;
+
+savepoint my_save;
+
+release savepoint my_save;
+
+rollback to savepoint my_save;
+```
+
+`SET TRANSACTION` with options:
+
+```sql
+set transaction isolation level serializable;
+
+set transaction read only;
+
+set transaction read write, deferrable;
+```
+
+`BEGIN` with inline options:
+
+```sql
+begin isolation level read committed;
+
+begin read only;
+```
+
+Two-phase commit:
+
+```sql
+prepare transaction 'txn-1234';
+
+commit prepared 'txn-1234';
+
+rollback prepared 'txn-1234';
+```
+
+---
+
+## MERGE
+
+`MERGE INTO ... USING ... ON ...` with one or more `WHEN` clauses. Supported actions: `UPDATE SET`, `INSERT`, `DELETE`, `DO NOTHING`. Conditional `AND` clause is supported.
+
+```sql
+merge into target as t
+using source as s
+on t.id = s.id
+when matched then
+  update set
+    name = s.name,
+    updated_at = now()
+when not matched then
+  insert (id, name)
+  values (s.id, s.name);
+```
+
+`WHEN NOT MATCHED BY SOURCE` (PostgreSQL 15+):
+
+```sql
+merge into employees as e
+using new_roster as nr
+on e.id = nr.id
+when matched then
+  update set
+    name = nr.name
+when not matched by source then
+  delete;
+```
+
+---
+
+## CALL
+
+Stored-procedure invocation with positional or named arguments.
+
+```sql
+call process_orders();
+
+call update_inventory(product_id => 42, delta => -5);
+```
+
+---
+
+## DO
+
+Anonymous PL/pgSQL (or SQL) blocks. The body is preserved verbatim inside `$$` delimiters.
+
+```sql
+do $$
+BEGIN
+  RAISE NOTICE 'hello';
+END
+$$ language plpgsql;
 ```
 
 ---

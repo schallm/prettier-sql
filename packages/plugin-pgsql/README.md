@@ -22,14 +22,17 @@ A [Prettier](https://prettier.io) plugin for PostgreSQL SQL. Parses SQL with [li
 - **UPDATE** — SET, FROM, WHERE, RETURNING, WITH clause
 - **DELETE** — WHERE, RETURNING, WITH clause
 - **TRUNCATE** — with RESTART IDENTITY and CASCADE
+- **Transaction control** — BEGIN / START TRANSACTION / COMMIT / ROLLBACK / SAVEPOINT / RELEASE SAVEPOINT / ROLLBACK TO SAVEPOINT / SET TRANSACTION (isolation level, READ ONLY/WRITE, DEFERRABLE) / PREPARE TRANSACTION / COMMIT PREPARED / ROLLBACK PREPARED
+- **MERGE** — WHEN MATCHED / WHEN NOT MATCHED / WHEN NOT MATCHED BY SOURCE; UPDATE SET, INSERT, DELETE, DO NOTHING actions; conditional AND clause; RETURNING
+- **CALL** — stored-procedure invocation
 
 ### DDL
 
-- **CREATE TABLE** — column definitions, type modifiers (`VARCHAR(100)`, `NUMERIC(10,2)`), array types (`TEXT[]`)
+- **CREATE TABLE** — column definitions with full constraint support: NOT NULL, DEFAULT, PRIMARY KEY, FOREIGN KEY (column-level and table-level, with ON UPDATE/DELETE actions), CHECK, UNIQUE, GENERATED ALWAYS AS (stored), GENERATED AS IDENTITY, named constraints; type modifiers (`VARCHAR(100)`, `NUMERIC(10,2)`), array types (`TEXT[]`)
 - **ALTER TABLE** — ADD COLUMN, DROP COLUMN, ADD CONSTRAINT
 - **CREATE VIEW**
 - **CREATE INDEX** / CREATE UNIQUE INDEX
-- **CREATE FUNCTION** — parameter lists with modes (IN, OUT, INOUT)
+- **CREATE FUNCTION** — RETURNS, LANGUAGE, dollar-quoted `$$...$$` body, parameter lists with modes (IN, OUT, INOUT)
 - **DROP** — TABLE, VIEW, INDEX, FUNCTION
 
 ### Expressions
@@ -44,17 +47,7 @@ A [Prettier](https://prettier.io) plugin for PostgreSQL SQL. Parses SQL with [li
 
 ### Pending Implementation
 
-Ordered by estimated real-world impact. Items in **P1** block common daily usage; **P4** items are specialist or rare.
-
-#### P1 — Foundational (blocks basic real-world schemas)
-
-| Feature | Notes |
-|---|---|
-| **Column constraints** | NOT NULL, DEFAULT, PRIMARY KEY, FOREIGN KEY, CHECK, UNIQUE — column names and types print; constraint clauses are currently dropped |
-| **Dollar-quoted strings** `$$...$$` | Required for CREATE FUNCTION / DO block bodies |
-| **Transaction control** | BEGIN / START TRANSACTION / COMMIT / ROLLBACK / SAVEPOINT / RELEASE SAVEPOINT / SET TRANSACTION ISOLATION LEVEL |
-| **MERGE** | Full MERGE statement (PostgreSQL 15+): WHEN MATCHED / WHEN NOT MATCHED / WHEN NOT MATCHED BY SOURCE |
-| **CALL** | Stored-procedure invocation: `CALL my_proc(arg1, arg2)` |
+Ordered by estimated real-world impact. Items in **P4** are specialist or rare.
 
 #### P2 — Common production patterns
 
