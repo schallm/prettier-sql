@@ -1,5 +1,11 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`fixtures > ddl/alter-function.sql 1`] = `
+"alter function get_count(integer)
+  set cost 100;
+"
+`;
+
 exports[`fixtures > ddl/alter-table-extended.sql 1`] = `
 "alter table users rename column email to email_address;
 
@@ -163,6 +169,25 @@ with grant option;
 "
 `;
 
+exports[`fixtures > ddl/policies.sql 1`] = `
+"create policy view_own_data
+on users
+for select
+using (user_id = current_user_id());
+
+alter policy view_own_data
+on users
+using (user_id = current_user_id());
+"
+`;
+
+exports[`fixtures > ddl/refresh-matview.sql 1`] = `
+"refresh materialized view mv_active_users;
+
+refresh materialized view concurrently mv_active_users;
+"
+`;
+
 exports[`fixtures > ddl/roles.sql 1`] = `
 "create role alice
 login password 'secret' nosuperuser;
@@ -175,6 +200,16 @@ createdb;
 
 alter role bob
 connection limit 10;
+"
+`;
+
+exports[`fixtures > ddl/rules.sql 1`] = `
+"create rule log_insert
+as on insert
+to orders
+do also
+  insert into audit_log (event)
+  values ('insert');
 "
 `;
 
@@ -261,6 +296,20 @@ call send_notification(1, 'hello', true);
 "
 `;
 
+exports[`fixtures > dml/copy.sql 1`] = `
+"copy orders from '/tmp/orders.csv';
+
+copy orders to '/tmp/orders.csv';
+
+copy (
+  select
+    id
+  from
+    orders
+) to '/tmp/ids.csv';
+"
+`;
+
 exports[`fixtures > dml/cte-dml.sql 1`] = `
 "with
   moved as (
@@ -289,6 +338,32 @@ where (
 "
 `;
 
+exports[`fixtures > dml/cursors.sql 1`] = `
+"declare my_cursor cursor for
+select
+  id,
+  name
+from
+  users;
+
+declare scroll_cursor scroll cursor for
+select
+  id
+from
+  orders;
+
+fetch next from my_cursor;
+
+fetch forward 10 from my_cursor;
+
+fetch all from my_cursor;
+
+move prior from scroll_cursor;
+
+close my_cursor;
+"
+`;
+
 exports[`fixtures > dml/do.sql 1`] = `
 "do $$
 BEGIN
@@ -301,6 +376,44 @@ do $$
   insert into audit_log (action) values ('startup')
 $$
 language sql;
+"
+`;
+
+exports[`fixtures > dml/explain.sql 1`] = `
+"explain select
+  id
+from
+  users;
+
+explain analyze select
+  id
+from
+  users;
+
+explain (analyze true, verbose true, format json) select
+  id
+from
+  users;
+"
+`;
+
+exports[`fixtures > dml/listen-notify.sql 1`] = `
+"listen my_channel;
+
+unlisten my_channel;
+
+unlisten *;
+
+notify my_channel;
+
+notify my_channel, 'payload text';
+"
+`;
+
+exports[`fixtures > dml/lock.sql 1`] = `
+"lock table orders in exclusive mode;
+
+lock table orders in access exclusive mode nowait;
 "
 `;
 
@@ -339,6 +452,23 @@ when not matched then
   values (nr.id, nr.name)
 when not matched by source then
   delete;
+"
+`;
+
+exports[`fixtures > dml/prepare.sql 1`] = `
+"prepare get_user(integer) as
+select
+  id,
+  name
+from
+  users
+where id = $1;
+
+execute get_user(42);
+
+deallocate get_user;
+
+deallocate all;
 "
 `;
 
@@ -685,6 +815,19 @@ from
 "
 `;
 
+exports[`fixtures > select/grouping-func.sql 1`] = `
+"select
+  region,
+  product,
+  grouping(region, product) as grp,
+  sum(amount)
+from
+  sales
+group by
+  grouping sets((region, product), (region), ());
+"
+`;
+
 exports[`fixtures > select/in-between.sql 1`] = `
 "select
   id,
@@ -789,6 +932,18 @@ from
 window
   w1 as (partition by dept order by salary desc),
   w2 as (partition by dept);
+"
+`;
+
+exports[`fixtures > select/select-into.sql 1`] = `
+"select
+  id,
+  name
+into
+  archive_users
+from
+  users
+where active = false;
 "
 `;
 

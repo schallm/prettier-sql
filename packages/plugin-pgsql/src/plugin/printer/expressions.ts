@@ -47,6 +47,7 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'Subscript':      return printSubscript(node, opts, printNode);
         case 'NamedArg':       return printNamedArg(node, opts, printNode);
         case 'GroupingSet':    return printGroupingSet(node, opts, printNode);
+        case 'GroupingFunc':   return printGroupingFunc(node, opts, printNode);
         case 'IntervalLiteral': return printIntervalLiteral(node, opts, printNode);
         default: return node.text ?? `/* unknown: ${node.type} */`;
     }
@@ -587,4 +588,10 @@ function printGroupingSet(node: SqlNode, opts: Options, printNode: PrintFn): Doc
     if (kind === 'CUBE')   return [mk('CUBE'),   '(', join(', ', content.map(printItem)), ')'];
     if (kind === 'SETS')   return [mk('GROUPING SETS'), '(', join(', ', content.map(printSetItem)), ')'];
     return [mk(kind), '(', join(', ', content.map(printItem)), ')'];
+}
+
+function printGroupingFunc(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const mk   = (kw: string) => keyword(kw, opts);
+    const args = propArr(node, 'args');
+    return [mk('GROUPING'), '(', join(', ', args.map(printNode)), ')'];
 }

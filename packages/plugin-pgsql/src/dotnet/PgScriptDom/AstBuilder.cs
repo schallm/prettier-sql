@@ -64,6 +64,23 @@ public class AstBuilder {
             Node.NodeOneofCase.CreateTableAsStmt    => BuildCreateTableAs(stmt.CreateTableAsStmt, start, end),
             Node.NodeOneofCase.CreateTrigStmt       => BuildCreateTrigger(stmt.CreateTrigStmt, start, end),
             Node.NodeOneofCase.CommentStmt          => BuildComment(stmt.CommentStmt, start, end),
+            Node.NodeOneofCase.AlterFunctionStmt    => BuildAlterFunction(stmt.AlterFunctionStmt, start, end),
+            Node.NodeOneofCase.RefreshMatViewStmt   => BuildRefreshMatView(stmt.RefreshMatViewStmt, start, end),
+            Node.NodeOneofCase.RuleStmt             => BuildRule(stmt.RuleStmt, start, end),
+            Node.NodeOneofCase.CreatePolicyStmt     => BuildCreatePolicy(stmt.CreatePolicyStmt, start, end),
+            Node.NodeOneofCase.AlterPolicyStmt      => BuildAlterPolicy(stmt.AlterPolicyStmt, start, end),
+            Node.NodeOneofCase.DeclareCursorStmt    => BuildDeclareCursor(stmt.DeclareCursorStmt, start, end),
+            Node.NodeOneofCase.FetchStmt            => BuildFetch(stmt.FetchStmt, start, end),
+            Node.NodeOneofCase.ClosePortalStmt      => BuildClosePortal(stmt.ClosePortalStmt, start, end),
+            Node.NodeOneofCase.CopyStmt             => BuildCopy(stmt.CopyStmt, start, end),
+            Node.NodeOneofCase.ExplainStmt          => BuildExplain(stmt.ExplainStmt, start, end),
+            Node.NodeOneofCase.PrepareStmt          => BuildPrepare(stmt.PrepareStmt, start, end),
+            Node.NodeOneofCase.ExecuteStmt          => BuildExecute(stmt.ExecuteStmt, start, end),
+            Node.NodeOneofCase.DeallocateStmt       => BuildDeallocate(stmt.DeallocateStmt, start, end),
+            Node.NodeOneofCase.ListenStmt           => BuildListen(stmt.ListenStmt, start, end),
+            Node.NodeOneofCase.UnlistenStmt         => BuildUnlisten(stmt.UnlistenStmt, start, end),
+            Node.NodeOneofCase.NotifyStmt           => BuildNotify(stmt.NotifyStmt, start, end),
+            Node.NodeOneofCase.LockStmt             => BuildLock(stmt.LockStmt, start, end),
             _ => Fallback(start, end),
         };
     }
@@ -99,6 +116,25 @@ public class AstBuilder {
             return new SqlNode("ValuesStatement", start, end, null, BuildProps(
                 ("rows", rows.Count > 0 ? (object?)rows : null)
             ));
+        }
+
+        // SELECT INTO
+        if (s.IntoClause != null) {
+            var rel = BuildRangeVar(s.IntoClause.Rel);
+            var temp = s.IntoClause.Rel?.Relpersistence == "t";
+            var intoProps = BuildProps(
+                ("temp",       temp ? true : null),
+                ("into",       rel),
+                ("targetList", MapList(s.TargetList, BuildExpr)),
+                ("from",       MapList(s.FromClause, BuildFromItem)),
+                ("where",      BuildExpr(s.WhereClause)),
+                ("groupBy",    MapList(s.GroupClause, BuildExpr)),
+                ("having",     BuildExpr(s.HavingClause)),
+                ("orderBy",    MapList(s.SortClause, BuildExpr)),
+                ("limit",      BuildExpr(s.LimitCount)),
+                ("offset",     BuildExpr(s.LimitOffset))
+            );
+            return new SqlNode("SelectIntoStatement", start, end, null, intoProps);
         }
 
         // DISTINCT vs DISTINCT ON
@@ -286,6 +322,7 @@ public class AstBuilder {
             Node.NodeOneofCase.AIndirection => BuildIndirection(node.AIndirection),
             Node.NodeOneofCase.NamedArgExpr => BuildNamedArgExpr(node.NamedArgExpr),
             Node.NodeOneofCase.GroupingSet  => BuildGroupingSet(node.GroupingSet),
+            Node.NodeOneofCase.GroupingFunc => BuildGroupingFunc(node.GroupingFunc),
             Node.NodeOneofCase.Constraint   => BuildConstraint(node.Constraint),
             Node.NodeOneofCase.MergeWhenClause => BuildMergeWhen(node.MergeWhenClause),
             _ => new SqlNode("RawExpr", 0, 0, node.NodeCase.ToString(), null),
@@ -1395,6 +1432,338 @@ public class AstBuilder {
             ("targets",   MapList(w.TargetList, BuildExpr)),
             ("values",    MapList(w.Values, BuildExpr))
         ));
+    }
+
+    // -------------------------------------------------------------------------
+    // P3 statement builders
+    // -------------------------------------------------------------------------
+
+    private SqlNode BuildAlterFunction(AlterFunctionStmt s, int start, int end) {
+        // Extract actions from the DefElem list
+        var actions = new List<(string key, string? value)>();
+        foreach (var n in s.Actions) {
+            if (n.NodeCase != Node.NodeOneofCase.DefElem) continue;
+            var de = n.DefElem;
+            actions.Add((de.Defname, BuildDefElemValue(de)?.ToString()));
+        }
+
+        // Build the function name from ObjectWithArgs
+        var funcName = s.Func != null
+            ? string.Join(".", s.Func.Objname.Select(n => n.NodeCase == Node.NodeOneofCase.String ? n.String.Sval : ""))
+            : null;
+
+        // Build arg types
+        var argTypes = s.Func != null && !s.Func.ArgsUnspecified
+            ? (object?)s.Func.Objargs.Select(n => n.NodeCase == Node.NodeOneofCase.TypeName ? BuildPgTypeName(n.TypeName) : "").ToList()
+            : null;
+
+        // Determine action kind
+        string? rename = null;
+        var setOptions = new List<object?>();
+        foreach (var (key, value) in actions) {
+            if (key == "rename") {
+                rename = value;
+            } else if (value != null) {
+                setOptions.Add(new Dictionary<string, object?> { ["name"] = key, ["value"] = value });
+            } else {
+                // No-value option like SET VOLATILE (just the name)
+                setOptions.Add(new Dictionary<string, object?> { ["name"] = key });
+            }
+        }
+
+        return new SqlNode("AlterFunctionStatement", start, end, null, BuildProps(
+            ("name",     funcName),
+            ("argTypes", argTypes),
+            ("rename",   rename),
+            ("options",  setOptions.Count > 0 ? (object?)setOptions : null)
+        ));
+    }
+
+    private static SqlNode BuildRefreshMatView(RefreshMatViewStmt s, int start, int end) =>
+        new("RefreshMatViewStatement", start, end, null, BuildProps(
+            ("name",       BuildRangeVar(s.Relation)),
+            ("concurrent", s.Concurrent ? true : null)
+        ));
+
+    private SqlNode BuildRule(RuleStmt s, int start, int end) {
+        var eventName = s.Event switch {
+            CmdType.CmdSelect => "SELECT",
+            CmdType.CmdUpdate => "UPDATE",
+            CmdType.CmdInsert => "INSERT",
+            CmdType.CmdDelete => "DELETE",
+            _                 => s.Event.ToString(),
+        };
+        return new SqlNode("RuleStatement", start, end, null, BuildProps(
+            ("ruleName", s.Rulename),
+            ("relation", BuildRangeVar(s.Relation)),
+            ("event",    eventName),
+            ("instead",  s.Instead ? true : null),
+            ("where",    BuildExpr(s.WhereClause)),
+            ("actions",  MapList(s.Actions, n => n.NodeCase switch {
+                Node.NodeOneofCase.InsertStmt => BuildInsert(n.InsertStmt, 0, _sql.Length),
+                Node.NodeOneofCase.UpdateStmt => BuildUpdate(n.UpdateStmt, 0, _sql.Length),
+                Node.NodeOneofCase.DeleteStmt => BuildDelete(n.DeleteStmt, 0, _sql.Length),
+                Node.NodeOneofCase.SelectStmt => BuildSelect(n.SelectStmt, 0, _sql.Length),
+                _ => null,
+            }))
+        ));
+    }
+
+    private SqlNode BuildCreatePolicy(CreatePolicyStmt s, int start, int end) =>
+        new("CreatePolicyStatement", start, end, null, BuildProps(
+            ("policyName",  s.PolicyName),
+            ("table",       BuildRangeVar(s.Table)),
+            ("cmdName",     string.IsNullOrEmpty(s.CmdName) ? null : s.CmdName.ToUpper()),
+            ("restrictive", !s.Permissive ? (object?)true : null),
+            ("using",       BuildExpr(s.Qual)),
+            ("withCheck",   BuildExpr(s.WithCheck))
+        ));
+
+    private SqlNode BuildAlterPolicy(AlterPolicyStmt s, int start, int end) =>
+        new("AlterPolicyStatement", start, end, null, BuildProps(
+            ("policyName", s.PolicyName),
+            ("table",      BuildRangeVar(s.Table)),
+            ("using",      BuildExpr(s.Qual)),
+            ("withCheck",  BuildExpr(s.WithCheck))
+        ));
+
+    private SqlNode BuildDeclareCursor(DeclareCursorStmt s, int start, int end) {
+        // Options bitmask: SCROLL=2, NO_SCROLL=4, INSENSITIVE=8, BINARY=16
+        bool scroll     = (s.Options & 2) != 0;
+        bool noScroll   = (s.Options & 4) != 0;
+        bool insensitive = (s.Options & 8) != 0;
+        bool binary     = (s.Options & 16) != 0;
+
+        var query = s.Query != null ? BuildExpr(s.Query) : null;
+
+        return new SqlNode("DeclareCursorStatement", start, end, null, BuildProps(
+            ("name",        s.Portalname),
+            ("scroll",      scroll     ? true : null),
+            ("noScroll",    noScroll   ? true : null),
+            ("insensitive", insensitive ? true : null),
+            ("binary",      binary     ? true : null),
+            ("query",       query)
+        ));
+    }
+
+    private static SqlNode BuildFetch(FetchStmt s, int start, int end) {
+        // libpg_query proto FetchDirection:
+        //   FetchForward with howMany=1      => NEXT
+        //   FetchBackward with howMany=1     => PRIOR
+        //   FetchAbsolute with howMany=1     => FIRST
+        //   FetchAbsolute with howMany=-1    => LAST
+        //   FetchForward with howMany=MAX    => ALL
+        //   FetchAbsolute / FetchRelative    => ABSOLUTE n / RELATIVE n
+        string direction;
+        long? count = null;
+        switch (s.Direction) {
+            case FetchDirection.FetchForward:
+                if (s.HowMany == long.MaxValue || s.HowMany == long.MinValue) {
+                    direction = "ALL";
+                } else if (s.HowMany == 1) {
+                    direction = "NEXT";
+                } else {
+                    direction = "FORWARD";
+                    count = s.HowMany;
+                }
+                break;
+            case FetchDirection.FetchBackward:
+                if (s.HowMany == long.MaxValue || s.HowMany == long.MinValue) {
+                    direction = "BACKWARD ALL";
+                } else if (s.HowMany == 1) {
+                    direction = "PRIOR";
+                } else {
+                    direction = "BACKWARD";
+                    count = s.HowMany;
+                }
+                break;
+            case FetchDirection.FetchAbsolute:
+                if (s.HowMany == 1) {
+                    direction = "FIRST";
+                } else if (s.HowMany == -1) {
+                    direction = "LAST";
+                } else {
+                    direction = "ABSOLUTE";
+                    count = s.HowMany;
+                }
+                break;
+            case FetchDirection.FetchRelative:
+                direction = "RELATIVE";
+                count = s.HowMany;
+                break;
+            default:
+                direction = "NEXT";
+                break;
+        }
+
+        return new SqlNode("FetchStatement", start, end, null, BuildProps(
+            ("direction", direction),
+            ("count",     count),
+            ("cursor",    s.Portalname),
+            ("isMove",    s.Ismove ? true : null)
+        ));
+    }
+
+    private static SqlNode BuildClosePortal(ClosePortalStmt s, int start, int end) =>
+        new("ClosePortalStatement", start, end, null, BuildProps(
+            ("cursor", string.IsNullOrEmpty(s.Portalname) ? null : s.Portalname)
+        ));
+
+    private SqlNode BuildCopy(CopyStmt s, int start, int end) {
+        // Build column list from attlist (String nodes)
+        var columns = s.Attlist.Count > 0
+            ? (object?)s.Attlist.Select(n => n.NodeCase == Node.NodeOneofCase.String ? n.String.Sval : "").ToList()
+            : null;
+
+        // Build options from DefElem list
+        var options = s.Options.Count > 0
+            ? (object?)s.Options
+                .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
+                .Select(n => new Dictionary<string, object?> {
+                    ["name"]  = n.DefElem.Defname,
+                    ["value"] = BuildDefElemValue(n.DefElem)
+                })
+                .ToList<object?>()
+            : null;
+
+        SqlNode? query = null;
+        if (s.Query != null) {
+            query = s.Query.NodeCase switch {
+                Node.NodeOneofCase.SelectStmt => BuildSelect(s.Query.SelectStmt, 0, _sql.Length),
+                Node.NodeOneofCase.InsertStmt => BuildInsert(s.Query.InsertStmt, 0, _sql.Length),
+                Node.NodeOneofCase.UpdateStmt => BuildUpdate(s.Query.UpdateStmt, 0, _sql.Length),
+                Node.NodeOneofCase.DeleteStmt => BuildDelete(s.Query.DeleteStmt, 0, _sql.Length),
+                _ => null,
+            };
+        }
+
+        return new SqlNode("CopyStatement", start, end, null, BuildProps(
+            ("relation",  s.Relation != null ? BuildRangeVar(s.Relation) : null),
+            ("query",     query),
+            ("columns",   columns),
+            ("isFrom",    s.IsFrom  ? true : null),
+            ("isProgram", s.IsProgram ? true : null),
+            ("filename",  string.IsNullOrEmpty(s.Filename) ? null : s.Filename),
+            ("options",   options)
+        ));
+    }
+
+    private SqlNode BuildExplain(ExplainStmt s, int start, int end) {
+        var query = s.Query?.NodeCase switch {
+            Node.NodeOneofCase.SelectStmt => BuildSelect(s.Query.SelectStmt, 0, _sql.Length),
+            Node.NodeOneofCase.InsertStmt => BuildInsert(s.Query.InsertStmt, 0, _sql.Length),
+            Node.NodeOneofCase.UpdateStmt => BuildUpdate(s.Query.UpdateStmt, 0, _sql.Length),
+            Node.NodeOneofCase.DeleteStmt => BuildDelete(s.Query.DeleteStmt, 0, _sql.Length),
+            _ => null,
+        };
+
+        var options = s.Options.Count > 0
+            ? (object?)s.Options
+                .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
+                .Select(n => new Dictionary<string, object?> {
+                    ["name"]  = n.DefElem.Defname,
+                    ["value"] = BuildDefElemValue(n.DefElem)
+                })
+                .ToList<object?>()
+            : null;
+
+        return new SqlNode("ExplainStatement", start, end, null, BuildProps(
+            ("query",   query),
+            ("options", options)
+        ));
+    }
+
+    private SqlNode BuildPrepare(PrepareStmt s, int start, int end) {
+        var query = s.Query?.NodeCase switch {
+            Node.NodeOneofCase.SelectStmt => BuildSelect(s.Query.SelectStmt, 0, _sql.Length),
+            Node.NodeOneofCase.InsertStmt => BuildInsert(s.Query.InsertStmt, 0, _sql.Length),
+            Node.NodeOneofCase.UpdateStmt => BuildUpdate(s.Query.UpdateStmt, 0, _sql.Length),
+            Node.NodeOneofCase.DeleteStmt => BuildDelete(s.Query.DeleteStmt, 0, _sql.Length),
+            _ => null,
+        };
+
+        var argTypes = s.Argtypes.Count > 0
+            ? (object?)s.Argtypes
+                .Where(n => n.NodeCase == Node.NodeOneofCase.TypeName)
+                .Select(n => BuildPgTypeName(n.TypeName))
+                .ToList()
+            : null;
+
+        return new SqlNode("PrepareStatement", start, end, null, BuildProps(
+            ("name",     s.Name),
+            ("argTypes", argTypes),
+            ("query",    query)
+        ));
+    }
+
+    private SqlNode BuildExecute(ExecuteStmt s, int start, int end) =>
+        new("ExecuteStatement", start, end, null, BuildProps(
+            ("name",   s.Name),
+            ("params", MapList(s.Params, BuildExpr))
+        ));
+
+    private static SqlNode BuildDeallocate(DeallocateStmt s, int start, int end) =>
+        new("DeallocateStatement", start, end, null, BuildProps(
+            ("name", string.IsNullOrEmpty(s.Name) ? null : s.Name)
+        ));
+
+    private static SqlNode BuildListen(ListenStmt s, int start, int end) =>
+        new("ListenStatement", start, end, null, BuildProps(
+            ("channel", s.Conditionname)
+        ));
+
+    private static SqlNode BuildUnlisten(UnlistenStmt s, int start, int end) =>
+        new("UnlistenStatement", start, end, null, BuildProps(
+            ("channel", string.IsNullOrEmpty(s.Conditionname) ? null : s.Conditionname)
+        ));
+
+    private static SqlNode BuildNotify(NotifyStmt s, int start, int end) =>
+        new("NotifyStatement", start, end, null, BuildProps(
+            ("channel", s.Conditionname),
+            ("payload", string.IsNullOrEmpty(s.Payload) ? null : s.Payload)
+        ));
+
+    private SqlNode BuildLock(LockStmt s, int start, int end) {
+        var modeName = s.Mode switch {
+            1 => "ACCESS SHARE",
+            2 => "ROW SHARE",
+            3 => "ROW EXCLUSIVE",
+            4 => "SHARE UPDATE EXCLUSIVE",
+            5 => "SHARE",
+            6 => "SHARE ROW EXCLUSIVE",
+            7 => "EXCLUSIVE",
+            8 => "ACCESS EXCLUSIVE",
+            _ => "ACCESS EXCLUSIVE",
+        };
+        var relations = s.Relations
+            .Where(n => n.NodeCase == Node.NodeOneofCase.RangeVar)
+            .Select(n => BuildRangeVar(n.RangeVar))
+            .ToList();
+        return new SqlNode("LockStatement", start, end, null, BuildProps(
+            ("relations", relations.Count > 0 ? (object?)relations : null),
+            ("mode",      modeName),
+            ("nowait",    s.Nowait ? true : null)
+        ));
+    }
+
+    private SqlNode BuildGroupingFunc(GroupingFunc g) =>
+        new("GroupingFunc", 0, 0, null, BuildProps(
+            ("args", MapList(g.Args, BuildExpr))
+        ));
+
+    // Helper to extract a string or bool value from a DefElem Arg
+    private static object? BuildDefElemValue(DefElem de) {
+        if (de.Arg == null) return null;
+        return de.Arg.NodeCase switch {
+            Node.NodeOneofCase.String  => de.Arg.String.Sval,
+            Node.NodeOneofCase.Integer => de.Arg.Integer.Ival.ToString(),
+            Node.NodeOneofCase.Float   => de.Arg.Float.Fval,
+            Node.NodeOneofCase.AConst when de.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval    => de.Arg.AConst.Sval.Sval,
+            Node.NodeOneofCase.AConst when de.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival    => de.Arg.AConst.Ival.Ival.ToString(),
+            Node.NodeOneofCase.AConst when de.Arg.AConst.ValCase == A_Const.ValOneofCase.Fval    => de.Arg.AConst.Fval.Fval,
+            Node.NodeOneofCase.AConst when de.Arg.AConst.ValCase == A_Const.ValOneofCase.Boolval => de.Arg.AConst.Boolval.Boolval ? "true" : "false",
+            _ => null,
+        };
     }
 
     private static SqlNode Fallback(int start, int end) =>

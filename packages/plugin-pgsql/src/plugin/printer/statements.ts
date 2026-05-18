@@ -76,6 +76,24 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'CallStatement':          return printCall(node, opts);
         case 'DoStatement':            return printDo(node, opts);
         case 'MergeStatement':         return printMerge(node, opts);
+        case 'AlterFunctionStatement': return printAlterFunction(node, opts);
+        case 'RefreshMatViewStatement': return printRefreshMatView(node, opts);
+        case 'SelectIntoStatement':    return printSelectInto(node, opts);
+        case 'RuleStatement':          return printRule(node, opts);
+        case 'CreatePolicyStatement':  return printCreatePolicy(node, opts);
+        case 'AlterPolicyStatement':   return printAlterPolicy(node, opts);
+        case 'DeclareCursorStatement': return printDeclareCursor(node, opts);
+        case 'FetchStatement':         return printFetch(node, opts);
+        case 'ClosePortalStatement':   return printClosePortal(node, opts);
+        case 'CopyStatement':          return printCopy(node, opts);
+        case 'ExplainStatement':       return printExplain(node, opts);
+        case 'PrepareStatement':       return printPrepare(node, opts);
+        case 'ExecuteStatement':       return printExecute(node, opts);
+        case 'DeallocateStatement':    return printDeallocate(node, opts);
+        case 'ListenStatement':        return printListen(node, opts);
+        case 'UnlistenStatement':      return printUnlisten(node, opts);
+        case 'NotifyStatement':        return printNotify(node, opts);
+        case 'LockStatement':          return printLockTable(node, opts);
         default: return node.text ?? node.type;
     }
 }
@@ -970,4 +988,385 @@ function printMerge(node: SqlNode, opts: Options): Doc {
     }
 
     return [join(hardline, parts), ';'];
+}
+
+// ---------------------------------------------------------------------------
+// ALTER FUNCTION / PROCEDURE
+// ---------------------------------------------------------------------------
+
+function printAlterFunction(node: SqlNode, opts: Options): Doc {
+    const mk       = (k: string) => keyword(k, opts);
+    const name     = propStr(node, 'name') ?? '';
+    const argTypes = (node.props?.['argTypes'] as string[] | undefined) ?? [];
+    const rename   = propStr(node, 'rename');
+    const options  = (node.props?.['options'] as Array<{ name: string; value: string }> | undefined) ?? [];
+
+    const argList: Doc = argTypes.length > 0
+        ? ['(', join(', ', argTypes.map((t) => mk(t))), ')']
+        : '()';
+
+    if (rename) {
+        return [[mk('ALTER FUNCTION'), ' ', name, argList, ' ', mk('RENAME TO'), ' ', rename], ';'];
+    }
+
+    const optionDocs = options.map((o) => [mk('SET'), ' ', o.name, ' ', o.value || ''] as Doc);
+    return [[mk('ALTER FUNCTION'), ' ', name, argList, indent([hardline, join(hardline, optionDocs)])], ';'];
+}
+
+// ---------------------------------------------------------------------------
+// REFRESH MATERIALIZED VIEW
+// ---------------------------------------------------------------------------
+
+function printRefreshMatView(node: SqlNode, opts: Options): Doc {
+    const mk         = (k: string) => keyword(k, opts);
+    const name       = prop(node, 'name');
+    const concurrent = propBool(node, 'concurrent');
+
+    return [
+        mk('REFRESH MATERIALIZED VIEW'),
+        concurrent ? [' ', mk('CONCURRENTLY')] : '',
+        ' ', rangeVarName(name),
+        ';',
+    ];
+}
+
+// ---------------------------------------------------------------------------
+// SELECT INTO
+// ---------------------------------------------------------------------------
+
+function printSelectInto(node: SqlNode, opts: Options): Doc {
+    const mk       = (k: string) => keyword(k, opts);
+    const printNode = pn(opts);
+    const temp     = propBool(node, 'temp');
+    const into     = prop(node, 'into');
+    const targets  = propArr(node, 'targetList');
+    const from     = propArr(node, 'from');
+    const where    = prop(node, 'where');
+    const groupBy  = propArr(node, 'groupBy');
+    const having   = prop(node, 'having');
+    const orderBy  = propArr(node, 'orderBy');
+    const limit    = prop(node, 'limit');
+    const offset   = prop(node, 'offset');
+
+    const parts: Doc[] = [];
+    parts.push([mk('SELECT'), indent([hardline, join(hardSep(opts), targets.map(printNode))])]);
+
+    const intoKw: Doc = temp ? [mk('INTO'), ' ', mk('TEMP')] : mk('INTO');
+    parts.push([intoKw, indent([hardline, rangeVarName(into)])]);
+
+    if (from.length > 0) {
+        parts.push([mk('FROM'), indent([hardline, join([',', hardline], from.map(printNode))])]);
+    }
+    if (where) parts.push(printBoolClause('WHERE', where, opts, printNode));
+    if (groupBy.length > 0) {
+        parts.push([mk('GROUP BY'), indent([hardline, join(hardSep(opts), groupBy.map(printNode))])]);
+    }
+    if (having) parts.push(printBoolClause('HAVING', having, opts, printNode));
+    if (orderBy.length > 0) {
+        parts.push([mk('ORDER BY'), indent([hardline, join(hardSep(opts), orderBy.map(printNode))])]);
+    }
+    if (limit)  parts.push([mk('LIMIT'), ' ', printNode(limit)]);
+    if (offset) parts.push([mk('OFFSET'), ' ', printNode(offset)]);
+
+    return [join(hardline, parts), ';'];
+}
+
+// ---------------------------------------------------------------------------
+// CREATE RULE
+// ---------------------------------------------------------------------------
+
+function printRule(node: SqlNode, opts: Options): Doc {
+    const mk       = (k: string) => keyword(k, opts);
+    const printNode = pn(opts);
+    const ruleName = propStr(node, 'ruleName') ?? '';
+    const relation = prop(node, 'relation');
+    const event    = propStr(node, 'event') ?? 'SELECT';
+    const instead  = propBool(node, 'instead');
+    const doInstead = propBool(node, 'doInstead');
+    const where    = prop(node, 'where');
+    const actions  = propArr(node, 'actions');
+
+    const parts: Doc[] = [];
+    parts.push([mk('CREATE RULE'), ' ', ruleName]);
+    parts.push([mk('AS ON'), ' ', mk(event)]);
+    parts.push([mk('TO'), ' ', rangeVarName(relation)]);
+
+    if (where) parts.push(printBoolClause('WHERE', where, opts, printNode));
+
+    const doKw: Doc = instead ? mk('DO INSTEAD') : doInstead ? mk('DO ALSO') : mk('DO ALSO');
+
+    if (actions.length === 0) {
+        parts.push([doKw, ' ', mk('NOTHING')]);
+    } else if (actions.length === 1) {
+        const action = actions[0]!;
+        if (action.type === 'NothingStmt') {
+            parts.push([doKw, ' ', mk('NOTHING')]);
+        } else {
+            parts.push([doKw, indent([hardline, printQueryExpr(action, opts)])]);
+        }
+    } else {
+        const actionDocs = actions.map((a) =>
+            a.type === 'NothingStmt' ? mk('NOTHING') : printQueryExpr(a, opts)
+        );
+        parts.push([doKw, ' (', indent([hardline, join([';', hardline], actionDocs)]), hardline, ')']);
+    }
+
+    return [join(hardline, parts), ';'];
+}
+
+// ---------------------------------------------------------------------------
+// Row Security Policies
+// ---------------------------------------------------------------------------
+
+function printCreatePolicy(node: SqlNode, opts: Options): Doc {
+    const mk       = (k: string) => keyword(k, opts);
+    const printNode = pn(opts);
+    const policyName = propStr(node, 'policyName') ?? '';
+    const table    = prop(node, 'table');
+    const cmdName  = propStr(node, 'cmdName');
+    const permissive = node.props?.['permissive'];  // false = RESTRICTIVE, null = PERMISSIVE (default)
+    const using    = prop(node, 'using');
+    const withCheck = prop(node, 'withCheck');
+
+    const parts: Doc[] = [];
+    parts.push([mk('CREATE POLICY'), ' ', policyName]);
+
+    const onPart: Doc = permissive === false
+        ? [mk('AS'), ' ', mk('RESTRICTIVE'), ' ', mk('ON'), ' ', rangeVarName(table)]
+        : [mk('ON'), ' ', rangeVarName(table)];
+    parts.push(onPart);
+
+    if (cmdName) parts.push([mk('FOR'), ' ', mk(cmdName)]);
+    if (using) parts.push([mk('USING'), ' (', printNode(using), ')']);
+    if (withCheck) parts.push([mk('WITH CHECK'), ' (', printNode(withCheck), ')']);
+
+    return [join(hardline, parts), ';'];
+}
+
+function printAlterPolicy(node: SqlNode, opts: Options): Doc {
+    const mk       = (k: string) => keyword(k, opts);
+    const printNode = pn(opts);
+    const policyName = propStr(node, 'policyName') ?? '';
+    const table    = prop(node, 'table');
+    const using    = prop(node, 'using');
+    const withCheck = prop(node, 'withCheck');
+
+    const parts: Doc[] = [];
+    parts.push([mk('ALTER POLICY'), ' ', policyName]);
+    parts.push([mk('ON'), ' ', rangeVarName(table)]);
+    if (using) parts.push([mk('USING'), ' (', printNode(using), ')']);
+    if (withCheck) parts.push([mk('WITH CHECK'), ' (', printNode(withCheck), ')']);
+
+    return [join(hardline, parts), ';'];
+}
+
+// ---------------------------------------------------------------------------
+// Cursors
+// ---------------------------------------------------------------------------
+
+function printDeclareCursor(node: SqlNode, opts: Options): Doc {
+    const mk       = (k: string) => keyword(k, opts);
+    const name     = propStr(node, 'name') ?? '';
+    const scroll   = propBool(node, 'scroll');
+    const noScroll = propBool(node, 'noScroll');
+    const insensitive = propBool(node, 'insensitive');
+    const binary   = propBool(node, 'binary');
+    const query    = prop(node, 'query');
+
+    const scrollKw: Doc = noScroll ? [' ', mk('NO SCROLL')] : scroll ? [' ', mk('SCROLL')] : '';
+    const binaryKw: Doc = binary ? [mk('BINARY'), ' '] : '';
+    const insensKw: Doc = insensitive ? [mk('INSENSITIVE'), ' '] : '';
+
+    return [
+        [mk('DECLARE'), ' ', name, scrollKw, ' ', insensKw, binaryKw, mk('CURSOR'), ' ', mk('FOR')],
+        hardline,
+        query ? printQueryExpr(query, opts) : '',
+        ';',
+    ];
+}
+
+function printFetch(node: SqlNode, opts: Options): Doc {
+    const mk        = (k: string) => keyword(k, opts);
+    const direction = propStr(node, 'direction') ?? 'NEXT';
+    const count     = node.props?.['count'] as number | undefined;
+    const cursor    = propStr(node, 'cursor') ?? '';
+    const isMove    = propBool(node, 'isMove');
+
+    const verb: Doc = isMove ? mk('MOVE') : mk('FETCH');
+
+    let dirDoc: Doc;
+    if (count !== undefined && count !== null && direction !== 'ALL') {
+        // FETCH FORWARD 10 / FETCH ABSOLUTE 5 etc.
+        dirDoc = [mk(direction), ' ', String(count)];
+    } else {
+        dirDoc = mk(direction);
+    }
+
+    return [[verb, ' ', dirDoc, ' ', mk('FROM'), ' ', cursor], ';'];
+}
+
+function printClosePortal(node: SqlNode, opts: Options): Doc {
+    const mk     = (k: string) => keyword(k, opts);
+    const cursor = propStr(node, 'cursor');
+    return [[mk('CLOSE'), ' ', cursor ?? mk('ALL')], ';'];
+}
+
+// ---------------------------------------------------------------------------
+// COPY
+// ---------------------------------------------------------------------------
+
+function printCopy(node: SqlNode, opts: Options): Doc {
+    const mk       = (k: string) => keyword(k, opts);
+    const relation = prop(node, 'relation');
+    const query    = prop(node, 'query');
+    const columns  = (node.props?.['columns'] as string[] | undefined) ?? [];
+    const isFrom   = propBool(node, 'isFrom');
+    const isProgram = propBool(node, 'isProgram');
+    const filename = propStr(node, 'filename');
+    const options  = (node.props?.['options'] as Array<{ name: string; value: string }> | undefined) ?? [];
+
+    const colsPart: Doc = columns.length > 0 ? [' (', join(', ', columns), ')'] : '';
+
+    let sourceDest: Doc;
+    if (relation) {
+        sourceDest = [rangeVarName(relation), colsPart];
+    } else if (query) {
+        sourceDest = ['(', indent([hardline, printQueryExpr(query, opts)]), hardline, ')'];
+    } else {
+        sourceDest = '';
+    }
+
+    const dirKw = isFrom ? mk('FROM') : mk('TO');
+    let dest: Doc;
+    if (isProgram && filename) {
+        dest = [mk('PROGRAM'), ' ', `'${filename}'`];
+    } else if (filename) {
+        dest = `'${filename}'`;
+    } else {
+        dest = mk('STDOUT');
+    }
+
+    let optionPart: Doc = '';
+    if (options.length > 0) {
+        const optDocs = options.map((o) => [mk(o.name.toUpperCase()), ' ', o.value || ''] as Doc);
+        optionPart = [' (', join(', ', optDocs), ')'];
+    }
+
+    return [[mk('COPY'), ' ', sourceDest, ' ', dirKw, ' ', dest, optionPart], ';'];
+}
+
+// ---------------------------------------------------------------------------
+// EXPLAIN
+// ---------------------------------------------------------------------------
+
+function printExplain(node: SqlNode, opts: Options): Doc {
+    const mk      = (k: string) => keyword(k, opts);
+    const query   = prop(node, 'query');
+    const options  = (node.props?.['options'] as Array<{ name: string; value: string }> | undefined) ?? [];
+
+    // Simple cases: no options at all, or just ANALYZE
+    const analyzeOnly = options.length === 1 && options[0]!.name === 'analyze';
+    const verboseOnly = options.length === 1 && options[0]!.name === 'verbose';
+
+    if (options.length === 0) {
+        return [[mk('EXPLAIN'), ' ', query ? printQueryExpr(query, opts) : ''], ';'];
+    }
+
+    if (analyzeOnly) {
+        return [[mk('EXPLAIN'), ' ', mk('ANALYZE'), ' ', query ? printQueryExpr(query, opts) : ''], ';'];
+    }
+
+    if (verboseOnly) {
+        return [[mk('EXPLAIN'), ' ', mk('VERBOSE'), ' ', query ? printQueryExpr(query, opts) : ''], ';'];
+    }
+
+    const optDocs = options.map((o) => {
+        const val = o.value === 'true' ? mk('true') : o.value === 'false' ? mk('false') : o.value;
+        return [mk(o.name.toUpperCase()), ' ', val] as Doc;
+    });
+
+    return [[mk('EXPLAIN'), ' (', join(', ', optDocs), ') ', query ? printQueryExpr(query, opts) : ''], ';'];
+}
+
+// ---------------------------------------------------------------------------
+// PREPARE / EXECUTE / DEALLOCATE
+// ---------------------------------------------------------------------------
+
+function printPrepare(node: SqlNode, opts: Options): Doc {
+    const mk       = (k: string) => keyword(k, opts);
+    const name     = propStr(node, 'name') ?? '';
+    const argTypes = (node.props?.['argTypes'] as string[] | undefined) ?? [];
+    const query    = prop(node, 'query');
+
+    const argsPart: Doc = argTypes.length > 0
+        ? ['(', join(', ', argTypes.map((t) => mk(t))), ')']
+        : '';
+
+    return [
+        [mk('PREPARE'), ' ', name, argsPart, ' ', mk('AS')],
+        hardline,
+        query ? printQueryExpr(query, opts) : '',
+        ';',
+    ];
+}
+
+function printExecute(node: SqlNode, opts: Options): Doc {
+    const mk      = (k: string) => keyword(k, opts);
+    const printNode = pn(opts);
+    const name    = propStr(node, 'name') ?? '';
+    const params  = propArr(node, 'params');
+
+    const paramsPart: Doc = params.length > 0
+        ? ['(', join(', ', params.map(printNode)), ')']
+        : '';
+
+    return [[mk('EXECUTE'), ' ', name, paramsPart], ';'];
+}
+
+function printDeallocate(node: SqlNode, opts: Options): Doc {
+    const mk   = (k: string) => keyword(k, opts);
+    const name = propStr(node, 'name');
+    return [[mk('DEALLOCATE'), ' ', name ? name : mk('ALL')], ';'];
+}
+
+// ---------------------------------------------------------------------------
+// LISTEN / UNLISTEN / NOTIFY
+// ---------------------------------------------------------------------------
+
+function printListen(node: SqlNode, opts: Options): Doc {
+    const mk      = (k: string) => keyword(k, opts);
+    const channel = propStr(node, 'channel') ?? '';
+    return [[mk('LISTEN'), ' ', channel], ';'];
+}
+
+function printUnlisten(node: SqlNode, opts: Options): Doc {
+    const mk      = (k: string) => keyword(k, opts);
+    const channel = propStr(node, 'channel');
+    return [[mk('UNLISTEN'), ' ', channel ? channel : '*'], ';'];
+}
+
+function printNotify(node: SqlNode, opts: Options): Doc {
+    const mk      = (k: string) => keyword(k, opts);
+    const channel = propStr(node, 'channel') ?? '';
+    const payload = propStr(node, 'payload');
+    const payloadPart: Doc = payload ? [', ', `'${payload}'`] : '';
+    return [[mk('NOTIFY'), ' ', channel, payloadPart], ';'];
+}
+
+// ---------------------------------------------------------------------------
+// LOCK TABLE
+// ---------------------------------------------------------------------------
+
+function printLockTable(node: SqlNode, opts: Options): Doc {
+    const mk        = (k: string) => keyword(k, opts);
+    const relations = propArr(node, 'relations');
+    const mode      = propStr(node, 'mode') ?? 'ACCESS EXCLUSIVE';
+    const nowait    = propBool(node, 'nowait');
+
+    return [
+        mk('LOCK TABLE'), ' ', join(', ', relations.map(rangeVarName)),
+        ' ', mk('IN'), ' ', mk(mode), ' ', mk('MODE'),
+        nowait ? [' ', mk('NOWAIT')] : '',
+        ';',
+    ];
 }
