@@ -52,44 +52,76 @@ public class AstBuilder {
     // -------------------------------------------------------------------------
 
     private SqlNode BuildSelect(SelectStmt s, int start, int end) {
+        // SET operations (UNION / INTERSECT / EXCEPT)
+        if (s.Op != SetOperation.SetopNone) {
+            var opName = s.Op switch {
+                SetOperation.SetopUnion     => "UNION",
+                SetOperation.SetopIntersect => "INTERSECT",
+                SetOperation.SetopExcept    => "EXCEPT",
+                _                           => s.Op.ToString(),
+            };
+            return new SqlNode("SetOpStatement", start, end, null, BuildProps(
+                ("op",  opName),
+                ("all", s.All ? true : null),
+                ("lhs", s.Larg != null ? BuildSelect(s.Larg, start, end) : null),
+                ("rhs", s.Rarg != null ? BuildSelect(s.Rarg, start, end) : null)
+            ));
+        }
+
+        // VALUES (multi-row insert source or standalone VALUES)
+        if (s.ValuesLists.Count > 0) {
+            var rows = s.ValuesLists
+                .Select(r => r.NodeCase == Node.NodeOneofCase.List
+                    ? (SqlNode?)new SqlNode("ExprList", 0, 0, null, BuildProps(("items", MapList(r.List.Items, BuildExpr))))
+                    : null)
+                .Where(n => n != null).Cast<SqlNode>().ToList();
+            return new SqlNode("ValuesStatement", start, end, null, BuildProps(
+                ("rows", rows.Count > 0 ? (object?)rows : null)
+            ));
+        }
+
         var props = BuildProps(
             ("targetList", MapList(s.TargetList, BuildExpr)),
-            ("from", MapList(s.FromClause, BuildFromItem)),
-            ("where", BuildExpr(s.WhereClause)),
-            ("groupBy", MapList(s.GroupClause, BuildExpr)),
-            ("having", BuildExpr(s.HavingClause)),
-            ("orderBy", MapList(s.SortClause, BuildExpr)),
-            ("limit", BuildExpr(s.LimitCount)),
-            ("offset", BuildExpr(s.LimitOffset)),
-            ("ctes", s.WithClause != null ? BuildWithClause(s.WithClause) : null),
-            ("distinct", s.DistinctClause.Count > 0 ? (object?)true : null),
-            ("all", s.All ? true : null)
+            ("from",       MapList(s.FromClause, BuildFromItem)),
+            ("where",      BuildExpr(s.WhereClause)),
+            ("groupBy",    MapList(s.GroupClause, BuildExpr)),
+            ("having",     BuildExpr(s.HavingClause)),
+            ("orderBy",    MapList(s.SortClause, BuildExpr)),
+            ("limit",      BuildExpr(s.LimitCount)),
+            ("offset",     BuildExpr(s.LimitOffset)),
+            ("ctes",       s.WithClause != null ? BuildWithClause(s.WithClause) : null),
+            ("distinct",   s.DistinctClause.Count > 0 ? (object?)true : null),
+            ("all",        s.All ? true : null)
         );
         return new SqlNode("SelectStatement", start, end, null, props);
     }
 
     private SqlNode BuildInsert(InsertStmt s, int start, int end) =>
         new("InsertStatement", start, end, null, BuildProps(
-            ("target", BuildRangeVar(s.Relation)),
-            ("columns", MapList(s.Cols, BuildExpr)),
-            ("source", s.SelectStmt?.NodeCase == Node.NodeOneofCase.SelectStmt
-                ? BuildSelect(s.SelectStmt.SelectStmt, start, end)
-                : null)
+            ("target",     BuildRangeVar(s.Relation)),
+            ("columns",    MapList(s.Cols, BuildExpr)),
+            ("source",     s.SelectStmt?.NodeCase == Node.NodeOneofCase.SelectStmt
+                               ? BuildSelect(s.SelectStmt.SelectStmt, start, end)
+                               : null),
+            ("onConflict", s.OnConflictClause != null ? BuildOnConflict(s.OnConflictClause) : null),
+            ("returning",  MapList(s.ReturningList, BuildExpr))
         ));
 
     private SqlNode BuildUpdate(UpdateStmt s, int start, int end) =>
         new("UpdateStatement", start, end, null, BuildProps(
-            ("target", BuildRangeVar(s.Relation)),
-            ("sets", MapList(s.TargetList, BuildExpr)),
-            ("from", MapList(s.FromClause, BuildFromItem)),
-            ("where", BuildExpr(s.WhereClause))
+            ("target",    BuildRangeVar(s.Relation)),
+            ("sets",      MapList(s.TargetList, BuildExpr)),
+            ("from",      MapList(s.FromClause, BuildFromItem)),
+            ("where",     BuildExpr(s.WhereClause)),
+            ("returning", MapList(s.ReturningList, BuildExpr))
         ));
 
     private SqlNode BuildDelete(DeleteStmt s, int start, int end) =>
         new("DeleteStatement", start, end, null, BuildProps(
-            ("target", BuildRangeVar(s.Relation)),
-            ("using", MapList(s.UsingClause, BuildFromItem)),
-            ("where", BuildExpr(s.WhereClause))
+            ("target",    BuildRangeVar(s.Relation)),
+            ("using",     MapList(s.UsingClause, BuildFromItem)),
+            ("where",     BuildExpr(s.WhereClause)),
+            ("returning", MapList(s.ReturningList, BuildExpr))
         ));
 
     // -------------------------------------------------------------------------
@@ -197,10 +229,103 @@ public class AstBuilder {
 
     private SqlNode BuildAExpr(A_Expr e) {
         var op = e.Name.Count > 0 ? e.Name[0].String.Sval : "?";
-        return new SqlNode("BinaryExpr", 0, 0, null, BuildProps(
-            ("op", op),
-            ("left", BuildExpr(e.Lexpr)),
-            ("right", BuildExpr(e.Rexpr))
+
+        return e.Kind switch {
+            // LIKE / NOT LIKE
+            A_Expr_Kind.AexprLike or A_Expr_Kind.AexprIlike => new SqlNode("BinaryExpr", 0, 0, null, BuildProps(
+                ("op", op switch { "~~" => "LIKE", "!~~" => "NOT LIKE", "~~*" => "ILIKE", "!~~*" => "NOT ILIKE", _ => op }),
+                ("left",  BuildExpr(e.Lexpr)),
+                ("right", BuildExpr(e.Rexpr))
+            )),
+
+            // SIMILAR TO (operator name is "~" or "!~")
+            A_Expr_Kind.AexprSimilar => new SqlNode("BinaryExpr", 0, 0, null, BuildProps(
+                ("op",    op == "!~" ? "NOT SIMILAR TO" : "SIMILAR TO"),
+                ("left",  BuildExpr(e.Lexpr)),
+                ("right", BuildExpr(e.Rexpr))
+            )),
+
+            // IS DISTINCT FROM / IS NOT DISTINCT FROM
+            A_Expr_Kind.AexprDistinct => new SqlNode("BinaryExpr", 0, 0, null, BuildProps(
+                ("op",    "IS DISTINCT FROM"),
+                ("left",  BuildExpr(e.Lexpr)),
+                ("right", BuildExpr(e.Rexpr))
+            )),
+            A_Expr_Kind.AexprNotDistinct => new SqlNode("BinaryExpr", 0, 0, null, BuildProps(
+                ("op",    "IS NOT DISTINCT FROM"),
+                ("left",  BuildExpr(e.Lexpr)),
+                ("right", BuildExpr(e.Rexpr))
+            )),
+
+            // NULLIF(a, b)
+            A_Expr_Kind.AexprNullif => BuildNullif(e),
+
+            // IN / NOT IN
+            A_Expr_Kind.AexprIn => BuildInExpr(e),
+
+            // = ANY(...) / = ALL(...)
+            A_Expr_Kind.AexprOpAny => new SqlNode("QuantifiedExpr", 0, 0, null, BuildProps(
+                ("op",         op),
+                ("quantifier", "ANY"),
+                ("left",       BuildExpr(e.Lexpr)),
+                ("right",      BuildExpr(e.Rexpr))
+            )),
+            A_Expr_Kind.AexprOpAll => new SqlNode("QuantifiedExpr", 0, 0, null, BuildProps(
+                ("op",         op),
+                ("quantifier", "ALL"),
+                ("left",       BuildExpr(e.Lexpr)),
+                ("right",      BuildExpr(e.Rexpr))
+            )),
+
+            // BETWEEN / NOT BETWEEN / BETWEEN SYMMETRIC / NOT BETWEEN SYMMETRIC
+            A_Expr_Kind.AexprBetween        => BuildBetween(e, not: false, symmetric: false),
+            A_Expr_Kind.AexprNotBetween     => BuildBetween(e, not: true,  symmetric: false),
+            A_Expr_Kind.AexprBetweenSym     => BuildBetween(e, not: false, symmetric: true),
+            A_Expr_Kind.AexprNotBetweenSym  => BuildBetween(e, not: true,  symmetric: true),
+
+            // Default: plain binary operator
+            _ => new SqlNode("BinaryExpr", 0, 0, null, BuildProps(
+                ("op",    op),
+                ("left",  BuildExpr(e.Lexpr)),
+                ("right", BuildExpr(e.Rexpr))
+            )),
+        };
+    }
+
+    private SqlNode BuildNullif(A_Expr e) {
+        var left  = BuildExpr(e.Lexpr);
+        var right = BuildExpr(e.Rexpr);
+        var args  = new List<SqlNode>();
+        if (left  != null) args.Add(left);
+        if (right != null) args.Add(right);
+        return new SqlNode("FunctionCall", 0, 0, null, BuildProps(
+            ("name", "NULLIF"),
+            ("args", args.Count > 0 ? (object?)args : null)
+        ));
+    }
+
+    private SqlNode BuildInExpr(A_Expr e) {
+        var op = e.Name.Count > 0 ? e.Name[0].String.Sval : "=";
+        return new SqlNode("InExpr", 0, 0, null, BuildProps(
+            ("left",  BuildExpr(e.Lexpr)),
+            ("not",   op == "<>" ? true : null),
+            ("values", BuildExpr(e.Rexpr))   // e.Rexpr is a List node → ExprList
+        ));
+    }
+
+    private SqlNode BuildBetween(A_Expr e, bool not, bool symmetric) {
+        // e.Rexpr is a List with exactly two items: [low, high]
+        SqlNode? low = null, high = null;
+        if (e.Rexpr?.NodeCase == Node.NodeOneofCase.List && e.Rexpr.List.Items.Count >= 2) {
+            low  = BuildExpr(e.Rexpr.List.Items[0]);
+            high = BuildExpr(e.Rexpr.List.Items[1]);
+        }
+        return new SqlNode("BetweenExpr", 0, 0, null, BuildProps(
+            ("arg",       BuildExpr(e.Lexpr)),
+            ("not",       not       ? true : null),
+            ("symmetric", symmetric ? true : null),
+            ("low",       low),
+            ("high",      high)
         ));
     }
 
@@ -220,10 +345,54 @@ public class AstBuilder {
     private SqlNode BuildFuncCall(FuncCall f) {
         var name = string.Join(".", f.Funcname.Select(n => n.String.Sval));
         return new SqlNode("FunctionCall", 0, 0, null, BuildProps(
-            ("name", name),
-            ("args", MapList(f.Args, BuildExpr)),
-            ("star", f.AggStar ? true : null),
-            ("distinct", f.AggDistinct ? true : null)
+            ("name",     name),
+            ("args",     MapList(f.Args, BuildExpr)),
+            ("star",     f.AggStar     ? true : null),
+            ("distinct", f.AggDistinct ? true : null),
+            ("over",     f.Over != null ? BuildWindowDef(f.Over) : null)
+        ));
+    }
+
+    private SqlNode BuildWindowDef(WindowDef w) {
+        var fo = w.FrameOptions;
+
+        // FRAMEOPTION_NONDEFAULT (0x00001) is only set when the user explicitly wrote a frame clause.
+        // Without it the options reflect PostgreSQL's implicit defaults — omit them from the AST.
+        bool explicitFrame = (fo & 0x00001) != 0;
+
+        string? frameMode = null;
+        if (explicitFrame) {
+            if      ((fo & 0x00002) != 0) frameMode = "RANGE";
+            else if ((fo & 0x00004) != 0) frameMode = "ROWS";
+            else if ((fo & 0x00008) != 0) frameMode = "GROUPS";
+        }
+
+        bool hasBetween = (fo & 0x00010) != 0;
+
+        string? frameStart = null;
+        if (explicitFrame) {
+            if      ((fo & 0x00020) != 0) frameStart = "UNBOUNDED PRECEDING";
+            else if ((fo & 0x00200) != 0) frameStart = "CURRENT ROW";
+            else if ((fo & 0x00800) != 0) frameStart = "PRECEDING";
+            else if ((fo & 0x02000) != 0) frameStart = "FOLLOWING";
+        }
+
+        string? frameEnd = null;
+        if (explicitFrame && hasBetween) {
+            if      ((fo & 0x00100) != 0) frameEnd = "UNBOUNDED FOLLOWING";
+            else if ((fo & 0x00400) != 0) frameEnd = "CURRENT ROW";
+            else if ((fo & 0x01000) != 0) frameEnd = "PRECEDING";
+            else if ((fo & 0x04000) != 0) frameEnd = "FOLLOWING";
+        }
+
+        return new SqlNode("WindowDef", 0, 0, null, BuildProps(
+            ("partitionBy",  MapList(w.PartitionClause, BuildExpr)),
+            ("orderBy",      MapList(w.OrderClause, BuildExpr)),
+            ("frameMode",    frameMode),
+            ("frameStart",   frameStart),
+            ("startOffset",  w.StartOffset != null ? BuildExpr(w.StartOffset) : null),
+            ("frameEnd",     frameEnd),
+            ("endOffset",    w.EndOffset != null ? BuildExpr(w.EndOffset) : null)
         ));
     }
 
@@ -395,6 +564,30 @@ public class AstBuilder {
             ("recursive", w.Recursive ? true : null)
         ));
     }
+
+    // -------------------------------------------------------------------------
+    // ON CONFLICT
+    // -------------------------------------------------------------------------
+
+    private SqlNode BuildOnConflict(OnConflictClause c) {
+        var action = c.Action switch {
+            OnConflictAction.OnconflictNothing => "NOTHING",
+            OnConflictAction.OnconflictUpdate  => "UPDATE",
+            _                                  => null,
+        };
+        return new SqlNode("OnConflict", 0, 0, null, BuildProps(
+            ("action", action),
+            ("target", c.Infer != null ? BuildInferClause(c.Infer) : null),
+            ("sets",   MapList(c.TargetList, BuildExpr)),
+            ("where",  c.WhereClause != null ? BuildExpr(c.WhereClause) : null)
+        ));
+    }
+
+    private SqlNode BuildInferClause(InferClause i) =>
+        new("InferClause", 0, 0, null, BuildProps(
+            ("columns",    MapList(i.IndexElems, BuildIndexElem)),
+            ("constraint", i.Conname)
+        ));
 
     // -------------------------------------------------------------------------
     // DDL pieces
