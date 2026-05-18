@@ -1,0 +1,936 @@
+# Formatting Reference
+
+Comprehensive formatting rules organized by statement type. All examples use default options (lowercase keywords, standard density, trailing commas) unless noted.
+
+---
+
+## SELECT
+
+### Column list
+
+Each selected column is placed on its own indented line. A trailing comma follows each column except the last (or a leading comma precedes each when `sqlCommaStyle: 'leading'`).
+
+```sql
+select
+  id,
+  title,
+  price,
+  author_id
+from
+  books;
+```
+
+### Table aliases
+
+`AS` is always emitted between the table name and alias.
+
+```sql
+select
+  b.id,
+  b.title
+from
+  books as b;
+```
+
+### WHERE (single condition)
+
+Single-condition WHERE stays on one line with the keyword.
+
+```sql
+select
+  id,
+  title
+from
+  books
+where price < 50;
+```
+
+### WHERE (multiple conditions)
+
+Multiple conditions break to indented lines with `AND` / `OR` at the start of each continuation.
+
+```sql
+select
+  id,
+  title
+from
+  books
+where
+  price < 50
+  and in_stock = true
+  and author_id = 3;
+```
+
+### JOIN types
+
+All JOIN types are supported. `INNER JOIN` is normalised to `JOIN`. Each JOIN goes on its own line at the same indent level as `FROM`.
+
+```sql
+select
+  *
+from
+  a
+  join b on a.id = b.a_id
+  left join c on c.b_id = b.id
+  right join d on d.id = c.d_id
+  full join e on e.id = a.e_id
+  cross join f
+  natural join g;
+```
+
+### JOIN condition — ON vs USING
+
+```sql
+-- ON
+join authors as a on b.author_id = a.id
+
+-- USING
+join authors using (author_id)
+```
+
+### Subquery in FROM
+
+Subqueries are indented inside parentheses. The alias follows the closing paren.
+
+```sql
+select
+  sub.avg_price
+from
+  (
+    select avg(price) as avg_price
+    from
+      books
+  ) as sub;
+```
+
+### LATERAL
+
+`LATERAL` precedes the subquery.
+
+```sql
+select
+  b.id,
+  r.avg_price
+from
+  books as b,
+  lateral (
+    select
+      avg(price) as avg_price
+    from
+      books
+    where author_id = b.author_id
+  ) as r;
+```
+
+### DISTINCT
+
+```sql
+select distinct
+  author_id,
+  title
+from
+  books;
+```
+
+### DISTINCT ON
+
+```sql
+select distinct on (author_id)
+  id,
+  author_id,
+  title
+from
+  books
+order by
+  author_id,
+  price asc;
+```
+
+### GROUP BY
+
+```sql
+select
+  dept,
+  job,
+  sum(salary)
+from
+  emp
+group by
+  dept,
+  job;
+```
+
+### HAVING
+
+```sql
+select
+  dept,
+  sum(salary)
+from
+  emp
+group by
+  dept
+having sum(salary) > 100000;
+```
+
+### ROLLUP
+
+```sql
+select
+  dept,
+  job,
+  sum(salary)
+from
+  emp
+group by
+  rollup(dept, job);
+```
+
+### CUBE
+
+```sql
+select
+  dept,
+  job,
+  sum(salary)
+from
+  emp
+group by
+  cube(dept, job);
+```
+
+### GROUPING SETS
+
+Multi-column groupings use parentheses inside `GROUPING SETS`. Single-column groups are also wrapped in parens for consistency.
+
+```sql
+select
+  dept,
+  job,
+  sum(salary)
+from
+  emp
+group by
+  grouping sets((dept, job), (dept), ());
+```
+
+### ORDER BY
+
+```sql
+select
+  id,
+  title,
+  price
+from
+  books
+order by
+  price desc,
+  title asc;
+```
+
+### LIMIT / OFFSET
+
+```sql
+select
+  id,
+  title
+from
+  books
+order by
+  price
+limit 10
+offset 20;
+```
+
+### CTEs — WITH
+
+Each CTE is indented inside its own `as (...)` block. Multiple CTEs are separated by commas.
+
+```sql
+with
+  active_users as (
+    select id, name
+    from
+      users
+    where active = true
+  ),
+  recent_orders as (
+    select customer_id, sum(amount) as total
+    from
+      orders
+    where created_at > now() - interval '30 days'
+    group by
+      customer_id
+  )
+select
+  u.name,
+  ro.total
+from
+  active_users as u
+  join recent_orders as ro on u.id = ro.customer_id;
+```
+
+### WITH RECURSIVE
+
+```sql
+with recursive
+  org_tree as (
+    select id, name, parent_id, 0 as depth
+    from
+      departments
+    where parent_id is null
+    union all
+    select d.id, d.name, d.parent_id, t.depth + 1
+    from
+      departments as d
+      join org_tree as t on d.parent_id = t.id
+  )
+select
+  id,
+  name,
+  depth
+from
+  org_tree
+order by
+  depth,
+  name;
+```
+
+### Set operations (UNION / INTERSECT / EXCEPT)
+
+The set operator is placed on its own line between the two queries.
+
+```sql
+select
+  id,
+  name
+from
+  customers
+union
+select
+  id,
+  name
+from
+  prospects;
+```
+
+`UNION ALL`:
+
+```sql
+select id, name from table_a
+union all
+select id, name from table_b;
+```
+
+### Subquery (scalar and correlated)
+
+```sql
+select
+  id,
+  name
+from
+  customers
+where exists (
+  select
+    1
+  from
+    orders
+  where orders.customer_id = customers.id
+);
+```
+
+```sql
+select
+  id,
+  (
+    select count(*)
+    from
+      orders
+    where customer_id = c.id
+  ) as order_count
+from
+  customers as c;
+```
+
+### Window functions
+
+Window functions print inline. The OVER clause with PARTITION BY, ORDER BY, and frame specification follows the function call.
+
+```sql
+select
+  id,
+  author_id,
+  price,
+  row_number() over (partition by author_id order by price desc) as rank,
+  sum(price) over (partition by author_id rows between unbounded preceding and current row) as running_total
+from
+  books;
+```
+
+Frame clause variants:
+
+```sql
+-- ROWS frame
+sum(price) over (order by id rows between unbounded preceding and current row)
+
+-- RANGE frame
+avg(price) over (order by price range between unbounded preceding and current row)
+
+-- GROUPS frame
+count(*) over (order by dept groups between 1 preceding and 1 following)
+```
+
+### Aggregate FILTER
+
+```sql
+select
+  count(*) filter (where in_stock = true) as in_stock_count,
+  count(*) filter (where in_stock = false) as out_of_stock_count
+from
+  books;
+```
+
+### ORDER BY inside aggregate
+
+```sql
+select
+  author_id,
+  string_agg(title, ', ' order by title) as titles,
+  array_agg(price order by price desc) as prices
+from
+  books
+group by
+  author_id;
+```
+
+### FOR UPDATE / FOR SHARE
+
+```sql
+-- Basic locking
+select id, title from books for update;
+
+-- Skip locked rows
+select id from jobs for update skip locked;
+
+-- No-wait
+select id from orders for no key update nowait;
+
+-- Lock specific table
+select id from orders for update of orders;
+
+-- FOR KEY SHARE
+select id from accounts for key share;
+```
+
+### IN / NOT IN
+
+```sql
+select
+  id,
+  title
+from
+  books
+where author_id in (1, 2, 3);
+```
+
+### BETWEEN / NOT BETWEEN
+
+```sql
+select
+  id,
+  title,
+  price
+from
+  books
+where price between 10.00 and 50.00;
+```
+
+### LIKE / NOT LIKE / ILIKE / NOT ILIKE / SIMILAR TO
+
+```sql
+select
+  id,
+  title
+from
+  books
+where
+  title ilike '%postgres%'
+  and isbn not like '978-0%';
+```
+
+### ANY / ALL
+
+```sql
+select
+  id,
+  title
+from
+  books
+where price = any (array[9.99, 19.99, 29.99]);
+```
+
+### IS NULL / IS NOT NULL
+
+```sql
+select id, title
+from books
+where deleted_at is null;
+```
+
+### IS DISTINCT FROM
+
+```sql
+select id from t where a is distinct from b;
+```
+
+### CASE expression
+
+```sql
+select
+  id,
+  case
+    when price < 10 then 'budget'
+    when price < 50 then 'mid-range'
+    when price < 100 then 'premium'
+  else 'luxury'
+  end as price_tier
+from
+  books;
+```
+
+---
+
+## INSERT
+
+### Single-row VALUES
+
+```sql
+insert into orders (customer_id, total)
+values (1, 99.99);
+```
+
+### Multi-row VALUES
+
+```sql
+insert into products (name, price, category)
+values
+  ('Widget', 9.99, 'tools'),
+  ('Gadget', 19.99, 'electronics'),
+  ('Doohickey', 4.99, 'misc');
+```
+
+### INSERT ... SELECT
+
+```sql
+insert into archived_orders (id, customer_id, amount)
+select
+  id,
+  customer_id,
+  amount
+from
+  orders
+where status = 'closed';
+```
+
+### DEFAULT VALUES
+
+```sql
+insert into audit_log
+default values;
+```
+
+### ON CONFLICT DO NOTHING
+
+```sql
+insert into users (id, email)
+values (1, 'alice@example.com')
+on conflict do nothing;
+```
+
+### ON CONFLICT DO UPDATE
+
+```sql
+insert into users (id, email, updated_at)
+values (1, 'alice@example.com', now())
+on conflict (id) do update
+set
+  email = excluded.email,
+  updated_at = excluded.updated_at;
+```
+
+### RETURNING
+
+```sql
+insert into orders (customer_id, amount)
+values (42, 150.00)
+returning
+  id,
+  created_at;
+```
+
+### OVERRIDING SYSTEM VALUE
+
+```sql
+insert into users (id, email)
+overriding system value
+values (100, 'admin@example.com');
+```
+
+### INSERT with CTE
+
+```sql
+with
+  new_data as (
+    select customer_id, sum(amount) as total
+    from
+      raw_orders
+    group by
+      customer_id
+  )
+insert into order_summary (customer_id, total)
+select
+  customer_id,
+  total
+from
+  new_data;
+```
+
+---
+
+## UPDATE
+
+### Basic UPDATE
+
+```sql
+update users
+set
+  active = false,
+  updated_at = now()
+where last_login < now() - interval '1 year';
+```
+
+### UPDATE with RETURNING
+
+```sql
+update users
+set active = false
+where last_login < now() - interval '1 year'
+returning
+  id,
+  email;
+```
+
+### UPDATE with CTE
+
+```sql
+with
+  stale as (
+    select id
+    from
+      sessions
+    where expires_at < now()
+  )
+update sessions
+set active = false
+where id in (
+  select id
+  from
+    stale
+);
+```
+
+---
+
+## DELETE
+
+### Basic DELETE
+
+```sql
+delete from sessions
+where expires_at < now();
+```
+
+### DELETE with RETURNING
+
+```sql
+delete from sessions
+where expires_at < now()
+returning
+  id,
+  user_id;
+```
+
+### Data-modifying CTE
+
+The DELETE (or INSERT/UPDATE) result is consumed by a subsequent statement.
+
+```sql
+with
+  moved as (
+    delete from orders
+    where status = 'cancelled'
+    returning
+      id,
+      customer_id,
+      amount
+  )
+insert into archived_orders (id, customer_id, amount)
+select
+  id,
+  customer_id,
+  amount
+from
+  moved;
+```
+
+---
+
+## TRUNCATE
+
+```sql
+truncate table sessions;
+
+truncate table sessions, temp_orders restart identity cascade;
+```
+
+---
+
+## DDL
+
+### CREATE TABLE
+
+Column names and type names (including modifiers and array notation) are preserved. Column constraints (NOT NULL, DEFAULT, PRIMARY KEY, etc.) are not yet formatted — they are currently dropped from output.
+
+```sql
+create table products (
+  id integer,
+  name varchar(100),
+  description text,
+  price numeric(10, 2),
+  quantity integer,
+  tags text[],
+  created_at timestamptz,
+  updated_at timestamptz
+);
+```
+
+### CREATE VIEW
+
+```sql
+create view active_users as
+select
+  id,
+  name,
+  email
+from
+  users
+where active = true;
+```
+
+### CREATE INDEX
+
+```sql
+create index idx_books_author on books (author_id);
+
+create unique index idx_users_email on users (email);
+```
+
+### CREATE FUNCTION
+
+```sql
+create function get_book_count(p_author_id integer)
+returns bigint
+language sql
+as $$
+  select count(*) from books where author_id = p_author_id
+$$;
+```
+
+### DROP
+
+```sql
+drop table if exists temp_data;
+
+drop view active_users;
+
+drop index if exists idx_books_author;
+```
+
+---
+
+## Expressions
+
+### SUBSTRING — SQL standard form
+
+Regex extraction (two-argument FROM form) and positional extraction (FROM/FOR form) are both reconstructed from the normalized parse tree.
+
+```sql
+-- Regex extraction
+substring(title from 'pg[a-z]+')
+
+-- Positional extraction
+substring(title from 1 for 5)
+```
+
+### EXTRACT
+
+The field name is rendered as a keyword, not a quoted string.
+
+```sql
+extract(year from created_at)
+extract(month from created_at)
+extract(day from created_at)
+extract(epoch from now())
+```
+
+### TRIM
+
+Directional forms use SQL standard syntax. The single-argument form (trim spaces) uses shorthand.
+
+```sql
+-- With direction and characters
+trim(leading ' ' from name)
+trim(trailing ' ' from name)
+trim(both ' ' from name)
+
+-- Without characters (trims spaces)
+ltrim(name)
+rtrim(name)
+trim(name)
+```
+
+### POSITION
+
+Arguments are rendered in SQL standard order (`needle IN haystack`), reversing the internal function argument order.
+
+```sql
+position('.' in email)
+```
+
+### AT TIME ZONE
+
+Reconstructed as infix from `pg_catalog.timezone(zone, expr)`.
+
+```sql
+created_at at time zone 'UTC'
+updated_at at time zone 'America/New_York'
+```
+
+### OVERLAY
+
+```sql
+overlay(name placing 'XXX' from 2 for 3)
+```
+
+### COALESCE / NULLIF / GREATEST / LEAST
+
+```sql
+coalesce(price, 0.00)
+nullif(status, 'deleted')
+greatest(a, b, c)
+least(x, y, z)
+```
+
+### Type casting — :: style
+
+All type casts are rendered with PostgreSQL's `::` operator.
+
+```sql
+price::numeric
+name::text
+'2024-01-01'::date
+id::text
+```
+
+### INTERVAL literals
+
+`INTERVAL '...'` syntax is reconstructed from the type cast parse node.
+
+```sql
+interval '1 day'
+interval '2 hours 30 minutes'
+interval '1 year 3 months'
+now() - interval '90 days'
+```
+
+### Array subscripts
+
+Single index and slice forms are both supported.
+
+```sql
+arr[1]           -- single element
+arr[2:4]         -- slice
+arr[:3]          -- open lower bound
+arr[1:]          -- open upper bound
+```
+
+### Named function arguments
+
+```sql
+make_date(year => 2024, month => 1, day => 15)
+make_interval(hours => 2, mins => 30)
+```
+
+### SQL value functions
+
+These zero-argument keywords are printed without parentheses.
+
+```sql
+current_date
+current_time
+current_timestamp
+localtime
+localtimestamp
+current_user
+session_user
+current_role
+current_schema
+current_catalog
+```
+
+### JSON operators
+
+JSON operators are passed through as binary expressions.
+
+```sql
+data -> 'key'
+data ->> 'key'
+data #> '{a,b}'
+data #>> '{a,b}'
+data @> '{"k":1}'
+data <@ '{"k":1}'
+data ? 'key'
+data ?| array['a', 'b']
+data ?& array['a', 'b']
+```
+
+### ARRAY constructor
+
+```sql
+array[1, 2, 3]
+array['a', 'b', 'c']
+```
+
+### ROW constructor
+
+```sql
+(1, 'alice', true)
+```
+
+### Parameterized queries
+
+```sql
+select id from users where id = $1 and active = $2;
+```
+
+---
+
+## Semicolons
+
+Every statement ends with a semicolon. Multiple statements in a file are separated by a blank line.
+
+```sql
+select id from users;
+
+select id from orders;
+```
