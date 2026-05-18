@@ -2,14 +2,16 @@ import type { Doc } from 'prettier';
 import type { SqlNode } from '../parser/types.js';
 import type { Options } from './utils.js';
 import { keyword, join, indent, hardline, aliasDoc } from './utils.js';
-import { printStatement } from './statements.js';
+import { printStatement, printQueryExpr } from './statements.js';
 import { prop, propArr, propStr, propBool, rangeVarName } from './helpers.js';
 
 type PrintFn = (node: SqlNode) => Doc;
 
 export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     switch (node.type) {
-        case 'SelectStatement': return printStatement(node, opts);
+        case 'SelectStatement': return printQueryExpr(node, opts);
+        case 'SetOpStatement':  return printQueryExpr(node, opts);
+        case 'ValuesStatement': return printStatement(node, opts);
         case 'Literal': return node.text ?? '';
         case 'ColumnRef': return propStr(node, 'name') ?? '';
         case 'BinaryExpr': return printBinaryExpr(node, opts, printNode);
@@ -38,6 +40,9 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'ParamRef': return node.text ?? '$?';
         case 'CTE': return printCteInline(node, opts, printNode);
         case 'WithClause': return '';
+        case 'InExpr':         return printInExpr(node, opts, printNode);
+        case 'BetweenExpr':    return printBetweenExpr(node, opts, printNode);
+        case 'QuantifiedExpr': return printQuantifiedExpr(node, opts, printNode);
         default: return node.text ?? `/* unknown: ${node.type} */`;
     }
 }
@@ -67,16 +72,55 @@ function printBoolExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 }
 
 function printFunctionCall(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
-    const name = propStr(node, 'name') ?? '';
-    const args = propArr(node, 'args');
-    const star = propBool(node, 'star');
+    const mk       = (kw: string) => keyword(kw, opts);
+    const name     = propStr(node, 'name') ?? '';
+    const args     = propArr(node, 'args');
+    const star     = propBool(node, 'star');
     const distinct = propBool(node, 'distinct');
+    const over     = prop(node, 'over');
 
     const argDocs: Doc[] = star ? [mk('*')] : args.map(printNode);
     if (distinct) argDocs.unshift(mk('DISTINCT'), ' ');
 
-    return [mk(name), '(', join(', ', argDocs), ')'];
+    const callDoc: Doc = [mk(name), '(', join(', ', argDocs), ')'];
+    if (!over) return callDoc;
+
+    return [callDoc, ' ', mk('OVER'), ' (', printWindowDef(over, opts, printNode), ')'];
+}
+
+function printWindowDef(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const mk          = (kw: string) => keyword(kw, opts);
+    const partitionBy = propArr(node, 'partitionBy');
+    const orderBy     = propArr(node, 'orderBy');
+    const frameMode   = propStr(node, 'frameMode');
+    const frameStart  = propStr(node, 'frameStart');
+    const frameEnd    = propStr(node, 'frameEnd');
+    const startOffset = prop(node, 'startOffset');
+    const endOffset   = prop(node, 'endOffset');
+
+    const parts: Doc[] = [];
+
+    if (partitionBy.length > 0) {
+        parts.push([mk('PARTITION BY'), ' ', join(', ', partitionBy.map(printNode))]);
+    }
+    if (orderBy.length > 0) {
+        parts.push([mk('ORDER BY'), ' ', join(', ', orderBy.map(printNode))]);
+    }
+    if (frameMode) {
+        const startDoc: Doc = startOffset
+            ? [printNode(startOffset), ' ', mk(frameStart ?? '')]
+            : mk(frameStart ?? '');
+        if (frameEnd) {
+            const endDoc: Doc = endOffset
+                ? [printNode(endOffset), ' ', mk(frameEnd)]
+                : mk(frameEnd);
+            parts.push([mk(frameMode), ' ', mk('BETWEEN'), ' ', startDoc, ' ', mk('AND'), ' ', endDoc]);
+        } else {
+            parts.push([mk(frameMode), ' ', startDoc]);
+        }
+    }
+
+    return join(' ', parts);
 }
 
 function printCast(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -241,4 +285,51 @@ function printCteInline(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const name = propStr(node, 'name') ?? '';
     const query = prop(node, 'query');
     return [name, ' ', mk('AS'), ' (', indent([hardline, query ? printNode(query) : '']), hardline, ')'];
+}
+
+// ---------------------------------------------------------------------------
+// IN / BETWEEN / Quantified (ANY, ALL)
+// ---------------------------------------------------------------------------
+
+function printInExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const mk     = (kw: string) => keyword(kw, opts);
+    const left   = prop(node, 'left');
+    const not    = propBool(node, 'not');
+    const values = prop(node, 'values');
+    const kw     = not ? mk('NOT IN') : mk('IN');
+
+    // values is an ExprList node; its items are the IN list
+    const items  = values ? propArr(values, 'items').map(printNode) : [];
+    return [left ? printNode(left) : '', ' ', kw, ' (', join(', ', items), ')'];
+}
+
+function printBetweenExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const mk        = (kw: string) => keyword(kw, opts);
+    const arg       = prop(node, 'arg');
+    const not       = propBool(node, 'not');
+    const symmetric = propBool(node, 'symmetric');
+    const low       = prop(node, 'low');
+    const high      = prop(node, 'high');
+
+    const kw = not
+        ? (symmetric ? mk('NOT BETWEEN SYMMETRIC') : mk('NOT BETWEEN'))
+        : (symmetric ? mk('BETWEEN SYMMETRIC')     : mk('BETWEEN'));
+
+    return [
+        arg  ? printNode(arg)  : '',
+        ' ', kw, ' ',
+        low  ? printNode(low)  : '',
+        ' ', mk('AND'), ' ',
+        high ? printNode(high) : '',
+    ];
+}
+
+function printQuantifiedExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const mk         = (kw: string) => keyword(kw, opts);
+    const left       = prop(node, 'left');
+    const right      = prop(node, 'right');
+    const op         = propStr(node, 'op') ?? '=';
+    const quantifier = propStr(node, 'quantifier') ?? 'ANY';
+    // right is typically an array literal or subquery
+    return [left ? printNode(left) : '', ' ', op, ' ', mk(quantifier), '(', right ? printNode(right) : '', ')'];
 }
