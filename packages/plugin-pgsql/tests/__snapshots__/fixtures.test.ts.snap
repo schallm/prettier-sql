@@ -176,6 +176,107 @@ for no key update of orders nowait;
 "
 `;
 
+exports[`fixtures > select/functions.sql 1`] = `
+"select
+  substring(title from 'pg.*')
+from
+  books;
+
+select
+  substring(title from 1 for 5)
+from
+  books;
+
+select
+  extract(year from created_at),
+  extract(month from created_at),
+  extract(day from created_at)
+from
+  orders;
+
+select
+  trim(leading ' ' from name),
+  trim(trailing ' ' from name),
+  trim(both ' ' from name)
+from
+  users;
+
+select
+  trim(name),
+  ltrim(name),
+  rtrim(name)
+from
+  users;
+
+select
+  position('.' in email)
+from
+  users;
+
+select
+  created_at at time zone 'UTC',
+  updated_at at time zone 'America/New_York'
+from
+  events;
+
+select
+  overlay(name placing 'XXX' from 2 for 3)
+from
+  users;
+
+select
+  current_date,
+  current_timestamp,
+  current_time
+from
+  t;
+
+select
+  localtime,
+  localtimestamp,
+  current_user,
+  session_user
+from
+  t;
+
+select
+  upper(name),
+  lower(email),
+  length(title)
+from
+  books;
+
+select
+  coalesce(price, 0.00),
+  nullif(status, 'deleted')
+from
+  products;
+
+select
+  greatest(a, b, c),
+  least(x, y)
+from
+  scores;
+
+select
+  date_trunc('month', created_at)
+from
+  orders;
+
+select
+  now(),
+  to_char(price, 'FM999.00'),
+  to_timestamp(epoch)
+from
+  t;
+
+select
+  regexp_replace(name, '\\s+', ' ', 'g')
+from
+  users;
+"
+`;
+
 exports[`fixtures > select/in-between.sql 1`] = `
 "select
   id,
