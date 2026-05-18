@@ -122,6 +122,23 @@ from
   ) as r;
 ```
 
+### TABLESAMPLE
+
+The `TABLESAMPLE` method and percentage follow the table name on the same line. The optional `REPEATABLE` seed is appended inline.
+
+```sql
+select
+  id,
+  name
+from
+  users tablesample bernoulli(10);
+
+select
+  count(*)
+from
+  orders tablesample system(5) repeatable (42);
+```
+
 ### DISTINCT
 
 ```sql
@@ -294,6 +311,34 @@ from
 order by
   depth,
   name;
+```
+
+### Recursive CTE — SEARCH and CYCLE
+
+`SEARCH` and `CYCLE` clauses attach to the CTE name, each on its own line, using the same indent as the `as (...)` body.
+
+```sql
+with recursive
+  t as (
+    select
+      id,
+      parent_id
+    from
+      tree
+    union all
+    select
+      tree.id,
+      tree.parent_id
+    from
+      tree
+      join t on t.id = tree.parent_id
+  )
+  search breadth first by id set ordercol
+  cycle id set is_cycle using path
+select
+  *
+from
+  t;
 ```
 
 ### Set operations (UNION / INTERSECT / EXCEPT)
@@ -697,7 +742,54 @@ truncate table sessions, temp_orders restart identity cascade;
 
 ## DDL
 
-### CREATE TABLE
+### CREATE TABLE (partitioned)
+
+`PARTITION BY` is emitted on a new line after the column list closing paren.
+
+```sql
+create table orders (
+  id integer not null,
+  region text not null
+)
+partition by range (region);
+
+create table measurements (
+  city_id integer not null,
+  logdate date not null
+)
+partition by list (city_id);
+```
+
+### CREATE TABLE ... PARTITION OF
+
+The `PARTITION OF` header and bounds each occupy their own line. Default partitions use `DEFAULT`.
+
+```sql
+create table orders_us
+partition of orders
+for values from ('US') to ('ZZ');
+
+create table orders_default
+partition of orders
+default;
+```
+
+### CREATE TABLE LIKE
+
+`LIKE` clauses appear inline within the column list. Multiple `INCLUDING` options are chained on the same line.
+
+```sql
+create table orders_copy (
+  like orders including all
+);
+
+create table orders_partial (
+  extra_col text,
+  like orders including defaults including indexes
+);
+```
+
+### CREATE TABLE (standard)
 
 Column definitions include the full constraint set. Type names use SQL standard aliases (`integer` not `int4`, `bigint` not `int8`, etc.).
 
@@ -778,6 +870,99 @@ drop table if exists temp_data;
 drop view active_users;
 
 drop index if exists idx_books_author;
+```
+
+### VACUUM / ANALYZE / CLUSTER / REINDEX
+
+Maintenance statements. Options are emitted in parentheses when present.
+
+```sql
+vacuum orders;
+
+vacuum verbose orders;
+
+vacuum (full, analyze) orders;
+
+analyze orders;
+
+cluster orders using orders_region_idx;
+
+reindex table orders;
+
+reindex (verbose) table orders;
+```
+
+### Foreign data wrappers
+
+`OPTIONS (...)` lists are emitted inline. The `FOREIGN DATA WRAPPER` phrase follows on a new line for `CREATE SERVER`.
+
+```sql
+create server my_server
+foreign data wrapper postgres_fdw options (host 'localhost', port '5432');
+
+create foreign table remote_orders (
+  id integer,
+  amount numeric
+)
+server my_server options (table_name 'orders');
+
+create user mapping for current_user
+server my_server options (user 'remote_user', password 'secret');
+
+import foreign schema public
+from server my_server
+into local_schema;
+```
+
+### Logical replication
+
+```sql
+create publication my_pub
+for table orders, users;
+
+create subscription my_sub
+connection 'host=localhost dbname=mydb'
+publication my_pub;
+
+drop subscription my_sub;
+```
+
+### CREATE AGGREGATE
+
+Parameters are listed one per line in the `(...)` block, using `=` assignment.
+
+```sql
+create aggregate my_avg (double precision) (
+  sfunc = float8_accum,
+  stype = double precision[],
+  initcond = '{0,0,0}'
+);
+```
+
+### CREATE OPERATOR
+
+```sql
+create operator === (
+  leftarg = integer,
+  rightarg = integer,
+  procedure = int4eq
+);
+```
+
+### CREATE COLLATION
+
+```sql
+create collation my_coll (locale = 'en-US');
+
+create collation my_coll2 from "en-US";
+```
+
+### SECURITY LABEL
+
+```sql
+security label for my_provider on table orders is 'sensitive';
+
+security label for my_provider on column orders.amount is 'pii';
 ```
 
 ---
@@ -974,13 +1159,19 @@ id::text
 
 ### INTERVAL literals
 
-`INTERVAL '...'` syntax is reconstructed from the type cast parse node.
+`INTERVAL '...'` syntax is reconstructed from the type cast parse node. Optional field modifiers (`YEAR`, `MONTH`, `DAY`, `HOUR TO MINUTE`, `DAY TO SECOND`, etc.) are appended after the string.
 
 ```sql
 interval '1 day'
 interval '2 hours 30 minutes'
 interval '1 year 3 months'
 now() - interval '90 days'
+
+-- with field modifiers
+interval '1' year
+interval '1:30' hour to minute
+interval '1 2:03:04' day to second
+interval '5 years' year to month
 ```
 
 ### Array subscripts

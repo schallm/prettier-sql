@@ -407,6 +407,85 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 + );
 ```
 
+### CREATE TABLE with PARTITION BY
+
+```diff
+- create table orders (id integer not null, region text not null) partition by range (region);
++ create table orders (
++   id integer not null,
++   region text not null
++ )
++ partition by range (region);
+```
+
+### CREATE TABLE PARTITION OF
+
+```diff
+- create table orders_us partition of orders for values from ('US') to ('ZZ');
++ create table orders_us
++ partition of orders
++ for values from ('US') to ('ZZ');
+```
+
+### CREATE TABLE LIKE
+
+```diff
+- create table orders_copy (like orders including all);
++ create table orders_copy (
++   like orders including all
++ );
+```
+
+### VACUUM / REINDEX
+
+```diff
+- vacuum (full, analyze) orders;
++ vacuum (full, analyze) orders;
+```
+
+```diff
+- reindex (verbose) table orders;
++ reindex (verbose) table orders;
+```
+
+### Recursive CTE with SEARCH / CYCLE
+
+```diff
+- with recursive t as (select id, parent_id from tree union all select tree.id, tree.parent_id from tree join t on t.id = tree.parent_id) search breadth first by id set ordercol cycle id set is_cycle using path select * from t;
++ with recursive
++   t as (
++     select
++       id,
++       parent_id
++     from
++       tree
++     union all
++     select
++       tree.id,
++       tree.parent_id
++     from
++       tree
++       join t on t.id = tree.parent_id
++   )
++   search breadth first by id set ordercol
++   cycle id set is_cycle using path
++ select
++   *
++ from
++   t;
+```
+
+### TABLESAMPLE
+
+```diff
+- select id, name from users tablesample bernoulli(10);
++ select
++   id,
++   name
++ from
++   users tablesample bernoulli(10);
+```
+
 ---
 
 ## Expressions
@@ -465,6 +544,17 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   name::text,
 +   interval '30 days',
 +   '2024-01-01'::date
++ from
++   t;
+```
+
+### INTERVAL with field modifiers
+
+```diff
+- select interval '1' year, interval '1:30' hour to minute from t;
++ select
++   interval '1' year,
++   interval '1:30' hour to minute
 + from
 +   t;
 ```

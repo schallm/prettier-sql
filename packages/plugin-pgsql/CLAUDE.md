@@ -116,7 +116,7 @@ Expression/sub-expression printer. Dispatches on `node.type`.
 Currently covers: Literal, ColumnRef, BinaryExpr, BoolExpr, FunctionCall, Cast, SubLink,
 CaseExpr, NullTest, BooleanTest, ResTarget, RangeVar, JoinExpr, Subquery, RangeFunction,
 SortItem, ColumnDef, Constraint, AlterCmd, FunctionParam, IndexElem, ArrayExpr, Coalesce,
-RowExpr, ParamRef, ExprList.
+RowExpr, ParamRef, ExprList, GroupingFunc, IntervalLiteral, RangeTableSample, TableLikeClause.
 
 ## SqlNode shape produced by AstBuilder
 
@@ -171,16 +171,10 @@ npm run test:watch   # vitest watch
 
 ## What's NOT yet implemented
 
-- **Window functions** (`OVER`, `PARTITION BY`, `ROWS BETWEEN`) — `FuncCall` with `over_clause`
-- **ON CONFLICT** — `InsertStmt.onConflictClause`
-- **RETURNING** — `InsertStmt.returningList` / `UpdateStmt.returningList` / `DeleteStmt.returningList`
-- **SET operations** — UNION / INTERSECT / EXCEPT (`SelectStmt.op`, `larg`, `rarg`)
-- **VALUES** — standalone `VALUES (...)` and multi-row insert
-- **TRUNCATE, VACUUM, ANALYZE, GRANT, REVOKE** — not yet in `BuildRawStmt` dispatch
 - **Comment attachment** — libpg_query has a separate scan API; see `Parser.Scan()` in pgsqlparser
+- **XMLELEMENT / XMLFOREST / XMLTABLE / XMLAGG** — XML construction and query functions
+- **SQL/JSON functions** — `JSON_TABLE`, `JSON_QUERY`, `JSON_EXISTS`, `JSON_VALUE` (PostgreSQL 16+)
 - **Procedural / PL/pgSQL** — out of scope for now
-- **Dollar-quoted strings** — `$$...$$` literals
-- **Type modifiers** — `varchar(255)`, `numeric(10,2)` type name args in `BuildPgTypeName`
 - **Density-aware WHERE** — currently always inline; tsql has compact/standard/spacious logic
 - **Leading comma style** — `sqlCommaStyle: 'leading'` is wired up in utils but not used in SELECT lists
 

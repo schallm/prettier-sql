@@ -44,11 +44,21 @@ A [Prettier](https://prettier.io) plugin for PostgreSQL SQL. Parses SQL with [li
 - **GRANT / REVOKE** — on TABLE, SCHEMA, FUNCTION, and ALL ... IN SCHEMA; WITH GRANT OPTION; CASCADE
 - **CREATE / ALTER ROLE** — with LOGIN, PASSWORD, SUPERUSER, CREATEDB, CREATEROLE, INHERIT, REPLICATION, BYPASSRLS, CONNECTION LIMIT
 - **COMMENT ON** — TABLE, COLUMN, SCHEMA, DATABASE, INDEX, SEQUENCE, VIEW, FUNCTION, TYPE
+- **CREATE TABLE LIKE** — `CREATE TABLE new (LIKE existing INCLUDING ALL)`
+- **Table partitioning** — `PARTITION BY RANGE/LIST/HASH`, `CREATE TABLE ... PARTITION OF`, partition bounds (`FOR VALUES FROM/TO`, `IN`, `WITH`, `DEFAULT`)
+- **TABLESAMPLE** — `FROM t TABLESAMPLE BERNOULLI(10)` / `SYSTEM(5) REPEATABLE (42)`
+- **VACUUM / ANALYZE / CLUSTER / REINDEX** — maintenance statements with options
+- **Foreign data wrappers** — `CREATE SERVER`, `CREATE FOREIGN TABLE`, `CREATE USER MAPPING`, `IMPORT FOREIGN SCHEMA`
+- **Logical replication** — `CREATE / ALTER / DROP PUBLICATION` and `SUBSCRIPTION`
+- **CREATE AGGREGATE** — `CREATE AGGREGATE name (SFUNC = ..., STYPE = ...)`
+- **CREATE OPERATOR** — `CREATE OPERATOR op (LEFTARG = ..., PROCEDURE = ...)`
+- **CREATE COLLATION** — `CREATE COLLATION name (LOCALE = ...)` and `FROM existing`
+- **SECURITY LABEL** — `SECURITY LABEL FOR provider ON object IS label`
 
 ### Expressions
 
 - **SQL standard functions** — `SUBSTRING(str FROM pattern)`, `EXTRACT(field FROM expr)`, `TRIM(LEADING/TRAILING/BOTH ... FROM str)`, `POSITION(x IN y)`, `expr AT TIME ZONE tz`, `OVERLAY(...)`
-- **Type casting** — `expr::type` (PostgreSQL style), `INTERVAL '1 day'` literals
+- **Type casting** — `expr::type` (PostgreSQL style), `INTERVAL '1 day'` literals with optional field modifiers (`HOUR TO MINUTE`, `DAY TO SECOND`, etc.)
 - **Array subscripts** — `arr[1]`, `arr[2:4]`, `arr[:3]`
 - **Named arguments** — `func(param => value)`
 - **Conditional** — CASE / WHEN / THEN / ELSE, COALESCE, NULLIF, GREATEST, LEAST
@@ -76,44 +86,11 @@ A [Prettier](https://prettier.io) plugin for PostgreSQL SQL. Parses SQL with [li
 
 ### Pending Implementation
 
-#### P4 — Specialist / Advanced
-
 | Feature | Notes |
 |---|---|
-| **Table partitioning** | `PARTITION BY RANGE/LIST/HASH`, `CREATE TABLE ... PARTITION OF`, partition bounds |
-| **TABLESAMPLE** | `FROM t TABLESAMPLE BERNOULLI(10)` / `SYSTEM(10)` |
-| **CREATE TABLE LIKE** | `CREATE TABLE new LIKE existing INCLUDING ALL` |
-| **Recursive CTE extensions** | `SEARCH BREADTH/DEPTH FIRST BY col`, `CYCLE col SET ...` |
-| **INTERVAL field modifiers** | `INTERVAL '1:30' HOUR TO MINUTE`, precision on INTERVAL |
-| **VACUUM / ANALYZE / CLUSTER / REINDEX** | Maintenance statements |
-| **Foreign data wrappers** | `CREATE SERVER`, `CREATE FOREIGN TABLE`, `CREATE USER MAPPING`, `IMPORT FOREIGN SCHEMA` |
-| **Logical replication** | `CREATE / ALTER / DROP PUBLICATION` and `SUBSCRIPTION` |
-| **CREATE AGGREGATE** | `CREATE AGGREGATE name (SFUNC = ..., STYPE = ...)` |
-| **CREATE OPERATOR** | `CREATE OPERATOR + (LEFTARG = ..., PROCEDURE = ...)` |
+| **Comment attachment** | Preserving SQL comments adjacent to statements |
 | **XMLELEMENT / XMLFOREST / XMLTABLE / XMLAGG** | XML construction and query functions |
 | **SQL/JSON functions** | `JSON_TABLE`, `JSON_QUERY`, `JSON_EXISTS`, `JSON_VALUE` (PostgreSQL 16+) |
-| **CREATE COLLATION** | `CREATE COLLATION name (LOCALE = ...)` |
-| **Security labels** | `SECURITY LABEL FOR provider ON object IS label` |
-| **PL/pgSQL** | Full procedural language (IF/ELSIF, LOOP, RETURN, EXCEPTION, DECLARE) — out of scope for a SQL formatter |
-
-#### P4 — Specialist / Advanced
-
-| Feature | Notes |
-|---|---|
-| **Table partitioning** | `PARTITION BY RANGE/LIST/HASH`, `CREATE TABLE ... PARTITION OF`, partition bounds |
-| **TABLESAMPLE** | `FROM t TABLESAMPLE BERNOULLI(10)` / `SYSTEM(10)` |
-| **CREATE TABLE LIKE** | `CREATE TABLE new LIKE existing INCLUDING ALL` |
-| **Recursive CTE extensions** | `SEARCH BREADTH/DEPTH FIRST BY col`, `CYCLE col SET ...` |
-| **INTERVAL field modifiers** | `INTERVAL '1:30' HOUR TO MINUTE`, precision on INTERVAL |
-| **VACUUM / ANALYZE / CLUSTER / REINDEX** | Maintenance statements |
-| **Foreign data wrappers** | `CREATE SERVER`, `CREATE FOREIGN TABLE`, `CREATE USER MAPPING`, `IMPORT FOREIGN SCHEMA` |
-| **Logical replication** | `CREATE / ALTER / DROP PUBLICATION` and `SUBSCRIPTION` |
-| **CREATE AGGREGATE** | `CREATE AGGREGATE name (SFUNC = ..., STYPE = ...)` |
-| **CREATE OPERATOR** | `CREATE OPERATOR + (LEFTARG = ..., PROCEDURE = ...)` |
-| **XMLELEMENT / XMLFOREST / XMLTABLE / XMLAGG** | XML construction and query functions |
-| **SQL/JSON functions** | `JSON_TABLE`, `JSON_QUERY`, `JSON_EXISTS`, `JSON_VALUE` (PostgreSQL 16+) |
-| **CREATE COLLATION** | `CREATE COLLATION name (LOCALE = ...)` |
-| **Security labels** | `SECURITY LABEL FOR provider ON object IS label` |
 | **PL/pgSQL** | Full procedural language (IF/ELSIF, LOOP, RETURN, EXCEPTION, DECLARE) — out of scope for a SQL formatter |
 
 ---
