@@ -235,6 +235,9 @@ public class AstBuilder {
             Node.NodeOneofCase.RangeFunction => BuildRangeFunction(node.RangeFunction),
             Node.NodeOneofCase.List => BuildExprList(node.List),
             Node.NodeOneofCase.SqlvalueFunction => BuildSqlvalueFunction(node.SqlvalueFunction),
+            Node.NodeOneofCase.AIndirection => BuildIndirection(node.AIndirection),
+            Node.NodeOneofCase.NamedArgExpr => BuildNamedArgExpr(node.NamedArgExpr),
+            Node.NodeOneofCase.GroupingSet  => BuildGroupingSet(node.GroupingSet),
             _ => new SqlNode("RawExpr", 0, 0, node.NodeCase.ToString(), null),
         };
     }
@@ -453,11 +456,20 @@ public class AstBuilder {
         ));
     }
 
-    private SqlNode BuildTypeCast(TypeCast t) =>
-        new("Cast", 0, 0, null, BuildProps(
-            ("arg", BuildExpr(t.Arg)),
-            ("typeName", t.TypeName != null ? BuildPgTypeName(t.TypeName) : null)
+    private SqlNode BuildTypeCast(TypeCast t) {
+        var typeName = t.TypeName != null ? BuildPgTypeName(t.TypeName) : null;
+        var arg      = BuildExpr(t.Arg);
+
+        // INTERVAL 'value' — reconstruct SQL standard literal form
+        if (typeName == "interval")
+            return new SqlNode("IntervalLiteral", 0, 0, null, BuildProps(("value", arg)));
+
+        // All other type casts: emit Cast node (printer renders as expr::type)
+        return new SqlNode("Cast", 0, 0, null, BuildProps(
+            ("arg",      arg),
+            ("typeName", typeName)
         ));
+    }
 
     private SqlNode BuildSubLink(SubLink s) {
         var type = s.SubLinkType switch {
@@ -705,8 +717,71 @@ public class AstBuilder {
         return new SqlNode("IndexElem", 0, 0, null, BuildProps(("name", n.IndexElem.Name)));
     }
 
-    private static string BuildPgTypeName(TypeName t) =>
-        string.Join(".", t.Names.Select(n => n.String.Sval).Where(s => s != "pg_catalog"));
+    private static string BuildPgTypeName(TypeName t) {
+        var name = string.Join(".", t.Names.Select(n => n.String.Sval).Where(s => s != "pg_catalog"));
+
+        if (t.Typmods.Count > 0) {
+            var mods = t.Typmods
+                .Select(m => m.NodeCase switch {
+                    Node.NodeOneofCase.Integer => m.Integer.Ival.ToString(),
+                    Node.NodeOneofCase.AConst when m.AConst.ValCase == A_Const.ValOneofCase.Ival => m.AConst.Ival.Ival.ToString(),
+                    Node.NodeOneofCase.AConst when m.AConst.ValCase == A_Const.ValOneofCase.Fval => m.AConst.Fval.Fval,
+                    _ => null,
+                })
+                .OfType<string>()
+                .ToList();
+            if (mods.Count > 0) name += $"({string.Join(", ", mods)})";
+        }
+
+        if (t.ArrayBounds.Count > 0) name += "[]";
+
+        return name;
+    }
+
+    private SqlNode BuildIndirection(A_Indirection a) {
+        var subscripts = a.Indirection
+            .Select(n => {
+                if (n.NodeCase == Node.NodeOneofCase.AIndices) {
+                    var idx = n.AIndices;
+                    return !idx.IsSlice
+                        ? new SqlNode("SubscriptIndex", 0, 0, null, BuildProps(
+                              ("index", BuildExpr(idx.Uidx))))
+                        : new SqlNode("SubscriptSlice", 0, 0, null, BuildProps(
+                              ("lower", idx.Lidx?.NodeCase != Node.NodeOneofCase.None ? BuildExpr(idx.Lidx) : null),
+                              ("upper", idx.Uidx?.NodeCase != Node.NodeOneofCase.None ? BuildExpr(idx.Uidx) : null)));
+                }
+                if (n.NodeCase == Node.NodeOneofCase.String)
+                    return new SqlNode("FieldAccess", 0, 0, n.String.Sval, null);
+                return null;
+            })
+            .OfType<SqlNode>()
+            .ToList();
+        return new SqlNode("Subscript", 0, 0, null, BuildProps(
+            ("arg",        BuildExpr(a.Arg)),
+            ("subscripts", subscripts.Count > 0 ? (object?)subscripts : null)
+        ));
+    }
+
+    private SqlNode BuildNamedArgExpr(NamedArgExpr n) =>
+        new("NamedArg", 0, 0, null, BuildProps(
+            ("name", n.Name),
+            ("arg",  BuildExpr(n.Arg))
+        ));
+
+    private SqlNode BuildGroupingSet(GroupingSet g) {
+        var kind = g.Kind switch {
+            GroupingSetKind.GroupingSetRollup => "ROLLUP",
+            GroupingSetKind.GroupingSetCube   => "CUBE",
+            GroupingSetKind.GroupingSetSets   => "SETS",
+            GroupingSetKind.GroupingSetEmpty  => "EMPTY",
+            GroupingSetKind.GroupingSetSimple => "SIMPLE",
+            _                                 => g.Kind.ToString(),
+        };
+        return new SqlNode("GroupingSet", 0, 0, null, BuildProps(
+            ("kind",    kind),
+            ("content", MapList(g.Content, BuildExpr))
+        ));
+    }
 
     private static SqlNode? BuildLockingClause(Node n) {
         if (n.NodeCase != Node.NodeOneofCase.LockingClause) return null;

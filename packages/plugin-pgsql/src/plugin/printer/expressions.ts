@@ -44,6 +44,10 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'InExpr':         return printInExpr(node, opts, printNode);
         case 'BetweenExpr':    return printBetweenExpr(node, opts, printNode);
         case 'QuantifiedExpr': return printQuantifiedExpr(node, opts, printNode);
+        case 'Subscript':      return printSubscript(node, opts, printNode);
+        case 'NamedArg':       return printNamedArg(node, opts, printNode);
+        case 'GroupingSet':    return printGroupingSet(node, opts, printNode);
+        case 'IntervalLiteral': return printIntervalLiteral(node, opts, printNode);
         default: return node.text ?? `/* unknown: ${node.type} */`;
     }
 }
@@ -219,10 +223,9 @@ function printWindowDef(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 }
 
 function printCast(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
     const arg = prop(node, 'arg');
     const typeName = propStr(node, 'typeName') ?? '';
-    return [mk('CAST'), '(', arg ? printNode(arg) : '', ' ', mk('AS'), ' ', mk(typeName), ')'];
+    return [arg ? printNode(arg) : '', '::', keyword(typeName, opts)];
 }
 
 function printSubLink(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -434,4 +437,59 @@ function printQuantifiedExpr(node: SqlNode, opts: Options, printNode: PrintFn): 
     const quantifier = propStr(node, 'quantifier') ?? 'ANY';
     // right is typically an array literal or subquery
     return [left ? printNode(left) : '', ' ', op, ' ', mk(quantifier), '(', right ? printNode(right) : '', ')'];
+}
+
+function printIntervalLiteral(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const mk = (kw: string) => keyword(kw, opts);
+    const value = prop(node, 'value');
+    return [mk('INTERVAL'), ' ', value ? printNode(value) : ''];
+}
+
+function printSubscript(node: SqlNode, _opts: Options, printNode: PrintFn): Doc {
+    const arg = prop(node, 'arg');
+    const subscripts = propArr(node, 'subscripts');
+    const base: Doc = arg ? printNode(arg) : '';
+    const parts: Doc[] = subscripts.map((s): Doc => {
+        if (s.type === 'SubscriptIndex') {
+            const idx = prop(s, 'index');
+            return ['[', idx ? printNode(idx) : '', ']'];
+        }
+        if (s.type === 'SubscriptSlice') {
+            const lower = prop(s, 'lower');
+            const upper = prop(s, 'upper');
+            return ['[', lower ? printNode(lower) : '', ':', upper ? printNode(upper) : '', ']'];
+        }
+        if (s.type === 'FieldAccess') return ['.', s.text ?? ''];
+        return '';
+    });
+    return [base, ...parts];
+}
+
+function printNamedArg(node: SqlNode, _opts: Options, printNode: PrintFn): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const arg = prop(node, 'arg');
+    return [name, ' => ', arg ? printNode(arg) : ''];
+}
+
+function printGroupingSet(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const mk = (kw: string) => keyword(kw, opts);
+    const kind = propStr(node, 'kind') ?? '';
+    const content = propArr(node, 'content');
+
+    if (kind === 'EMPTY') return '()';
+    if (kind === 'SIMPLE') return ['(', join(', ', content.map(printNode)), ')'];
+
+    const printItem = (item: SqlNode): Doc =>
+        item.type === 'GroupingSet' ? printGroupingSet(item, opts, printNode) : printNode(item);
+    // Inside GROUPING SETS: GroupingSet and RowExpr already carry their own parens;
+    // bare column refs need them added: (col) not col
+    const printSetItem = (item: SqlNode): Doc =>
+        item.type === 'GroupingSet' ? printGroupingSet(item, opts, printNode)
+        : item.type === 'RowExpr'   ? printNode(item)
+        : ['(', printNode(item), ')'];
+
+    if (kind === 'ROLLUP') return [mk('ROLLUP'), '(', join(', ', content.map(printItem)), ')'];
+    if (kind === 'CUBE')   return [mk('CUBE'),   '(', join(', ', content.map(printItem)), ')'];
+    if (kind === 'SETS')   return [mk('GROUPING SETS'), '(', join(', ', content.map(printSetItem)), ')'];
+    return [mk(kind), '(', join(', ', content.map(printItem)), ')'];
 }
