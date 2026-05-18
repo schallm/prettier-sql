@@ -43,6 +43,7 @@ public class AstBuilder {
             Node.NodeOneofCase.CreateFunctionStmt => BuildCreateFunction(stmt.CreateFunctionStmt, start, end),
             Node.NodeOneofCase.IndexStmt => BuildCreateIndex(stmt.IndexStmt, start, end),
             Node.NodeOneofCase.DropStmt => BuildDrop(stmt.DropStmt, start, end),
+            Node.NodeOneofCase.TruncateStmt => BuildTruncate(stmt.TruncateStmt, start, end),
             _ => Fallback(start, end),
         };
     }
@@ -68,7 +69,7 @@ public class AstBuilder {
             ));
         }
 
-        // VALUES (multi-row insert source or standalone VALUES)
+        // VALUES
         if (s.ValuesLists.Count > 0) {
             var rows = s.ValuesLists
                 .Select(r => r.NodeCase == Node.NodeOneofCase.List
@@ -78,6 +79,20 @@ public class AstBuilder {
             return new SqlNode("ValuesStatement", start, end, null, BuildProps(
                 ("rows", rows.Count > 0 ? (object?)rows : null)
             ));
+        }
+
+        // DISTINCT vs DISTINCT ON
+        // Plain DISTINCT: DistinctClause contains a single sentinel node (NodeCase == None)
+        // DISTINCT ON (expr): DistinctClause contains real expression nodes
+        object? distinctFlag = null;
+        object? distinctOn = null;
+        if (s.DistinctClause.Count > 0) {
+            var first = s.DistinctClause[0];
+            if (first.NodeCase == Node.NodeOneofCase.None) {
+                distinctFlag = true;
+            } else {
+                distinctOn = MapList(s.DistinctClause, BuildExpr);
+            }
         }
 
         var props = BuildProps(
@@ -90,22 +105,39 @@ public class AstBuilder {
             ("limit",      BuildExpr(s.LimitCount)),
             ("offset",     BuildExpr(s.LimitOffset)),
             ("ctes",       s.WithClause != null ? BuildWithClause(s.WithClause) : null),
-            ("distinct",   s.DistinctClause.Count > 0 ? (object?)true : null),
-            ("all",        s.All ? true : null)
+            ("distinct",   distinctFlag),
+            ("distinctOn", distinctOn),
+            ("all",        s.All ? true : null),
+            ("locking",    MapList(s.LockingClause, BuildLockingClause))
         );
         return new SqlNode("SelectStatement", start, end, null, props);
     }
 
-    private SqlNode BuildInsert(InsertStmt s, int start, int end) =>
-        new("InsertStatement", start, end, null, BuildProps(
+    private SqlNode BuildInsert(InsertStmt s, int start, int end) {
+        SqlNode? source = null;
+        if (s.SelectStmt?.NodeCase == Node.NodeOneofCase.SelectStmt) {
+            source = BuildSelect(s.SelectStmt.SelectStmt, start, end);
+        } else {
+            // INSERT ... DEFAULT VALUES (no SELECT or VALUES clause)
+            source = new SqlNode("DefaultValues", 0, 0, null, null);
+        }
+
+        var overrideStr = s.Override switch {
+            OverridingKind.OverridingUserValue   => "USER",
+            OverridingKind.OverridingSystemValue => "SYSTEM",
+            _                                    => null,
+        };
+
+        return new SqlNode("InsertStatement", start, end, null, BuildProps(
+            ("ctes",       s.WithClause != null ? BuildWithClause(s.WithClause) : null),
             ("target",     BuildRangeVar(s.Relation)),
             ("columns",    MapList(s.Cols, BuildExpr)),
-            ("source",     s.SelectStmt?.NodeCase == Node.NodeOneofCase.SelectStmt
-                               ? BuildSelect(s.SelectStmt.SelectStmt, start, end)
-                               : null),
+            ("override",   overrideStr),
+            ("source",     source),
             ("onConflict", s.OnConflictClause != null ? BuildOnConflict(s.OnConflictClause) : null),
             ("returning",  MapList(s.ReturningList, BuildExpr))
         ));
+    }
 
     private SqlNode BuildUpdate(UpdateStmt s, int start, int end) =>
         new("UpdateStatement", start, end, null, BuildProps(
@@ -349,6 +381,8 @@ public class AstBuilder {
             ("args",     MapList(f.Args, BuildExpr)),
             ("star",     f.AggStar     ? true : null),
             ("distinct", f.AggDistinct ? true : null),
+            ("aggOrder", MapList(f.AggOrder, BuildExpr)),
+            ("filter",   f.AggFilter != null ? BuildExpr(f.AggFilter) : null),
             ("over",     f.Over != null ? BuildWindowDef(f.Over) : null)
         ));
     }
@@ -511,19 +545,27 @@ public class AstBuilder {
     }
 
     private SqlNode BuildJoinExpr(JoinExpr j) {
-        var joinType = j.Jointype switch {
-            JoinType.JoinInner => j.IsNatural ? "NATURAL" : "INNER",
-            JoinType.JoinLeft => "LEFT",
-            JoinType.JoinFull => "FULL",
-            JoinType.JoinRight => "RIGHT",
-            _ => j.Jointype.ToString(),
-        };
+        string joinType;
+        if (j.IsNatural) {
+            joinType = "NATURAL";
+        } else if (j.Jointype == JoinType.JoinInner && j.Quals == null && j.UsingClause.Count == 0) {
+            joinType = "CROSS";
+        } else {
+            joinType = j.Jointype switch {
+                JoinType.JoinInner => "INNER",
+                JoinType.JoinLeft  => "LEFT",
+                JoinType.JoinFull  => "FULL",
+                JoinType.JoinRight => "RIGHT",
+                _                  => j.Jointype.ToString(),
+            };
+        }
+
         return new SqlNode("JoinExpr", 0, 0, null, BuildProps(
             ("joinType", joinType),
-            ("lhs", BuildFromItem(j.Larg)),
-            ("rhs", BuildFromItem(j.Rarg)),
-            ("on", j.Quals != null ? BuildExpr(j.Quals) : null),
-            ("using", MapList(j.UsingClause, n => BuildExpr(n)))
+            ("lhs",      BuildFromItem(j.Larg)),
+            ("rhs",      BuildFromItem(j.Rarg)),
+            ("on",       j.Quals != null ? BuildExpr(j.Quals) : null),
+            ("using",    MapList(j.UsingClause, n => BuildExpr(n)))
         ));
     }
 
@@ -533,7 +575,8 @@ public class AstBuilder {
             : null;
         return new SqlNode("Subquery", 0, 0, null, BuildProps(
             ("subquery", subquery),
-            ("alias", r.Alias?.Aliasname)
+            ("alias",    r.Alias?.Aliasname),
+            ("lateral",  r.Lateral ? true : null)
         ));
     }
 
@@ -551,16 +594,20 @@ public class AstBuilder {
         var ctes = MapList(w.Ctes, n => {
             if (n.NodeCase != Node.NodeOneofCase.CommonTableExpr) return null;
             var cte = n.CommonTableExpr;
-            var query = cte.Ctequery?.NodeCase == Node.NodeOneofCase.SelectStmt
-                ? BuildSelect(cte.Ctequery.SelectStmt, 0, _sql.Length)
-                : null;
+            SqlNode? query = cte.Ctequery?.NodeCase switch {
+                Node.NodeOneofCase.SelectStmt => BuildSelect(cte.Ctequery.SelectStmt, 0, _sql.Length),
+                Node.NodeOneofCase.InsertStmt => BuildInsert(cte.Ctequery.InsertStmt, 0, _sql.Length),
+                Node.NodeOneofCase.UpdateStmt => BuildUpdate(cte.Ctequery.UpdateStmt, 0, _sql.Length),
+                Node.NodeOneofCase.DeleteStmt => BuildDelete(cte.Ctequery.DeleteStmt, 0, _sql.Length),
+                _ => null,
+            };
             return new SqlNode("CTE", 0, 0, null, BuildProps(
-                ("name", cte.Ctename),
+                ("name",  cte.Ctename),
                 ("query", query)
             ));
         });
         return new SqlNode("WithClause", 0, 0, null, BuildProps(
-            ("ctes", ctes),
+            ("ctes",      ctes),
             ("recursive", w.Recursive ? true : null)
         ));
     }
@@ -637,6 +684,46 @@ public class AstBuilder {
 
     private static string BuildPgTypeName(TypeName t) =>
         string.Join(".", t.Names.Select(n => n.String.Sval).Where(s => s != "pg_catalog"));
+
+    private static SqlNode? BuildLockingClause(Node n) {
+        if (n.NodeCase != Node.NodeOneofCase.LockingClause) return null;
+        var lc = n.LockingClause;
+        var strength = lc.Strength switch {
+            LockClauseStrength.LcsForupdate       => "FOR UPDATE",
+            LockClauseStrength.LcsFornokeyupdate  => "FOR NO KEY UPDATE",
+            LockClauseStrength.LcsForshare        => "FOR SHARE",
+            LockClauseStrength.LcsForkeyshare     => "FOR KEY SHARE",
+            _                                     => "FOR UPDATE",
+        };
+        var waitPolicy = lc.WaitPolicy switch {
+            LockWaitPolicy.LockWaitSkip  => "SKIP LOCKED",
+            LockWaitPolicy.LockWaitError => "NOWAIT",
+            _                            => null,
+        };
+        var tables = lc.LockedRels.Count > 0
+            ? (object?)lc.LockedRels
+                .Where(r => r.NodeCase == Node.NodeOneofCase.RangeVar)
+                .Select(r => BuildRangeVar(r.RangeVar))
+                .ToList()
+            : null;
+        return new SqlNode("LockingClause", 0, 0, null, BuildProps(
+            ("strength",   strength),
+            ("tables",     tables),
+            ("waitPolicy", waitPolicy)
+        ));
+    }
+
+    private SqlNode BuildTruncate(TruncateStmt s, int start, int end) {
+        var relations = s.Relations
+            .Where(n => n.NodeCase == Node.NodeOneofCase.RangeVar)
+            .Select(n => BuildRangeVar(n.RangeVar))
+            .ToList();
+        return new SqlNode("TruncateStatement", start, end, null, BuildProps(
+            ("relations",   relations.Count > 0 ? (object?)relations : null),
+            ("restartSeqs", s.RestartSeqs ? true : null),
+            ("cascade",     s.Behavior == DropBehavior.DropCascade ? true : null)
+        ));
+    }
 
     private static SqlNode Fallback(int start, int end) =>
         new("UnknownStatement", start, end, null, null);

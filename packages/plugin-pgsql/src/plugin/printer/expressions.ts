@@ -77,14 +77,27 @@ function printFunctionCall(node: SqlNode, opts: Options, printNode: PrintFn): Do
     const args     = propArr(node, 'args');
     const star     = propBool(node, 'star');
     const distinct = propBool(node, 'distinct');
+    const aggOrder = propArr(node, 'aggOrder');
+    const filter   = prop(node, 'filter');
     const over     = prop(node, 'over');
 
     const argDocs: Doc[] = star ? [mk('*')] : args.map(printNode);
     if (distinct) argDocs.unshift(mk('DISTINCT'), ' ');
 
-    const callDoc: Doc = [mk(name), '(', join(', ', argDocs), ')'];
-    if (!over) return callDoc;
+    // ORDER BY inside the aggregate call: array_agg(x ORDER BY x)
+    let innerDoc: Doc = join(', ', argDocs);
+    if (aggOrder.length > 0) {
+        innerDoc = [innerDoc, ' ', mk('ORDER BY'), ' ', join(', ', aggOrder.map(printNode))];
+    }
 
+    let callDoc: Doc = [mk(name), '(', innerDoc, ')'];
+
+    // FILTER (WHERE ...) after the call, before OVER
+    if (filter) {
+        callDoc = [callDoc, ' ', mk('FILTER'), ' (', mk('WHERE'), ' ', printNode(filter), ')'];
+    }
+
+    if (!over) return callDoc;
     return [callDoc, ' ', mk('OVER'), ' (', printWindowDef(over, opts, printNode), ')'];
 }
 
@@ -192,26 +205,33 @@ function printRangeVar(node: SqlNode, opts: Options): Doc {
 }
 
 function printJoinExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const mk      = (kw: string) => keyword(kw, opts);
     const joinType = propStr(node, 'joinType') ?? 'INNER';
-    const lhs = prop(node, 'lhs');
-    const rhs = prop(node, 'rhs');
-    const on = prop(node, 'on');
-    const using = propArr(node, 'using');
+    const lhs     = prop(node, 'lhs');
+    const rhs     = prop(node, 'rhs');
+    const on      = prop(node, 'on');
+    const using   = propArr(node, 'using');
 
-    const joinKw = joinType === 'INNER' ? mk('JOIN') : [mk(joinType), ' ', mk('JOIN')];
-    const condition = on
-        ? [' ', mk('ON'), ' ', printNode(on)]
-        : using.length > 0
-          ? [' ', mk('USING'), ' (', join(', ', using.map(printNode)), ')']
-          : '';
+    const joinKw: Doc =
+        joinType === 'CROSS'   ? mk('CROSS JOIN')
+        : joinType === 'INNER'   ? mk('JOIN')
+        : joinType === 'NATURAL' ? mk('NATURAL JOIN')
+        : [mk(joinType), ' ', mk('JOIN')];
+
+    const condition: Doc = joinType === 'CROSS' ? ''
+        : on      ? [' ', mk('ON'), ' ', printNode(on)]
+        : using.length > 0 ? [' ', mk('USING'), ' (', join(', ', using.map(printNode)), ')']
+        : '';
 
     return [lhs ? printNode(lhs) : '', hardline, joinKw, ' ', rhs ? printNode(rhs) : '', condition];
 }
 
 function printSubquery(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const mk      = (kw: string) => keyword(kw, opts);
     const subquery = prop(node, 'subquery');
-    return ['(', indent([hardline, subquery ? printNode(subquery) : '']), hardline, ')', aliasDoc(propStr(node, 'alias'), opts)];
+    const lateral  = propBool(node, 'lateral');
+    const prefix: Doc = lateral ? [mk('LATERAL'), ' '] : '';
+    return [prefix, '(', indent([hardline, subquery ? printNode(subquery) : '']), hardline, ')', aliasDoc(propStr(node, 'alias'), opts)];
 }
 
 function printRangeFunction(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
