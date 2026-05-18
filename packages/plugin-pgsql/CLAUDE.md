@@ -14,8 +14,11 @@ SQL string
       SqlParser.Parse(sql)
         → pgsqlparser (libpg_query .NET wrapper) produces a protobuf parse tree
         → AstBuilder walks the tree, emits SqlNode JSON
+        → Parser.Scan(sql) extracts comment tokens (SqlComment, CComment)
+        → JSON: { ast: SqlNode, comments?: CommentToken[] }
   → TypeScript (Prettier plugin)
-      parser/index.ts receives SqlNode JSON
+      parser/index.ts receives JSON, calls attachComments() to attach
+        comment tokens to the nearest statement node
       printer/ dispatches on node.type → Prettier Doc
   → Formatted SQL string
 ```
@@ -171,7 +174,6 @@ npm run test:watch   # vitest watch
 
 ## What's NOT yet implemented
 
-- **Comment attachment** — libpg_query has a separate scan API; see `Parser.Scan()` in pgsqlparser
 - **XMLELEMENT / XMLFOREST / XMLTABLE / XMLAGG** — XML construction and query functions
 - **SQL/JSON functions** — `JSON_TABLE`, `JSON_QUERY`, `JSON_EXISTS`, `JSON_VALUE` (PostgreSQL 16+)
 - **Procedural / PL/pgSQL** — out of scope for now

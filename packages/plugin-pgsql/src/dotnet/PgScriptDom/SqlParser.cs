@@ -28,6 +28,39 @@ public static class SqlParser {
         var builder = new AstBuilder(sql);
         var root = builder.Build(parseResult.Value);
 
-        return JsonSerializer.Serialize(new { ast = root }, JsonOptions);
+        var comments = ExtractComments(sql);
+
+        return JsonSerializer.Serialize(
+            comments.Count > 0
+                ? new { ast = root, comments } as object
+                : new { ast = root } as object,
+            JsonOptions);
     }
+
+    private static List<CommentToken> ExtractComments(string sql) {
+        var scanResult = Parser.Scan(sql);
+        if (!scanResult.IsSuccess || scanResult.Value == null)
+            return new List<CommentToken>();
+
+        var comments = new List<CommentToken>();
+        foreach (var tok in scanResult.Value.Tokens) {
+            if (tok.Token != Token.SqlComment && tok.Token != Token.CComment)
+                continue;
+            var start = tok.Start;
+            var end   = tok.End;
+            if (start < 0 || end > sql.Length || end <= start) continue;
+            comments.Add(new CommentToken {
+                Text        = sql.Substring(start, end - start),
+                StartOffset = start,
+                EndOffset   = end,
+            });
+        }
+        return comments;
+    }
+}
+
+internal class CommentToken {
+    public string Text        { get; init; } = "";
+    public int    StartOffset { get; init; }
+    public int    EndOffset   { get; init; }
 }

@@ -11,7 +11,6 @@ import {
     softSep,
     hardSep,
     getDensity,
-    commentsBlock,
 } from './utils.js';
 import { prop, propArr, propStr, propBool, rangeVarName } from './helpers.js';
 import { printExpression, printWindowDef } from './expressions.js';
@@ -30,10 +29,11 @@ export function printScript(node: SqlNode, opts: Options): Doc {
 }
 
 function printStatementWithComments(node: SqlNode, opts: Options): Doc {
-    const leading = commentsBlock(node.leadingComments);
+    const leading = node.leadingComments;
     const body = printStatement(node, opts);
     const trailing = node.trailingComment ? [' ', node.trailingComment] : '';
-    return leading ? [leading, hardline, body, trailing] : [body, trailing];
+    if (!leading?.length) return [body, trailing];
+    return [join(hardline, leading), hardline, body, trailing];
 }
 
 // ---------------------------------------------------------------------------

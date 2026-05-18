@@ -1246,6 +1246,39 @@ select id from users where id = $1 and active = $2;
 
 ---
 
+## Comments
+
+Line comments (`--`) and block comments (`/* */`) are preserved.
+
+A comment that appears immediately before a statement becomes a **leading comment** and is printed on its own line directly above the statement, separated from the previous statement by a single blank line.
+
+```sql
+-- single leading comment
+select
+  id,
+  title
+from
+  books;
+
+-- comment before second statement
+-- multi-line comment block
+select
+  id
+from
+  orders;
+```
+
+A comment on the same line as, or after, the final token of a statement becomes an **inline trailing comment** and is printed at the end of the statement's closing line.
+
+```sql
+select
+  id
+from
+  users; -- inline trailing comment
+```
+
+---
+
 ## Semicolons
 
 Every statement ends with a semicolon. Multiple statements in a file are separated by a blank line.

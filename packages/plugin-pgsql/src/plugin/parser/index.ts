@@ -78,7 +78,7 @@ function attachComments(ast: SqlNode, comments: CommentToken[]): void {
     const statements = (ast.props?.['statements'] ?? []) as SqlNode[];
 
     for (const c of comments.sort((a, b) => a.startOffset - b.startOffset)) {
-        const target = statements.find((s) => s.startOffset >= c.endOffset);
+        const target = statements.find((s) => s.endOffset >= c.endOffset);
         if (target) {
             target.leadingComments = target.leadingComments ?? [];
             target.leadingComments.push(c.text);

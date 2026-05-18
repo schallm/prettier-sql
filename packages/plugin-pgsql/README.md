@@ -76,6 +76,7 @@ A [Prettier](https://prettier.io) plugin for PostgreSQL SQL. Parses SQL with [li
 - **LISTEN / UNLISTEN / NOTIFY** — async pub/sub with optional payload
 - **LOCK TABLE** — `LOCK TABLE t IN ACCESS EXCLUSIVE MODE [NOWAIT]`
 - **Cursors** — `DECLARE CURSOR`, `FETCH`, `MOVE`, `CLOSE`
+- **Comment preservation** — line comments (`-- ...`) and block comments (`/* ... */`) are preserved: leading comments before a statement stay before it; inline trailing comments stay on the statement's final line
 
 ### DDL (continued)
 
@@ -88,7 +89,6 @@ A [Prettier](https://prettier.io) plugin for PostgreSQL SQL. Parses SQL with [li
 
 | Feature | Notes |
 |---|---|
-| **Comment attachment** | Preserving SQL comments adjacent to statements |
 | **XMLELEMENT / XMLFOREST / XMLTABLE / XMLAGG** | XML construction and query functions |
 | **SQL/JSON functions** | `JSON_TABLE`, `JSON_QUERY`, `JSON_EXISTS`, `JSON_VALUE` (PostgreSQL 16+) |
 | **PL/pgSQL** | Full procedural language (IF/ELSIF, LOOP, RETURN, EXCEPTION, DECLARE) — out of scope for a SQL formatter |
