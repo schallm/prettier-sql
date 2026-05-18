@@ -9,6 +9,53 @@ returning
 "
 `;
 
+exports[`fixtures > dml/cte-dml.sql 1`] = `
+"with
+  moved as (
+    delete from orders
+    where status = 'cancelled'
+    returning
+      id,
+      customer_id,
+      amount
+  )
+insert into archived_orders (id, customer_id, amount)
+select
+  id,
+  customer_id,
+  amount
+from
+  moved;
+
+delete from sessions
+where (
+  select
+    id
+  from
+    updated
+);
+"
+`;
+
+exports[`fixtures > dml/truncate.sql 1`] = `
+"truncate table sessions;
+
+truncate table sessions, temp_orders restart identity cascade;
+"
+`;
+
+exports[`fixtures > insert/default-values.sql 1`] = `
+"insert into logs
+default values;
+
+insert into logs
+default values
+returning
+  id,
+  created_at;
+"
+`;
+
 exports[`fixtures > insert/on_conflict.sql 1`] = `
 "insert into users (id, email)
 values (1, 'alice@example.com')
@@ -49,6 +96,26 @@ values
 "
 `;
 
+exports[`fixtures > select/aggregate-filter.sql 1`] = `
+"select
+  author_id,
+  count(*) filter (where in_stock = 1) as in_stock_count,
+  count(*) filter (where in_stock = 0) as out_of_stock_count
+from
+  books
+group by
+  author_id;
+
+select
+  author_id,
+  string_agg(title, ', ' order by title) as titles
+from
+  books
+group by
+  author_id;
+"
+`;
+
 exports[`fixtures > select/basic.sql 1`] = `
 "select
   id,
@@ -69,6 +136,43 @@ from
   books as b
   join authors as a on b.author_id = a.id
 where b.price < 50;
+"
+`;
+
+exports[`fixtures > select/distinct-on.sql 1`] = `
+"select distinct on (author_id)
+  id,
+  author_id,
+  title
+from
+  books
+order by
+  author_id,
+  price asc;
+"
+`;
+
+exports[`fixtures > select/for-update.sql 1`] = `
+"select
+  id,
+  title
+from
+  books
+where id = 1
+for update;
+
+select
+  id,
+  title
+from
+  books
+for share skip locked;
+
+select
+  id
+from
+  orders
+for no key update of orders nowait;
 "
 `;
 
@@ -102,6 +206,22 @@ select
 from
   books
 where price not between 10 and 50;
+"
+`;
+
+exports[`fixtures > select/lateral.sql 1`] = `
+"select
+  b.id,
+  r.avg_price
+from
+  books as b,
+  lateral (
+    select
+      avg(price) as avg_price
+    from
+      books
+    where author_id = b.author_id
+  ) as r;
 "
 `;
 
