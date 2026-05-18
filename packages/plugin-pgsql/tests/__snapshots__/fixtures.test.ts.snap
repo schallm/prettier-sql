@@ -1,0 +1,21 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`fixtures > select/basic.sql 1`] = `
+"select
+  id,
+  title,
+  price
+from books
+where in_stock = true
+order by price asc;
+
+select
+  b.id,
+  b.title,
+  a.first_name,
+  a.last_name
+from books as b
+join authors as a on b.author_id = a.id
+where b.price < 50;
+"
+`;
