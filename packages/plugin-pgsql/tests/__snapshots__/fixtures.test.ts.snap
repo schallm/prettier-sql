@@ -1,5 +1,17 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`fixtures > ddl/column-types.sql 1`] = `
+"create table products (
+  name varchar(100),
+  description text,
+  price numeric(10, 2),
+  quantity int4,
+  tags text[],
+  created_at timestamptz
+);
+"
+`;
+
 exports[`fixtures > delete/returning.sql 1`] = `
 "delete from sessions
 where expires_at < now()
@@ -93,6 +105,59 @@ values
   ('Widget', 9.99, 'tools'),
   ('Gadget', 19.99, 'electronics'),
   ('Doohickey', 4.99, 'misc');
+"
+`;
+
+exports[`fixtures > select/advanced.sql 1`] = `
+"select
+  interval '1 day',
+  interval '2 hours 30 minutes'
+from
+  t;
+
+select
+  price::numeric,
+  name::text,
+  '2024-01-01'::date
+from
+  t;
+
+select
+  arr[1],
+  arr[2:4],
+  arr[:3],
+  arr[1:]
+from
+  t;
+
+select
+  make_date(year => 2024, month => 1, day => 15);
+
+select
+  dept,
+  sum(salary)
+from
+  emp
+group by
+  rollup(dept);
+
+select
+  dept,
+  job,
+  sum(salary)
+from
+  emp
+group by
+  cube(dept, job);
+
+select
+  dept,
+  job,
+  sum(salary)
+from
+  emp
+group by
+  grouping sets((dept, job), (dept), ());
 "
 `;
 
@@ -434,7 +499,7 @@ from
 exports[`fixtures > update/returning.sql 1`] = `
 "update users
 set active = false
-where last_login < now() - cast('1 year' as interval)
+where last_login < now() - interval '1 year'
 returning
   id,
   email;
