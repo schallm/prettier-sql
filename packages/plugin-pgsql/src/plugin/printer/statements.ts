@@ -14,7 +14,7 @@ import {
     commentsBlock,
 } from './utils.js';
 import { prop, propArr, propStr, propBool, rangeVarName } from './helpers.js';
-import { printExpression } from './expressions.js';
+import { printExpression, printWindowDef } from './expressions.js';
 
 type PrintFn = (node: SqlNode) => Doc;
 
@@ -56,6 +56,23 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'DropStatement':          return printDrop(node, opts);
         case 'TruncateStatement':      return printTruncate(node, opts);
         case 'TransactionStatement':   return printTransaction(node, opts);
+        case 'VariableSetStatement':   return printVariableSet(node, opts);
+        case 'VariableShowStatement':  return printVariableShow(node, opts);
+        case 'GrantStatement':         return printGrant(node, opts);
+        case 'RevokeStatement':        return printRevoke(node, opts);
+        case 'CreateRoleStatement':    return printCreateRole(node, opts);
+        case 'AlterRoleStatement':     return printAlterRole(node, opts);
+        case 'RenameStatement':        return printRename(node, opts);
+        case 'CreateTypeStatement':    return printCreateType(node, opts);
+        case 'AlterTypeStatement':     return printAlterType(node, opts);
+        case 'CreateSequenceStatement': return printCreateSequence(node, opts);
+        case 'AlterSequenceStatement': return printAlterSequence(node, opts);
+        case 'CreateSchemaStatement':  return printCreateSchema(node, opts);
+        case 'CreateExtensionStatement': return printCreateExtension(node, opts);
+        case 'CreateTableAsStatement': return printCreateTableAs(node, opts);
+        case 'CreateMatViewStatement': return printCreateMatView(node, opts);
+        case 'CreateTriggerStatement': return printCreateTrigger(node, opts);
+        case 'CommentStatement':       return printComment(node, opts);
         case 'CallStatement':          return printCall(node, opts);
         case 'DoStatement':            return printDo(node, opts);
         case 'MergeStatement':         return printMerge(node, opts);
@@ -179,6 +196,17 @@ function printSelectBody(node: SqlNode, opts: Options): Doc {
             : '';
         const waitPart: Doc = waitPolicy ? [' ', mk(waitPolicy)] : '';
         parts.push([mk(strength), ofPart, waitPart]);
+    }
+
+    // Named WINDOW clauses: WINDOW w AS (PARTITION BY ... ORDER BY ...)
+    const windowClauses = propArr(node, 'windowClauses');
+    if (windowClauses.length > 0) {
+        const wDocs = windowClauses.map((w) => {
+            const wName = propStr(w, 'name') ?? '';
+            const wSpec = printWindowDef(w, opts, printNode);
+            return [wName, ' ', mk('AS'), ' (', wSpec, ')'];
+        });
+        parts.push([mk('WINDOW'), indent([hardline, join(hardSep(opts), wDocs)])]);
     }
 
     return group(join(hardline, parts));
@@ -525,6 +553,311 @@ function printDrop(node: SqlNode, opts: Options): Doc {
         cascade  ? [' ', mk('CASCADE')]   : '',
         ';',
     ];
+}
+
+// ---------------------------------------------------------------------------
+// SET / SHOW / RESET
+// ---------------------------------------------------------------------------
+
+function printVariableSet(node: SqlNode, opts: Options): Doc {
+    const mk     = (k: string) => keyword(k, opts);
+    const kind   = propStr(node, 'kind') ?? 'SET';
+    const name   = propStr(node, 'name') ?? '';
+    const values = (node.props?.['values'] as string[] | undefined) ?? [];
+    const local  = propBool(node, 'local');
+
+    if (kind === 'RESET ALL') return [mk('RESET ALL'), ';'];
+    if (kind === 'RESET')     return [[mk('RESET'), ' ', name], ';'];
+
+    const localKw: Doc = local ? [mk('LOCAL'), ' '] : '';
+
+    if (kind === 'SET DEFAULT') {
+        return [[mk('SET'), ' ', localKw, name, ' ', mk('TO'), ' ', mk('DEFAULT')], ';'];
+    }
+
+    // SET name = value(s)
+    const valDocs: Doc[] = values.map((v) => {
+        // bare identifiers vs quoted strings — emit unquoted (they were stored as identifier strings)
+        return v;
+    });
+    return [[mk('SET'), ' ', localKw, name, ' = ', join(', ', valDocs)], ';'];
+}
+
+function printVariableShow(node: SqlNode, opts: Options): Doc {
+    const mk   = (k: string) => keyword(k, opts);
+    const name = propStr(node, 'name') ?? '';
+    return [[mk('SHOW'), ' ', name], ';'];
+}
+
+// ---------------------------------------------------------------------------
+// GRANT / REVOKE
+// ---------------------------------------------------------------------------
+
+function printGrantRevoke(node: SqlNode, opts: Options, isGrant: boolean): Doc {
+    const mk      = (k: string) => keyword(k, opts);
+    const printNode = pn(opts);
+    const privs   = (node.props?.['privs'] as string[] | undefined) ?? [];
+    const objtype = propStr(node, 'objtype') ?? '';
+    const objects = propArr(node, 'objects');
+    const grantees = (node.props?.['grantees'] as string[] | undefined) ?? [];
+    const grantOption = propBool(node, 'grantOption');
+    const cascade    = propBool(node, 'cascade');
+
+    const privsDoc: Doc = privs.length > 0 ? join(', ', privs.map(mk)) : mk('ALL PRIVILEGES');
+    const verb: Doc = isGrant ? mk('GRANT') : mk('REVOKE');
+    const toFrom: Doc = isGrant ? mk('TO') : mk('FROM');
+
+    const objectsDoc: Doc = objects.length > 0
+        ? join(', ', objects.map(printNode))
+        : '';
+
+    const parts: Doc[] = [
+        [verb, ' ', privsDoc, ' ', mk('ON'), ' ', mk(objtype), objectsDoc ? [' ', objectsDoc] : ''],
+        [toFrom, ' ', join(', ', grantees)],
+    ];
+
+    if (isGrant && grantOption) parts.push(mk('WITH GRANT OPTION'));
+    if (!isGrant && cascade)    parts.push(mk('CASCADE'));
+
+    return [join(hardline, parts), ';'];
+}
+
+function printGrant(node: SqlNode, opts: Options): Doc {
+    return printGrantRevoke(node, opts, true);
+}
+
+function printRevoke(node: SqlNode, opts: Options): Doc {
+    return printGrantRevoke(node, opts, false);
+}
+
+// ---------------------------------------------------------------------------
+// CREATE / ALTER ROLE
+// ---------------------------------------------------------------------------
+
+function printCreateRole(node: SqlNode, opts: Options): Doc {
+    const mk      = (k: string) => keyword(k, opts);
+    const stmtType = propStr(node, 'stmtType') ?? 'ROLE';
+    const name    = propStr(node, 'name') ?? '';
+    const options = (node.props?.['options'] as string[] | undefined) ?? [];
+
+    const parts: Doc[] = [[mk(`CREATE ${stmtType}`), ' ', name]];
+    if (options.length > 0) parts.push(join(' ', options.map(mk)));
+    return [join(hardline, parts), ';'];
+}
+
+function printAlterRole(node: SqlNode, opts: Options): Doc {
+    const mk      = (k: string) => keyword(k, opts);
+    const name    = propStr(node, 'name') ?? '';
+    const options = (node.props?.['options'] as string[] | undefined) ?? [];
+
+    const parts: Doc[] = [[mk('ALTER ROLE'), ' ', name]];
+    if (options.length > 0) parts.push(join(' ', options.map(mk)));
+    return [join(hardline, parts), ';'];
+}
+
+// ---------------------------------------------------------------------------
+// RENAME (ALTER TABLE ... RENAME / ALTER INDEX ... RENAME / etc.)
+// ---------------------------------------------------------------------------
+
+function printRename(node: SqlNode, opts: Options): Doc {
+    const mk         = (k: string) => keyword(k, opts);
+    const renameType = propStr(node, 'renameType') ?? 'RENAME TABLE';
+    const relation   = prop(node, 'relation');
+    const oldName    = propStr(node, 'oldName');
+    const newName    = propStr(node, 'newName') ?? '';
+
+    if (renameType === 'RENAME TABLE') {
+        return [[mk('ALTER TABLE'), ' ', rangeVarName(relation), ' ', mk('RENAME TO'), ' ', newName], ';'];
+    }
+    if (renameType === 'RENAME COLUMN') {
+        return [[mk('ALTER TABLE'), ' ', rangeVarName(relation), ' ', mk('RENAME COLUMN'), ' ', oldName ?? '', ' ', mk('TO'), ' ', newName], ';'];
+    }
+    // INDEX, SCHEMA, VIEW, SEQUENCE, TYPE ...
+    const objKw = renameType.replace('RENAME ', '');
+    return [[mk(`ALTER ${objKw}`), ' ', rangeVarName(relation) ?? oldName ?? '', ' ', mk('RENAME TO'), ' ', newName], ';'];
+}
+
+// ---------------------------------------------------------------------------
+// CREATE TYPE / ALTER TYPE
+// ---------------------------------------------------------------------------
+
+function printCreateType(node: SqlNode, opts: Options): Doc {
+    const mk      = (k: string) => keyword(k, opts);
+    const printNode = pn(opts);
+    const kind     = propStr(node, 'kind') ?? 'COMPOSITE';
+    const typeName = propStr(node, 'typeName') ?? '';
+    const columns  = propArr(node, 'columns');
+    const values   = (node.props?.['values'] as string[] | undefined) ?? [];
+
+    if (kind === 'ENUM') {
+        const valList: Doc = values.length > 0
+            ? ['(', indent([hardline, join([',', hardline], values.map((v) => `'${v}'`))]), hardline, ')']
+            : '()';
+        return [[mk('CREATE TYPE'), ' ', typeName, ' ', mk('AS ENUM'), ' ', valList], ';'];
+    }
+
+    // COMPOSITE
+    return [
+        mk('CREATE TYPE'), ' ', typeName, ' ', mk('AS'), ' (',
+        indent([hardline, join([',', hardline], columns.map(printNode))]),
+        hardline, ');',
+    ];
+}
+
+function printAlterType(node: SqlNode, opts: Options): Doc {
+    const mk          = (k: string) => keyword(k, opts);
+    const typeName    = propStr(node, 'typeName') ?? '';
+    const newVal      = propStr(node, 'newVal') ?? '';
+    const neighbor    = propStr(node, 'neighbor');
+    const isAfter     = propBool(node, 'isAfter');
+    const ifNotExists = propBool(node, 'ifNotExists');
+
+    const ifNE: Doc = ifNotExists ? [mk('IF NOT EXISTS'), ' '] : '';
+    const placement: Doc = neighbor
+        ? [' ', isAfter ? mk('AFTER') : mk('BEFORE'), ' ', `'${neighbor}'`]
+        : '';
+
+    return [[mk('ALTER TYPE'), ' ', typeName, ' ', mk('ADD VALUE'), ' ', ifNE, `'${newVal}'`, placement], ';'];
+}
+
+// ---------------------------------------------------------------------------
+// CREATE / ALTER SEQUENCE
+// ---------------------------------------------------------------------------
+
+function printCreateSequence(node: SqlNode, opts: Options): Doc {
+    const mk          = (k: string) => keyword(k, opts);
+    const schema      = propStr(node, 'schema');
+    const name        = propStr(node, 'name') ?? '';
+    const ifNotExists = propBool(node, 'ifNotExists');
+    const options     = (node.props?.['options'] as string[] | undefined) ?? [];
+
+    const qname = schema ? `${schema}.${name}` : name;
+    const ifNE: Doc = ifNotExists ? [mk('IF NOT EXISTS'), ' '] : '';
+    const parts: Doc[] = [[mk('CREATE SEQUENCE'), ' ', ifNE, qname]];
+    for (const opt of options) parts.push(mk(opt));
+    return [join(hardline, parts), ';'];
+}
+
+function printAlterSequence(node: SqlNode, opts: Options): Doc {
+    const mk      = (k: string) => keyword(k, opts);
+    const schema  = propStr(node, 'schema');
+    const name    = propStr(node, 'name') ?? '';
+    const options = (node.props?.['options'] as string[] | undefined) ?? [];
+
+    const qname = schema ? `${schema}.${name}` : name;
+    const parts: Doc[] = [[mk('ALTER SEQUENCE'), ' ', qname]];
+    for (const opt of options) parts.push(mk(opt));
+    return [join(hardline, parts), ';'];
+}
+
+// ---------------------------------------------------------------------------
+// CREATE SCHEMA
+// ---------------------------------------------------------------------------
+
+function printCreateSchema(node: SqlNode, opts: Options): Doc {
+    const mk          = (k: string) => keyword(k, opts);
+    const name        = propStr(node, 'name') ?? '';
+    const authRole    = propStr(node, 'authRole');
+    const ifNotExists = propBool(node, 'ifNotExists');
+
+    const ifNE: Doc   = ifNotExists ? [mk('IF NOT EXISTS'), ' '] : '';
+    const authDoc: Doc = authRole ? [' ', mk('AUTHORIZATION'), ' ', authRole] : '';
+    return [[mk('CREATE SCHEMA'), ' ', ifNE, name, authDoc], ';'];
+}
+
+// ---------------------------------------------------------------------------
+// CREATE EXTENSION
+// ---------------------------------------------------------------------------
+
+function printCreateExtension(node: SqlNode, opts: Options): Doc {
+    const mk          = (k: string) => keyword(k, opts);
+    const name        = propStr(node, 'name') ?? '';
+    const ifNotExists = propBool(node, 'ifNotExists');
+    const schema      = propStr(node, 'schema');
+    const version     = propStr(node, 'version');
+
+    const ifNE: Doc     = ifNotExists ? [mk('IF NOT EXISTS'), ' '] : '';
+    const schemaDoc: Doc = schema  ? [hardline, mk('SCHEMA'), ' ', schema]  : '';
+    const versionDoc: Doc = version ? [hardline, mk('VERSION'), ' ', `'${version}'`] : '';
+    return [[mk('CREATE EXTENSION'), ' ', ifNE, `"${name}"`, schemaDoc, versionDoc], ';'];
+}
+
+// ---------------------------------------------------------------------------
+// CREATE TABLE AS / CREATE MATERIALIZED VIEW
+// ---------------------------------------------------------------------------
+
+function printCreateTableAs(node: SqlNode, opts: Options): Doc {
+    const mk          = (k: string) => keyword(k, opts);
+    const schema      = propStr(node, 'schema');
+    const name        = propStr(node, 'name') ?? '';
+    const ifNotExists = propBool(node, 'ifNotExists');
+    const query       = prop(node, 'query');
+
+    const qname = schema ? `${schema}.${name}` : name;
+    const ifNE: Doc = ifNotExists ? [mk('IF NOT EXISTS'), ' '] : '';
+    return [
+        mk('CREATE TABLE'), ' ', ifNE, qname, ' ', mk('AS'),
+        hardline, query ? printQueryExpr(query, opts) : '',
+        ';',
+    ];
+}
+
+function printCreateMatView(node: SqlNode, opts: Options): Doc {
+    const mk          = (k: string) => keyword(k, opts);
+    const schema      = propStr(node, 'schema');
+    const name        = propStr(node, 'name') ?? '';
+    const ifNotExists = propBool(node, 'ifNotExists');
+    const query       = prop(node, 'query');
+
+    const qname = schema ? `${schema}.${name}` : name;
+    const ifNE: Doc = ifNotExists ? [mk('IF NOT EXISTS'), ' '] : '';
+    return [
+        mk('CREATE MATERIALIZED VIEW'), ' ', ifNE, qname, ' ', mk('AS'),
+        hardline, query ? printQueryExpr(query, opts) : '',
+        ';',
+    ];
+}
+
+// ---------------------------------------------------------------------------
+// CREATE TRIGGER
+// ---------------------------------------------------------------------------
+
+function printCreateTrigger(node: SqlNode, opts: Options): Doc {
+    const mk       = (k: string) => keyword(k, opts);
+    const printNode = pn(opts);
+    const name     = propStr(node, 'name') ?? '';
+    const timing   = propStr(node, 'timing') ?? 'AFTER';
+    const events   = (node.props?.['events'] as string[] | undefined) ?? [];
+    const relation = prop(node, 'relation');
+    const forEach  = propStr(node, 'forEach') ?? 'ROW';
+    const funcName = propStr(node, 'funcName') ?? '';
+    const when     = prop(node, 'when');
+
+    const eventDoc: Doc = join([' ', mk('OR'), ' '], events.map(mk));
+    const whenDoc: Doc  = when ? [hardline, mk('WHEN'), ' (', printNode(when), ')'] : '';
+
+    return [
+        mk('CREATE TRIGGER'), ' ', name,
+        hardline, mk(timing), ' ', eventDoc, ' ', mk('ON'), ' ', rangeVarName(relation),
+        hardline, mk(`FOR EACH ${forEach}`),
+        whenDoc,
+        hardline, mk('EXECUTE FUNCTION'), ' ', funcName, '()',
+        ';',
+    ];
+}
+
+// ---------------------------------------------------------------------------
+// COMMENT ON
+// ---------------------------------------------------------------------------
+
+function printComment(node: SqlNode, opts: Options): Doc {
+    const mk      = (k: string) => keyword(k, opts);
+    const objtype = propStr(node, 'objtype') ?? '';
+    const object  = propStr(node, 'object') ?? '';
+    const comment = propStr(node, 'comment');
+
+    const commentVal: Doc = comment != null ? `'${comment.replace(/'/g, "''")}'` : mk('NULL');
+    return [[mk('COMMENT ON'), ' ', mk(objtype), ' ', object, ' ', mk('IS'), ' ', commentVal], ';'];
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,27 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`fixtures > ddl/alter-table-extended.sql 1`] = `
+"alter table users rename column email to email_address;
+
+alter table users rename to customers;
+
+alter table products
+  alter column price type numeric(12, 4);
+
+alter table users
+  alter column active set default true;
+
+alter table users
+  alter column active drop default;
+
+alter table orders
+  alter column status set not null;
+
+alter table orders
+  alter column notes drop not null;
+"
+`;
+
 exports[`fixtures > ddl/column-constraints.sql 1`] = `
 "create table orders (
   id integer primary key,
@@ -61,6 +83,19 @@ exports[`fixtures > ddl/column-types.sql 1`] = `
 "
 `;
 
+exports[`fixtures > ddl/comments.sql 1`] = `
+"comment on table books is 'Book catalog';
+
+comment on column books.title is 'The book''s title';
+
+comment on schema public is 'Public schema';
+
+comment on function get_count is 'Returns count for given id';
+
+comment on table temp_data is null;
+"
+`;
+
 exports[`fixtures > ddl/create-function.sql 1`] = `
 "create function get_book_count(p_author_id integer)
 returns bigint
@@ -75,6 +110,136 @@ language sql
 as $$
   select first_name || ' ' || last_name
 $$;
+"
+`;
+
+exports[`fixtures > ddl/create-table-as.sql 1`] = `
+"create table archived_orders as
+select
+  id,
+  customer_id,
+  amount
+from
+  orders
+where status = 'cancelled';
+
+create materialized view mv_active_users as
+select
+  id,
+  name,
+  email
+from
+  users
+where active = true;
+"
+`;
+
+exports[`fixtures > ddl/grant-revoke.sql 1`] = `
+"grant select, insert on table books
+to alice;
+
+grant all privileges on table orders
+to bob;
+
+grant usage on schema myschema
+to alice;
+
+grant select on all tables in schema public
+to alice;
+
+grant execute on function get_count
+to PUBLIC;
+
+revoke select on table books
+from alice;
+
+revoke all privileges on table orders
+from bob
+cascade;
+
+grant select on table books
+to alice
+with grant option;
+"
+`;
+
+exports[`fixtures > ddl/roles.sql 1`] = `
+"create role alice
+login password 'secret' nosuperuser;
+
+create user bob
+nosuperuser nologin;
+
+alter role alice
+createdb;
+
+alter role bob
+connection limit 10;
+"
+`;
+
+exports[`fixtures > ddl/schema-extension.sql 1`] = `
+"create schema myschema;
+
+create schema if not exists reporting;
+
+create schema myschema authorization alice;
+
+create extension "uuid-ossp";
+
+create extension if not exists "pgcrypto";
+"
+`;
+
+exports[`fixtures > ddl/sequences.sql 1`] = `
+"create sequence order_seq
+start with 1000
+increment by 1
+no maxvalue
+no cycle;
+
+create sequence event_seq;
+
+alter sequence order_seq
+restart with 1
+increment by 5;
+"
+`;
+
+exports[`fixtures > ddl/triggers.sql 1`] = `
+"create trigger check_before_insert
+before insert on accounts
+for each row
+execute function check_account_insert();
+
+create trigger log_update
+after update on accounts
+for each statement
+execute function log_account_change();
+
+create trigger validate_order
+before insert or update on orders
+for each row
+execute function validate_order_data();
+"
+`;
+
+exports[`fixtures > ddl/types.sql 1`] = `
+"create type address as (
+  street text,
+  city varchar(100),
+  zip varchar(10)
+);
+
+create type mood as enum (
+  'sad',
+  'ok',
+  'happy'
+);
+
+alter type mood add value 'excited' after 'happy';
+
+alter type mood add value if not exists 'meh' before 'ok';
 "
 `;
 
@@ -174,6 +339,25 @@ when not matched then
   values (nr.id, nr.name)
 when not matched by source then
   delete;
+"
+`;
+
+exports[`fixtures > dml/set-show.sql 1`] = `
+"set search_path = public, myschema;
+
+set work_mem = 64MB;
+
+set local client_encoding = UTF8;
+
+set work_mem to default;
+
+reset search_path;
+
+reset all;
+
+show work_mem;
+
+show all;
 "
 `;
 
@@ -578,6 +762,33 @@ select
 from
   users
 where email NOT ILIKE '%@example.com';
+"
+`;
+
+exports[`fixtures > select/named-window.sql 1`] = `
+"select
+  id,
+  author_id,
+  price,
+  sum(price) over w as running_total,
+  row_number() over w as rn
+from
+  books
+window
+  w as (partition by author_id order by price);
+
+select
+  id,
+  dept,
+  salary,
+  row_number() over w1 as dept_rank,
+  sum(salary) over w2 as dept_total,
+  avg(salary) over (partition by dept) as dept_avg
+from
+  employees
+window
+  w1 as (partition by dept order by salary desc),
+  w2 as (partition by dept);
 "
 `;
 

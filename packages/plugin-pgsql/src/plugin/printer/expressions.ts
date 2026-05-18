@@ -121,6 +121,8 @@ function printFunctionCall(node: SqlNode, opts: Options, printNode: PrintFn): Do
     }
 
     if (!over) return callDoc;
+    // Named window reference: OVER w (no inline spec)
+    if (over.type === 'WindowRef') return [callDoc, ' ', mk('OVER'), ' ', over.text ?? ''];
     return [callDoc, ' ', mk('OVER'), ' (', printWindowDef(over, opts, printNode), ')'];
 }
 
@@ -187,7 +189,7 @@ function printOverlayForm(args: SqlNode[], opts: Options, printNode: PrintFn): D
     return doc;
 }
 
-function printWindowDef(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+export function printWindowDef(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const mk          = (kw: string) => keyword(kw, opts);
     const partitionBy = propArr(node, 'partitionBy');
     const orderBy     = propArr(node, 'orderBy');
@@ -422,11 +424,35 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
     }
 }
 
-function printAlterCmd(node: SqlNode, opts: Options, _printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+function printAlterCmd(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const mk      = (kw: string) => keyword(kw, opts);
     const subtype = propStr(node, 'subtype') ?? '';
-    const name = propStr(node, 'name') ?? '';
-    return [mk(subtype.replace(/_/g, ' ')), ' ', name];
+    const name    = propStr(node, 'name') ?? '';
+    const newType = propStr(node, 'newType');
+    const expr    = prop(node, 'expr');
+    const def     = prop(node, 'def');
+    const ifExists: Doc = propBool(node, 'ifExists') ? [mk('IF EXISTS'), ' '] : '';
+
+    switch (subtype) {
+        case 'ADD COLUMN':
+            return [mk('ADD COLUMN'), ' ', ifExists, def ? printNode(def) : name];
+        case 'DROP COLUMN':
+            return [mk('DROP COLUMN'), ' ', ifExists, name];
+        case 'ADD CONSTRAINT':
+            return [mk('ADD'), ' ', def ? printNode(def) : name];
+        case 'ALTER COLUMN TYPE':
+            return [mk('ALTER COLUMN'), ' ', name, ' ', mk('TYPE'), ' ', newType ? mk(newType) : ''];
+        case 'SET DEFAULT':
+            return [mk('ALTER COLUMN'), ' ', name, ' ', mk('SET DEFAULT'), ' ', expr ? printNode(expr) : ''];
+        case 'DROP DEFAULT':
+            return [mk('ALTER COLUMN'), ' ', name, ' ', mk('DROP DEFAULT')];
+        case 'SET NOT NULL':
+            return [mk('ALTER COLUMN'), ' ', name, ' ', mk('SET NOT NULL')];
+        case 'DROP NOT NULL':
+            return [mk('ALTER COLUMN'), ' ', name, ' ', mk('DROP NOT NULL')];
+        default:
+            return [mk(subtype), name ? [' ', name] : ''];
+    }
 }
 
 function printFunctionParam(node: SqlNode, opts: Options): Doc {
