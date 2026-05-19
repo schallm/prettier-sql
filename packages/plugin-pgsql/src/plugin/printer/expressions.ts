@@ -116,10 +116,10 @@ function printFunctionCall(node: SqlNode, opts: Options, printNode: PrintFn): Do
     const name = rawName.startsWith('pg_catalog.') ? rawName.slice('pg_catalog.'.length) : rawName;
 
     const argDocs: Doc[] = star ? [mk('*')] : args.map(printNode);
-    if (distinct) argDocs.unshift(mk('DISTINCT'), ' ');
+    const distinctPrefix: Doc = distinct ? [mk('DISTINCT'), ' '] : '';
 
     // ORDER BY inside the aggregate call: array_agg(x ORDER BY x)
-    let innerDoc: Doc = join(', ', argDocs);
+    let innerDoc: Doc = [distinctPrefix, join(', ', argDocs)];
     if (aggOrder.length > 0) {
         innerDoc = [innerDoc, ' ', mk('ORDER BY'), ' ', join(', ', aggOrder.map(printNode))];
     }
@@ -308,7 +308,7 @@ function printJoinExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const lhs     = prop(node, 'lhs');
     const rhs     = prop(node, 'rhs');
     const on      = prop(node, 'on');
-    const using   = propArr(node, 'using');
+    const using   = (node.props?.['using'] as string[] | undefined) ?? [];
 
     const joinKw: Doc =
         joinType === 'CROSS'   ? mk('CROSS JOIN')
@@ -318,7 +318,7 @@ function printJoinExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 
     const condition: Doc = joinType === 'CROSS' ? ''
         : on      ? [' ', mk('ON'), ' ', printNode(on)]
-        : using.length > 0 ? [' ', mk('USING'), ' (', join(', ', using.map(printNode)), ')']
+        : using.length > 0 ? [' ', mk('USING'), ' (', join(', ', using), ')']
         : '';
 
     return [lhs ? printNode(lhs) : '', hardline, joinKw, ' ', rhs ? printNode(rhs) : '', condition];
@@ -471,7 +471,7 @@ function printFunctionParam(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name') ?? '';
     const typeName = propStr(node, 'typeName') ?? '';
     const mode = propStr(node, 'mode');
-    const modePrefix = mode && mode !== 'FuncParamDefault' ? [mk(mode), ' '] : '';
+    const modePrefix = mode ? [mk(mode), ' '] : '';
     return [modePrefix, name ? [name, ' '] : '', mk(typeName)];
 }
 

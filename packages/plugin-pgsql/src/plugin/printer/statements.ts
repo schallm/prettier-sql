@@ -109,6 +109,8 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'CreateOperatorStatement':        return printCreateOperator(node, opts);
         case 'CreateCollationStatement':       return printCreateCollation(node, opts);
         case 'SecurityLabelStatement':         return printSecurityLabel(node, opts);
+        case 'AlterOwnerStatement':            return printAlterOwner(node, opts);
+        case 'AlterObjectSchemaStatement':     return printAlterObjectSchema(node, opts);
         default: return node.text ?? node.type;
     }
 }
@@ -547,20 +549,25 @@ function printCreateView(node: SqlNode, opts: Options): Doc {
 }
 
 function printCreateFunction(node: SqlNode, opts: Options): Doc {
-    const mk         = (k: string) => keyword(k, opts);
-    const printNode  = pn(opts);
-    const name       = propStr(node, 'name') ?? '';
-    const parameters = propArr(node, 'parameters');
-    const returnType = propStr(node, 'returnType');
-    const language   = propStr(node, 'language');
-    const body       = propStr(node, 'body');
+    const mk           = (k: string) => keyword(k, opts);
+    const printNode    = pn(opts);
+    const name         = propStr(node, 'name') ?? '';
+    const parameters   = propArr(node, 'parameters');
+    const returnType   = propStr(node, 'returnType');
+    const returnsTable = propArr(node, 'returnsTable');
+    const language     = propStr(node, 'language');
+    const body         = propStr(node, 'body');
 
     const parts: Doc[] = [
         mk('CREATE FUNCTION'), ' ', name,
         '(', join(', ', parameters.map(printNode)), ')',
     ];
 
-    if (returnType) parts.push(hardline, mk('RETURNS'), ' ', mk(returnType));
+    if (returnsTable.length > 0) {
+        parts.push(hardline, mk('RETURNS TABLE'), ' (', join(', ', returnsTable.map(printNode)), ')');
+    } else if (returnType) {
+        parts.push(hardline, mk('RETURNS'), ' ', mk(returnType));
+    }
     if (language)   parts.push(hardline, mk('LANGUAGE'), ' ', language);
     if (body != null) {
         parts.push(hardline, mk('AS'), ' ', '$$', body, '$$');
@@ -612,12 +619,14 @@ function printTruncate(node: SqlNode, opts: Options): Doc {
 function printDrop(node: SqlNode, opts: Options): Doc {
     const mk         = (k: string) => keyword(k, opts);
     const objectType = propStr(node, 'objectType') ?? '';
+    const names      = (node.props?.['names'] as string[] | undefined) ?? [];
     const ifExists   = propBool(node, 'ifExists');
     const cascade    = propBool(node, 'cascade');
 
     return [
-        mk('DROP'), ' ', objectType,
+        mk('DROP'), ' ', mk(objectType),
         ifExists ? [' ', mk('IF EXISTS')] : '',
+        names.length > 0 ? [' ', join(', ', names)] : '',
         cascade  ? [' ', mk('CASCADE')]   : '',
         ';',
     ];
@@ -644,9 +653,11 @@ function printVariableSet(node: SqlNode, opts: Options): Doc {
     }
 
     // SET name = value(s)
+    // - Starts with digit or contains special chars: must be quoted
+    // - Otherwise: lowercase (PostgreSQL normalizes unquoted identifiers)
     const valDocs: Doc[] = values.map((v) => {
-        // bare identifiers vs quoted strings — emit unquoted (they were stored as identifier strings)
-        return v;
+        if (/^[0-9]/.test(v) || /[^a-zA-Z0-9_$]/.test(v)) return `'${v.replace(/'/g, "''")}'`;
+        return v.toLowerCase();
     });
     return [[mk('SET'), ' ', localKw, name, ' = ', join(', ', valDocs)], ';'];
 }
@@ -731,6 +742,7 @@ function printRename(node: SqlNode, opts: Options): Doc {
     const mk         = (k: string) => keyword(k, opts);
     const renameType = propStr(node, 'renameType') ?? 'RENAME TABLE';
     const relation   = prop(node, 'relation');
+    const objName    = propStr(node, 'objName');
     const oldName    = propStr(node, 'oldName');
     const newName    = propStr(node, 'newName') ?? '';
 
@@ -740,9 +752,16 @@ function printRename(node: SqlNode, opts: Options): Doc {
     if (renameType === 'RENAME COLUMN') {
         return [[mk('ALTER TABLE'), ' ', rangeVarName(relation), ' ', mk('RENAME COLUMN'), ' ', oldName ?? '', ' ', mk('TO'), ' ', newName], ';'];
     }
-    // INDEX, SCHEMA, VIEW, SEQUENCE, TYPE ...
+    // FUNCTION, PROCEDURE — use objName + arg types
+    if (renameType === 'RENAME FUNCTION' || renameType === 'RENAME PROCEDURE') {
+        const objKw    = renameType.replace('RENAME ', '');
+        const argTypes = (node.props?.['objArgTypes'] as string[] | undefined) ?? [];
+        const argList: Doc = argTypes.length > 0 ? ['(', join(', ', argTypes.map((t) => mk(t))), ')'] : '()';
+        return [[mk(`ALTER ${objKw}`), ' ', objName ?? '', argList, ' ', mk('RENAME TO'), ' ', newName], ';'];
+    }
+    // INDEX, SCHEMA, VIEW, MATERIALIZED VIEW, SEQUENCE, TYPE, TRIGGER ...
     const objKw = renameType.replace('RENAME ', '');
-    return [[mk(`ALTER ${objKw}`), ' ', rangeVarName(relation) ?? oldName ?? '', ' ', mk('RENAME TO'), ' ', newName], ';'];
+    return [[mk(`ALTER ${objKw}`), ' ', objName ?? rangeVarName(relation) ?? oldName ?? '', ' ', mk('RENAME TO'), ' ', newName], ';'];
 }
 
 // ---------------------------------------------------------------------------
@@ -1059,8 +1078,37 @@ function printAlterFunction(node: SqlNode, opts: Options): Doc {
         return [[mk('ALTER FUNCTION'), ' ', name, argList, ' ', mk('RENAME TO'), ' ', rename], ';'];
     }
 
-    const optionDocs = options.map((o) => [mk('SET'), ' ', o.name, ' ', o.value || ''] as Doc);
+    const optionDocs = options.map((o): Doc => {
+        switch (o.name) {
+            case 'volatility': return mk(o.value ?? '');
+            case 'cost':       return [mk('COST'), ' ', o.value ?? ''];
+            case 'rows':       return [mk('ROWS'), ' ', o.value ?? ''];
+            case 'called':     return mk(o.value === 'true' ? 'CALLED ON NULL INPUT' : 'STRICT');
+            case 'security':   return mk(o.value === 'true' ? 'SECURITY DEFINER' : 'SECURITY INVOKER');
+            default:           return [mk('SET'), ' ', o.name, ' = ', o.value ?? ''];
+        }
+    });
     return [[mk('ALTER FUNCTION'), ' ', name, argList, indent([hardline, join(hardline, optionDocs)])], ';'];
+}
+
+// ---------------------------------------------------------------------------
+// ALTER OWNER / ALTER ... SET SCHEMA
+// ---------------------------------------------------------------------------
+
+function printAlterOwner(node: SqlNode, opts: Options): Doc {
+    const mk      = (k: string) => keyword(k, opts);
+    const objType = propStr(node, 'objType') ?? '';
+    const name    = propStr(node, 'name') ?? '';
+    const newOwner = propStr(node, 'newOwner') ?? '';
+    return [[mk(`ALTER ${objType}`), ' ', name, ' ', mk('OWNER TO'), ' ', newOwner], ';'];
+}
+
+function printAlterObjectSchema(node: SqlNode, opts: Options): Doc {
+    const mk       = (k: string) => keyword(k, opts);
+    const objType  = propStr(node, 'objType') ?? '';
+    const name     = propStr(node, 'name') ?? '';
+    const newSchema = propStr(node, 'newSchema') ?? '';
+    return [[mk(`ALTER ${objType}`), ' ', name, ' ', mk('SET SCHEMA'), ' ', newSchema], ';'];
 }
 
 // ---------------------------------------------------------------------------
@@ -1298,7 +1346,14 @@ function printCopy(node: SqlNode, opts: Options): Doc {
 
     let optionPart: Doc = '';
     if (options.length > 0) {
-        const optDocs = options.map((o) => [mk(o.name.toUpperCase()), ' ', o.value || ''] as Doc);
+        const optDocs = options.map((o): Doc => {
+            const val = o.value ?? '';
+            // Quote if not already quoted, not a boolean, and not a plain identifier
+            const fmtVal = val.startsWith("'") || val === 'true' || val === 'false'
+                ? val
+                : /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(val) ? val : `'${val.replace(/'/g, "''")}'`;
+            return [mk(o.name.toUpperCase()), ' ', fmtVal];
+        });
         optionPart = [' (', join(', ', optDocs), ')'];
     }
 
@@ -1433,20 +1488,26 @@ function printCreateTablePartitionOf(node: SqlNode, opts: Options): Doc {
 
     let boundDoc: Doc = '';
     if (bound) {
-        const isDefault = propBool(bound, 'isDefault');
+        const isDefault  = propBool(bound, 'isDefault');
+        const lower      = (bound.props?.['lower']      as string[] | undefined) ?? [];
+        const upper      = (bound.props?.['upper']      as string[] | undefined) ?? [];
+        const listDatums = (bound.props?.['listDatums'] as string[] | undefined) ?? [];
+        const modulus    = bound.props?.['modulus']  as number | undefined;
+        const remainder  = bound.props?.['remainder'] as number | undefined;
+
         if (isDefault) {
             boundDoc = [hardline, mk('DEFAULT')];
-        } else {
-            const lower = (bound.props?.['lower'] as string[] | undefined) ?? [];
-            const upper = (bound.props?.['upper'] as string[] | undefined) ?? [];
-            if (lower.length > 0 || upper.length > 0) {
-                boundDoc = [
-                    hardline, mk('FOR VALUES FROM'),
-                    ' (', join(', ', lower), ')',
-                    ' ', mk('TO'),
-                    ' (', join(', ', upper), ')',
-                ];
-            }
+        } else if (lower.length > 0 || upper.length > 0) {
+            boundDoc = [
+                hardline, mk('FOR VALUES FROM'),
+                ' (', join(', ', lower), ')',
+                ' ', mk('TO'),
+                ' (', join(', ', upper), ')',
+            ];
+        } else if (listDatums.length > 0) {
+            boundDoc = [hardline, mk('FOR VALUES IN'), ' (', join(', ', listDatums), ')'];
+        } else if (modulus !== undefined && remainder !== undefined) {
+            boundDoc = [hardline, mk('FOR VALUES WITH'), ' (', mk('MODULUS'), ' ', String(modulus), ', ', mk('REMAINDER'), ' ', String(remainder), ')'];
         }
     }
 

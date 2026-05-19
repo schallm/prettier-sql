@@ -42,15 +42,17 @@ public static class SqlParser {
         if (!scanResult.IsSuccess || scanResult.Value == null)
             return new List<CommentToken>();
 
+        // tok.Start / tok.End are UTF-8 byte offsets from libpg_query; use byte slicing
+        var sqlBytes = System.Text.Encoding.UTF8.GetBytes(sql);
         var comments = new List<CommentToken>();
         foreach (var tok in scanResult.Value.Tokens) {
             if (tok.Token != Token.SqlComment && tok.Token != Token.CComment)
                 continue;
             var start = tok.Start;
             var end   = tok.End;
-            if (start < 0 || end > sql.Length || end <= start) continue;
+            if (start < 0 || end > sqlBytes.Length || end <= start) continue;
             comments.Add(new CommentToken {
-                Text        = sql.Substring(start, end - start),
+                Text        = System.Text.Encoding.UTF8.GetString(sqlBytes, start, end - start),
                 StartOffset = start,
                 EndOffset   = end,
             });

@@ -55,6 +55,22 @@ describe('shared fixtures', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Idempotency — formatting twice must produce the same output as formatting once
+// ---------------------------------------------------------------------------
+
+describe('idempotency', () => {
+    for (const file of collectFixtures(fixturesDir)) {
+        const name = relative(fixturesDir, file);
+        it(name, async () => {
+            const input = readFileSync(file, 'utf-8').trim();
+            const once = await fmt(input);
+            const twice = await fmt(once);
+            expect(twice).toBe(once);
+        });
+    }
+});
+
+// ---------------------------------------------------------------------------
 // Option variants — run a representative query through each non-default option
 // ---------------------------------------------------------------------------
 

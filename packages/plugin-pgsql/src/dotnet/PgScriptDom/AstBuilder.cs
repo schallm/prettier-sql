@@ -95,6 +95,8 @@ public class AstBuilder {
             Node.NodeOneofCase.DropSubscriptionStmt     => BuildDropSubscription(stmt.DropSubscriptionStmt, start, end),
             Node.NodeOneofCase.DefineStmt               => BuildDefine(stmt.DefineStmt, start, end),
             Node.NodeOneofCase.SecLabelStmt             => BuildSecLabel(stmt.SecLabelStmt, start, end),
+            Node.NodeOneofCase.AlterOwnerStmt           => BuildAlterOwner(stmt.AlterOwnerStmt, start, end),
+            Node.NodeOneofCase.AlterObjectSchemaStmt    => BuildAlterObjectSchema(stmt.AlterObjectSchemaStmt, start, end),
             _ => Fallback(start, end),
         };
     }
@@ -306,7 +308,9 @@ public class AstBuilder {
         return new SqlNode("PartitionBound", 0, 0, null, BuildProps(
             ("lower",      lowerDatums.Count > 0 ? (object?)lowerDatums : null),
             ("upper",      upperDatums.Count > 0 ? (object?)upperDatums : null),
-            ("listDatums", listDatums.Count  > 0 ? (object?)listDatums  : null)
+            ("listDatums", listDatums.Count  > 0 ? (object?)listDatums  : null),
+            ("modulus",    pb.Modulus > 0 ? (object?)pb.Modulus   : null),
+            ("remainder",  pb.Modulus > 0 ? (object?)pb.Remainder : null)
         ));
     }
 
@@ -357,12 +361,21 @@ public class AstBuilder {
                     break;
             }
         }
+        // RETURNS TABLE params have FuncParamTable mode; separate them from regular params
+        var tableParams = s.Parameters
+            .Where(n => n.NodeCase == Node.NodeOneofCase.FunctionParameter &&
+                        n.FunctionParameter.Mode == FunctionParameterMode.FuncParamTable)
+            .Select(n => BuildFunctionParam(n)).OfType<SqlNode>().ToList();
+        var regularParams = s.Parameters
+            .Where(n => n.NodeCase != Node.NodeOneofCase.FunctionParameter ||
+                        n.FunctionParameter.Mode != FunctionParameterMode.FuncParamTable);
         return new SqlNode("CreateFunctionStatement", start, end, null, BuildProps(
-            ("name",       s.Funcname.Count > 0 ? string.Join(".", s.Funcname.Select(n => n.String.Sval)) : null),
-            ("parameters", MapList(s.Parameters, BuildFunctionParam)),
-            ("returnType", s.ReturnType != null ? BuildPgTypeName(s.ReturnType) : null),
-            ("language",   language),
-            ("body",       body)
+            ("name",         s.Funcname.Count > 0 ? string.Join(".", s.Funcname.Select(n => n.String.Sval)) : null),
+            ("parameters",   MapList(regularParams, BuildFunctionParam)),
+            ("returnType",   tableParams.Count == 0 && s.ReturnType != null ? BuildPgTypeName(s.ReturnType) : null),
+            ("returnsTable", tableParams.Count > 0 ? (object?)tableParams : null),
+            ("language",     language),
+            ("body",         body)
         ));
     }
 
@@ -379,12 +392,44 @@ public class AstBuilder {
             ("where",        BuildExpr(s.WhereClause))
         ));
 
-    private static SqlNode BuildDrop(DropStmt s, int start, int end) =>
-        new("DropStatement", start, end, null, BuildProps(
-            ("objectType", s.RemoveType.ToString()),
-            ("ifExists", s.MissingOk ? true : null),
-            ("cascade", s.Behavior == DropBehavior.DropCascade ? true : null)
+    private static SqlNode BuildDrop(DropStmt s, int start, int end) {
+        var objectType = s.RemoveType switch {
+            ObjectType.ObjectTable     => "TABLE",
+            ObjectType.ObjectIndex     => "INDEX",
+            ObjectType.ObjectView      => "VIEW",
+            ObjectType.ObjectMatview   => "MATERIALIZED VIEW",
+            ObjectType.ObjectSequence  => "SEQUENCE",
+            ObjectType.ObjectFunction  => "FUNCTION",
+            ObjectType.ObjectProcedure => "PROCEDURE",
+            ObjectType.ObjectType      => "TYPE",
+            ObjectType.ObjectSchema    => "SCHEMA",
+            ObjectType.ObjectDatabase  => "DATABASE",
+            ObjectType.ObjectExtension => "EXTENSION",
+            ObjectType.ObjectTrigger   => "TRIGGER",
+            ObjectType.ObjectRule      => "RULE",
+            ObjectType.ObjectPolicy    => "POLICY",
+            _                          => s.RemoveType.ToString().Replace("Object", "").ToUpper(),
+        };
+        var names = s.Objects.Select(o => o.NodeCase switch {
+            Node.NodeOneofCase.List => string.Join(".", o.List.Items
+                .Where(n => n.NodeCase == Node.NodeOneofCase.String)
+                .Select(n => n.String.Sval)),
+            Node.NodeOneofCase.ObjectWithArgs => string.Join(".", o.ObjectWithArgs.Objname
+                .Select(n => n.String.Sval)),
+            Node.NodeOneofCase.TypeName => string.Join(".", o.TypeName.Names
+                .Where(n => n.NodeCase == Node.NodeOneofCase.String)
+                .Select(n => n.String.Sval)
+                .Where(v => v != "pg_catalog")),
+            Node.NodeOneofCase.String => o.String.Sval,
+            _ => null,
+        }).OfType<string>().Where(n => !string.IsNullOrEmpty(n)).ToList();
+        return new SqlNode("DropStatement", start, end, null, BuildProps(
+            ("objectType", objectType),
+            ("names",      names.Count > 0 ? (object?)names : null),
+            ("ifExists",   s.MissingOk ? true : null),
+            ("cascade",    s.Behavior == DropBehavior.DropCascade ? true : null)
         ));
+    }
 
     // -------------------------------------------------------------------------
     // Expressions
@@ -432,6 +477,18 @@ public class AstBuilder {
         };
     }
 
+    // libpg_query wraps the SIMILAR TO pattern in similar_to_escape(pattern, NULL);
+    // extract the first argument so the formatter emits the bare literal.
+    private SqlNode? UnwrapSimilarToEscape(Node? node) {
+        if (node?.NodeCase == Node.NodeOneofCase.FuncCall) {
+            var fc = node.FuncCall;
+            var fname = fc.Funcname.LastOrDefault()?.String?.Sval;
+            if (fname == "similar_to_escape" && fc.Args.Count > 0)
+                return BuildExpr(fc.Args[0]);
+        }
+        return BuildExpr(node);
+    }
+
     private static SqlNode BuildAConst(A_Const c) {
         if (c.Isnull) return new SqlNode("Literal", 0, 0, "null", null);
         string? text = c.ValCase switch {
@@ -464,11 +521,11 @@ public class AstBuilder {
                 ("right", BuildExpr(e.Rexpr))
             )),
 
-            // SIMILAR TO (operator name is "~" or "!~")
+            // SIMILAR TO — libpg_query wraps the RHS in similar_to_escape(); unwrap it
             A_Expr_Kind.AexprSimilar => new SqlNode("BinaryExpr", 0, 0, null, BuildProps(
                 ("op",    op == "!~" ? "NOT SIMILAR TO" : "SIMILAR TO"),
                 ("left",  BuildExpr(e.Lexpr)),
-                ("right", BuildExpr(e.Rexpr))
+                ("right", UnwrapSimilarToEscape(e.Rexpr))
             )),
 
             // IS DISTINCT FROM / IS NOT DISTINCT FROM
@@ -818,7 +875,11 @@ public class AstBuilder {
             ("lhs",      BuildFromItem(j.Larg)),
             ("rhs",      BuildFromItem(j.Rarg)),
             ("on",       j.Quals != null ? BuildExpr(j.Quals) : null),
-            ("using",    MapList(j.UsingClause, n => BuildExpr(n)))
+            ("using",    j.UsingClause.Count > 0
+                ? (object?)j.UsingClause
+                    .Where(n => n.NodeCase == Node.NodeOneofCase.String)
+                    .Select(n => n.String.Sval).ToList()
+                : null)
         ));
     }
 
@@ -1043,6 +1104,7 @@ public class AstBuilder {
             AlterTableType.AtAddColumn       => "ADD COLUMN",
             AlterTableType.AtDropColumn      => "DROP COLUMN",
             AlterTableType.AtAddConstraint   => "ADD CONSTRAINT",
+            AlterTableType.AtDropConstraint  => "DROP CONSTRAINT",
             AlterTableType.AtAlterColumnType => "ALTER COLUMN TYPE",
             AlterTableType.AtColumnDefault   => c.Def != null ? "SET DEFAULT" : "DROP DEFAULT",
             AlterTableType.AtSetNotNull      => "SET NOT NULL",
@@ -1071,10 +1133,16 @@ public class AstBuilder {
     private static SqlNode? BuildFunctionParam(Node n) {
         if (n.NodeCase != Node.NodeOneofCase.FunctionParameter) return null;
         var p = n.FunctionParameter;
+        var mode = p.Mode switch {
+            FunctionParameterMode.FuncParamOut      => "OUT",
+            FunctionParameterMode.FuncParamInout    => "INOUT",
+            FunctionParameterMode.FuncParamVariadic => "VARIADIC",
+            _                                        => null,
+        };
         return new SqlNode("FunctionParam", 0, 0, null, BuildProps(
-            ("name", p.Name),
+            ("name",     p.Name),
             ("typeName", p.ArgType != null ? BuildPgTypeName(p.ArgType) : null),
-            ("mode", p.Mode.ToString())
+            ("mode",     mode)
         ));
     }
 
@@ -1459,15 +1527,34 @@ public class AstBuilder {
             ObjectType.ObjectIndex    => "RENAME INDEX",
             ObjectType.ObjectSchema   => "RENAME SCHEMA",
             ObjectType.ObjectView     => "RENAME VIEW",
+            ObjectType.ObjectMatview  => "RENAME MATERIALIZED VIEW",
             ObjectType.ObjectSequence => "RENAME SEQUENCE",
             ObjectType.ObjectType     => "RENAME TYPE",
+            ObjectType.ObjectFunction => "RENAME FUNCTION",
+            ObjectType.ObjectProcedure => "RENAME PROCEDURE",
+            ObjectType.ObjectTrigger  => "RENAME TRIGGER",
             _                         => "RENAME",
         };
+        // For function/procedure rename, extract name + arg types from ObjectWithArgs
+        string? objName = null;
+        List<string>? objArgTypes = null;
+        if (r.Object != null && r.Object.NodeCase == Node.NodeOneofCase.ObjectWithArgs) {
+            var owa = r.Object.ObjectWithArgs;
+            objName = string.Join(".", owa.Objname
+                .Where(n => n.NodeCase == Node.NodeOneofCase.String)
+                .Select(n => n.String.Sval));
+            if (!owa.ArgsUnspecified && owa.Objargs.Count > 0)
+                objArgTypes = owa.Objargs
+                    .Select(n => n.NodeCase == Node.NodeOneofCase.TypeName ? BuildPgTypeName(n.TypeName) : null)
+                    .OfType<string>().ToList();
+        }
         return new SqlNode("RenameStatement", start, end, null, BuildProps(
-            ("renameType", renameType),
-            ("relation",   r.Relation != null ? BuildRangeVar(r.Relation) : null),
-            ("oldName",    string.IsNullOrEmpty(r.Subname) ? null : r.Subname),
-            ("newName",    r.Newname)
+            ("renameType",  renameType),
+            ("relation",    r.Relation != null ? BuildRangeVar(r.Relation) : null),
+            ("objName",     objName),
+            ("objArgTypes", objArgTypes != null && objArgTypes.Count > 0 ? (object?)objArgTypes : null),
+            ("oldName",     string.IsNullOrEmpty(r.Subname) ? null : r.Subname),
+            ("newName",     r.Newname)
         ));
     }
 
@@ -1608,9 +1695,13 @@ public class AstBuilder {
             _ => cm.Objtype.ToString().Replace("Object", "").ToUpper(),
         };
         string? objectName = cm.Object?.NodeCase switch {
-            Node.NodeOneofCase.List         => string.Join(".", cm.Object.List.Items.Select(n => n.String?.Sval).OfType<string>()),
+            Node.NodeOneofCase.List           => string.Join(".", cm.Object.List.Items.Select(n => n.String?.Sval).OfType<string>()),
             Node.NodeOneofCase.ObjectWithArgs => string.Join(".", cm.Object.ObjectWithArgs.Objname.Select(n => n.String.Sval)),
-            Node.NodeOneofCase.String       => cm.Object.String.Sval,
+            Node.NodeOneofCase.String         => cm.Object.String.Sval,
+            Node.NodeOneofCase.TypeName       => string.Join(".", cm.Object.TypeName.Names
+                .Where(n => n.NodeCase == Node.NodeOneofCase.String)
+                .Select(n => n.String.Sval)
+                .Where(v => v != "pg_catalog")),
             _ => null,
         };
         return new SqlNode("CommentStatement", start, end, null, BuildProps(
@@ -1717,6 +1808,58 @@ public class AstBuilder {
             ("argTypes", argTypes),
             ("rename",   rename),
             ("options",  setOptions.Count > 0 ? (object?)setOptions : null)
+        ));
+    }
+
+    private static SqlNode BuildAlterOwner(AlterOwnerStmt s, int start, int end) {
+        var objType = s.ObjectType switch {
+            ObjectType.ObjectTable     => "TABLE",
+            ObjectType.ObjectIndex     => "INDEX",
+            ObjectType.ObjectView      => "VIEW",
+            ObjectType.ObjectMatview   => "MATERIALIZED VIEW",
+            ObjectType.ObjectSequence  => "SEQUENCE",
+            ObjectType.ObjectFunction  => "FUNCTION",
+            ObjectType.ObjectProcedure => "PROCEDURE",
+            ObjectType.ObjectType      => "TYPE",
+            ObjectType.ObjectSchema    => "SCHEMA",
+            ObjectType.ObjectDatabase  => "DATABASE",
+            _ => s.ObjectType.ToString().Replace("Object", "").ToUpper(),
+        };
+        var name = s.Object?.NodeCase switch {
+            Node.NodeOneofCase.RangeVar       => s.Object.RangeVar.Relname,
+            Node.NodeOneofCase.ObjectWithArgs => string.Join(".", s.Object.ObjectWithArgs.Objname.Select(n => n.String.Sval)),
+            Node.NodeOneofCase.List           => string.Join(".", s.Object.List.Items.Where(n => n.NodeCase == Node.NodeOneofCase.String).Select(n => n.String.Sval)),
+            Node.NodeOneofCase.String         => s.Object.String.Sval,
+            _ => null,
+        };
+        var newOwner = s.Newowner?.Roletype == RoleSpecType.RolespecPublic ? "PUBLIC" : s.Newowner?.Rolename;
+        return new SqlNode("AlterOwnerStatement", start, end, null, BuildProps(
+            ("objType",  objType),
+            ("name",     name),
+            ("newOwner", newOwner)
+        ));
+    }
+
+    private static SqlNode BuildAlterObjectSchema(AlterObjectSchemaStmt s, int start, int end) {
+        var objType = s.ObjectType switch {
+            ObjectType.ObjectTable     => "TABLE",
+            ObjectType.ObjectView      => "VIEW",
+            ObjectType.ObjectMatview   => "MATERIALIZED VIEW",
+            ObjectType.ObjectSequence  => "SEQUENCE",
+            ObjectType.ObjectFunction  => "FUNCTION",
+            ObjectType.ObjectType      => "TYPE",
+            _ => s.ObjectType.ToString().Replace("Object", "").ToUpper(),
+        };
+        var name = s.Object?.NodeCase switch {
+            Node.NodeOneofCase.RangeVar       => s.Object.RangeVar.Relname,
+            Node.NodeOneofCase.ObjectWithArgs => string.Join(".", s.Object.ObjectWithArgs.Objname.Select(n => n.String.Sval)),
+            Node.NodeOneofCase.List           => string.Join(".", s.Object.List.Items.Where(n => n.NodeCase == Node.NodeOneofCase.String).Select(n => n.String.Sval)),
+            _ => null,
+        };
+        return new SqlNode("AlterObjectSchemaStatement", start, end, null, BuildProps(
+            ("objType",   objType),
+            ("name",      name),
+            ("newSchema", s.Newschema)
         ));
     }
 

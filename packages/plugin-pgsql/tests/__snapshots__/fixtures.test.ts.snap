@@ -2,30 +2,30 @@
 
 exports[`fixtures > ddl/alter-function.sql 1`] = `
 "alter function get_count(integer)
-  set cost 100;
+  cost 100;
 
 -- SET ROWS
 alter function get_books(integer)
-  set rows 100;
+  rows 100;
 
 -- VOLATILE / STABLE / IMMUTABLE
 alter function compute_tax(numeric)
-  set volatility volatile;
+  volatile;
 
 alter function get_config(text)
-  set volatility stable;
+  stable;
 
 alter function format_name(text, text)
-  set volatility immutable;
+  immutable;
 
 -- RENAME TO
-alter rename  rename to count_items;
+alter function get_count(integer) rename to count_items;
 
 -- OWNER TO
-UnknownStatement
+alter function get_count owner to admin;
 
 -- SET SCHEMA
-UnknownStatement
+alter function get_count set schema reporting;
 "
 `;
 
@@ -82,10 +82,10 @@ alter table users
 
 -- DROP CONSTRAINT
 alter table products
-  dropconstraint price_positive;
+  drop constraint price_positive;
 
 alter table products
-  dropconstraint old_check;
+  drop constraint old_check;
 "
 `;
 
@@ -107,15 +107,13 @@ create table products (
 );
 
 -- FOREIGN KEY — column-level
-c
 create table order_items (
   id integer primary key,
   order_id integer references orders (id) on delete cascade,
   product_id integer references products (id) on update restrict
 );
 
- FOREIGN KEY — table-level
-cre
+-- FOREIGN KEY — table-level
 create table order_items2 (
   id integer,
   order_id integer,
@@ -123,8 +121,7 @@ create table order_items2 (
   foreign key (order_id) references orders (id)
 );
 
-amed constraint
-cre
+-- Named constraint
 create table employees (
   id integer,
   salary numeric(10, 2),
@@ -132,8 +129,7 @@ create table employees (
   constraint salary_positive check (salary > 0)
 );
 
-ENERATED columns
-cre
+-- GENERATED columns
 create table sales (
   id integer primary key,
   quantity integer not null,
@@ -141,15 +137,13 @@ create table sales (
   total numeric generated always as (quantity * unit_price) stored
 );
 
-DENTITY column
-cre
+-- IDENTITY column
 create table seq_test (
   id integer generated always as identity,
   name text
 );
 
-EFERRABLE constraints
-cre
+-- DEFERRABLE constraints
 create table transfers (
   id integer primary key,
   from_account integer,
@@ -199,7 +193,7 @@ comment on index idx_books_author is 'Author lookup index';
 comment on sequence order_seq is 'Order ID sequence';
 
 -- COMMENT ON TYPE
-comment on type  is 'Possible order states';
+comment on type order_status is 'Possible order states';
 
 -- COMMENT ON DATABASE
 comment on database mydb is 'Main application database';
@@ -224,22 +218,22 @@ as $$
 $$;
 
 -- Function with OUT parameters
-create function get_stats(funcparamin p_author_id integer, funcparamout book_count bigint, funcparamout avg_price numeric)
+create function get_stats(p_author_id integer, out book_count bigint, out avg_price numeric)
 language sql
 as $$
   select count(*), avg(price) from books where author_id = p_author_id
 $$;
 
 -- Function with INOUT parameter
-create function increment(funcparaminout val integer)
+create function increment(inout val integer)
 language sql
 as $$
   select val + 1
 $$;
 
 -- RETURNS TABLE
-create function books_by_author(p_author_id integer, funcparamtable id integer, funcparamtable title text, funcparamtable price numeric)
-returns record
+create function books_by_author(p_author_id integer)
+returns table (id integer, title text, price numeric)
 language sql
 as $$
   select id, title, price from books where author_id = p_author_id
@@ -315,39 +309,36 @@ where active = true;
 
 exports[`fixtures > ddl/drop.sql 1`] = `
 "-- DROP TABLE
-drop ObjectTable;
+drop table temp_data;
 
-drop ObjectTable if exists;
+drop table if exists temp_data;
 
-drop ObjectTable if exists cascade;
+drop table if exists temp_data cascade;
 
 -- DROP INDEX
-drop ObjectIndex;
+drop index idx_books_author;
 
-drop ObjectIndex if exists;
+drop index if exists idx_books_author;
 
-drop ObjectIndex if exists;
+drop index if exists idx_large_table;
 
 -- DROP FUNCTION
-drop ObjectFunction;
+drop function get_count;
 
-drop ObjectFunction if exists;
+drop function if exists get_count;
 
 -- DROP VIEW (basic — fuller coverage in ddl/views.sql)
-d
-drop ObjectView if exists;
+drop view if exists old_summary;
 
- DROP TYPE
-d
-drop ObjectType;
+-- DROP TYPE
+drop type my_status;
 
-drop ObjectType if exists cascade;
+drop type if exists my_status cascade;
 
- DROP SEQUENCE
-d
-drop ObjectSequence;
+-- DROP SEQUENCE
+drop sequence order_seq;
 
-drop ObjectSequence if exists;
+drop sequence if exists order_seq;
 "
 `;
 
@@ -550,6 +541,31 @@ create trigger validate_order
 before insert or update on orders
 for each row
 execute function validate_order_data();
+
+-- Trigger with WHEN condition
+create trigger audit_price_change
+before update on products
+for each row
+when (old.price IS DISTINCT FROM new.price)
+execute function audit_price();
+
+-- AFTER DELETE
+create trigger cleanup_orphans
+after delete on orders
+for each row
+execute function cleanup_order_items();
+
+-- INSTEAD OF trigger on view
+create trigger view_insert
+instead of insert on v_active_users
+for each row
+execute function handle_view_insert();
+
+-- CONSTRAINT trigger
+create trigger check_fk
+after insert on order_items
+for each row
+execute function check_order_item_fk();
 "
 `;
 
@@ -627,11 +643,11 @@ refresh materialized view user_stats;
 refresh materialized view concurrently user_stats;
 
 -- DROP VIEW
-drop ObjectView;
+drop view active_users;
 
-drop ObjectView if exists;
+drop view if exists old_report;
 
-drop ObjectMatview if exists;
+drop materialized view if exists stale_cache;
 "
 `;
 
@@ -680,6 +696,14 @@ copy (
   from
     orders
 ) to '/tmp/ids.csv';
+
+-- COPY with options
+copy orders from '/tmp/orders.csv' (format csv, header true, delimiter ',', null '');
+
+copy orders (id, customer_id, amount) to '/tmp/orders_partial.csv' (format csv, header true);
+
+-- COPY with QUOTE and ESCAPE
+copy products from '/tmp/products.csv' (format csv, quote '"', escape '\\\\');
 "
 `;
 
@@ -882,9 +906,9 @@ exports[`fixtures > dml/set-show.sql 1`] = `
 "-- SET
 set search_path = public, myschema;
 
-set work_mem = 64MB;
+set work_mem = '64MB';
 
-set local client_encoding = UTF8;
+set local client_encoding = utf8;
 
 -- SET TO DEFAULT
 set work_mem to default;
@@ -1138,14 +1162,17 @@ create table events (
 partition by hash (user_id);
 
 create table events_0
-partition of events;
+partition of events
+for values with (modulus 4, remainder 0);
 
 create table events_1
-partition of events;
+partition of events
+for values with (modulus 4, remainder 1);
 
 -- LIST partition with IN bounds
 create table orders_eu
-partition of orders;
+partition of orders
+for values in ('DE', 'FR', 'UK');
 "
 `;
 
@@ -1363,6 +1390,37 @@ from
   books
 group by
   author_id;
+
+-- FILTER with OVER (window aggregate)
+select
+  dept,
+  sum(salary) filter (where active = true) over (partition by dept) as active_payroll
+from
+  employees;
+
+-- Multiple aggregates with FILTER in one query
+select
+  count(*) filter (where status = 'open') as open_count,
+  count(*) filter (where status = 'closed') as closed_count,
+  sum(amount) filter (where status = 'open') as open_total
+from
+  tickets;
+
+-- ORDER BY inside aggregate without FILTER
+select
+  dept,
+  array_agg(name order by name) as members
+from
+  employees
+group by
+  dept;
+
+-- DISTINCT inside aggregate
+select
+  count(distinct customer_id) as unique_customers,
+  sum(amount) as total
+from
+  orders;
 "
 `;
 
@@ -1430,7 +1488,7 @@ select
   a.name
 from
   books as b
-  join authors as a using ('author_id');
+  join authors as a using (author_id);
 "
 `;
 
@@ -1820,14 +1878,14 @@ select
   email
 from
   users
-where email SIMILAR TO similar_to_escape('%@(gmail|yahoo)\\.com');
+where email SIMILAR TO '%@(gmail|yahoo)\\.com';
 
 select
   id,
   email
 from
   users
-where email NOT SIMILAR TO similar_to_escape('%@(gmail|yahoo)\\.com');
+where email NOT SIMILAR TO '%@(gmail|yahoo)\\.com';
 "
 `;
 
@@ -2048,6 +2106,73 @@ select
   name
 from
   table_b;
+
+-- Chained UNION (3 operands)
+select
+  id,
+  name
+from
+  customers
+union
+select
+  id,
+  name
+from
+  prospects
+union
+select
+  id,
+  name
+from
+  leads;
+
+-- INTERSECT ALL
+select
+  product_id
+from
+  orders
+intersect all
+select
+  product_id
+from
+  returns;
+
+-- EXCEPT ALL
+select
+  user_id
+from
+  subscribers
+except all
+select
+  user_id
+from
+  unsubscribed;
+
+-- Set op with ORDER BY and LIMIT on the whole result
+select
+  id,
+  name
+from
+  customers
+union all
+select
+  id,
+  name
+from
+  prospects;
+
+-- CTE + UNION
+select
+  id,
+  name
+from
+  active
+union all
+select
+  id,
+  name
+from
+  archived_users;
 "
 `;
 
@@ -2194,7 +2319,6 @@ from
   books;
 
 -- No frame — pure PARTITION BY
-s
 select
   id,
   author_id,
