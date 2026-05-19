@@ -128,7 +128,7 @@ function principalOptionKw(kind: string, opts: Options): Doc {
 function printPrincipalOption(o: Record<string, unknown>, opts: Options): Doc {
     const kind = (o['kind'] as string) ?? '';
     if (kind === 'Password') {
-        return join([',', hardline], expandPasswordOption(o, opts));
+        return expandPasswordOption(o, opts);
     }
     if ('onOff' in o) {
         return [principalOptionKw(kind, opts), ' = ', keyword((o['onOff'] as string).toUpperCase(), opts)];
@@ -146,21 +146,21 @@ function withOptionsPart(items: Doc[]): Doc {
     return group([indent([line, join([',', line], items)])]);
 }
 
-/** Expands a password option into multiple peer items so OLD_PASSWORD and UNLOCK
- *  are treated as separate WITH options rather than embedded sub-lines. */
-function expandPasswordOption(o: Record<string, unknown>, opts: Options): Doc[] {
+/** Builds the password option doc. OLD_PASSWORD and UNLOCK are part of the
+ *  PASSWORD clause in T-SQL syntax (no comma between them), so they are
+ *  inlined into the same doc rather than promoted to peer WITH options. */
+function expandPasswordOption(o: Record<string, unknown>, opts: Options): Doc {
     const pw = o['password'] as string | undefined;
     const old = o['oldPassword'] as string | undefined;
     const hashed = o['hashed'] as boolean | undefined;
     const mustChange = o['mustChange'] as boolean | undefined;
     const unlock = o['unlock'] as boolean | undefined;
-    const pwDoc: Doc[] = [keyword('PASSWORD', opts), ' = ', pw ?? ''];
-    if (hashed) pwDoc.push(' ', keyword('HASHED', opts));
-    if (mustChange) pwDoc.push(' ', keyword('MUST_CHANGE', opts));
-    const result: Doc[] = [pwDoc];
-    if (old) result.push([keyword('OLD_PASSWORD', opts), ' = ', old]);
-    if (unlock) result.push(keyword('UNLOCK', opts));
-    return result;
+    const parts: Doc[] = [keyword('PASSWORD', opts), ' = ', pw ?? ''];
+    if (hashed) parts.push(' ', keyword('HASHED', opts));
+    if (mustChange) parts.push(' ', keyword('MUST_CHANGE', opts));
+    if (old) parts.push(' ', keyword('OLD_PASSWORD', opts), ' = ', old);
+    if (unlock) parts.push(' ', keyword('UNLOCK', opts));
+    return parts;
 }
 
 function printPrincipalOptions(node: SqlNode, opts: Options): Doc {
@@ -263,11 +263,7 @@ export function printAlterLogin(node: SqlNode, opts: Options): Doc {
     if (action === 'WithOptions') {
         const options = node.props?.['options'];
         const optDocs: Doc[] = Array.isArray(options)
-            ? (options as Record<string, unknown>[]).flatMap((o) =>
-                  (o['kind'] as string) === 'Password'
-                      ? expandPasswordOption(o, opts)
-                      : [printPrincipalOption(o, opts)],
-              )
+            ? (options as Record<string, unknown>[]).map((o) => printPrincipalOption(o, opts))
             : [];
         return [base, hardline, keyword('WITH', opts), withOptionsPart(optDocs), ';'];
     }

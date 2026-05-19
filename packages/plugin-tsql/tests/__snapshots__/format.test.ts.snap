@@ -283,7 +283,7 @@ exports[`Full-text predicates > CONTAINSTABLE in FROM clause 1`] = `
   ft.rank
 from
   Books as b
-  inner join containstable(Books, Title, '"SQL"') as ft on b.BookId = ft.key;"
+  inner join containstable(Books, Title, '"SQL"') as ft on b.BookId = ft.[key];"
 `;
 
 exports[`Full-text predicates > FREETEXT with single column 1`] = `
@@ -301,7 +301,7 @@ exports[`Full-text predicates > FREETEXTTABLE with wildcard and TOP N 1`] = `
 from
   Books as b
   inner join freetexttable(Books, *, 'programming', 10) as ft on
-    b.BookId = ft.key;"
+    b.BookId = ft.[key];"
 `;
 
 exports[`IGNORE NULLS / RESPECT NULLS (SQL Server 2022+) > FIRST_VALUE IGNORE NULLS 1`] = `
@@ -536,8 +536,8 @@ from Books;"
 
 exports[`OVER (window_name) (SQL Server 2022+) > multiple named windows 1`] = `
 "select
-  row_number() over (w1),
-  rank() over (w2)
+  row_number() over w1,
+  rank() over w2
 from Books
 window
   w1 as (
@@ -548,7 +548,7 @@ window
 `;
 
 exports[`OVER (window_name) (SQL Server 2022+) > window function referencing named window 1`] = `
-"select row_number() over (w)
+"select row_number() over w
 from Books
 window w as (
   partition by AuthorId
@@ -557,7 +557,7 @@ window w as (
 `;
 
 exports[`OVER (window_name) (SQL Server 2022+) > window with ROWS BETWEEN frame 1`] = `
-"select sum(Price) over (w)
+"select sum(Price) over w
 from Books
 window w as (
   partition by AuthorId

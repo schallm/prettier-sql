@@ -37,6 +37,8 @@ describe('fixtures', () => {
             const input = readFileSync(file, 'utf-8').trim();
             const result = await fmt(input);
             expect(result).toMatchSnapshot();
+            const result2 = await fmt(result);
+            expect(result2).toBe(result);
         });
     }
 });

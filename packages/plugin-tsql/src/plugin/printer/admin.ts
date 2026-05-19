@@ -313,19 +313,8 @@ export function printAlterDatabaseAddFile(node: SqlNode, opts: Options): Doc {
     const clause: Doc = isLog ? keyword('ADD LOG FILE', opts) : keyword('ADD FILE', opts);
     const toFg: Doc = fileGroup ? [' ', keyword('TO FILEGROUP', opts), ' ', fileGroup] : '';
     const filesDoc: Doc = files?.length
-        ? [
-              '(',
-              indent([
-                  hardline,
-                  join(
-                      [',', hardline],
-                      files.map((f) => caseFileSpec(f, opts)),
-                  ),
-              ]),
-              hardline,
-              ')',
-          ]
-        : '()';
+        ? join([',', line], files.map((f) => caseFileSpec(f, opts)))
+        : '';
 
     return group([alterDbHeader(node, opts), hardline, clause, ' ', filesDoc, toFg, ';']);
 }
@@ -356,7 +345,7 @@ export function printAlterDatabaseRemoveFileGroup(node: SqlNode, opts: Options):
 
 export function printAlterDatabaseModifyFile(node: SqlNode, opts: Options): Doc {
     const file = caseFileSpec(propStr(node, 'file') ?? '', opts);
-    return group([alterDbHeader(node, opts), hardline, keyword('MODIFY FILE', opts), ' (', file, ')', ';']);
+    return group([alterDbHeader(node, opts), hardline, keyword('MODIFY FILE', opts), ' ', file, ';']);
 }
 
 export function printAlterDatabaseModifyFileGroup(node: SqlNode, opts: Options): Doc {
@@ -374,6 +363,6 @@ export function printAlterDatabaseModifyFileGroup(node: SqlNode, opts: Options):
 
 export function printAlterDatabaseRebuildLog(node: SqlNode, opts: Options): Doc {
     const file = propStr(node, 'file');
-    const onPart: Doc = file ? [' ', keyword('ON', opts), ' (', caseFileSpec(file, opts), ')'] : '';
+    const onPart: Doc = file ? [' ', keyword('ON', opts), ' ', caseFileSpec(file, opts)] : '';
     return [alterDbHeader(node, opts), ' ', keyword('REBUILD LOG', opts), onPart, ';'];
 }

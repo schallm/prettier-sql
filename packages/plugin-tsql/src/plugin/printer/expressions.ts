@@ -751,9 +751,9 @@ function printBinaryQuery(node: SqlNode, opts: Options, printFn: (n: SqlNode) =>
 }
 
 export function printOverClause(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
-    // Named window reference: OVER (w) — SQL Server 2022+
+    // Named window reference: OVER w — SQL Server 2022+ (no parens around the name)
     const windowName = propStr(node, 'windowName');
-    if (windowName) return ['(', windowName, ')'];
+    if (windowName) return windowName;
 
     const partitions = propArr(node, 'partitionBy');
     const orderBy = prop(node, 'orderBy');

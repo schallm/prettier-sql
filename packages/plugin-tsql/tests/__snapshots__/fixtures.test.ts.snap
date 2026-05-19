@@ -733,7 +733,7 @@ from windows
 with default_database = AdventureWorks;
 
 alter login AppLogin
-with password = 'NewP@ssw0rd!', old_password = 'Str0ngP@ssw0rd!';
+with password = 'NewP@ssw0rd!' old_password = 'Str0ngP@ssw0rd!';
 
 alter login AppLogin enable;
 
@@ -1609,7 +1609,7 @@ exports[`fixtures > type/table-types.sql 1`] = `
 
 create type dbo.NameValuePair as table (
   Name nvarchar(100) not null,
-  Value nvarchar(500) null
+  [Value] nvarchar(500) null
 );
 
 create type dbo.OrderLine as table (

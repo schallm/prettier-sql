@@ -685,8 +685,7 @@ select
   ft.rank
 from
   Books
-  inner join containstable(Books, Title, '"SQL"') as ft on
-    Books.Id = ft.key;
+  inner join containstable(Books, Title, '"SQL"') as ft on Books.Id = ft.[key];
 ```
 
 With wildcard and TOP N limit:
@@ -698,7 +697,7 @@ select
 from
   Books
   inner join freetexttable(Books, *, 'programming', 10) as ft on
-    Books.Id = ft.key;
+    Books.Id = ft.[key];
 ```
 
 #### Rowset functions (OPENJSON / OPENXML / OPENROWSET)
@@ -710,8 +709,8 @@ is attached:
 
 ```sql
 select
-  j.key,
-  j.value
+  j.[key],
+  j.[value]
 from
   Orders
   cross apply openjson(JsonData) as j;
@@ -2301,7 +2300,7 @@ go
 
 ### Identifiers and bracket quoting
 
-Square-bracket quoting (`[name]`) is preserved only when the identifier requires it — that is, when the name contains spaces, special characters, or starts with a digit. Redundant brackets around plain identifiers are stripped.
+Square-bracket quoting (`[name]`) is preserved only when the identifier requires it — that is, when the name contains spaces, special characters, starts with a digit, or is a T-SQL reserved word (such as `key` or `value`). Redundant brackets around plain identifiers are stripped.
 
 ```sql
 -- input: brackets around plain names are dropped

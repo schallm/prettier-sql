@@ -45,18 +45,26 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode? BuildIdentifier(Identifier? id) =>
         id == null ? null : Leaf("Identifier", id, QuotedName(id));
 
+    // T-SQL reserved words that are valid identifier characters but cannot be used
+    // as unquoted identifiers in column-reference or alias positions.
+    private static readonly HashSet<string> _reservedWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "KEY", "VALUE",
+    };
+
     /// <summary>
     /// Returns the identifier value, wrapping it in square brackets only when the
     /// name contains characters that are invalid in an unquoted T-SQL identifier
-    /// (spaces, hyphens, leading digits, etc.).  Plain names like "Books" or
-    /// "dbo" are returned as-is; "My Column" becomes "[My Column]".
+    /// (spaces, hyphens, leading digits, etc.) or when the name is a T-SQL
+    /// reserved word.  Plain names like "Books" or "dbo" are returned as-is;
+    /// "My Column" becomes "[My Column]"; "key" becomes "[key]".
     /// </summary>
     private static string? QuotedName(Identifier? id) {
         if (id == null) return null;
         var v = id.Value;
         if (string.IsNullOrEmpty(v)) return v;
-        bool needsBrackets = !System.Text.RegularExpressions.Regex.IsMatch(
-            v, @"^[A-Za-z_@#][A-Za-z0-9_@#$]*$");
+        bool needsBrackets = _reservedWords.Contains(v) ||
+            !System.Text.RegularExpressions.Regex.IsMatch(v, @"^[A-Za-z_@#][A-Za-z0-9_@#$]*$");
         return needsBrackets ? $"[{v}]" : v;
     }
 
@@ -2175,7 +2183,20 @@ public class AstBuilder : TSqlFragmentVisitor {
                 var name = DatabaseOptionKindToSql(o.OptionKind);
                 if (o is OnOffDatabaseOption onOff) {
                     var state = onOff.OptionState == OptionState.On ? "ON" : "OFF";
-                    return (object?)$"{name} = {state}";
+                    // Preserve the original separator: some options use "NAME = ON/OFF"
+                    // (e.g. AUTOMATIC_INDEX_COMPACTION) while others use "NAME ON/OFF"
+                    // (e.g. AUTO_CLOSE).  Detect by looking at the token immediately before
+                    // this option's fragment in the parent statement's token stream.
+                    var sep = " ";
+                    var stream = stmt.ScriptTokenStream;
+                    if (stream != null) {
+                        var prev = stream
+                            .Where(t => t.Offset < o.StartOffset && t.TokenType != TSqlTokenType.WhiteSpace)
+                            .OrderByDescending(t => t.Offset)
+                            .FirstOrDefault();
+                        if (prev?.TokenType == TSqlTokenType.EqualsSign) sep = " = ";
+                    }
+                    return (object?)$"{name}{sep}{state}";
                 }
                 var val = RawText(o).Trim();
                 var text = val.StartsWith(name, StringComparison.OrdinalIgnoreCase)

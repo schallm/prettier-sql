@@ -13,12 +13,11 @@ import plugin from '../src/plugin/index.js';
 //   ArchivedBooks  (same columns as Books)
 
 async function fmt(sql: string, opts: Record<string, unknown> = {}): Promise<string> {
-    return prettier.format(sql, {
-        parser: 'tsql',
-        plugins: [plugin],
-        printWidth: 80,
-        ...opts,
-    });
+    const options = { parser: 'tsql', plugins: [plugin], printWidth: 80, ...opts };
+    const result = await prettier.format(sql, options);
+    const result2 = await prettier.format(result, options);
+    expect(result2).toBe(result);
+    return result;
 }
 
 describe('SELECT formatting', () => {
@@ -1080,8 +1079,8 @@ describe('Rowset functions', () => {
         );
         expect(result).toMatchInlineSnapshot(`
 "select
-  j.key,
-  j.value
+  j.[key],
+  j.[value]
 from
   Orders as o
   cross apply openjson(o.JsonData) as j
@@ -1318,7 +1317,7 @@ describe('Database administration', () => {
 
     it('ALTER DATABASE SET with termination', async () => {
         const r = await fmt('ALTER DATABASE AdventureWorks SET AUTO_CLOSE ON WITH NO_WAIT');
-        expect(r).toContain('set auto_close = on with no_wait');
+        expect(r).toContain('set auto_close on with no_wait');
     });
 
     it('ALTER DATABASE SET CURRENT', async () => {
@@ -2052,7 +2051,7 @@ describe('OVER (window_name) (SQL Server 2022+)', () => {
         const result = await fmt('select row_number() over w from t window w as (order by id)', {
             sqlKeywordCase: 'upper',
         });
-        expect(result).toContain('OVER (w)');
+        expect(result).toContain('OVER w');
         expect(result).toContain('WINDOW w AS (');
         expect(result).toContain('ORDER BY id ASC');
     });
