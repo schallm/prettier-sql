@@ -570,18 +570,29 @@ function printCreateFunction(node: SqlNode, opts: Options): Doc {
 }
 
 function printCreateIndex(node: SqlNode, opts: Options): Doc {
-    const mk        = (k: string) => keyword(k, opts);
-    const printNode = pn(opts);
-    const unique    = propBool(node, 'unique');
-    const indexName = propStr(node, 'indexName') ?? '';
-    const relation  = prop(node, 'relation');
-    const columns   = propArr(node, 'columns');
+    const mk          = (k: string) => keyword(k, opts);
+    const printNode   = pn(opts);
+    const unique      = propBool(node, 'unique');
+    const concurrent  = propBool(node, 'concurrent');
+    const ifNotExists = propBool(node, 'ifNotExists');
+    const indexName   = propStr(node, 'indexName') ?? '';
+    const relation    = prop(node, 'relation');
+    const columns     = propArr(node, 'columns');
+    const including   = propArr(node, 'including');
+    const accessMethod = propStr(node, 'accessMethod');
+    const where       = prop(node, 'where');
 
-    return [
-        unique ? [mk('CREATE UNIQUE INDEX'), ' '] : [mk('CREATE INDEX'), ' '],
-        indexName, ' ', mk('ON'), ' ', rangeVarName(relation),
-        ' (', join(', ', columns.map(printNode)), ');',
-    ];
+    const keyword1 = unique ? mk('CREATE UNIQUE INDEX') : mk('CREATE INDEX');
+    const parts: Doc[] = [keyword1];
+    if (concurrent)  parts.push(' ', mk('CONCURRENTLY'));
+    if (ifNotExists) parts.push(' ', mk('IF NOT EXISTS'));
+    parts.push(' ', indexName, ' ', mk('ON'), ' ', rangeVarName(relation));
+    if (accessMethod) parts.push(' ', mk('USING'), ' ', accessMethod);
+    parts.push(' (', join(', ', columns.map(printNode)), ')');
+    if (including.length > 0) parts.push(' ', mk('INCLUDE'), ' (', join(', ', including.map(printNode)), ')');
+    if (where) parts.push(' ', mk('WHERE'), ' ', printNode(where));
+    parts.push(';');
+    return parts;
 }
 
 function printTruncate(node: SqlNode, opts: Options): Doc {

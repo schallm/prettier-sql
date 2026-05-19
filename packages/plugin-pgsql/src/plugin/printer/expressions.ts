@@ -32,7 +32,13 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'Constraint': return printConstraint(node, opts, printNode);
         case 'AlterCmd': return printAlterCmd(node, opts, printNode);
         case 'FunctionParam': return printFunctionParam(node, opts);
-        case 'IndexElem': return propStr(node, 'name') ?? '';
+        case 'IndexElem': {
+            const expr = prop(node, 'expr');
+            const dir  = propStr(node, 'direction');
+            const name = propStr(node, 'name');
+            const base = expr ? printNode(expr) : (name ?? '');
+            return dir ? [base, ' ', keyword(dir, opts)] : base;
+        }
         case 'ExprList': return join(', ', propArr(node, 'items').map(printNode));
         case 'ArrayExpr': return printArrayExpr(node, opts, printNode);
         case 'Coalesce': return printCoalesce(node, opts, printNode);

@@ -368,10 +368,15 @@ public class AstBuilder {
 
     private SqlNode BuildCreateIndex(IndexStmt s, int start, int end) =>
         new("CreateIndexStatement", start, end, null, BuildProps(
-            ("indexName", s.Idxname),
-            ("relation", BuildRangeVar(s.Relation)),
-            ("columns", MapList(s.IndexParams, BuildIndexElem)),
-            ("unique", s.Unique ? true : null)
+            ("indexName",    s.Idxname),
+            ("relation",     BuildRangeVar(s.Relation)),
+            ("columns",      MapList(s.IndexParams, BuildIndexElem)),
+            ("including",    MapList(s.IndexIncludingParams, BuildIndexElem)),
+            ("unique",       s.Unique       ? true : null),
+            ("concurrent",   s.Concurrent   ? true : null),
+            ("ifNotExists",  s.IfNotExists  ? true : null),
+            ("accessMethod", string.IsNullOrEmpty(s.AccessMethod) || s.AccessMethod == "btree" ? null : s.AccessMethod),
+            ("where",        BuildExpr(s.WhereClause))
         ));
 
     private static SqlNode BuildDrop(DropStmt s, int start, int end) =>
@@ -1073,9 +1078,21 @@ public class AstBuilder {
         ));
     }
 
-    private static SqlNode? BuildIndexElem(Node n) {
+    private SqlNode? BuildIndexElem(Node n) {
         if (n.NodeCase != Node.NodeOneofCase.IndexElem) return null;
-        return new SqlNode("IndexElem", 0, 0, null, BuildProps(("name", n.IndexElem.Name)));
+        var ie = n.IndexElem;
+        var dir = ie.Ordering switch {
+            SortByDir.SortbyDesc => "DESC",
+            SortByDir.SortbyAsc  => "ASC",
+            _ => null,
+        };
+        // expr is set for expression indexes (e.g. lower(email)); name for simple column refs
+        SqlNode? expr = ie.Expr != null ? BuildExpr(ie.Expr) : null;
+        return new SqlNode("IndexElem", 0, 0, null, BuildProps(
+            ("name", string.IsNullOrEmpty(ie.Name) ? null : ie.Name),
+            ("expr", expr),
+            ("direction", dir)
+        ));
     }
 
     // pg_catalog internal names → user-visible SQL standard names

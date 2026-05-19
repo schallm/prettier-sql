@@ -17,3 +17,23 @@ create table measurements (
   logdate date not null
 )
 partition by list (city_id);
+
+-- HASH partitioning
+create table events (
+  id integer not null,
+  user_id integer not null
+)
+partition by hash (user_id);
+
+create table events_0
+  partition of events
+  for values with (modulus 4, remainder 0);
+
+create table events_1
+  partition of events
+  for values with (modulus 4, remainder 1);
+
+-- LIST partition with IN bounds
+create table orders_eu
+  partition of orders
+  for values in ('DE', 'FR', 'UK');

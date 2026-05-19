@@ -50,3 +50,12 @@ create table seq_test (
   id integer generated always as identity,
   name text
 );
+
+-- DEFERRABLE constraints
+create table transfers (
+  id integer primary key,
+  from_account integer,
+  to_account integer,
+  constraint fk_from foreign key (from_account) references accounts (id) deferrable initially deferred,
+  constraint fk_to foreign key (to_account) references accounts (id) deferrable initially immediate
+);

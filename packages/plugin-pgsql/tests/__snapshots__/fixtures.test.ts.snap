@@ -3,6 +3,29 @@
 exports[`fixtures > ddl/alter-function.sql 1`] = `
 "alter function get_count(integer)
   set cost 100;
+
+-- SET ROWS
+alter function get_books(integer)
+  set rows 100;
+
+-- VOLATILE / STABLE / IMMUTABLE
+alter function compute_tax(numeric)
+  set volatility volatile;
+
+alter function get_config(text)
+  set volatility stable;
+
+alter function format_name(text, text)
+  set volatility immutable;
+
+-- RENAME TO
+alter rename  rename to count_items;
+
+-- OWNER TO
+UnknownStatement
+
+-- SET SCHEMA
+UnknownStatement
 "
 `;
 
@@ -32,6 +55,37 @@ alter table orders
 -- DROP NOT NULL
 alter table orders
   alter column notes drop not null;
+
+-- ADD COLUMN
+alter table users
+  add column phone text;
+
+alter table users
+  add column verified boolean not null default false;
+
+-- DROP COLUMN
+alter table users
+  drop column phone;
+
+alter table users
+  drop column if exists legacy_field;
+
+-- ADD CONSTRAINT (table-level)
+alter table order_items
+  add constraint fk_order foreign key (order_id) references orders (id);
+
+alter table products
+  add constraint price_positive check (price > 0);
+
+alter table users
+  add constraint users_email_unique unique (email);
+
+-- DROP CONSTRAINT
+alter table products
+  dropconstraint price_positive;
+
+alter table products
+  dropconstraint old_check;
 "
 `;
 
@@ -93,6 +147,16 @@ create table seq_test (
   id integer generated always as identity,
   name text
 );
+
+EFERRABLE constraints
+cre
+create table transfers (
+  id integer primary key,
+  from_account integer,
+  to_account integer,
+  constraint fk_from foreign key (from_account) references accounts (id) deferrable initially deferred,
+  constraint fk_to foreign key (to_account) references accounts (id) deferrable initially immediate
+);
 "
 `;
 
@@ -124,6 +188,21 @@ comment on function get_count is 'Returns count for given id';
 
 -- Remove a comment (IS NULL)
 comment on table temp_data is null;
+
+-- COMMENT ON VIEW
+comment on view active_users is 'Users with active accounts';
+
+-- COMMENT ON INDEX
+comment on index idx_books_author is 'Author lookup index';
+
+-- COMMENT ON SEQUENCE
+comment on sequence order_seq is 'Order ID sequence';
+
+-- COMMENT ON TYPE
+comment on type  is 'Possible order states';
+
+-- COMMENT ON DATABASE
+comment on database mydb is 'Main application database';
 "
 `;
 
@@ -143,6 +222,71 @@ language sql
 as $$
   select first_name || ' ' || last_name
 $$;
+
+-- Function with OUT parameters
+create function get_stats(funcparamin p_author_id integer, funcparamout book_count bigint, funcparamout avg_price numeric)
+language sql
+as $$
+  select count(*), avg(price) from books where author_id = p_author_id
+$$;
+
+-- Function with INOUT parameter
+create function increment(funcparaminout val integer)
+language sql
+as $$
+  select val + 1
+$$;
+
+-- RETURNS TABLE
+create function books_by_author(p_author_id integer, funcparamtable id integer, funcparamtable title text, funcparamtable price numeric)
+returns record
+language sql
+as $$
+  select id, title, price from books where author_id = p_author_id
+$$;
+
+-- STABLE, STRICT, SECURITY DEFINER
+create function safe_divide(a numeric, b numeric)
+returns numeric
+language sql
+as $$
+  select a / b
+$$;
+"
+`;
+
+exports[`fixtures > ddl/create-index.sql 1`] = `
+"-- Basic index
+create index idx_books_author on books (author_id);
+
+-- Unique index
+create unique index idx_users_email on users (email);
+
+-- Multi-column index
+create index idx_orders_customer_status on orders (customer_id, status);
+
+-- Descending column
+create index idx_orders_recent on orders (created_at desc);
+
+-- Expression index
+create index idx_users_lower_email on users (lower(email));
+
+-- Partial index (WHERE clause)
+create index idx_active_users on users (email) where active = true;
+
+-- INCLUDE columns (covering index)
+create index idx_orders_lookup on orders (customer_id) include (status, amount);
+
+-- Specific index method
+create index idx_events_data on events using gin (data);
+
+create index idx_locations on places using gist (location);
+
+-- CREATE INDEX CONCURRENTLY
+create index concurrently idx_big_table_col on big_table (col);
+
+-- IF NOT EXISTS
+create index if not exists idx_books_author on books (author_id);
 "
 `;
 
@@ -166,6 +310,44 @@ select
 from
   users
 where active = true;
+"
+`;
+
+exports[`fixtures > ddl/drop.sql 1`] = `
+"-- DROP TABLE
+drop ObjectTable;
+
+drop ObjectTable if exists;
+
+drop ObjectTable if exists cascade;
+
+-- DROP INDEX
+drop ObjectIndex;
+
+drop ObjectIndex if exists;
+
+drop ObjectIndex if exists;
+
+-- DROP FUNCTION
+drop ObjectFunction;
+
+drop ObjectFunction if exists;
+
+-- DROP VIEW (basic — fuller coverage in ddl/views.sql)
+d
+drop ObjectView if exists;
+
+ DROP TYPE
+d
+drop ObjectType;
+
+drop ObjectType if exists cascade;
+
+ DROP SEQUENCE
+d
+drop ObjectSequence;
+
+drop ObjectSequence if exists;
 "
 `;
 
@@ -213,6 +395,43 @@ using (user_id = current_user_id());
 alter policy view_own_data
 on users
 using (user_id = current_user_id());
+
+-- WITH CHECK (for INSERT/UPDATE)
+create policy insert_own_rows
+on orders
+for insert
+with check (customer_id = current_user_id());
+
+-- USING and WITH CHECK together
+create policy manage_own_orders
+on orders
+for all
+using (customer_id = current_user_id())
+with check (customer_id = current_user_id());
+
+-- FOR UPDATE
+create policy update_own_profile
+on users
+for update
+using (id = current_user_id())
+with check (id = current_user_id());
+
+-- FOR DELETE
+create policy delete_own_sessions
+on sessions
+for delete
+using (user_id = current_user_id());
+
+-- Permissive vs restrictive
+create policy admin_all
+on orders
+for all
+using (true);
+
+create policy restrict_sensitive
+on users
+for all
+using (not is_internal);
 "
 `;
 
@@ -248,6 +467,35 @@ to orders
 do also
   insert into audit_log (event)
   values ('insert');
+
+-- DO INSTEAD (redirect writes to archive)
+create rule redirect_update
+as on update
+to archived_orders
+do instead nothing;
+
+-- INSTEAD OF (on a view)
+create rule insert_view
+as on insert
+to user_view
+do instead
+  insert into users (name, email)
+  values (new.name, new.email);
+
+-- BEFORE rule with condition
+create rule no_delete
+as on delete
+to orders
+where old.status = 'locked'
+do instead nothing;
+
+-- Multiple actions (DO ALSO with multiple statements)
+create rule audit_delete
+as on delete
+to orders
+do also
+  insert into audit_log (event, record_id)
+  values ('delete', old.id);
 "
 `;
 
@@ -327,12 +575,85 @@ alter type mood add value if not exists 'meh' before 'ok';
 "
 `;
 
+exports[`fixtures > ddl/views.sql 1`] = `
+"-- Simple CREATE VIEW
+create view active_users
+as
+select
+  id,
+  name,
+  email
+from
+  users
+where active = true;
+
+-- CREATE VIEW with column aliases
+create view order_summary
+as
+select
+  id,
+  amount,
+  status
+from
+  orders;
+
+-- CREATE OR REPLACE VIEW
+create view active_users
+as
+select
+  id,
+  name,
+  email
+from
+  users
+where
+  active = true
+  and deleted_at is null;
+
+-- CREATE MATERIALIZED VIEW
+create materialized view user_stats as
+select
+  user_id,
+  count(*) as order_count,
+  sum(amount) as total_spent
+from
+  orders
+group by
+  user_id;
+
+-- REFRESH MATERIALIZED VIEW
+refresh materialized view user_stats;
+
+refresh materialized view concurrently user_stats;
+
+-- DROP VIEW
+drop ObjectView;
+
+drop ObjectView if exists;
+
+drop ObjectMatview if exists;
+"
+`;
+
 exports[`fixtures > delete/returning.sql 1`] = `
-"delete from sessions
+"-- Basic DELETE (no RETURNING)
+delete from sessions
+where expires_at < now();
+
+-- DELETE with RETURNING
+delete from sessions
 where expires_at < now()
 returning
   id,
   user_id;
+
+-- DELETE with USING
+delete from order_items
+using
+  orders
+where
+  order_items.order_id = orders.id
+  and orders.status = 'cancelled';
 "
 `;
 
@@ -386,6 +707,34 @@ where (
     id
   from
     updated
+);
+
+-- WITH ... INSERT (insert from CTE)
+with
+  new_data as (
+    select
+      customer_id,
+      sum(amount) as total
+    from
+      raw_orders
+    group by
+      customer_id
+  )
+insert into order_summary (customer_id, total)
+select
+  customer_id,
+  total
+from
+  new_data;
+
+-- WITH ... UPDATE
+update sessions
+set active = false
+where (
+  select
+    id
+  from
+    stale
 );
 "
 `;
@@ -618,6 +967,26 @@ on conflict (id) do update
 set
   email = excluded.email,
   updated_at = excluded.updated_at;
+
+-- ON CONFLICT on constraint name
+insert into users (id, email)
+values (1, 'alice@example.com')
+on conflict on constraint users_email_key do nothing;
+
+-- ON CONFLICT DO UPDATE with WHERE (partial index target)
+insert into products (id, name, price)
+values (1, 'Widget', 9.99)
+on conflict (id) do update
+set
+  name = excluded.name,
+  price = excluded.price;
+
+-- ON CONFLICT DO UPDATE with WHERE on SET (filter which rows update)
+insert into inventory (product_id, quantity)
+values (1, 10)
+on conflict (product_id) do update
+set quantity = inventory.quantity + excluded.quantity
+where inventory.quantity < 1000;
 "
 `;
 
@@ -644,6 +1013,28 @@ values
   ('Widget', 9.99, 'tools'),
   ('Gadget', 19.99, 'electronics'),
   ('Doohickey', 4.99, 'misc');
+
+-- INSERT ... SELECT
+insert into archived_orders (id, customer_id, amount)
+select
+  id,
+  customer_id,
+  amount
+from
+  orders
+where status = 'closed';
+
+-- DEFAULT VALUES
+insert into audit_log
+default values;
+
+-- OVERRIDING SYSTEM VALUE
+insert into users (id, email) overriding system value
+values (100, 'admin@example.com');
+
+-- OVERRIDING USER VALUE
+insert into users (id, email) overriding user value
+values (101, 'user@example.com');
 "
 `;
 
@@ -738,6 +1129,23 @@ create table measurements (
   logdate date not null
 )
 partition by list (city_id);
+
+-- HASH partitioning
+create table events (
+  id integer not null,
+  user_id integer not null
+)
+partition by hash (user_id);
+
+create table events_0
+partition of events;
+
+create table events_1
+partition of events;
+
+-- LIST partition with IN bounds
+create table orders_eu
+partition of orders;
 "
 `;
 
@@ -871,6 +1279,70 @@ from
   emp
 group by
   grouping sets((dept, job), (dept), ());
+
+-- ARRAY constructor
+select
+  array[1, 2, 3];
+
+select
+  array['a', 'b', 'c'];
+
+-- ROW constructor
+select
+  (1, 'alice', true);
+
+-- SQL value functions
+select
+  current_date,
+  current_timestamp,
+  current_user,
+  session_user
+from
+  t;
+
+-- COALESCE / NULLIF / GREATEST / LEAST
+select
+  coalesce(price, 0.00),
+  nullif(status, 'deleted'),
+  greatest(a, b, c),
+  least(x, y, z)
+from
+  t;
+
+-- CASE searched form
+select
+  id,
+  case
+    when price < 10 then 'budget'
+    when price < 50 then 'mid-range'
+  else 'premium'
+  end as tier
+from
+  books;
+
+-- CASE simple form
+select
+  id,
+  case status
+    when 'active' then 1
+    when 'inactive' then 0
+  else -1
+  end
+from
+  users;
+
+-- AT TIME ZONE
+select
+  created_at at time zone 'UTC',
+  updated_at at time zone 'America/New_York'
+from
+  events;
+
+-- OVERLAY
+select
+  overlay(name placing 'XXX' from 2 for 3)
+from
+  users;
 "
 `;
 
@@ -914,6 +1386,51 @@ from
   books as b
   join authors as a on b.author_id = a.id
 where b.price < 50;
+
+-- DISTINCT (non-ON form)
+select distinct
+  author_id
+from
+  books;
+
+select distinct
+  author_id,
+  category
+from
+  books
+order by
+  author_id;
+
+-- Parameterized queries
+select
+  id,
+  email
+from
+  users
+where
+  id = $1
+  and active = $2;
+
+-- All JOIN types
+select
+  *
+from
+  a
+  join b on a.id = b.a_id
+  left join c on c.b_id = b.id
+  right join d on d.id = c.d_id
+  full join e on e.id = a.e_id
+  cross join f
+  natural join g;
+
+-- USING
+select
+  b.id,
+  b.title,
+  a.name
+from
+  books as b
+  join authors as a using ('author_id');
 "
 `;
 
@@ -935,7 +1452,108 @@ from
 select
   id
 from
-  users; -- inline trailing comment
+  users;
+
+-- inline trailing comment
+/* block comment before statement */
+select
+  id
+from
+  events;
+
+/* multi-line
+   block comment */
+select
+  id
+from
+  sessions;
+
+select
+  id
+from
+  accounts; /* trailing block comment */
+"
+`;
+
+exports[`fixtures > select/cte.sql 1`] = `
+"-- Basic multi-CTE
+with
+  active_users as (
+    select
+      id,
+      name
+    from
+      users
+    where active = true
+  ),
+  recent_orders as (
+    select
+      customer_id,
+      sum(amount) as total
+    from
+      orders
+    where created_at > now() - interval '30 days'
+    group by
+      customer_id
+  )
+select
+  u.name,
+  ro.total
+from
+  active_users as u
+  join recent_orders as ro on u.id = ro.customer_id;
+
+-- WITH RECURSIVE
+with recursive
+  org_tree as (
+    select
+      id,
+      name,
+      parent_id,
+      0 as depth
+    from
+      departments
+    where parent_id is null
+    union all
+    select
+      d.id,
+      d.name,
+      d.parent_id,
+      t.depth + 1
+    from
+      departments as d
+      join org_tree as t on d.parent_id = t.id
+  )
+select
+  id,
+  name,
+  depth
+from
+  org_tree
+order by
+  depth,
+  name;
+
+-- CTE with DISTINCT and set op
+with
+  top_authors as (
+    select
+      author_id,
+      count(*) as book_count
+    from
+      books
+    group by
+      author_id
+    having count(*) > 5
+  )
+select
+  a.name,
+  t.book_count
+from
+  authors as a
+  join top_authors as t on a.id = t.author_id
+order by
+  t.book_count desc;
 "
 `;
 
@@ -973,6 +1591,22 @@ select
 from
   orders
 for no key update of orders nowait;
+
+-- FOR KEY SHARE
+select
+  id
+from
+  accounts
+for key share;
+
+-- FOR UPDATE OF multiple tables
+select
+  o.id,
+  i.id
+from
+  orders as o
+  join order_items as i on o.id = i.order_id
+for update of o;
 "
 `;
 
@@ -1130,6 +1764,70 @@ select
 from
   books
 where price not between 10 and 50;
+
+-- ANY / ALL
+select
+  id,
+  title
+from
+  books
+where price = any(array[9.99, 19.99, 29.99]);
+
+select
+  id,
+  title
+from
+  books
+where (
+  select
+    price
+  from
+    books
+  where author_id = 5
+);
+
+-- IS NULL / IS NOT NULL
+select
+  id,
+  title
+from
+  books
+where deleted_at is null;
+
+select
+  id,
+  title
+from
+  books
+where deleted_at is not null;
+
+-- IS DISTINCT FROM / IS NOT DISTINCT FROM
+select
+  id
+from
+  t
+where a IS DISTINCT FROM b;
+
+select
+  id
+from
+  t
+where a IS NOT DISTINCT FROM b;
+
+-- SIMILAR TO
+select
+  id,
+  email
+from
+  users
+where email SIMILAR TO similar_to_escape('%@(gmail|yahoo)\\.com');
+
+select
+  id,
+  email
+from
+  users
+where email NOT SIMILAR TO similar_to_escape('%@(gmail|yahoo)\\.com');
 "
 `;
 
@@ -1146,6 +1844,63 @@ from
 
 select
   json_value(data, '$.price' returning numeric)
+from
+  events;
+"
+`;
+
+exports[`fixtures > select/json-operators.sql 1`] = `
+"-- -> and ->> (key access)
+select
+  data -> 'name',
+  data ->> 'email'
+from
+  users;
+
+-- #> and #>> (path access)
+select
+  data #> '{address,city}',
+  data #>> '{address,zip}'
+from
+  users;
+
+-- @> and <@ (containment)
+select
+  id
+from
+  orders
+where data @> '{"status": "active"}';
+
+select
+  id
+from
+  orders
+where '{"status": "active"}' <@ data;
+
+-- ? (key exists)
+select
+  id
+from
+  events
+where data ? 'payload';
+
+-- ?| (any key) and ?& (all keys)
+select
+  id
+from
+  events
+where data ?| array['a', 'b'];
+
+select
+  id
+from
+  events
+where data ?& array['a', 'b'];
+
+-- Combined JSON path
+select
+  id,
+  data -> 'user' ->> 'name' as user_name
 from
   events;
 "
@@ -1195,6 +1950,16 @@ select
 from
   users
 where email NOT ILIKE '%@example.com';
+
+-- Multiple predicates combined
+select
+  id,
+  title
+from
+  books
+where
+  title ILIKE '%postgres%'
+  and isbn NOT LIKE '978-0%';
 "
 `;
 
@@ -1286,6 +2051,91 @@ from
 "
 `;
 
+exports[`fixtures > select/subqueries.sql 1`] = `
+"-- Subquery in FROM
+select
+  sub.avg_price
+from
+  (
+    select
+      avg(price) as avg_price
+    from
+      books
+  ) as sub;
+
+-- Scalar subquery in column list
+select
+  id,
+  (
+    select
+      count(*)
+    from
+      orders
+    where customer_id = c.id
+  ) as order_count
+from
+  customers as c;
+
+-- EXISTS
+select
+  id,
+  name
+from
+  customers
+where exists (
+  select
+    1
+  from
+    orders
+  where orders.customer_id = customers.id
+);
+
+-- NOT EXISTS
+select
+  id,
+  name
+from
+  customers
+where
+  not exists (
+    select
+      1
+    from
+      orders
+    where orders.customer_id = customers.id
+  );
+
+-- Subquery in WHERE with IN
+select
+  id,
+  title
+from
+  books
+where (
+  select
+    id
+  from
+    authors
+  where country = 'US'
+);
+
+-- Correlated subquery
+select
+  id,
+  title,
+  price
+from
+  books as b
+where price > (
+  select
+    avg(price)
+  from
+    books
+  where author_id = b.author_id
+);
+"
+`;
+
 exports[`fixtures > select/window.sql 1`] = `
 "select
   id,
@@ -1308,6 +2158,47 @@ select
   price,
   rank() over (partition by author_id order by price desc) as price_rank,
   avg(price) over (partition by author_id) as avg_price
+from
+  books;
+
+-- RANGE frame
+select
+  id,
+  price,
+  avg(price) over (order by price range between unbounded preceding and current row) as running_avg
+from
+  books;
+
+-- GROUPS frame
+select
+  dept,
+  salary,
+  count(*) over (order by dept groups between 1 preceding and 1 following) as nearby_count
+from
+  emp;
+
+-- UNBOUNDED FOLLOWING
+select
+  id,
+  price,
+  sum(price) over (order by id rows between current row and unbounded following) as suffix_sum
+from
+  books;
+
+-- N PRECEDING / N FOLLOWING (moving window)
+select
+  id,
+  price,
+  avg(price) over (order by id rows between 2 preceding and 2 following) as moving_avg
+from
+  books;
+
+-- No frame — pure PARTITION BY
+s
+select
+  id,
+  author_id,
+  count(*) over (partition by author_id) as author_book_count
 from
   books;
 "
@@ -1344,6 +2235,119 @@ where last_login < now() - interval '1 year'
 returning
   id,
   email;
+
+-- UPDATE with FROM
+update order_items
+set price = p.price
+from
+  products as p
+where order_items.product_id = p.id;
+
+-- UPDATE with FROM and RETURNING
+update employees
+set salary = salary * 1.1
+from
+  departments as d
+where
+  employees.dept_id = d.id
+  and d.name = 'Engineering'
+returning
+  employees.id,
+  employees.salary;
+
+-- UPDATE with subquery in SET
+update users
+set status = (
+  select
+    status
+  from
+    status_map
+  where code = users.status_code
+)
+where status_code is not null;
+"
+`;
+
+exports[`options > sqlCommaStyle: leading 1`] = `
+"select
+  id
+  , title
+  , price
+  , author_id
+  , in_stock
+from
+  books
+where in_stock = true;
+"
+`;
+
+exports[`options > sqlCommaStyle: trailing (default) 1`] = `
+"select
+  id,
+  title,
+  price,
+  author_id,
+  in_stock
+from
+  books
+where in_stock = true;
+"
+`;
+
+exports[`options > sqlDensity: compact (single WHERE inline) 1`] = `
+"select
+  id
+from
+  books
+where price < 50;
+"
+`;
+
+exports[`options > sqlDensity: spacious (WHERE indented) 1`] = `
+"select
+  id,
+  title,
+  price
+from
+  books
+where
+  in_stock = true
+  and price < 50
+order by
+  price asc
+limit 10;
+"
+`;
+
+exports[`options > sqlKeywordCase: lower (default) 1`] = `
+"select
+  id,
+  title,
+  price
+from
+  books
+where
+  in_stock = true
+  and price < 50
+order by
+  price asc
+limit 10;
+"
+`;
+
+exports[`options > sqlKeywordCase: upper 1`] = `
+"SELECT
+  id,
+  title,
+  price
+FROM
+  books
+WHERE
+  in_stock = true
+  AND price < 50
+ORDER BY
+  price ASC
+LIMIT 10;
 "
 `;
 

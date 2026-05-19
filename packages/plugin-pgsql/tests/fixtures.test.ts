@@ -9,11 +9,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(__dirname, 'fixtures');
 const sharedDir = join(__dirname, '../../prettier-plugin-tsql/tests/fixtures/shared');
 
-async function fmt(sql: string): Promise<string> {
+async function fmt(sql: string, opts: Record<string, unknown> = {}): Promise<string> {
     return prettier.format(sql, {
         parser: 'pgsql',
         plugins: [plugin],
         printWidth: 80,
+        ...opts,
     });
 }
 
@@ -51,4 +52,38 @@ describe('shared fixtures', () => {
             expect(result).toMatchSnapshot();
         });
     }
+});
+
+// ---------------------------------------------------------------------------
+// Option variants — run a representative query through each non-default option
+// ---------------------------------------------------------------------------
+
+const OPTION_SQL = `select id, title, price from books where in_stock = true and price < 50 order by price asc limit 10;`;
+
+describe('options', () => {
+    it('sqlKeywordCase: upper', async () => {
+        expect(await fmt(OPTION_SQL, { sqlKeywordCase: 'upper' })).toMatchSnapshot();
+    });
+
+    it('sqlKeywordCase: lower (default)', async () => {
+        expect(await fmt(OPTION_SQL, { sqlKeywordCase: 'lower' })).toMatchSnapshot();
+    });
+
+    it('sqlCommaStyle: leading', async () => {
+        const sql = `select id, title, price, author_id, in_stock from books where in_stock = true;`;
+        expect(await fmt(sql, { sqlCommaStyle: 'leading' })).toMatchSnapshot();
+    });
+
+    it('sqlCommaStyle: trailing (default)', async () => {
+        const sql = `select id, title, price, author_id, in_stock from books where in_stock = true;`;
+        expect(await fmt(sql, { sqlCommaStyle: 'trailing' })).toMatchSnapshot();
+    });
+
+    it('sqlDensity: spacious (WHERE indented)', async () => {
+        expect(await fmt(OPTION_SQL, { sqlDensity: 'spacious' })).toMatchSnapshot();
+    });
+
+    it('sqlDensity: compact (single WHERE inline)', async () => {
+        expect(await fmt(`select id from books where price < 50;`, { sqlDensity: 'compact' })).toMatchSnapshot();
+    });
 });
