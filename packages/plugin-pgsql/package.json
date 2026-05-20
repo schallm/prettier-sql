@@ -57,6 +57,8 @@
     "format": "npm run format:ts && npm run format:md && npm run format:cs",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check:docs": "node scripts/check-docs.mjs",
+    "fix:docs": "node scripts/check-docs.mjs --fix",
     "preversion": "npm test",
     "version": "npm run build",
     "postversion": "git push && git push --tags && npm publish"
