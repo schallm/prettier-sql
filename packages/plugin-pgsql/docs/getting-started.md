@@ -69,8 +69,7 @@ select
   title
 from books
 where price < 50
-order by
-  price;
+order by price;
 ```
 
 ---
