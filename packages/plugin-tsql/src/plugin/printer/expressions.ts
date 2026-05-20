@@ -1,6 +1,6 @@
 import type { Doc } from 'prettier';
-import type { SqlNode } from '../parser/types.js';
-import type { Options } from './utils.js';
+import type { SqlNode } from '@prettier-sql/core/types';
+import type { Options } from '@prettier-sql/core/printer/utils';
 import {
     keyword,
     getDensity,
@@ -16,7 +16,7 @@ import {
     appendTrailingLines,
     parenList,
     aliasDoc,
-} from './utils.js';
+} from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, schemaObjectName, assignmentOp } from './helpers.js';
 
 // ---------------------------------------------------------------------------

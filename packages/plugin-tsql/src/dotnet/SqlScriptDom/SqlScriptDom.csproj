@@ -15,4 +15,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.SqlServer.TransactSql.ScriptDom" Version="180.18.1" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../../core/src/dotnet/Core/PrettierSql.Core.csproj" />
+  </ItemGroup>
 </Project>

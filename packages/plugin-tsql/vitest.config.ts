@@ -1,9 +1,2 @@
-import { defineConfig } from 'vitest/config';
+export { default } from '../../vitest.config.base.ts';
 
-export default defineConfig({
-  test: {
-    include: ['tests/**/*.test.ts'],
-    globals: false,
-    testTimeout: 30000,
-  },
-});

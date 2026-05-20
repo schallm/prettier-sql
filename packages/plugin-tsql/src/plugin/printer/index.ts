@@ -1,6 +1,6 @@
 import type { AstPath, Doc, Printer } from 'prettier';
-import type { SqlNode } from '../parser/types.js';
-import type { Options } from './utils.js';
+import type { SqlNode } from '@prettier-sql/core/types';
+import type { Options } from '@prettier-sql/core/printer/utils';
 import { printScript, printStatement } from './statements.js';
 import { printExpression } from './expressions.js';
 

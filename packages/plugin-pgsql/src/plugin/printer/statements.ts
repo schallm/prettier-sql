@@ -1,6 +1,6 @@
 import type { Doc } from 'prettier';
-import type { SqlNode } from '../parser/types.js';
-import type { Options } from './utils.js';
+import type { SqlNode } from '@prettier-sql/core/types';
+import type { Options } from '@prettier-sql/core/printer/utils';
 import {
     keyword,
     hardline,
@@ -11,7 +11,7 @@ import {
     softSep,
     hardSep,
     getDensity,
-} from './utils.js';
+} from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, rangeVarName, qualifiedName } from './helpers.js';
 import { printExpression, printWindowDef } from './expressions.js';
 

@@ -1,7 +1,7 @@
 import { createRequire } from 'module';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import type { SqlNode, CommentToken } from './types.js';
+import type { SqlNode, CommentToken } from '@prettier-sql/core/types';
 
 // ---------------------------------------------------------------------------
 // DLL loading

@@ -1,4 +1,5 @@
 using PgSqlParser;
+using PrettierSql.Core;
 
 namespace PrettierPgsql;
 

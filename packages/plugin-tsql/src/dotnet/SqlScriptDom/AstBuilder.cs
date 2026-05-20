@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
+using PrettierSql.Core;
 
 namespace PrettierTsql;
 

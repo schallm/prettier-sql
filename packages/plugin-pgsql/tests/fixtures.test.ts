@@ -7,7 +7,7 @@ import plugin from '../src/plugin/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(__dirname, 'fixtures');
-const sharedDir = join(__dirname, '../../prettier-plugin-tsql/tests/fixtures/shared');
+const sharedDir = join(__dirname, '../../core/tests/fixtures/shared');
 
 async function fmt(sql: string, opts: Record<string, unknown> = {}): Promise<string> {
     return prettier.format(sql, {

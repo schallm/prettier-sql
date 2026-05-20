@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
-import type { SqlNode } from '../parser/types.js';
-import type { Options } from './utils.js';
-import { keyword, hardline, join, indent, group, onOffKw } from './utils.js';
+import type { SqlNode } from '@prettier-sql/core/types';
+import type { Options } from '@prettier-sql/core/printer/utils';
+import { keyword, hardline, join, indent, group, onOffKw } from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, schemaObjectName, assignmentOp } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)

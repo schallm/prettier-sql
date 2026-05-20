@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
-import type { SqlNode } from '../parser/types.js';
-import type { Options } from './utils.js';
-import { keyword, hardline, join, indent, group, line, softline, ifExistsDoc } from './utils.js';
+import type { SqlNode } from '@prettier-sql/core/types';
+import type { Options } from '@prettier-sql/core/printer/utils';
+import { keyword, hardline, join, indent, group, line, softline, ifExistsDoc } from '@prettier-sql/core/printer/utils';
 import { propStr, propBool } from './helpers.js';
 
 // ---------------------------------------------------------------------------

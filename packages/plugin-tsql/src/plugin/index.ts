@@ -1,7 +1,7 @@
 import type { Plugin } from 'prettier';
-import type { SqlNode } from './parser/types.js';
+import type { SqlNode } from '@prettier-sql/core/types';
 import { languages } from './language.js';
-import { options } from './options.js';
+import { options } from '@prettier-sql/core/options';
 import { parse, locStart, locEnd } from './parser/index.js';
 import { printer } from './printer/index.js';
 

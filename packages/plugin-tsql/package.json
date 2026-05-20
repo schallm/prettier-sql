@@ -6,11 +6,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/schallm/prettier-plugin-tsql.git"
+    "url": "git+https://github.com/schallm/prettier-sql.git"
   },
-  "homepage": "https://github.com/schallm/prettier-plugin-tsql#readme",
+  "homepage": "https://github.com/schallm/prettier-sql/tree/main/packages/plugin-tsql#readme",
   "bugs": {
-    "url": "https://github.com/schallm/prettier-plugin-tsql/issues"
+    "url": "https://github.com/schallm/prettier-sql/issues"
   },
   "type": "module",
   "main": "dist/index.js",
@@ -40,27 +40,19 @@
     "prettier": ">=3.0.0"
   },
   "dependencies": {
+    "@prettier-sql/core": "workspace:*",
     "node-api-dotnet": "0.9.19"
-  },
-  "devDependencies": {
-    "@types/node": "^25.5.2",
-    "prettier": "^3.8.2",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.2"
   },
   "scripts": {
     "build:dotnet": "dotnet restore src/dotnet/SqlScriptDom/SqlScriptDom.csproj && dotnet msbuild src/dotnet/SqlScriptDom/SqlScriptDom.csproj /t:Publish /p:Configuration=Release \"/p:PublishDir=../../../bin/dotnet/\"",
     "build:ts": "tsc -p tsconfig.json",
     "build:ts:watch": "tsc -p tsconfig.json --watch",
-    "build": "npm run build:dotnet && npm run build:ts",
+    "build": "pnpm run build:dotnet && pnpm run build:ts",
     "format:ts": "prettier --write \"src/plugin/**/*.ts\"",
     "format:md": "prettier --write \"**/*.md\" --ignore-path .gitignore",
     "format:cs": "dotnet format src/dotnet/SqlScriptDom/SqlScriptDom.csproj",
-    "format": "npm run format:ts && npm run format:md && npm run format:cs",
+    "format": "pnpm run format:ts && pnpm run format:md && pnpm run format:cs",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "preversion": "npm test",
-    "version": "npm run build",
-    "postversion": "git push && git push --tags && npm publish"
+    "test:watch": "vitest"
   }
 }

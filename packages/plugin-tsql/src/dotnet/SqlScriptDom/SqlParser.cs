@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
+using PrettierSql.Core;
 
 namespace PrettierTsql;
 

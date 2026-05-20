@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readdirSync, readFileSync } from 'fs';
+import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
 import prettier from 'prettier';
@@ -7,6 +7,7 @@ import plugin from '../src/plugin/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(__dirname, 'fixtures');
+const sharedDir = join(__dirname, '../../core/tests/fixtures/shared');
 
 async function fmt(sql: string): Promise<string> {
     return prettier.format(sql, {
@@ -33,6 +34,20 @@ function collectFixtures(dir: string): string[] {
 describe('fixtures', () => {
     for (const file of collectFixtures(fixturesDir)) {
         const name = relative(fixturesDir, file);
+        it(name, async () => {
+            const input = readFileSync(file, 'utf-8').trim();
+            const result = await fmt(input);
+            expect(result).toMatchSnapshot();
+            const result2 = await fmt(result);
+            expect(result2).toBe(result);
+        });
+    }
+});
+
+describe('shared fixtures', () => {
+    if (!existsSync(sharedDir)) return;
+    for (const file of collectFixtures(sharedDir)) {
+        const name = relative(sharedDir, file);
         it(name, async () => {
             const input = readFileSync(file, 'utf-8').trim();
             const result = await fmt(input);

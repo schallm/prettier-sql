@@ -14,4 +14,7 @@
   <ItemGroup>
     <PackageReference Include="pgsqlparser" Version="1.0.0" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../../core/src/dotnet/Core/PrettierSql.Core.csproj" />
+  </ItemGroup>
 </Project>

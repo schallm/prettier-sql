@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using PgSqlParser;
+using PrettierSql.Core;
 
 namespace PrettierPgsql;
 
