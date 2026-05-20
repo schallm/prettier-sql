@@ -156,6 +156,16 @@ function printBoolClause(kw: string, where: SqlNode, opts: Options, printNode: P
 }
 
 /**
+ * Single-item keyword clause (GROUP BY, ORDER BY) — stays inline in standard/compact.
+ */
+function printListClause(kw: string, items: SqlNode[], opts: Options, printNode: PrintFn): Doc {
+    const makeKeyword = (k: string) => keyword(k, opts);
+    const inline = getDensity(opts) !== 'spacious' && items.length === 1;
+    const body = join(hardSep(opts), items.map(printNode));
+    return [makeKeyword(kw), inline ? [' ', body] : indent([hardline, body])];
+}
+
+/**
  * FROM clause: single non-join item stays inline; joins and multiple items are indented.
  */
 function printFromClause(items: SqlNode[], opts: Options, printNode: PrintFn): Doc {
@@ -225,24 +235,21 @@ function printSelectBody(node: SqlNode, opts: Options): Doc {
         : distinct
           ? [makeKeyword('SELECT'), ' ', makeKeyword('DISTINCT')]
           : makeKeyword('SELECT');
-    parts.push([selectKw, indent([hardline, join(hardSep(opts), targets.map(printNode))])]);
+    const selectInline = getDensity(opts) !== 'spacious' && targets.length === 1;
+    const targetDoc = join(hardSep(opts), targets.map(printNode));
+    parts.push([selectKw, selectInline ? [' ', targetDoc] : indent([hardline, targetDoc])]);
 
     if (from.length > 0) {
-        // Always indent from items so JOINs align properly under FROM
         parts.push(printFromClause(from, opts, printNode));
     }
 
     if (where) parts.push(printBoolClause('WHERE', where, opts, printNode));
 
-    if (groupBy.length > 0) {
-        parts.push([makeKeyword('GROUP BY'), indent([hardline, join(hardSep(opts), groupBy.map(printNode))])]);
-    }
+    if (groupBy.length > 0) parts.push(printListClause('GROUP BY', groupBy, opts, printNode));
 
     if (having) parts.push(printBoolClause('HAVING', having, opts, printNode));
 
-    if (orderBy.length > 0) {
-        parts.push([makeKeyword('ORDER BY'), indent([hardline, join(hardSep(opts), orderBy.map(printNode))])]);
-    }
+    if (orderBy.length > 0) parts.push(printListClause('ORDER BY', orderBy, opts, printNode));
 
     if (limit)  parts.push([makeKeyword('LIMIT'), ' ', printNode(limit)]);
     if (offset) parts.push([makeKeyword('OFFSET'), ' ', printNode(offset)]);
@@ -1158,13 +1165,9 @@ function printSelectInto(node: SqlNode, opts: Options): Doc {
         parts.push(printFromClause(from, opts, printNode));
     }
     if (where) parts.push(printBoolClause('WHERE', where, opts, printNode));
-    if (groupBy.length > 0) {
-        parts.push([makeKeyword('GROUP BY'), indent([hardline, join(hardSep(opts), groupBy.map(printNode))])]);
-    }
+    if (groupBy.length > 0) parts.push(printListClause('GROUP BY', groupBy, opts, printNode));
     if (having) parts.push(printBoolClause('HAVING', having, opts, printNode));
-    if (orderBy.length > 0) {
-        parts.push([makeKeyword('ORDER BY'), indent([hardline, join(hardSep(opts), orderBy.map(printNode))])]);
-    }
+    if (orderBy.length > 0) parts.push(printListClause('ORDER BY', orderBy, opts, printNode));
     if (limit)  parts.push([makeKeyword('LIMIT'), ' ', printNode(limit)]);
     if (offset) parts.push([makeKeyword('OFFSET'), ' ', printNode(offset)]);
 

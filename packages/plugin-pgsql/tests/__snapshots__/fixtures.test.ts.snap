@@ -628,8 +628,7 @@ select
   count(*) as order_count,
   sum(amount) as total_spent
 from orders
-group by
-  user_id;
+group by user_id;
 
 -- REFRESH MATERIALIZED VIEW
 refresh materialized view user_stats;
@@ -685,8 +684,7 @@ exports[`fixtures > dml/copy.sql 1`] = `
 copy orders to '/tmp/orders.csv';
 
 copy (
-  select
-    id
+  select id
   from orders
 ) to '/tmp/ids.csv';
 
@@ -719,8 +717,7 @@ from moved;
 
 delete from sessions
 where (
-  select
-    id
+  select id
   from updated
 );
 
@@ -731,8 +728,7 @@ with
       customer_id,
       sum(amount) as total
     from raw_orders
-    group by
-      customer_id
+    group by customer_id
   )
 insert into order_summary (customer_id, total)
 select
@@ -744,8 +740,7 @@ from new_data;
 update sessions
 set active = false
 where (
-  select
-    id
+  select id
   from stale
 );
 "
@@ -759,8 +754,7 @@ select
 from users;
 
 declare scroll_cursor scroll cursor for
-select
-  id
+select id
 from orders;
 
 fetch next from my_cursor;
@@ -793,16 +787,13 @@ language sql;
 `;
 
 exports[`fixtures > dml/explain.sql 1`] = `
-"explain select
-  id
+"explain select id
 from users;
 
-explain analyze select
-  id
+explain analyze select id
 from users;
 
-explain (analyze true, verbose true, format json) select
-  id
+explain (analyze true, verbose true, format json) select id
 from users;
 "
 `;
@@ -1088,17 +1079,13 @@ into local_schema;
 `;
 
 exports[`fixtures > p4/interval-modifiers.sql 1`] = `
-"select
-  interval '1' year;
+"select interval '1' year;
 
-select
-  interval '1:30' hour to minute;
+select interval '1:30' hour to minute;
 
-select
-  interval '1 2:03:04' day to second;
+select interval '1 2:03:04' day to second;
 
-select
-  interval '5 years' year to month;
+select interval '5 years' year to month;
 "
 `;
 
@@ -1174,8 +1161,7 @@ exports[`fixtures > p4/recursive-cte-search-cycle.sql 1`] = `
   )
   search breadth first by id set ordercol
   cycle id set is_cycle using path
-select
-  *
+select *
 from t;
 "
 `;
@@ -1202,11 +1188,10 @@ create table orders_partial (
 exports[`fixtures > p4/tablesample.sql 1`] = `
 "select
   id,
-  name
-from users tablesample bernoulli(10);
+  title
+from books tablesample bernoulli(10);
 
-select
-  count(*)
+select count(*)
 from orders tablesample system(5) repeatable (42);
 "
 `;
@@ -1251,43 +1236,36 @@ select
 from t;
 
 -- Named function arguments
-select
-  make_date(year => 2024, month => 1, day => 15);
+select make_date(year => 2024, month => 1, day => 15);
 
 -- ROLLUP / CUBE / GROUPING SETS
 select
   dept,
   sum(salary)
 from emp
-group by
-  rollup(dept);
+group by rollup(dept);
 
 select
   dept,
   job,
   sum(salary)
 from emp
-group by
-  cube(dept, job);
+group by cube(dept, job);
 
 select
   dept,
   job,
   sum(salary)
 from emp
-group by
-  grouping sets((dept, job), (dept), ());
+group by grouping sets((dept, job), (dept), ());
 
 -- ARRAY constructor
-select
-  array[1, 2, 3];
+select array[1, 2, 3];
 
-select
-  array['a', 'b', 'c'];
+select array['a', 'b', 'c'];
 
 -- ROW constructor
-select
-  (1, 'alice', true);
+select (1, 'alice', true);
 
 -- SQL value functions
 select
@@ -1332,8 +1310,7 @@ select
 from events;
 
 -- OVERLAY
-select
-  overlay(name placing 'XXX' from 2 for 3)
+select overlay(name placing 'XXX' from 2 for 3)
 from users;
 "
 `;
@@ -1344,15 +1321,13 @@ exports[`fixtures > select/aggregate-filter.sql 1`] = `
   count(*) filter (where in_stock = 1) as in_stock_count,
   count(*) filter (where in_stock = 0) as out_of_stock_count
 from books
-group by
-  author_id;
+group by author_id;
 
 select
   author_id,
   string_agg(title, ', ' order by title) as titles
 from books
-group by
-  author_id;
+group by author_id;
 
 -- FILTER with OVER (window aggregate)
 select
@@ -1372,8 +1347,7 @@ select
   dept,
   array_agg(name order by name) as members
 from employees
-group by
-  dept;
+group by dept;
 
 -- DISTINCT inside aggregate
 select
@@ -1390,8 +1364,7 @@ exports[`fixtures > select/basic.sql 1`] = `
   price
 from books
 where in_stock = true
-order by
-  price asc;
+order by price asc;
 
 select
   books.id,
@@ -1404,16 +1377,14 @@ from
 where books.price < 50;
 
 -- DISTINCT (non-ON form)
-select distinct
-  author_id
+select distinct author_id
 from books;
 
 select distinct
   author_id,
   category
 from books
-order by
-  author_id;
+order by author_id;
 
 -- Parameterized queries
 select
@@ -1425,8 +1396,7 @@ where
   and active = $2;
 
 -- All JOIN types
-select
-  *
+select *
 from
   books
   join authors on authors.id = books.author_id
@@ -1456,28 +1426,23 @@ from books;
 
 -- comment before second statement
 -- multi-line comment block
-select
-  id
+select id
 from orders;
 
-select
-  id
+select id
 from users;
 
 -- inline trailing comment
 /* block comment before statement */
-select
-  id
+select id
 from events;
 
 /* multi-line
    block comment */
-select
-  id
+select id
 from sessions;
 
-select
-  id
+select id
 from accounts; /* trailing block comment */
 "
 `;
@@ -1498,8 +1463,7 @@ with
       sum(amount) as total
     from orders
     where created_at > now() - interval '30 days'
-    group by
-      customer_id
+    group by customer_id
   )
 select
   u.name,
@@ -1544,8 +1508,7 @@ with
       author_id,
       count(*) as book_count
     from books
-    group by
-      author_id
+    group by author_id
     having count(*) > 5
   )
 select
@@ -1554,8 +1517,7 @@ select
 from
   authors as a
   join top_authors as t on a.id = t.author_id
-order by
-  t.book_count desc;
+order by t.book_count desc;
 "
 `;
 
@@ -1585,14 +1547,12 @@ select
 from books
 for share skip locked;
 
-select
-  id
+select id
 from orders
 for no key update of orders nowait;
 
 -- FOR KEY SHARE
-select
-  id
+select id
 from accounts
 for key share;
 
@@ -1609,13 +1569,11 @@ for update of o;
 
 exports[`fixtures > select/functions.sql 1`] = `
 "-- SUBSTRING: regex form (FROM pattern)
-select
-  substring(title from 'pg.*')
+select substring(title from 'pg.*')
 from books;
 
 -- SUBSTRING: positional form (FROM pos FOR len)
-select
-  substring(title from 1 for 5)
+select substring(title from 1 for 5)
 from books;
 
 -- EXTRACT
@@ -1640,8 +1598,7 @@ select
 from users;
 
 -- POSITION
-select
-  position('.' in email)
+select position('.' in email)
 from users;
 
 -- AT TIME ZONE
@@ -1651,8 +1608,7 @@ select
 from events;
 
 -- OVERLAY
-select
-  overlay(name placing 'XXX' from 2 for 3)
+select overlay(name placing 'XXX' from 2 for 3)
 from users;
 
 -- CURRENT_DATE / CURRENT_TIMESTAMP / other SQL value functions
@@ -1686,8 +1642,7 @@ select
   least(x, y)
 from scores;
 
-select
-  date_trunc('month', created_at)
+select date_trunc('month', created_at)
 from orders;
 
 select
@@ -1696,8 +1651,7 @@ select
   to_timestamp(epoch)
 from t;
 
-select
-  regexp_replace(name, '\\s+', ' ', 'g')
+select regexp_replace(name, '\\s+', ' ', 'g')
 from users;
 "
 `;
@@ -1709,8 +1663,7 @@ exports[`fixtures > select/grouping-func.sql 1`] = `
   grouping(region, product) as grp,
   sum(amount)
 from sales
-group by
-  grouping sets((region, product), (region), ());
+group by grouping sets((region, product), (region), ());
 "
 `;
 
@@ -1753,8 +1706,7 @@ select
   title
 from books
 where (
-  select
-    price
+  select price
   from books
   where author_id = 5
 );
@@ -1773,13 +1725,11 @@ from books
 where deleted_at is not null;
 
 -- IS DISTINCT FROM / IS NOT DISTINCT FROM
-select
-  id
+select id
 from t
 where a IS DISTINCT FROM b;
 
-select
-  id
+select id
 from t
 where a IS NOT DISTINCT FROM b;
 
@@ -1799,16 +1749,13 @@ where email NOT SIMILAR TO '%@(gmail|yahoo)\\.com';
 `;
 
 exports[`fixtures > select/json-functions.sql 1`] = `
-"select
-  json_query(data, '$.name')
+"select json_query(data, '$.name')
 from events;
 
-select
-  json_exists(data, '$.active')
+select json_exists(data, '$.active')
 from events;
 
-select
-  json_value(data, '$.price' returning numeric)
+select json_value(data, '$.price' returning numeric)
 from events;
 "
 `;
@@ -1827,30 +1774,25 @@ select
 from users;
 
 -- @> and <@ (containment)
-select
-  id
+select id
 from orders
 where data @> '{"status": "active"}';
 
-select
-  id
+select id
 from orders
 where '{"status": "active"}' <@ data;
 
 -- ? (key exists)
-select
-  id
+select id
 from events
 where data ? 'payload';
 
 -- ?| (any key) and ?& (all keys)
-select
-  id
+select id
 from events
 where data ?| array['a', 'b'];
 
-select
-  id
+select id
 from events
 where data ?& array['a', 'b'];
 
@@ -1869,8 +1811,7 @@ exports[`fixtures > select/lateral.sql 1`] = `
 from
   books as b,
   lateral (
-    select
-      avg(price) as avg_price
+    select avg(price) as avg_price
     from books
     where author_id = b.author_id
   ) as r;
@@ -1962,20 +1903,16 @@ select
   name
 from prospects;
 
-select
-  product_id
+select product_id
 from orders
 intersect
-select
-  product_id
+select product_id
 from featured_products;
 
-select
-  user_id
+select user_id
 from premium_users
 except
-select
-  user_id
+select user_id
 from suspended_users;
 
 select
@@ -2005,21 +1942,17 @@ select
 from leads;
 
 -- INTERSECT ALL
-select
-  product_id
+select product_id
 from orders
 intersect all
-select
-  product_id
+select product_id
 from returns;
 
 -- EXCEPT ALL
-select
-  user_id
+select user_id
 from subscribers
 except all
-select
-  user_id
+select user_id
 from unsubscribed;
 
 -- Set op with ORDER BY and LIMIT on the whole result
@@ -2048,11 +1981,9 @@ from archived_users;
 
 exports[`fixtures > select/subqueries.sql 1`] = `
 "-- Subquery in FROM
-select
-  sub.avg_price
+select sub.avg_price
 from (
-  select
-    avg(price) as avg_price
+  select avg(price) as avg_price
   from books
 ) as sub;
 
@@ -2060,8 +1991,7 @@ from (
 select
   id,
   (
-    select
-      count(*)
+    select count(*)
     from orders
     where customer_id = c.id
   ) as order_count
@@ -2073,8 +2003,7 @@ select
   name
 from customers
 where exists (
-  select
-    1
+  select 1
   from orders
   where orders.customer_id = customers.id
 );
@@ -2085,8 +2014,7 @@ select
   name
 from customers
 where not exists (
-  select
-    1
+  select 1
   from orders
   where orders.customer_id = customers.id
 );
@@ -2097,8 +2025,7 @@ select
   title
 from books
 where (
-  select
-    id
+  select id
   from authors
   where country = 'US'
 );
@@ -2110,8 +2037,7 @@ select
   price
 from books as b
 where price > (
-  select
-    avg(price)
+  select avg(price)
   from books
   where author_id = b.author_id
 );
@@ -2178,22 +2104,17 @@ from books;
 `;
 
 exports[`fixtures > select/xml-functions.sql 1`] = `
-"select
-  xmlelement(name foo, 'bar');
+"select xmlelement(name foo, 'bar');
 
-select
-  xmlelement(name order, xmlattributes(o.orderid), o.ordername)
+select xmlelement(name order, xmlattributes(o.orderid), o.ordername)
 from orders as o;
 
-select
-  xmlforest(title, author as written_by)
+select xmlforest(title, author as written_by)
 from books;
 
-select
-  xmlconcat(xmlelement(name a, 1), xmlelement(name b, 2));
+select xmlconcat(xmlelement(name a, 1), xmlelement(name b, 2));
 
-select
-  xmlagg(xmlelement(name item, title) order by title)
+select xmlagg(xmlelement(name item, title) order by title)
 from books;
 "
 `;
@@ -2226,8 +2147,7 @@ returning
 -- UPDATE with subquery in SET
 update users
 set status = (
-  select
-    status
+  select status
   from status_map
   where code = users.status_code
 )
@@ -2260,8 +2180,7 @@ where in_stock = true;
 `;
 
 exports[`options > sqlDensity: compact (single WHERE inline) 1`] = `
-"select
-  id
+"select id
 from books
 where price < 50;
 "
@@ -2291,8 +2210,7 @@ from books
 where
   in_stock = true
   and price < 50
-order by
-  price asc
+order by price asc
 limit 10;
 "
 `;
@@ -2306,8 +2224,7 @@ FROM books
 WHERE
   in_stock = true
   AND price < 50
-ORDER BY
-  price ASC
+ORDER BY price ASC
 LIMIT 10;
 "
 `;
@@ -2344,11 +2261,9 @@ exports[`shared fixtures > select/aggregates.sql 1`] = `
   avg(price) as avg_price
 from books
 where in_stock = 1
-group by
-  author_id
+group by author_id
 having count(*) > 5
-order by
-  book_count desc;
+order by book_count desc;
 "
 `;
 
@@ -2359,8 +2274,7 @@ exports[`shared fixtures > select/basic.sql 1`] = `
   price
 from books
 where in_stock = 1
-order by
-  price asc;
+order by price asc;
 
 select
   id,
@@ -2370,8 +2284,7 @@ from books
 where
   in_stock = 1
   and price < 50
-order by
-  price desc;
+order by price desc;
 "
 `;
 
@@ -2403,8 +2316,7 @@ exports[`shared fixtures > select/cte.sql 1`] = `
       author_id,
       count(*) as book_count
     from books
-    group by
-      author_id
+    group by author_id
     having count(*) > 5
   )
 select
@@ -2414,8 +2326,7 @@ select
 from
   authors as a
   join top_authors as t on a.id = t.author_id
-order by
-  t.book_count desc;
+order by t.book_count desc;
 "
 `;
 
@@ -2452,8 +2363,7 @@ exports[`shared fixtures > select/subqueries.sql 1`] = `
   title
 from books
 where (
-  select
-    id
+  select id
   from authors
   where country = 'USA'
 );
@@ -2463,8 +2373,7 @@ select
   title
 from books
 where exists (
-  select
-    1
+  select 1
   from order_items
   where order_items.book_id = books.id
 );
@@ -2474,8 +2383,7 @@ select
   title
 from books
 where not (
-  select
-    author_id
+  select author_id
   from banned_authors
 );
 "
