@@ -244,14 +244,23 @@ function printCast(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 
 function printSubLink(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (kw: string) => keyword(kw, opts);
-    const type = propStr(node, 'type') ?? 'SCALAR';
+    const type     = propStr(node, 'type') ?? 'SCALAR';
     const subquery = prop(node, 'subquery');
-    const inner = subquery ? printNode(subquery) : '';
+    const testexpr = prop(node, 'testexpr');
+    const op       = propStr(node, 'op') ?? '=';
+    const inner    = subquery ? printNode(subquery) : '';
+    const subDoc: Doc = ['(', indent([hardline, inner]), hardline, ')'];
 
-    if (type === 'EXISTS') {
-        return [makeKeyword('EXISTS'), ' (', indent([hardline, inner]), hardline, ')'];
+    if (type === 'EXISTS') return [makeKeyword('EXISTS'), ' ', subDoc];
+
+    const lhs: Doc = testexpr ? [printNode(testexpr), ' '] : '';
+    if (type === 'ANY') {
+        // = ANY is SQL's IN
+        return op === '=' ? [lhs, makeKeyword('IN'), ' ', subDoc]
+                          : [lhs, op, ' ', makeKeyword('ANY'), ' ', subDoc];
     }
-    return ['(', indent([hardline, inner]), hardline, ')'];
+    if (type === 'ALL') return [lhs, op, ' ', makeKeyword('ALL'), ' ', subDoc];
+    return subDoc;
 }
 
 function printCaseExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {

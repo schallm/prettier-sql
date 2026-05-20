@@ -714,8 +714,15 @@ select
   amount
 from moved;
 
+with
+  updated as (
+    update users
+    set active = false
+    where last_login < now() - interval '90 days'
+    returning id
+  )
 delete from sessions
-where (
+where user_id in (
   select id
   from updated
 );
@@ -736,9 +743,15 @@ select
 from new_data;
 
 -- WITH ... UPDATE
+with
+  stale as (
+    select id
+    from sessions
+    where expires_at < now()
+  )
 update sessions
 set active = false
-where (
+where id in (
   select id
   from stale
 );
@@ -1703,7 +1716,7 @@ select
   id,
   title
 from books
-where (
+where price > all (
   select price
   from books
   where author_id = 5
@@ -2022,7 +2035,7 @@ select
   id,
   title
 from books
-where (
+where author_id in (
   select id
   from authors
   where country = 'US'
@@ -2360,7 +2373,7 @@ exports[`shared fixtures > select/subqueries.sql 1`] = `
   id,
   title
 from books
-where (
+where author_id in (
   select id
   from authors
   where country = 'USA'
@@ -2380,7 +2393,7 @@ select
   id,
   title
 from books
-where not (
+where not author_id in (
   select author_id
   from banned_authors
 );

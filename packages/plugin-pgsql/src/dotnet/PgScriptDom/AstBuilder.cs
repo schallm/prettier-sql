@@ -219,6 +219,7 @@ public class AstBuilder {
 
     private SqlNode BuildUpdate(UpdateStmt s, int start, int end) =>
         new("UpdateStatement", start, end, null, BuildProps(
+            ("ctes",      s.WithClause != null ? BuildWithClause(s.WithClause) : null),
             ("target",    BuildRangeVar(s.Relation)),
             ("sets",      MapList(s.TargetList, BuildExpr)),
             ("from",      MapList(s.FromClause, BuildFromItem)),
@@ -228,6 +229,7 @@ public class AstBuilder {
 
     private SqlNode BuildDelete(DeleteStmt s, int start, int end) =>
         new("DeleteStatement", start, end, null, BuildProps(
+            ("ctes",      s.WithClause != null ? BuildWithClause(s.WithClause) : null),
             ("target",    BuildRangeVar(s.Relation)),
             ("using",     MapList(s.UsingClause, BuildFromItem)),
             ("where",     BuildExpr(s.WhereClause)),
@@ -726,8 +728,13 @@ public class AstBuilder {
         var subquery = s.Subselect?.NodeCase == Node.NodeOneofCase.SelectStmt
             ? BuildSelect(s.Subselect.SelectStmt, 0, _sql.Length)
             : null;
+        var testexpr = s.Testexpr != null ? BuildExpr(s.Testexpr) : null;
+        var op = s.OperName.Count > 0 && s.OperName[0].NodeCase == Node.NodeOneofCase.String
+            ? s.OperName[0].String.Sval : null;
         return new SqlNode("SubLink", 0, 0, null, BuildProps(
-            ("type", type),
+            ("type",     type),
+            ("testexpr", testexpr),
+            ("op",       op),
             ("subquery", subquery)
         ));
     }

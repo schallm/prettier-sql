@@ -342,6 +342,7 @@ function printUpdateBody(node: SqlNode, opts: Options): Doc {
     const makeKeyword = (k: string) => keyword(k, opts);
     const printNode = printWith(opts);
 
+    const ctes      = prop(node, 'ctes');
     const target    = prop(node, 'target');
     const sets      = propArr(node, 'sets');
     const from      = propArr(node, 'from');
@@ -355,7 +356,8 @@ function printUpdateBody(node: SqlNode, opts: Options): Doc {
         return [name, ' = ', val ? printNode(val) : ''] as Doc;
     });
 
-    const parts: Doc[] = [
+    const parts: Doc[] = ctes ? printCtes(ctes, opts, printNode) : [];
+    parts.push(
         [makeKeyword('UPDATE'), ' ', rangeVarName(target)],
         [
             makeKeyword('SET'),
@@ -363,7 +365,7 @@ function printUpdateBody(node: SqlNode, opts: Options): Doc {
                 ? [' ', setDocs[0]!]
                 : indent([hardline, join(hardSep(opts), setDocs)]),
         ],
-    ];
+    );
 
     if (from.length > 0) {
         parts.push(printFromClause(from, opts, printNode));
@@ -390,14 +392,14 @@ function printDeleteBody(node: SqlNode, opts: Options): Doc {
     const makeKeyword = (k: string) => keyword(k, opts);
     const printNode = printWith(opts);
 
+    const ctes      = prop(node, 'ctes');
     const target    = prop(node, 'target');
     const using     = propArr(node, 'using');
     const where     = prop(node, 'where');
     const returning = propArr(node, 'returning');
 
-    const parts: Doc[] = [
-        [makeKeyword('DELETE FROM'), ' ', rangeVarName(target)],
-    ];
+    const parts: Doc[] = ctes ? printCtes(ctes, opts, printNode) : [];
+    parts.push([makeKeyword('DELETE FROM'), ' ', rangeVarName(target)]);
 
     if (using.length > 0) parts.push(printListClause('USING', using, opts, printNode));
 
