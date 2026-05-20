@@ -7,3 +7,4 @@ select id, title from books where deleted_at is not null;
 select id, title from books where title like 'The%';
 select id, title from books where title not like '%old%';
 select id, title from books where title like '%sql%' and price between 20 and 100 and deleted_at is null;
+select author_id from authors where country in ('United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'France', 'Japan');

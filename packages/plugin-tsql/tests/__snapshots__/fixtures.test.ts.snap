@@ -251,6 +251,38 @@ create table BigData (
 with (data_compression = row, memory_optimized = off);"
 `;
 
+exports[`fixtures > ddl/schema.sql 1`] = `
+"create schema sales;
+go
+
+create schema sales authorization dbo;
+go
+
+alter schema sales transfer dbo.Books;
+go
+
+alter schema sales transfer type::dbo.BookTitle;
+go
+
+drop schema sales;
+go
+
+drop schema if exists sales;
+go
+
+create synonym MyAlias for dbo.Books;
+go
+
+create synonym dbo.MyAlias for dbo.Books;
+go
+
+drop synonym MyAlias;
+go
+
+drop synonym if exists dbo.MyAlias;
+go"
+`;
+
 exports[`fixtures > delete/basic.sql 1`] = `
 "delete from Books
 where
@@ -277,10 +309,71 @@ with old as (
 delete from old;"
 `;
 
+exports[`fixtures > dml/bulk-insert.sql 1`] = `
+"bulk insert Books
+from 'C:\\data\\books.csv';
+
+bulk insert Books
+from 'C:\\data\\books.csv'
+with (
+  fieldterminator = ',',
+  rowterminator = '\\n',
+  firstrow = 2
+);
+
+bulk insert Orders
+from 'C:\\data\\orders.csv'
+with (
+  fieldterminator = '|',
+  rowterminator = '\\n',
+  firstrow = 2,
+  maxerrors = 10
+);"
+`;
+
 exports[`fixtures > execute/dynamic-sql.sql 1`] = `
 "execute (@sql);
 
 execute (@sql1 + @sql2);"
+`;
+
+exports[`fixtures > execute/execute-as.sql 1`] = `
+"execute as caller;
+
+execute as user = 'dbo';
+
+execute as login = 'sa';
+
+execute as caller with no revert;
+
+revert;
+go
+
+create procedure dbo.GetBooks
+with encryption
+as
+begin
+  select BookId
+  from Books;
+end;
+go
+
+create procedure dbo.RefreshCache
+with recompile
+as
+begin
+  select 1;
+end;
+go
+
+create procedure dbo.SecureProc
+with execute as owner
+as
+begin
+  select BookId
+  from Books;
+end;
+go"
 `;
 
 exports[`fixtures > execute/proc-call.sql 1`] = `
@@ -868,6 +961,47 @@ where Books.InStock = 1
 order by Books.Title asc;"
 `;
 
+exports[`fixtures > select/comments.sql 1`] = `
+"select Id
+from Books
+where
+  InStock = 1
+  -- and Price < 20
+  and GenreId = 1;
+
+select BookId
+from Books
+where
+  1 = 1
+  and Books.GenreId in (1)
+  --and Books.GenreId in (select GenreId from Genres where Name = 'Fiction')
+  and Books.PublisherId in (4)
+  --and Books.PublisherId in (select PublisherId from Publishers where Country = 'UK')
+  and Books.AuthorId in (101, 102);
+
+select
+  b.BookId,
+  b.Title
+from
+  Books as b
+  inner join Authors as a on b.AuthorId = a.Id
+  -- left join: publishers may not exist for all books
+  left join Publishers as p on b.PublisherId = p.Id;
+
+select b.BookId
+from
+  Books as b
+  inner join Authors as a on b.AuthorId = a.Id
+  -- optional: genre
+  left join Genres as g on b.GenreId = g.Id
+  -- optional: publisher
+  left join Publishers as p on b.PublisherId = p.Id;
+
+select BookId
+from Books;
+/* end of queries */"
+`;
+
 exports[`fixtures > select/cte.sql 1`] = `
 "with availableBooks as (
   select
@@ -941,7 +1075,13 @@ select top (10) percent
   Id,
   Title
 from Books
-order by Price desc;"
+order by Price desc;
+
+select 1
+where a is distinct from b;
+
+select 1
+where a is not distinct from b;"
 `;
 
 exports[`fixtures > select/for-xml-json.sql 1`] = `
@@ -989,6 +1129,77 @@ for json path, without_array_wrapper;
 select *
 from Books
 for browse;"
+`;
+
+exports[`fixtures > select/full-text.sql 1`] = `
+"select
+  BookId,
+  Title
+from Books
+where contains(Title, '"SQL Server"');
+
+select
+  BookId,
+  Title
+from Books
+where freetext(Title, 'database programming');
+
+select BookId
+from Books
+where contains(*, 'programming');
+
+select BookId
+from Books
+where contains((Title, AuthorId), 'design');
+
+select BookId
+from Books
+where contains(Title, 'query', language 1033);
+
+select
+  b.BookId,
+  b.Title,
+  ft.rank
+from
+  Books as b
+  inner join containstable(Books, Title, '"SQL"') as ft on b.BookId = ft.[key];
+
+select
+  b.BookId,
+  ft.rank
+from
+  Books as b
+  inner join freetexttable(Books, *, 'programming', 10) as ft on
+    b.BookId = ft.[key];"
+`;
+
+exports[`fixtures > select/group-by-advanced.sql 1`] = `
+"select
+  GenreId,
+  sum(Price) as Total
+from Books
+group by rollup(GenreId);
+
+select
+  GenreId,
+  AuthorId,
+  sum(Price) as Total
+from Books
+group by cube(GenreId, AuthorId);
+
+select
+  GenreId,
+  AuthorId,
+  sum(Price) as Total
+from Books
+group by grouping sets((GenreId, AuthorId), (GenreId), ());
+
+select
+  GenreId,
+  AuthorId,
+  count(*) as BookCount
+from Books
+group by rollup(GenreId, AuthorId);"
 `;
 
 exports[`fixtures > select/inline-values.sql 1`] = `
@@ -1157,6 +1368,59 @@ from
 where p.Country = 'UK';"
 `;
 
+exports[`fixtures > select/json-constructors.sql 1`] = `
+"select json_object('name': Title, 'price': Price)
+from Books;
+
+select json_object('name': Title, 'price': Price absent on null)
+from Books;
+
+select json_object('id': Id null on null)
+from Books;
+
+select json_array(1, 2, 'three');
+
+select json_array(1, 2, 'three' absent on null);
+
+select json_arrayagg(Title)
+from Books;
+
+select json_arrayagg(Title order by Title asc)
+from Books;
+
+select json_arrayagg(Title order by Title asc absent on null)
+from Books;"
+`;
+
+exports[`fixtures > select/option-clause.sql 1`] = `
+"select
+  BookId,
+  Title
+from Books
+where InStock = 1
+option (recompile);
+
+select BookId
+from Books
+option (recompile);
+
+select
+  BookId,
+  Title
+from Books
+where InStock = 1
+order by Title asc
+option (recompile);
+
+select BookId
+from Books
+option (maxdop 4);
+
+select BookId
+from Books
+option (recompile, maxdop 4);"
+`;
+
 exports[`fixtures > select/pivot-unpivot.sql 1`] = `
 "select *
 from Sales
@@ -1214,6 +1478,62 @@ select
 from
   Books
   inner join [My Table] on Books.Id = [My Table].[Book Id];"
+`;
+
+exports[`fixtures > select/rowset-functions.sql 1`] = `
+"select
+  j.[key],
+  j.[value]
+from
+  Orders as o
+  cross apply openjson(o.JsonData) as j
+where o.id = 1;
+
+select
+  j.OrderId,
+  j.amount
+from
+  Orders as o
+  cross apply openjson(o.JsonData, '$.items') with (
+    OrderId int '$.id',
+    amount decimal(10,2) '$.amount',
+    notes nvarchar(500) '$.notes'
+  ) as j;
+
+select
+  j.id,
+  j.data
+from openjson(@json) with (
+  id int '$.id',
+  data nvarchar(max) '$.data' as json
+) as j;
+
+select
+  x.id,
+  x.Name
+from openxml(@hDoc, '/root/item', 2) with (
+  id int '@id',
+  Name varchar(100) 'Name'
+) as x;
+
+select
+  r.id,
+  r.Name
+from openrowset(
+  'SQLNCLI',
+  'Server=(local);Trusted_Connection=yes;',
+  'select id, Name from pubs.titles'
+) as r;
+
+select *
+from openrowset(
+  bulk 'C:\\data\\file.csv',
+  formatfile='C:\\data\\fmt.xml',
+  firstrow=2
+) as t;
+
+select *
+from openrowset(bulk 'C:\\data\\data.json', single_blob) as j;"
 `;
 
 exports[`fixtures > select/subquery.sql 1`] = `
@@ -1311,6 +1631,31 @@ exports[`fixtures > select/window.sql 1`] = `
 from Books;"
 `;
 
+exports[`fixtures > select/window-advanced.sql 1`] = `
+"select first_value(Price) ignore nulls over (
+  partition by AuthorId
+  order by PublishedDate asc
+)
+from Books;
+
+select last_value(Price) respect nulls over (order by PublishedDate asc)
+from Books;
+
+select first_value(Price) ignore nulls over (
+  partition by AuthorId
+  order by PublishedDate asc
+  rows between unbounded preceding and current row
+)
+from Books;
+
+select last_value(Price) ignore nulls over w
+from Books
+window w as (
+  partition by AuthorId
+  order by PublishedDate asc
+);"
+`;
+
 exports[`fixtures > sequence/basic.sql 1`] = `
 "create sequence OrderSeq as int
   start with 1
@@ -1351,6 +1696,47 @@ begin
   from Books
   where InStock = 1
   order by Title asc;
+end;
+go"
+`;
+
+exports[`fixtures > stored-proc/comments.sql 1`] = `
+"create procedure GetBookById
+/**********************
+** Author: Jon
+** Date:   2012-01-10
+**********************/
+  @Id int,
+  @IncludeOutOfStock bit = 0
+as
+begin
+  select BookId
+  from Books
+  where BookId = @Id;
+end;
+go
+
+create procedure GetAvailableBooks
+as
+begin
+  -- fetch available books only
+  select
+    BookId,
+    Title
+  from Books
+  where InStock = 1;
+end;
+go
+
+create procedure GetBookByIdV2
+  @Id int,
+  @Active bit
+/*WITH ENCRYPTION*/
+as
+begin
+  select BookId
+  from Books
+  where BookId = @Id;
 end;
 go"
 `;
@@ -1535,6 +1921,32 @@ where b.InStock = 1;
 go"
 `;
 
+exports[`fixtures > view/comments.sql 1`] = `
+"create or alter view dbo.ExampleView
+/* with encryption */
+as
+select BookId
+from Books;
+go
+
+-- view description
+create or alter view TestBooksView
+as
+select 1 as x;
+go
+
+create or alter view BooksView
+/* with encryption */
+as
+select 1 as x;
+go
+
+create or alter view AuthorsView
+as
+select 2 as y;
+go"
+`;
+
 exports[`fixtures > view/schemabinding.sql 1`] = `
 "create view dbo.BookSummary
 with schemabinding
@@ -1545,6 +1957,69 @@ select
   b.Price
 from dbo.Books as b;
 go"
+`;
+
+exports[`options > sqlCommaStyle: leading 1`] = `
+"select
+  BookId
+  , Title
+  , Price
+  , AuthorId
+  , InStock
+from Books
+where InStock = 1;"
+`;
+
+exports[`options > sqlCommaStyle: trailing (default) 1`] = `
+"select
+  BookId,
+  Title,
+  Price,
+  AuthorId,
+  InStock
+from Books
+where InStock = 1;"
+`;
+
+exports[`options > sqlDensity: compact 1`] = `"select BookId from Books where InStock = 1;"`;
+
+exports[`options > sqlDensity: spacious 1`] = `
+"select
+  b.BookId,
+  b.Title,
+  b.Price
+from
+  Books as b
+  inner join Authors as a on
+    b.AuthorId = a.Id
+where
+  b.InStock = 1
+order by
+  b.Title asc;"
+`;
+
+exports[`options > sqlKeywordCase: lower (default) 1`] = `
+"select
+  b.BookId,
+  b.Title,
+  b.Price
+from
+  Books as b
+  inner join Authors as a on b.AuthorId = a.Id
+where b.InStock = 1
+order by b.Title asc;"
+`;
+
+exports[`options > sqlKeywordCase: upper 1`] = `
+"SELECT
+  b.BookId,
+  b.Title,
+  b.Price
+FROM
+  Books AS b
+  INNER JOIN Authors AS a ON b.AuthorId = a.Id
+WHERE b.InStock = 1
+ORDER BY b.Title ASC;"
 `;
 
 exports[`shared fixtures > dml/delete.sql 1`] = `
@@ -1724,7 +2199,19 @@ from books
 where
   title like '%sql%'
   and price between 20 and 100
-  and deleted_at is null;"
+  and deleted_at is null;
+
+select author_id
+from authors
+where country in (
+  'United States',
+  'United Kingdom',
+  'Canada',
+  'Australia',
+  'Germany',
+  'France',
+  'Japan'
+);"
 `;
 
 exports[`shared fixtures > select/set-ops.sql 1`] = `

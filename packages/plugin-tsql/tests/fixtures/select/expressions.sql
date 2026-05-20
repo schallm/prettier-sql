@@ -35,3 +35,7 @@ order by Price desc
 select top (10) percent Id, Title
 from Books
 order by Price desc
+
+select 1 where a is distinct from b
+
+select 1 where a is not distinct from b

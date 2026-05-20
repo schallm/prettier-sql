@@ -2427,6 +2427,10 @@ where
   title like '%sql%'
   and price between 20 and 100
   and deleted_at is null;
+
+select author_id
+from authors
+where country in ('United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'France', 'Japan');
 "
 `;
 
