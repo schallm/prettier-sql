@@ -10,20 +10,10 @@ select b.Title, p.Name as Publisher
 from Books as b
 left join Publishers as p on b.PublisherId = p.Id;
 
--- RIGHT JOIN
-select b.Title, g.Name as Genre
-from Books as b
-right join Genres as g on b.GenreId = g.Id;
-
 -- FULL OUTER JOIN
 select b.Title, a.LastName
 from Books as b
 full outer join Authors as a on b.AuthorId = a.Id;
-
--- CROSS JOIN
-select b.Title, g.Name
-from Books as b
-cross join Genres as g;
 
 -- Multiple joins on the same table
 select b.Title, a.LastName, p.Name as Publisher, g.Name as Genre
@@ -42,15 +32,6 @@ inner join OrderItems as oi on b.Id = oi.BookId and oi.UnitPrice > 10 and oi.Qua
 select b1.Title as Original, b2.Title as Companion
 from Books as b1
 inner join Books as b2 on b1.AuthorId = b2.AuthorId and b1.Id <> b2.Id;
-
--- JOIN with subquery (derived table)
-select b.Title, recent.Total
-from Books as b
-inner join (
-    select BookId, sum(Quantity) as Total
-    from OrderItems
-    group by BookId
-) as recent on b.Id = recent.BookId;
 
 -- CROSS APPLY
 select b.Title, top5.OrderId

@@ -1,1 +1,0 @@
-with availableBooks as (select Id, Title from Books where InStock = 1), bookOrders as (select BookId, count(*) as OrderCount from OrderItems group by BookId) select availableBooks.Title, bookOrders.OrderCount from availableBooks inner join bookOrders on availableBooks.Id = bookOrders.BookId order by bookOrders.OrderCount desc
