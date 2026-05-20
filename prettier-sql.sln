@@ -1,0 +1,59 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "packages", "packages", "{4B092E7A-CC56-4101-A116-78BCFAA6B8AA}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "extensions", "extensions", "{E24C1A9E-CCA5-40AF-BA7D-9B966AE0745D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PrettierSqlCore", "packages\core\src\dotnet\PrettierSqlCore\PrettierSqlCore.csproj", "{37147FAD-B38F-4B66-B692-A8DA8D21C292}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlScriptDom", "packages\plugin-tsql\src\dotnet\SqlScriptDom\SqlScriptDom.csproj", "{3641F396-CB82-4FC7-9556-BDC956E80F4F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PgScriptDom", "packages\plugin-pgsql\src\dotnet\PgScriptDom\PgScriptDom.csproj", "{1E3746D8-BEF7-4A90-9E99-538F35682497}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PrettierTsql", "extensions\vsix-tsql\src\PrettierTsql\PrettierTsql.csproj", "{A7101F01-F652-4B5B-9138-EE26F3B5275B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PrettierPgsql", "extensions\vsix-pgsql\src\PrettierPgsql\PrettierPgsql.csproj", "{8C61E320-7F9D-4604-8D75-986ED350AEA2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{37147FAD-B38F-4B66-B692-A8DA8D21C292}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{37147FAD-B38F-4B66-B692-A8DA8D21C292}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{37147FAD-B38F-4B66-B692-A8DA8D21C292}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{37147FAD-B38F-4B66-B692-A8DA8D21C292}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3641F396-CB82-4FC7-9556-BDC956E80F4F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3641F396-CB82-4FC7-9556-BDC956E80F4F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3641F396-CB82-4FC7-9556-BDC956E80F4F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3641F396-CB82-4FC7-9556-BDC956E80F4F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1E3746D8-BEF7-4A90-9E99-538F35682497}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1E3746D8-BEF7-4A90-9E99-538F35682497}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1E3746D8-BEF7-4A90-9E99-538F35682497}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1E3746D8-BEF7-4A90-9E99-538F35682497}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A7101F01-F652-4B5B-9138-EE26F3B5275B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A7101F01-F652-4B5B-9138-EE26F3B5275B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A7101F01-F652-4B5B-9138-EE26F3B5275B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A7101F01-F652-4B5B-9138-EE26F3B5275B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8C61E320-7F9D-4604-8D75-986ED350AEA2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8C61E320-7F9D-4604-8D75-986ED350AEA2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8C61E320-7F9D-4604-8D75-986ED350AEA2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8C61E320-7F9D-4604-8D75-986ED350AEA2}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{37147FAD-B38F-4B66-B692-A8DA8D21C292} = {4B092E7A-CC56-4101-A116-78BCFAA6B8AA}
+		{3641F396-CB82-4FC7-9556-BDC956E80F4F} = {4B092E7A-CC56-4101-A116-78BCFAA6B8AA}
+		{1E3746D8-BEF7-4A90-9E99-538F35682497} = {4B092E7A-CC56-4101-A116-78BCFAA6B8AA}
+		{A7101F01-F652-4B5B-9138-EE26F3B5275B} = {E24C1A9E-CCA5-40AF-BA7D-9B966AE0745D}
+		{8C61E320-7F9D-4604-8D75-986ED350AEA2} = {E24C1A9E-CCA5-40AF-BA7D-9B966AE0745D}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = preSolution
+		SolutionGuid = {F51E7AC4-A84C-4CC5-B849-D31D108CEADF}
+	EndGlobalSection
+EndGlobal
