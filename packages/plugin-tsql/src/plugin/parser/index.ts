@@ -1,48 +1,19 @@
-import { createRequire } from 'module';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import type { SqlNode, CommentToken } from '@prettier-sql/core/types';
+import { loadDotnetDll, type DotnetHandle } from '@prettier-sql/core/parser';
 
 // ---------------------------------------------------------------------------
 // DLL loading
 // ---------------------------------------------------------------------------
 
-interface DotnetModule {
-    load(dllPath: string): void;
-    PrettierTsql: {
-        SqlParser: { Parse(sql: string): string };
-    };
+interface TsqlDotnet extends DotnetHandle {
+    PrettierTsql: { SqlParser: { Parse(sql: string): string } };
 }
 
-// node-api-dotnet is a native CommonJS module; use createRequire for ESM compat.
-let dotnetModule: DotnetModule | null = null;
+let dotnetModule: TsqlDotnet | null = null;
 
-function loadDotnet(): DotnetModule {
+function loadDotnet(): TsqlDotnet {
     if (dotnetModule) return dotnetModule;
-
-    const require = createRequire(import.meta.url);
-    const dotnet = require('node-api-dotnet') as DotnetModule;
-
-    // Resolve DLL path relative to this file's location:
-    //   compiled:  dist/parser/index.js  → ../../bin/dotnet
-    //   source:    src/plugin/parser/index.ts → ../../../bin/dotnet
-    const thisDir = path.dirname(fileURLToPath(import.meta.url));
-    const isCompiled = thisDir.endsWith(path.join('dist', 'parser')) || thisDir.endsWith('dist/parser');
-    const dllPath = isCompiled
-        ? path.resolve(thisDir, '../../bin/dotnet/SqlScriptDom.dll')
-        : path.resolve(thisDir, '../../../bin/dotnet/SqlScriptDom.dll');
-
-    // Only cache the module after a successful load.
-    try {
-        dotnet.load(dllPath);
-    } catch (e) {
-        throw new Error(
-            `prettier-plugin-tsql: failed to load SqlScriptDom.dll from "${dllPath}". ` +
-                `Make sure .NET 8+ is installed and the package was installed correctly. ` +
-                `Original error: ${e instanceof Error ? e.message : String(e)}`,
-        );
-    }
-    dotnetModule = dotnet;
+    dotnetModule = loadDotnetDll(import.meta.url, 'SqlScriptDom.dll', 'prettier-plugin-tsql') as TsqlDotnet;
     return dotnetModule;
 }
 

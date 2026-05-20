@@ -10,7 +10,8 @@
     "./types": "./dist/types.js",
     "./options": "./dist/options.js",
     "./printer/utils": "./dist/printer/utils.js",
-    "./printer/helpers": "./dist/printer/helpers.js"
+    "./printer/helpers": "./dist/printer/helpers.js",
+    "./parser": "./dist/parser/loadDotnet.js"
   },
   "scripts": {
     "build:ts": "tsc -p tsconfig.json",
