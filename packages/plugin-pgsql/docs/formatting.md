@@ -16,20 +16,7 @@ select
   title,
   price,
   author_id
-from
-  books;
-```
-
-### Table aliases
-
-`AS` is always emitted between the table name and alias.
-
-```sql
-select
-  b.id,
-  b.title
-from
-  books as b;
+from books;
 ```
 
 ### WHERE (single condition)
@@ -40,8 +27,7 @@ Single-condition WHERE stays on one line with the keyword.
 select
   id,
   title
-from
-  books
+from books
 where price < 50;
 ```
 
@@ -53,8 +39,7 @@ Multiple conditions break to indented lines with `AND` / `OR` at the start of ea
 select
   id,
   title
-from
-  books
+from books
 where
   price < 50
   and in_stock = true
@@ -69,20 +54,20 @@ All JOIN types are supported. `INNER JOIN` is normalised to `JOIN`. Each JOIN go
 select
   *
 from
-  a
-  join b on a.id = b.a_id
-  left join c on c.b_id = b.id
-  right join d on d.id = c.d_id
-  full join e on e.id = a.e_id
-  cross join f
-  natural join g;
+  books
+  join authors on authors.id = books.author_id
+  left join categories on categories.id = books.category_id
+  right join publishers on publishers.id = books.publisher_id
+  full join orders on orders.book_id = books.id
+  cross join tags
+  natural join reviews;
 ```
 
 ### JOIN condition — ON vs USING
 
 ```sql
 -- ON
-join authors as a on b.author_id = a.id
+join authors on authors.id = books.author_id
 
 -- USING
 join authors using (author_id)
@@ -98,8 +83,7 @@ select
 from
   (
     select avg(price) as avg_price
-    from
-      books
+    from books
   ) as sub;
 ```
 
@@ -116,8 +100,7 @@ from
   lateral (
     select
       avg(price) as avg_price
-    from
-      books
+    from books
     where author_id = b.author_id
   ) as r;
 ```
@@ -130,13 +113,11 @@ The `TABLESAMPLE` method and percentage follow the table name on the same line. 
 select
   id,
   name
-from
-  users tablesample bernoulli(10);
+from users tablesample bernoulli(10);
 
 select
   count(*)
-from
-  orders tablesample system(5) repeatable (42);
+from orders tablesample system(5) repeatable (42);
 ```
 
 ### DISTINCT
@@ -145,8 +126,7 @@ from
 select distinct
   author_id,
   title
-from
-  books;
+from books;
 ```
 
 ### DISTINCT ON
@@ -156,8 +136,7 @@ select distinct on (author_id)
   id,
   author_id,
   title
-from
-  books
+from books
 order by
   author_id,
   price asc;
@@ -170,8 +149,7 @@ select
   dept,
   job,
   sum(salary)
-from
-  emp
+from emp
 group by
   dept,
   job;
@@ -183,8 +161,7 @@ group by
 select
   dept,
   sum(salary)
-from
-  emp
+from emp
 group by
   dept
 having sum(salary) > 100000;
@@ -197,8 +174,7 @@ select
   dept,
   job,
   sum(salary)
-from
-  emp
+from emp
 group by
   rollup(dept, job);
 ```
@@ -210,8 +186,7 @@ select
   dept,
   job,
   sum(salary)
-from
-  emp
+from emp
 group by
   cube(dept, job);
 ```
@@ -225,8 +200,7 @@ select
   dept,
   job,
   sum(salary)
-from
-  emp
+from emp
 group by
   grouping sets((dept, job), (dept), ());
 ```
@@ -238,8 +212,7 @@ select
   id,
   title,
   price
-from
-  books
+from books
 order by
   price desc,
   title asc;
@@ -251,8 +224,7 @@ order by
 select
   id,
   title
-from
-  books
+from books
 order by
   price
 limit 10
@@ -267,14 +239,12 @@ Each CTE is indented inside its own `as (...)` block. Multiple CTEs are separate
 with
   active_users as (
     select id, name
-    from
-      users
+    from users
     where active = true
   ),
   recent_orders as (
     select customer_id, sum(amount) as total
-    from
-      orders
+    from orders
     where created_at > now() - interval '30 days'
     group by
       customer_id
@@ -293,8 +263,7 @@ from
 with recursive
   org_tree as (
     select id, name, parent_id, 0 as depth
-    from
-      departments
+    from departments
     where parent_id is null
     union all
     select d.id, d.name, d.parent_id, t.depth + 1
@@ -306,8 +275,7 @@ select
   id,
   name,
   depth
-from
-  org_tree
+from org_tree
 order by
   depth,
   name;
@@ -323,8 +291,7 @@ with recursive
     select
       id,
       parent_id
-    from
-      tree
+    from tree
     union all
     select
       tree.id,
@@ -337,8 +304,7 @@ with recursive
   cycle id set is_cycle using path
 select
   *
-from
-  t;
+from t;
 ```
 
 ### Set operations (UNION / INTERSECT / EXCEPT)
@@ -349,14 +315,12 @@ The set operator is placed on its own line between the two queries.
 select
   id,
   name
-from
-  customers
+from customers
 union
 select
   id,
   name
-from
-  prospects;
+from prospects;
 ```
 
 `UNION ALL`:
@@ -373,13 +337,11 @@ select id, name from table_b;
 select
   id,
   name
-from
-  customers
+from customers
 where exists (
   select
     1
-  from
-    orders
+  from orders
   where orders.customer_id = customers.id
 );
 ```
@@ -389,12 +351,10 @@ select
   id,
   (
     select count(*)
-    from
-      orders
+    from orders
     where customer_id = c.id
   ) as order_count
-from
-  customers as c;
+from customers as c;
 ```
 
 ### Window functions
@@ -408,8 +368,7 @@ select
   price,
   row_number() over (partition by author_id order by price desc) as rank,
   sum(price) over (partition by author_id rows between unbounded preceding and current row) as running_total
-from
-  books;
+from books;
 ```
 
 Frame clause variants:
@@ -431,8 +390,7 @@ count(*) over (order by dept groups between 1 preceding and 1 following)
 select
   count(*) filter (where in_stock = true) as in_stock_count,
   count(*) filter (where in_stock = false) as out_of_stock_count
-from
-  books;
+from books;
 ```
 
 ### ORDER BY inside aggregate
@@ -442,8 +400,7 @@ select
   author_id,
   string_agg(title, ', ' order by title) as titles,
   array_agg(price order by price desc) as prices
-from
-  books
+from books
 group by
   author_id;
 ```
@@ -473,8 +430,7 @@ select id from accounts for key share;
 select
   id,
   title
-from
-  books
+from books
 where author_id in (1, 2, 3);
 ```
 
@@ -485,8 +441,7 @@ select
   id,
   title,
   price
-from
-  books
+from books
 where price between 10.00 and 50.00;
 ```
 
@@ -496,8 +451,7 @@ where price between 10.00 and 50.00;
 select
   id,
   title
-from
-  books
+from books
 where
   title ilike '%postgres%'
   and isbn not like '978-0%';
@@ -509,8 +463,7 @@ where
 select
   id,
   title
-from
-  books
+from books
 where price = any (array[9.99, 19.99, 29.99]);
 ```
 
@@ -539,8 +492,7 @@ select
     when price < 100 then 'premium'
   else 'luxury'
   end as price_tier
-from
-  books;
+from books;
 ```
 
 ---
@@ -572,8 +524,7 @@ select
   id,
   customer_id,
   amount
-from
-  orders
+from orders
 where status = 'closed';
 ```
 
@@ -627,8 +578,7 @@ values (100, 'admin@example.com');
 with
   new_data as (
     select customer_id, sum(amount) as total
-    from
-      raw_orders
+    from raw_orders
     group by
       customer_id
   )
@@ -636,8 +586,7 @@ insert into order_summary (customer_id, total)
 select
   customer_id,
   total
-from
-  new_data;
+from new_data;
 ```
 
 ---
@@ -671,16 +620,14 @@ returning
 with
   stale as (
     select id
-    from
-      sessions
+    from sessions
     where expires_at < now()
   )
 update sessions
 set active = false
 where id in (
   select id
-  from
-    stale
+  from stale
 );
 ```
 
@@ -724,8 +671,7 @@ select
   id,
   customer_id,
   amount
-from
-  moved;
+from moved;
 ```
 
 ---
@@ -838,8 +784,7 @@ select
   id,
   name,
   email
-from
-  users
+from users
 where active = true;
 ```
 
@@ -1286,15 +1231,13 @@ A comment that appears immediately before a statement becomes a **leading commen
 select
   id,
   title
-from
-  books;
+from books;
 
 -- comment before second statement
 -- multi-line comment block
 select
   id
-from
-  orders;
+from orders;
 ```
 
 A comment on the same line as, or after, the final token of a statement becomes an **inline trailing comment** and is printed at the end of the statement's closing line.
@@ -1302,8 +1245,7 @@ A comment on the same line as, or after, the final token of a statement becomes 
 ```sql
 select
   id
-from
-  users; -- inline trailing comment
+from users; -- inline trailing comment
 ```
 
 ---

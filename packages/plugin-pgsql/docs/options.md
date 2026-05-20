@@ -20,8 +20,7 @@ Controls the case of SQL keywords (`SELECT`, `FROM`, `WHERE`, `JOIN`, etc.).
 select
   id,
   title
-from
-  books
+from books
 where price < 50;
 ```
 
@@ -31,8 +30,7 @@ where price < 50;
 SELECT
   id,
   title
-FROM
-  books
+FROM books
 WHERE price < 50;
 ```
 
@@ -58,13 +56,13 @@ export default {
 
 ## `sqlDensity`
 
-Controls whitespace density. Currently accepted but reserved for future use — the formatting output is identical across all three values while density-aware layout is being implemented.
+Controls whitespace density.
 
 | Value | Description |
 |---|---|
-| `compact` | Fewer line breaks; short clauses may stay inline |
-| `standard` (default) | Balanced layout |
-| `spacious` | Extra blank lines between major clauses |
+| `standard` (default) | Single FROM table and single WHERE predicate stay inline; AND/OR conditions indent |
+| `compact` | Same as standard (reserved for further compaction in future) |
+| `spacious` | Every clause indents, even single predicates |
 
 ---
 
@@ -84,8 +82,7 @@ select
   id,
   title,
   price
-from
-  books
+from books
 where price < 50;
 ```
 
@@ -96,8 +93,7 @@ select
   id
   , title
   , price
-from
-  books
+from books
 where price < 50;
 ```
 

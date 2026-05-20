@@ -67,8 +67,7 @@ Expected output:
 select
   id,
   title
-from
-  books
+from books
 where price < 50
 order by
   price;

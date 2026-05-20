@@ -14,8 +14,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   id,
 +   title,
 +   price
-+ from
-+   books
++ from books
 + where in_stock = true
 + order by
 +   price asc;
@@ -24,29 +23,29 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 ### JOIN
 
 ```diff
-- select b.id,b.title,a.first_name,a.last_name from books b inner join authors a on b.author_id=a.id where b.price<50;
+- select books.id,books.title,authors.first_name,authors.last_name from books inner join authors on books.author_id=authors.id where books.price<50;
 + select
-+   b.id,
-+   b.title,
-+   a.first_name,
-+   a.last_name
++   books.id,
++   books.title,
++   authors.first_name,
++   authors.last_name
 + from
-+   books as b
-+   join authors as a on b.author_id = a.id
-+ where b.price < 50;
++   books
++   join authors on authors.id = books.author_id
++ where books.price < 50;
 ```
 
 ### JOIN types
 
 ```diff
-- select * from a left join b on a.id=b.a_id right join c on c.id=b.c_id cross join d;
+- select * from books left join authors on authors.id=books.author_id right join publishers on publishers.id=books.publisher_id cross join tags;
 + select
 +   *
 + from
-+   a
-+   left join b on a.id = b.a_id
-+   right join c on c.id = b.c_id
-+   cross join d;
++   books
++   left join authors on authors.id = books.author_id
++   right join publishers on publishers.id = books.publisher_id
++   cross join tags;
 ```
 
 ### CASE expression
@@ -60,8 +59,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +     when price < 50 then 'mid'
 +   else 'expensive'
 +   end as tier
-+ from
-+   books;
++ from books;
 ```
 
 ### IN / NOT IN
@@ -71,8 +69,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 + select
 +   id,
 +   title
-+ from
-+   books
++ from books
 + where
 +   author_id in (1, 2, 3)
 +   and status not in ('draft', 'archived');
@@ -86,8 +83,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   id,
 +   title,
 +   price
-+ from
-+   books
++ from books
 + where price between 10.00 and 50.00;
 ```
 
@@ -98,8 +94,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 + select
 +   id,
 +   title
-+ from
-+   books
++ from books
 + where
 +   title ILIKE '%postgres%'
 +   and isbn NOT LIKE '978-0%';
@@ -112,13 +107,11 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 + select
 +   id,
 +   name
-+ from
-+   customers
++ from customers
 + where exists (
 +   select
 +     1
-+   from
-+     orders
++   from orders
 +   where orders.customer_id = customers.id
 + );
 ```
@@ -126,26 +119,25 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 ### CTE
 
 ```diff
-- with recent_orders as (select customer_id, sum(amount) as total from orders where created_at > now() - interval '30 days' group by customer_id) select c.name, ro.total from customers c join recent_orders ro on c.id = ro.customer_id order by ro.total desc;
+- with recent_orders as (select customer_id, sum(amount) as total from orders where created_at > now() - interval '30 days' group by customer_id) select customers.name, recent_orders.total from customers join recent_orders on customers.id = recent_orders.customer_id order by recent_orders.total desc;
 + with
 +   recent_orders as (
 +     select
 +       customer_id,
 +       sum(amount) as total
-+     from
-+       orders
++     from orders
 +     where created_at > now() - interval '30 days'
 +     group by
 +       customer_id
 +   )
 + select
-+   c.name,
-+   ro.total
++   customers.name,
++   recent_orders.total
 + from
-+   customers as c
-+   join recent_orders as ro on c.id = ro.customer_id
++   customers
++   join recent_orders on customers.id = recent_orders.customer_id
 + order by
-+   ro.total desc;
++   recent_orders.total desc;
 ```
 
 ### Window functions
@@ -158,8 +150,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   price,
 +   row_number() over (partition by author_id order by price desc) as rank,
 +   sum(price) over (partition by author_id rows between unbounded preceding and current row) as running_total
-+ from
-+   books;
++ from books;
 ```
 
 ### DISTINCT ON
@@ -170,8 +161,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   id,
 +   author_id,
 +   title
-+ from
-+   books
++ from books
 + order by
 +   author_id,
 +   price asc;
@@ -184,14 +174,12 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 + select
 +   id,
 +   name
-+ from
-+   customers
++ from customers
 + union
 + select
 +   id,
 +   name
-+ from
-+   prospects;
++ from prospects;
 ```
 
 ### GROUP BY / HAVING
@@ -202,8 +190,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   dept,
 +   job,
 +   sum(salary)
-+ from
-+   emp
++ from emp
 + group by
 +   dept,
 +   job
@@ -220,8 +207,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   dept,
 +   job,
 +   sum(salary)
-+ from
-+   emp
++ from emp
 + group by
 +   rollup(dept, job);
 ```
@@ -232,8 +218,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   dept,
 +   job,
 +   sum(salary)
-+ from
-+   emp
++ from emp
 + group by
 +   grouping sets((dept, job), (dept), ());
 ```
@@ -250,8 +235,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   lateral (
 +     select
 +       avg(price) as avg_price
-+     from
-+       books
++     from books
 +     where author_id = b.author_id
 +   ) as r;
 ```
@@ -264,8 +248,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   author_id,
 +   count(*) filter (where in_stock = true) as in_stock_count,
 +   string_agg(title, ', ' order by title) as titles
-+ from
-+   books
++ from books
 + group by
 +   author_id;
 ```
@@ -277,8 +260,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 + select
 +   id,
 +   title
-+ from
-+   books
++ from books
 + where id = 1
 + for update;
 ```
@@ -287,8 +269,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 - select id from orders for share skip locked;
 + select
 +   id
-+ from
-+   orders
++ from orders
 + for share skip locked;
 ```
 
@@ -379,8 +360,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   id,
 +   customer_id,
 +   amount
-+ from
-+   moved;
++ from moved;
 ```
 
 ### TRUNCATE
@@ -457,8 +437,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +     select
 +       id,
 +       parent_id
-+     from
-+       tree
++     from tree
 +     union all
 +     select
 +       tree.id,
@@ -471,8 +450,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   cycle id set is_cycle using path
 + select
 +   *
-+ from
-+   t;
++ from t;
 ```
 
 ### TABLESAMPLE
@@ -482,8 +460,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 + select
 +   id,
 +   name
-+ from
-+   users tablesample bernoulli(10);
++ from users tablesample bernoulli(10);
 ```
 
 ---
@@ -497,8 +474,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 + select
 +   substring(title from 'pg.*'),
 +   substring(title from 1 for 5)
-+ from
-+   books;
++ from books;
 ```
 
 ### EXTRACT
@@ -508,8 +484,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 + select
 +   extract(year from created_at),
 +   extract(month from created_at)
-+ from
-+   orders;
++ from orders;
 ```
 
 ### TRIM
@@ -520,8 +495,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   trim(leading ' ' from name),
 +   trim(trailing ' ' from name),
 +   trim(both ' ' from name)
-+ from
-+   users;
++ from users;
 ```
 
 ### AT TIME ZONE
@@ -531,8 +505,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 + select
 +   created_at at time zone 'UTC',
 +   updated_at at time zone 'America/New_York'
-+ from
-+   events;
++ from events;
 ```
 
 ### INTERVAL literals and :: casts
@@ -544,8 +517,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   name::text,
 +   interval '30 days',
 +   '2024-01-01'::date
-+ from
-+   t;
++ from t;
 ```
 
 ### INTERVAL with field modifiers
@@ -555,8 +527,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 + select
 +   interval '1' year,
 +   interval '1:30' hour to minute
-+ from
-+   t;
++ from t;
 ```
 
 ### Array subscripts
@@ -567,8 +538,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   arr[1],
 +   arr[2:4],
 +   arr[:3]
-+ from
-+   t;
++ from t;
 ```
 
 ### Named function arguments
@@ -588,6 +558,5 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   current_timestamp,
 +   current_user,
 +   session_user
-+ from
-+   t;
++ from t;
 ```
