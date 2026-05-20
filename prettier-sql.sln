@@ -6,7 +6,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "packages", "packages", "{4B
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "extensions", "extensions", "{E24C1A9E-CCA5-40AF-BA7D-9B966AE0745D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PrettierSqlCore", "packages\core\src\dotnet\PrettierSqlCore\PrettierSqlCore.csproj", "{37147FAD-B38F-4B66-B692-A8DA8D21C292}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PrettierSql.Core", "packages\core\src\dotnet\Core\PrettierSql.Core.csproj", "{37147FAD-B38F-4B66-B692-A8DA8D21C292}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlScriptDom", "packages\plugin-tsql\src\dotnet\SqlScriptDom\SqlScriptDom.csproj", "{3641F396-CB82-4FC7-9556-BDC956E80F4F}"
 EndProject

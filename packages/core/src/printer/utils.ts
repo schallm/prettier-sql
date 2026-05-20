@@ -1,6 +1,6 @@
 import type { Doc, ParserOptions } from 'prettier';
 import { builders } from 'prettier/doc';
-import type { SqlNode } from '../parser/types.js';
+import type { SqlNode } from '../types.js';
 
 const { hardline, join, indent, group, line, softline, lineSuffix, ifBreak, fill } = builders;
 

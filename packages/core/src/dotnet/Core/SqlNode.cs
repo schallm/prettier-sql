@@ -1,4 +1,4 @@
-namespace PrettierTsql;
+namespace PrettierSql.Core;
 
 /// <summary>
 /// Simplified, serializable AST node transferred from C# to JavaScript as JSON.
