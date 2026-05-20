@@ -1666,6 +1666,147 @@ from
   full join authors as a on b.author_id = a.id;"
 `;
 
+exports[`shared fixtures > select/predicates.sql 1`] = `
+"select
+  id,
+  title
+from books
+where id in (1, 2, 3);
+
+select
+  id,
+  title
+from books
+where id not in (1, 2, 3);
+
+select
+  id,
+  title,
+  price
+from books
+where price between 10 and 50;
+
+select
+  id,
+  title,
+  price
+from books
+where price not between 10 and 50;
+
+select
+  id,
+  title
+from books
+where deleted_at is null;
+
+select
+  id,
+  title
+from books
+where deleted_at is not null;
+
+select
+  id,
+  title
+from books
+where title like 'The%';
+
+select
+  id,
+  title
+from books
+where title not like '%old%';
+
+select
+  id,
+  title
+from books
+where
+  title like '%sql%'
+  and price between 20 and 100
+  and deleted_at is null;"
+`;
+
+exports[`shared fixtures > select/set-ops.sql 1`] = `
+"select
+  id,
+  name
+from customers
+
+union
+
+select
+  id,
+  name
+from prospects;
+
+select
+  id,
+  name
+from table_a
+
+union all
+
+select
+  id,
+  name
+from table_b;
+
+select product_id
+from orders
+
+intersect
+
+select product_id
+from featured_products;
+
+select user_id
+from premium_users
+
+except
+
+select user_id
+from suspended_users;
+
+select
+  id,
+  name
+from customers
+
+union
+
+select
+  id,
+  name
+from prospects
+
+union
+
+select
+  id,
+  name
+from leads;
+
+with active as (
+  select
+    id,
+    name
+  from users
+  where active = 1
+)
+select
+  id,
+  name
+from active
+
+union all
+
+select
+  id,
+  name
+from archived_users;"
+`;
+
 exports[`shared fixtures > select/subqueries.sql 1`] = `
 "select
   id,
@@ -1694,5 +1835,85 @@ from books
 where author_id not in (
   select author_id
   from banned_authors
+);"
+`;
+
+exports[`shared fixtures > select/window.sql 1`] = `
+"select
+  id,
+  author_id,
+  price,
+  row_number() over (
+    partition by author_id
+    order by price desc
+  ) as rn
+from books;
+
+select
+  id,
+  author_id,
+  price,
+  rank() over (
+    partition by author_id
+    order by price desc
+  ) as price_rank,
+  dense_rank() over (
+    partition by author_id
+    order by price desc
+  ) as price_dense_rank,
+  avg(price) over (partition by author_id) as avg_price
+from books;
+
+select
+  id,
+  price,
+  sum(price) over (
+    order by id asc
+    rows between unbounded preceding and current row
+  ) as running_total
+from books;
+
+select
+  id,
+  price,
+  avg(price) over (
+    order by price asc
+    range between unbounded preceding and current row
+  ) as running_avg
+from books;
+
+select
+  id,
+  price,
+  sum(price) over (
+    order by id asc
+    rows between current row and unbounded following
+  ) as suffix_sum
+from books;
+
+select
+  id,
+  price,
+  avg(price) over (
+    order by id asc
+    rows between 2 preceding and 2 following
+  ) as moving_avg
+from books;
+
+select
+  id,
+  author_id,
+  count(*) over (partition by author_id) as author_book_count
+from books;
+
+select
+  id,
+  price,
+  sum(price) over w as total,
+  row_number() over w as rn
+from books
+window w as (
+  partition by author_id
+  order by price asc
 );"
 `;
