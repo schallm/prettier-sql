@@ -67,11 +67,12 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
 // Expressions
 // ---------------------------------------------------------------------------
 
-function printBinaryExpr(node: SqlNode, _opts: Options, printNode: PrintFn): Doc {
+function printBinaryExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const left = prop(node, 'left');
     const right = prop(node, 'right');
     const op = propStr(node, 'op') ?? '?';
-    return [left ? printNode(left) : '', ' ', op, ' ', right ? printNode(right) : ''];
+    const opDoc: Doc = /^[A-Z]/.test(op) ? keyword(op, opts) : op;
+    return [left ? printNode(left) : '', ' ', opDoc, ' ', right ? printNode(right) : ''];
 }
 
 function printBoolExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {

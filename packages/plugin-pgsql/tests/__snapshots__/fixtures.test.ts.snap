@@ -544,7 +544,7 @@ execute function validate_order_data();
 create trigger audit_price_change
 before update on products
 for each row
-when (old.price IS DISTINCT FROM new.price)
+when (old.price is distinct from new.price)
 execute function audit_price();
 
 -- AFTER DELETE
@@ -1727,24 +1727,24 @@ where deleted_at is not null;
 -- IS DISTINCT FROM / IS NOT DISTINCT FROM
 select id
 from t
-where a IS DISTINCT FROM b;
+where a is distinct from b;
 
 select id
 from t
-where a IS NOT DISTINCT FROM b;
+where a is not distinct from b;
 
 -- SIMILAR TO
 select
   id,
   email
 from users
-where email SIMILAR TO '%@(gmail|yahoo)\\.com';
+where email similar to '%@(gmail|yahoo)\\.com';
 
 select
   id,
   email
 from users
-where email NOT SIMILAR TO '%@(gmail|yahoo)\\.com';
+where email not similar to '%@(gmail|yahoo)\\.com';
 "
 `;
 
@@ -1823,25 +1823,25 @@ exports[`fixtures > select/like.sql 1`] = `
   id,
   title
 from books
-where title LIKE 'The%';
+where title like 'The%';
 
 select
   id,
   title
 from books
-where title NOT LIKE 'The%';
+where title not like 'The%';
 
 select
   id,
   email
 from users
-where email ILIKE '%@example.com';
+where email ilike '%@example.com';
 
 select
   id,
   email
 from users
-where email NOT ILIKE '%@example.com';
+where email not ilike '%@example.com';
 
 -- Multiple predicates combined
 select
@@ -1849,8 +1849,8 @@ select
   title
 from books
 where
-  title ILIKE '%postgres%'
-  and isbn NOT LIKE '978-0%';
+  title ilike '%postgres%'
+  and isbn not like '978-0%';
 "
 `;
 
