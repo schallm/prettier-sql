@@ -34,10 +34,10 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'FunctionParam': return printFunctionParam(node, opts);
         case 'IndexElem': {
             const expr = prop(node, 'expr');
-            const dir  = propStr(node, 'direction');
+            const direction  = propStr(node, 'direction');
             const name = propStr(node, 'name');
             const base = expr ? printNode(expr) : (name ?? '');
-            return dir ? [base, ' ', keyword(dir, opts)] : base;
+            return direction ? [base, ' ', keyword(direction, opts)] : base;
         }
         case 'ExprList': return join(', ', propArr(node, 'items').map(printNode));
         case 'ArrayExpr': return printArrayExpr(node, opts, printNode);
@@ -75,20 +75,20 @@ function printBinaryExpr(node: SqlNode, _opts: Options, printNode: PrintFn): Doc
 }
 
 function printBoolExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const makeKeyword = (kw: string) => keyword(kw, opts);
     const op = propStr(node, 'op') ?? 'AND';
     const args = propArr(node, 'args');
 
     if (op === 'NOT') {
         const arg = args[0];
-        return [mk('NOT'), ' ', arg ? printNode(arg) : ''];
+        return [makeKeyword('NOT'), ' ', arg ? printNode(arg) : ''];
     }
 
-    return join([hardline, mk(op), ' '], args.map(printNode));
+    return join([hardline, makeKeyword(op), ' '], args.map(printNode));
 }
 
 function printFunctionCall(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk       = (kw: string) => keyword(kw, opts);
+    const makeKeyword       = (kw: string) => keyword(kw, opts);
     const rawName  = propStr(node, 'name') ?? '';
     const args     = propArr(node, 'args');
     const star     = propBool(node, 'star');
@@ -115,93 +115,93 @@ function printFunctionCall(node: SqlNode, opts: Options, printNode: PrintFn): Do
     // Strip pg_catalog. schema prefix — it's an implementation detail, not user-facing
     const name = rawName.startsWith('pg_catalog.') ? rawName.slice('pg_catalog.'.length) : rawName;
 
-    const argDocs: Doc[] = star ? [mk('*')] : args.map(printNode);
-    const distinctPrefix: Doc = distinct ? [mk('DISTINCT'), ' '] : '';
+    const argDocs: Doc[] = star ? [makeKeyword('*')] : args.map(printNode);
+    const distinctPrefix: Doc = distinct ? [makeKeyword('DISTINCT'), ' '] : '';
 
     // ORDER BY inside the aggregate call: array_agg(x ORDER BY x)
     let innerDoc: Doc = [distinctPrefix, join(', ', argDocs)];
     if (aggOrder.length > 0) {
-        innerDoc = [innerDoc, ' ', mk('ORDER BY'), ' ', join(', ', aggOrder.map(printNode))];
+        innerDoc = [innerDoc, ' ', makeKeyword('ORDER BY'), ' ', join(', ', aggOrder.map(printNode))];
     }
 
-    let callDoc: Doc = [mk(name), '(', innerDoc, ')'];
+    let callDoc: Doc = [makeKeyword(name), '(', innerDoc, ')'];
 
     // FILTER (WHERE ...) after the call, before OVER
     if (filter) {
-        callDoc = [callDoc, ' ', mk('FILTER'), ' (', mk('WHERE'), ' ', printNode(filter), ')'];
+        callDoc = [callDoc, ' ', makeKeyword('FILTER'), ' (', makeKeyword('WHERE'), ' ', printNode(filter), ')'];
     }
 
     if (!over) return callDoc;
     // Named window reference: OVER w (no inline spec)
-    if (over.type === 'WindowRef') return [callDoc, ' ', mk('OVER'), ' ', over.text ?? ''];
-    return [callDoc, ' ', mk('OVER'), ' (', printWindowDef(over, opts, printNode), ')'];
+    if (over.type === 'WindowRef') return [callDoc, ' ', makeKeyword('OVER'), ' ', over.text ?? ''];
+    return [callDoc, ' ', makeKeyword('OVER'), ' (', printWindowDef(over, opts, printNode), ')'];
 }
 
 // SUBSTRING(str FROM pattern)  — 2 args: regex form
 // SUBSTRING(str FROM pos FOR len) — 3 args: positional form
 function printSubstringForm(args: SqlNode[], opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const makeKeyword = (kw: string) => keyword(kw, opts);
     const [str, fromExpr, forExpr] = args;
-    if (!str) return mk('SUBSTRING') + '()';
+    if (!str) return makeKeyword('SUBSTRING') + '()';
     if (forExpr) {
-        return [mk('SUBSTRING'), '(', printNode(str), ' ', mk('FROM'), ' ', printNode(fromExpr), ' ', mk('FOR'), ' ', printNode(forExpr), ')'];
+        return [makeKeyword('SUBSTRING'), '(', printNode(str), ' ', makeKeyword('FROM'), ' ', printNode(fromExpr), ' ', makeKeyword('FOR'), ' ', printNode(forExpr), ')'];
     }
-    return [mk('SUBSTRING'), '(', printNode(str), ' ', mk('FROM'), ' ', printNode(fromExpr ?? args[1]), ')'];
+    return [makeKeyword('SUBSTRING'), '(', printNode(str), ' ', makeKeyword('FROM'), ' ', printNode(fromExpr ?? args[1]), ')'];
 }
 
 // EXTRACT(YEAR FROM expr)
 function printExtractForm(args: SqlNode[], opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const makeKeyword = (kw: string) => keyword(kw, opts);
     const [fieldArg, sourceArg] = args;
     // fieldArg is a Literal whose text is "'year'" — strip quotes and apply keyword casing
     const raw = (fieldArg as any)?.text as string ?? '';
     const field = raw.replace(/^'|'$/g, '').toUpperCase();
-    return [mk('EXTRACT'), '(', mk(field), ' ', mk('FROM'), ' ', sourceArg ? printNode(sourceArg) : '', ')'];
+    return [makeKeyword('EXTRACT'), '(', makeKeyword(field), ' ', makeKeyword('FROM'), ' ', sourceArg ? printNode(sourceArg) : '', ')'];
 }
 
 // TRIM(LEADING chars FROM str) / TRIM(TRAILING ...) / TRIM(BOTH ...)
 function printTrimForm(args: SqlNode[], direction: string, opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const makeKeyword = (kw: string) => keyword(kw, opts);
     const [str, chars] = args;
     if (!chars) {
         // 1-arg: trim spaces — use directional shorthand
         const fnName = direction === 'LEADING' ? 'LTRIM' : direction === 'TRAILING' ? 'RTRIM' : 'TRIM';
-        return [mk(fnName), '(', str ? printNode(str) : '', ')'];
+        return [makeKeyword(fnName), '(', str ? printNode(str) : '', ')'];
     }
-    return [mk('TRIM'), '(', mk(direction), ' ', printNode(chars), ' ', mk('FROM'), ' ', printNode(str), ')'];
+    return [makeKeyword('TRIM'), '(', makeKeyword(direction), ' ', printNode(chars), ' ', makeKeyword('FROM'), ' ', printNode(str), ')'];
 }
 
 // POSITION(substr IN str)  — note: pg_catalog.position(str, substr) has reversed args
 function printPositionForm(args: SqlNode[], opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const makeKeyword = (kw: string) => keyword(kw, opts);
     const [str, substr] = args;  // pg_catalog.position(haystack, needle)
-    return [mk('POSITION'), '(', substr ? printNode(substr) : '', ' ', mk('IN'), ' ', str ? printNode(str) : '', ')'];
+    return [makeKeyword('POSITION'), '(', substr ? printNode(substr) : '', ' ', makeKeyword('IN'), ' ', str ? printNode(str) : '', ')'];
 }
 
 // ts AT TIME ZONE tz  — pg_catalog.timezone(tz, ts) has reversed args
 function printAtTimeZoneForm(args: SqlNode[], opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const makeKeyword = (kw: string) => keyword(kw, opts);
     const [tz, ts] = args;  // pg_catalog.timezone(zone, timestamp)
-    return [ts ? printNode(ts) : '', ' ', mk('AT TIME ZONE'), ' ', tz ? printNode(tz) : ''];
+    return [ts ? printNode(ts) : '', ' ', makeKeyword('AT TIME ZONE'), ' ', tz ? printNode(tz) : ''];
 }
 
 // OVERLAY(str PLACING sub FROM pos FOR len)
 function printOverlayForm(args: SqlNode[], opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const makeKeyword = (kw: string) => keyword(kw, opts);
     const [str, placing, fromExpr, forExpr] = args;
     const doc: Doc[] = [
-        mk('OVERLAY'), '(',
-        str     ? printNode(str)     : '', ' ', mk('PLACING'), ' ',
-        placing ? printNode(placing) : '', ' ', mk('FROM'), ' ',
+        makeKeyword('OVERLAY'), '(',
+        str     ? printNode(str)     : '', ' ', makeKeyword('PLACING'), ' ',
+        placing ? printNode(placing) : '', ' ', makeKeyword('FROM'), ' ',
         fromExpr ? printNode(fromExpr) : '',
     ];
-    if (forExpr) doc.push(' ', mk('FOR'), ' ', printNode(forExpr));
+    if (forExpr) doc.push(' ', makeKeyword('FOR'), ' ', printNode(forExpr));
     doc.push(')');
     return doc;
 }
 
 export function printWindowDef(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk          = (kw: string) => keyword(kw, opts);
+    const makeKeyword          = (kw: string) => keyword(kw, opts);
     const partitionBy = propArr(node, 'partitionBy');
     const orderBy     = propArr(node, 'orderBy');
     const frameMode   = propStr(node, 'frameMode');
@@ -213,22 +213,22 @@ export function printWindowDef(node: SqlNode, opts: Options, printNode: PrintFn)
     const parts: Doc[] = [];
 
     if (partitionBy.length > 0) {
-        parts.push([mk('PARTITION BY'), ' ', join(', ', partitionBy.map(printNode))]);
+        parts.push([makeKeyword('PARTITION BY'), ' ', join(', ', partitionBy.map(printNode))]);
     }
     if (orderBy.length > 0) {
-        parts.push([mk('ORDER BY'), ' ', join(', ', orderBy.map(printNode))]);
+        parts.push([makeKeyword('ORDER BY'), ' ', join(', ', orderBy.map(printNode))]);
     }
     if (frameMode) {
         const startDoc: Doc = startOffset
-            ? [printNode(startOffset), ' ', mk(frameStart ?? '')]
-            : mk(frameStart ?? '');
+            ? [printNode(startOffset), ' ', makeKeyword(frameStart ?? '')]
+            : makeKeyword(frameStart ?? '');
         if (frameEnd) {
             const endDoc: Doc = endOffset
-                ? [printNode(endOffset), ' ', mk(frameEnd)]
-                : mk(frameEnd);
-            parts.push([mk(frameMode), ' ', mk('BETWEEN'), ' ', startDoc, ' ', mk('AND'), ' ', endDoc]);
+                ? [printNode(endOffset), ' ', makeKeyword(frameEnd)]
+                : makeKeyword(frameEnd);
+            parts.push([makeKeyword(frameMode), ' ', makeKeyword('BETWEEN'), ' ', startDoc, ' ', makeKeyword('AND'), ' ', endDoc]);
         } else {
-            parts.push([mk(frameMode), ' ', startDoc]);
+            parts.push([makeKeyword(frameMode), ' ', startDoc]);
         }
     }
 
@@ -242,19 +242,19 @@ function printCast(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 }
 
 function printSubLink(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const makeKeyword = (kw: string) => keyword(kw, opts);
     const type = propStr(node, 'type') ?? 'SCALAR';
     const subquery = prop(node, 'subquery');
     const inner = subquery ? printNode(subquery) : '';
 
     if (type === 'EXISTS') {
-        return [mk('EXISTS'), ' (', indent([hardline, inner]), hardline, ')'];
+        return [makeKeyword('EXISTS'), ' (', indent([hardline, inner]), hardline, ')'];
     }
     return ['(', indent([hardline, inner]), hardline, ')'];
 }
 
 function printCaseExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const makeKeyword = (kw: string) => keyword(kw, opts);
     const arg = prop(node, 'arg');
     const whens = propArr(node, 'whens');
     const else_ = prop(node, 'else');
@@ -262,29 +262,29 @@ function printCaseExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const whenDocs = whens.map((w) => {
         const cond = prop(w, 'condition');
         const result = prop(w, 'result');
-        return [mk('WHEN'), ' ', cond ? printNode(cond) : '', ' ', mk('THEN'), ' ', result ? printNode(result) : ''];
+        return [makeKeyword('WHEN'), ' ', cond ? printNode(cond) : '', ' ', makeKeyword('THEN'), ' ', result ? printNode(result) : ''];
     });
 
     return [
-        mk('CASE'), arg ? [' ', printNode(arg)] : '',
+        makeKeyword('CASE'), arg ? [' ', printNode(arg)] : '',
         indent([hardline, join(hardline, whenDocs)]),
-        else_ ? [hardline, mk('ELSE'), ' ', printNode(else_)] : '',
-        hardline, mk('END'),
+        else_ ? [hardline, makeKeyword('ELSE'), ' ', printNode(else_)] : '',
+        hardline, makeKeyword('END'),
     ];
 }
 
 function printNullTest(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const makeKeyword = (kw: string) => keyword(kw, opts);
     const arg = prop(node, 'arg');
     const isNull = propBool(node, 'isNull');
-    return [arg ? printNode(arg) : '', ' ', isNull ? mk('IS NULL') : mk('IS NOT NULL')];
+    return [arg ? printNode(arg) : '', ' ', isNull ? makeKeyword('IS NULL') : makeKeyword('IS NOT NULL')];
 }
 
 function printBooleanTest(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const makeKeyword = (kw: string) => keyword(kw, opts);
     const arg = prop(node, 'arg');
     const test = propStr(node, 'test') ?? '';
-    return [arg ? printNode(arg) : '', ' ', mk('IS'), ' ', mk(test.replace(/_/g, ' '))];
+    return [arg ? printNode(arg) : '', ' ', makeKeyword('IS'), ' ', makeKeyword(test.replace(/_/g, ' '))];
 }
 
 function printResTarget(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -303,7 +303,7 @@ function printRangeVar(node: SqlNode, opts: Options): Doc {
 }
 
 function printJoinExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk      = (kw: string) => keyword(kw, opts);
+    const makeKeyword      = (kw: string) => keyword(kw, opts);
     const joinType = propStr(node, 'joinType') ?? 'INNER';
     const lhs     = prop(node, 'lhs');
     const rhs     = prop(node, 'rhs');
@@ -311,24 +311,24 @@ function printJoinExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const using   = (node.props?.['using'] as string[] | undefined) ?? [];
 
     const joinKw: Doc =
-        joinType === 'CROSS'   ? mk('CROSS JOIN')
-        : joinType === 'INNER'   ? mk('JOIN')
-        : joinType === 'NATURAL' ? mk('NATURAL JOIN')
-        : [mk(joinType), ' ', mk('JOIN')];
+        joinType === 'CROSS'   ? makeKeyword('CROSS JOIN')
+        : joinType === 'INNER'   ? makeKeyword('JOIN')
+        : joinType === 'NATURAL' ? makeKeyword('NATURAL JOIN')
+        : [makeKeyword(joinType), ' ', makeKeyword('JOIN')];
 
     const condition: Doc = joinType === 'CROSS' ? ''
-        : on      ? [' ', mk('ON'), ' ', printNode(on)]
-        : using.length > 0 ? [' ', mk('USING'), ' (', join(', ', using), ')']
+        : on      ? [' ', makeKeyword('ON'), ' ', printNode(on)]
+        : using.length > 0 ? [' ', makeKeyword('USING'), ' (', join(', ', using), ')']
         : '';
 
     return [lhs ? printNode(lhs) : '', hardline, joinKw, ' ', rhs ? printNode(rhs) : '', condition];
 }
 
 function printSubquery(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk      = (kw: string) => keyword(kw, opts);
+    const makeKeyword      = (kw: string) => keyword(kw, opts);
     const subquery = prop(node, 'subquery');
     const lateral  = propBool(node, 'lateral');
-    const prefix: Doc = lateral ? [mk('LATERAL'), ' '] : '';
+    const prefix: Doc = lateral ? [makeKeyword('LATERAL'), ' '] : '';
     return [prefix, '(', indent([hardline, subquery ? printNode(subquery) : '']), hardline, ')', aliasDoc(propStr(node, 'alias'), opts)];
 }
 
@@ -341,10 +341,10 @@ function printRangeFunction(node: SqlNode, opts: Options, printNode: PrintFn): D
 // ---------------------------------------------------------------------------
 
 function printSortItem(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const makeKeyword = (kw: string) => keyword(kw, opts);
     const expr = prop(node, 'expr');
-    const dir = propStr(node, 'direction');
-    return [expr ? printNode(expr) : '', dir ? [' ', mk(dir)] : ''];
+    const direction = propStr(node, 'direction');
+    return [expr ? printNode(expr) : '', direction ? [' ', makeKeyword(direction)] : ''];
 }
 
 // ---------------------------------------------------------------------------
@@ -352,11 +352,11 @@ function printSortItem(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 // ---------------------------------------------------------------------------
 
 function printColumnDef(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const makeKeyword = (kw: string) => keyword(kw, opts);
     const name = propStr(node, 'name') ?? '';
     const typeName = propStr(node, 'typeName') ?? '';
     const constraints = propArr(node, 'constraints');
-    const parts: Doc[] = [name, ' ', mk(typeName)];
+    const parts: Doc[] = [name, ' ', makeKeyword(typeName)];
     for (const c of constraints) {
         parts.push(' ', printConstraint(c, opts, printNode));
     }
@@ -364,7 +364,7 @@ function printColumnDef(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 }
 
 function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const makeKeyword = (kw: string) => keyword(kw, opts);
     const contype = propStr(node, 'contype') ?? '';
     const name = propStr(node, 'name');
     const expr = prop(node, 'expr');
@@ -379,27 +379,27 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
     const deferrable = propBool(node, 'deferrable');
     const initDeferred = propBool(node, 'initDeferred');
 
-    const namePrefix: Doc = name ? [mk('CONSTRAINT'), ' ', name, ' '] : '';
+    const namePrefix: Doc = name ? [makeKeyword('CONSTRAINT'), ' ', name, ' '] : '';
 
     switch (contype) {
-        case 'NULL':     return [namePrefix, mk('NULL')];
-        case 'NOT NULL': return [namePrefix, mk('NOT NULL')];
+        case 'NULL':     return [namePrefix, makeKeyword('NULL')];
+        case 'NOT NULL': return [namePrefix, makeKeyword('NOT NULL')];
 
         case 'DEFAULT':
-            return [namePrefix, mk('DEFAULT'), expr ? [' ', printNode(expr)] : ''];
+            return [namePrefix, makeKeyword('DEFAULT'), expr ? [' ', printNode(expr)] : ''];
 
         case 'CHECK':
-            return [namePrefix, mk('CHECK'), ' (', expr ? printNode(expr) : '', ')'];
+            return [namePrefix, makeKeyword('CHECK'), ' (', expr ? printNode(expr) : '', ')'];
 
         case 'PRIMARY KEY': {
             const colList: Doc = keys.length > 0 ? [' (', keys.join(', '), ')'] : '';
-            return [namePrefix, mk('PRIMARY KEY'), colList];
+            return [namePrefix, makeKeyword('PRIMARY KEY'), colList];
         }
 
         case 'UNIQUE': {
             const colList: Doc = keys.length > 0 ? [' (', keys.join(', '), ')'] : '';
-            const nnd: Doc = nullsNotDistinct ? [' ', mk('NULLS NOT DISTINCT')] : '';
-            return [namePrefix, mk('UNIQUE'), nnd, colList];
+            const nnd: Doc = nullsNotDistinct ? [' ', makeKeyword('NULLS NOT DISTINCT')] : '';
+            return [namePrefix, makeKeyword('UNIQUE'), nnd, colList];
         }
 
         case 'FOREIGN KEY': {
@@ -408,71 +408,71 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
             const fkColList: Doc = fkAttrs.length > 0 ? [' (', fkAttrs.join(', '), ')'] : '';
             const pkColList: Doc = pkAttrs.length > 0 ? [' (', pkAttrs.join(', '), ')'] : '';
             const pktableDoc: Doc = pktable ? printRangeVar(pktable, opts) : '';
-            const onUpdate: Doc = fkUpdAction ? [' ', mk('ON UPDATE'), ' ', mk(fkUpdAction)] : '';
-            const onDelete: Doc = fkDelAction ? [' ', mk('ON DELETE'), ' ', mk(fkDelAction)] : '';
+            const onUpdate: Doc = fkUpdAction ? [' ', makeKeyword('ON UPDATE'), ' ', makeKeyword(fkUpdAction)] : '';
+            const onDelete: Doc = fkDelAction ? [' ', makeKeyword('ON DELETE'), ' ', makeKeyword(fkDelAction)] : '';
             const deferrableDoc: Doc = deferrable
-                ? [' ', mk('DEFERRABLE'), initDeferred ? [' ', mk('INITIALLY DEFERRED')] : [' ', mk('INITIALLY IMMEDIATE')]]
+                ? [' ', makeKeyword('DEFERRABLE'), initDeferred ? [' ', makeKeyword('INITIALLY DEFERRED')] : [' ', makeKeyword('INITIALLY IMMEDIATE')]]
                 : '';
             if (fkAttrs.length > 0) {
                 // table-level
-                return [namePrefix, mk('FOREIGN KEY'), fkColList, ' ', mk('REFERENCES'), ' ', pktableDoc, pkColList, onUpdate, onDelete, deferrableDoc];
+                return [namePrefix, makeKeyword('FOREIGN KEY'), fkColList, ' ', makeKeyword('REFERENCES'), ' ', pktableDoc, pkColList, onUpdate, onDelete, deferrableDoc];
             }
             // column-level
-            return [namePrefix, mk('REFERENCES'), ' ', pktableDoc, pkColList, onUpdate, onDelete, deferrableDoc];
+            return [namePrefix, makeKeyword('REFERENCES'), ' ', pktableDoc, pkColList, onUpdate, onDelete, deferrableDoc];
         }
 
         case 'IDENTITY': {
-            const when: Doc = generatedWhen ? mk(generatedWhen) : mk('BY DEFAULT');
-            return [namePrefix, mk('GENERATED'), ' ', when, ' ', mk('AS IDENTITY')];
+            const when: Doc = generatedWhen ? makeKeyword(generatedWhen) : makeKeyword('BY DEFAULT');
+            return [namePrefix, makeKeyword('GENERATED'), ' ', when, ' ', makeKeyword('AS IDENTITY')];
         }
 
         case 'GENERATED': {
-            return [namePrefix, mk('GENERATED ALWAYS AS'), ' (', expr ? printNode(expr) : '', ') ', mk('STORED')];
+            return [namePrefix, makeKeyword('GENERATED ALWAYS AS'), ' (', expr ? printNode(expr) : '', ') ', makeKeyword('STORED')];
         }
 
         default:
-            return [namePrefix, mk(contype)];
+            return [namePrefix, makeKeyword(contype)];
     }
 }
 
 function printAlterCmd(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk      = (kw: string) => keyword(kw, opts);
+    const makeKeyword      = (kw: string) => keyword(kw, opts);
     const subtype = propStr(node, 'subtype') ?? '';
     const name    = propStr(node, 'name') ?? '';
     const newType = propStr(node, 'newType');
     const expr    = prop(node, 'expr');
     const def     = prop(node, 'def');
-    const ifExists: Doc = propBool(node, 'ifExists') ? [mk('IF EXISTS'), ' '] : '';
+    const ifExists: Doc = propBool(node, 'ifExists') ? [makeKeyword('IF EXISTS'), ' '] : '';
 
     switch (subtype) {
         case 'ADD COLUMN':
-            return [mk('ADD COLUMN'), ' ', ifExists, def ? printNode(def) : name];
+            return [makeKeyword('ADD COLUMN'), ' ', ifExists, def ? printNode(def) : name];
         case 'DROP COLUMN':
-            return [mk('DROP COLUMN'), ' ', ifExists, name];
+            return [makeKeyword('DROP COLUMN'), ' ', ifExists, name];
         case 'ADD CONSTRAINT':
-            return [mk('ADD'), ' ', def ? printNode(def) : name];
+            return [makeKeyword('ADD'), ' ', def ? printNode(def) : name];
         case 'ALTER COLUMN TYPE':
-            return [mk('ALTER COLUMN'), ' ', name, ' ', mk('TYPE'), ' ', newType ? mk(newType) : ''];
+            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('TYPE'), ' ', newType ? makeKeyword(newType) : ''];
         case 'SET DEFAULT':
-            return [mk('ALTER COLUMN'), ' ', name, ' ', mk('SET DEFAULT'), ' ', expr ? printNode(expr) : ''];
+            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('SET DEFAULT'), ' ', expr ? printNode(expr) : ''];
         case 'DROP DEFAULT':
-            return [mk('ALTER COLUMN'), ' ', name, ' ', mk('DROP DEFAULT')];
+            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('DROP DEFAULT')];
         case 'SET NOT NULL':
-            return [mk('ALTER COLUMN'), ' ', name, ' ', mk('SET NOT NULL')];
+            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('SET NOT NULL')];
         case 'DROP NOT NULL':
-            return [mk('ALTER COLUMN'), ' ', name, ' ', mk('DROP NOT NULL')];
+            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('DROP NOT NULL')];
         default:
-            return [mk(subtype), name ? [' ', name] : ''];
+            return [makeKeyword(subtype), name ? [' ', name] : ''];
     }
 }
 
 function printFunctionParam(node: SqlNode, opts: Options): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const makeKeyword = (kw: string) => keyword(kw, opts);
     const name = propStr(node, 'name') ?? '';
     const typeName = propStr(node, 'typeName') ?? '';
     const mode = propStr(node, 'mode');
-    const modePrefix = mode ? [mk(mode), ' '] : '';
-    return [modePrefix, name ? [name, ' '] : '', mk(typeName)];
+    const modePrefix = mode ? [makeKeyword(mode), ' '] : '';
+    return [modePrefix, name ? [name, ' '] : '', makeKeyword(typeName)];
 }
 
 // ---------------------------------------------------------------------------
@@ -480,22 +480,22 @@ function printFunctionParam(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 function printArrayExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const makeKeyword = (kw: string) => keyword(kw, opts);
     const elements = propArr(node, 'elements');
-    return [mk('ARRAY'), '[', join(', ', elements.map(printNode)), ']'];
+    return [makeKeyword('ARRAY'), '[', join(', ', elements.map(printNode)), ']'];
 }
 
 function printCoalesce(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const makeKeyword = (kw: string) => keyword(kw, opts);
     const args = propArr(node, 'args');
-    return [mk('COALESCE'), '(', join(', ', args.map(printNode)), ')'];
+    return [makeKeyword('COALESCE'), '(', join(', ', args.map(printNode)), ')'];
 }
 
 function printCteInline(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const makeKeyword = (kw: string) => keyword(kw, opts);
     const name = propStr(node, 'name') ?? '';
     const query = prop(node, 'query');
-    return [name, ' ', mk('AS'), ' (', indent([hardline, query ? printNode(query) : '']), hardline, ')'];
+    return [name, ' ', makeKeyword('AS'), ' (', indent([hardline, query ? printNode(query) : '']), hardline, ')'];
 }
 
 // ---------------------------------------------------------------------------
@@ -503,57 +503,57 @@ function printCteInline(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 // ---------------------------------------------------------------------------
 
 function printInExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk     = (kw: string) => keyword(kw, opts);
+    const makeKeyword     = (kw: string) => keyword(kw, opts);
     const left   = prop(node, 'left');
     const not    = propBool(node, 'not');
     const values = prop(node, 'values');
-    const kw     = not ? mk('NOT IN') : mk('IN');
+    const keywordDoc     = not ? makeKeyword('NOT IN') : makeKeyword('IN');
 
     // values is an ExprList node; its items are the IN list
     const items  = values ? propArr(values, 'items').map(printNode) : [];
-    return [left ? printNode(left) : '', ' ', kw, ' (', join(', ', items), ')'];
+    return [left ? printNode(left) : '', ' ', keywordDoc, ' (', join(', ', items), ')'];
 }
 
 function printBetweenExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk        = (kw: string) => keyword(kw, opts);
+    const makeKeyword        = (kw: string) => keyword(kw, opts);
     const arg       = prop(node, 'arg');
     const not       = propBool(node, 'not');
     const symmetric = propBool(node, 'symmetric');
     const low       = prop(node, 'low');
     const high      = prop(node, 'high');
 
-    const kw = not
-        ? (symmetric ? mk('NOT BETWEEN SYMMETRIC') : mk('NOT BETWEEN'))
-        : (symmetric ? mk('BETWEEN SYMMETRIC')     : mk('BETWEEN'));
+    const keywordDoc = not
+        ? (symmetric ? makeKeyword('NOT BETWEEN SYMMETRIC') : makeKeyword('NOT BETWEEN'))
+        : (symmetric ? makeKeyword('BETWEEN SYMMETRIC')     : makeKeyword('BETWEEN'));
 
     return [
         arg  ? printNode(arg)  : '',
-        ' ', kw, ' ',
+        ' ', keywordDoc, ' ',
         low  ? printNode(low)  : '',
-        ' ', mk('AND'), ' ',
+        ' ', makeKeyword('AND'), ' ',
         high ? printNode(high) : '',
     ];
 }
 
 function printQuantifiedExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk         = (kw: string) => keyword(kw, opts);
+    const makeKeyword         = (kw: string) => keyword(kw, opts);
     const left       = prop(node, 'left');
     const right      = prop(node, 'right');
     const op         = propStr(node, 'op') ?? '=';
     const quantifier = propStr(node, 'quantifier') ?? 'ANY';
     // right is typically an array literal or subquery
-    return [left ? printNode(left) : '', ' ', op, ' ', mk(quantifier), '(', right ? printNode(right) : '', ')'];
+    return [left ? printNode(left) : '', ' ', op, ' ', makeKeyword(quantifier), '(', right ? printNode(right) : '', ')'];
 }
 
 function printIntervalLiteral(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk    = (kw: string) => keyword(kw, opts);
+    const makeKeyword    = (kw: string) => keyword(kw, opts);
     const value = prop(node, 'value');
     const field = propStr(node, 'field');
-    return [mk('INTERVAL'), ' ', value ? printNode(value) : '', field ? [' ', mk(field)] : ''];
+    return [makeKeyword('INTERVAL'), ' ', value ? printNode(value) : '', field ? [' ', makeKeyword(field)] : ''];
 }
 
 function printRangeTableSample(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk         = (kw: string) => keyword(kw, opts);
+    const makeKeyword         = (kw: string) => keyword(kw, opts);
     const relation   = prop(node, 'relation');
     const method     = propStr(node, 'method') ?? 'bernoulli';
     const args       = propArr(node, 'args');
@@ -561,19 +561,19 @@ function printRangeTableSample(node: SqlNode, opts: Options, printNode: PrintFn)
 
     return [
         relation ? printNode(relation) : '',
-        ' ', mk('TABLESAMPLE'), ' ', mk(method.toUpperCase()),
+        ' ', makeKeyword('TABLESAMPLE'), ' ', makeKeyword(method.toUpperCase()),
         '(', join(', ', args.map(printNode)), ')',
-        repeatable ? [' ', mk('REPEATABLE'), ' (', printNode(repeatable), ')'] : '',
+        repeatable ? [' ', makeKeyword('REPEATABLE'), ' (', printNode(repeatable), ')'] : '',
     ];
 }
 
 function printTableLikeClause(node: SqlNode, opts: Options): Doc {
-    const mk        = (kw: string) => keyword(kw, opts);
+    const makeKeyword        = (kw: string) => keyword(kw, opts);
     const relation  = prop(node, 'relation');
     const including = (node.props?.['including'] as string[] | undefined) ?? [];
     return [
-        mk('LIKE'), ' ', rangeVarName(relation),
-        ...including.map((opt) => [' ', mk('INCLUDING'), ' ', mk(opt)] as Doc),
+        makeKeyword('LIKE'), ' ', rangeVarName(relation),
+        ...including.map((opt) => [' ', makeKeyword('INCLUDING'), ' ', makeKeyword(opt)] as Doc),
     ];
 }
 
@@ -583,8 +583,8 @@ function printSubscript(node: SqlNode, _opts: Options, printNode: PrintFn): Doc 
     const base: Doc = arg ? printNode(arg) : '';
     const parts: Doc[] = subscripts.map((s): Doc => {
         if (s.type === 'SubscriptIndex') {
-            const idx = prop(s, 'index');
-            return ['[', idx ? printNode(idx) : '', ']'];
+            const index = prop(s, 'index');
+            return ['[', index ? printNode(index) : '', ']'];
         }
         if (s.type === 'SubscriptSlice') {
             const lower = prop(s, 'lower');
@@ -604,7 +604,7 @@ function printNamedArg(node: SqlNode, _opts: Options, printNode: PrintFn): Doc {
 }
 
 function printGroupingSet(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk = (kw: string) => keyword(kw, opts);
+    const makeKeyword = (kw: string) => keyword(kw, opts);
     const kind = propStr(node, 'kind') ?? '';
     const content = propArr(node, 'content');
 
@@ -620,61 +620,61 @@ function printGroupingSet(node: SqlNode, opts: Options, printNode: PrintFn): Doc
         : item.type === 'RowExpr'   ? printNode(item)
         : ['(', printNode(item), ')'];
 
-    if (kind === 'ROLLUP') return [mk('ROLLUP'), '(', join(', ', content.map(printItem)), ')'];
-    if (kind === 'CUBE')   return [mk('CUBE'),   '(', join(', ', content.map(printItem)), ')'];
-    if (kind === 'SETS')   return [mk('GROUPING SETS'), '(', join(', ', content.map(printSetItem)), ')'];
-    return [mk(kind), '(', join(', ', content.map(printItem)), ')'];
+    if (kind === 'ROLLUP') return [makeKeyword('ROLLUP'), '(', join(', ', content.map(printItem)), ')'];
+    if (kind === 'CUBE')   return [makeKeyword('CUBE'),   '(', join(', ', content.map(printItem)), ')'];
+    if (kind === 'SETS')   return [makeKeyword('GROUPING SETS'), '(', join(', ', content.map(printSetItem)), ')'];
+    return [makeKeyword(kind), '(', join(', ', content.map(printItem)), ')'];
 }
 
 function printGroupingFunc(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk   = (kw: string) => keyword(kw, opts);
+    const makeKeyword   = (kw: string) => keyword(kw, opts);
     const args = propArr(node, 'args');
-    return [mk('GROUPING'), '(', join(', ', args.map(printNode)), ')'];
+    return [makeKeyword('GROUPING'), '(', join(', ', args.map(printNode)), ')'];
 }
 
 function printXmlExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk        = (kw: string) => keyword(kw, opts);
+    const makeKeyword        = (kw: string) => keyword(kw, opts);
     const op        = propStr(node, 'op') ?? 'XMLEXPR';
     const name      = propStr(node, 'name');
     const args      = propArr(node, 'args');
     const namedArgs = propArr(node, 'namedArgs');
 
     if (op === 'XMLELEMENT') {
-        const parts: Doc[] = [mk('NAME'), ' ', name ?? ''];
+        const parts: Doc[] = [makeKeyword('NAME'), ' ', name ?? ''];
         if (namedArgs.length > 0) {
             // namedArgs correspond to xmlattributes() arguments
             const attrItems = namedArgs.map((a) => {
                 const alias  = propStr(a, 'name');
                 const val    = prop(a, 'val');
                 const valDoc = val ? printNode(val) : '';
-                return alias ? [valDoc, ' ', mk('AS'), ' ', alias] as Doc : valDoc;
+                return alias ? [valDoc, ' ', makeKeyword('AS'), ' ', alias] as Doc : valDoc;
             });
-            parts.push(', ', mk('XMLATTRIBUTES'), '(', join(', ', attrItems), ')');
+            parts.push(', ', makeKeyword('XMLATTRIBUTES'), '(', join(', ', attrItems), ')');
         }
         for (const a of args) parts.push(', ', printNode(a));
-        return [mk('XMLELEMENT'), '(', ...parts, ')'];
+        return [makeKeyword('XMLELEMENT'), '(', ...parts, ')'];
     }
     if (op === 'XMLFOREST') {
         const items = namedArgs.map((a) => {
             const alias = propStr(a, 'name');
             const val   = prop(a, 'val');
             const valDoc = val ? printNode(val) : '';
-            return alias ? [valDoc, ' ', mk('AS'), ' ', alias] as Doc : valDoc;
+            return alias ? [valDoc, ' ', makeKeyword('AS'), ' ', alias] as Doc : valDoc;
         });
-        return [mk('XMLFOREST'), '(', join(', ', items), ')'];
+        return [makeKeyword('XMLFOREST'), '(', join(', ', items), ')'];
     }
     if (op === 'XMLPI') {
-        const items: Doc[] = [mk('NAME'), ' ', name ?? ''];
+        const items: Doc[] = [makeKeyword('NAME'), ' ', name ?? ''];
         if (args.length > 0) items.push(', ', printNode(args[0]!));
-        return [mk('XMLPI'), '(', ...items, ')'];
+        return [makeKeyword('XMLPI'), '(', ...items, ')'];
     }
     // XMLCONCAT, XMLPARSE, XMLROOT, XMLSERIALIZE — simple arg list
     const allArgs = [...namedArgs, ...args].map(printNode);
-    return [mk(op), '(', join(', ', allArgs), ')'];
+    return [makeKeyword(op), '(', join(', ', allArgs), ')'];
 }
 
 function printJsonFuncExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const mk        = (kw: string) => keyword(kw, opts);
+    const makeKeyword        = (kw: string) => keyword(kw, opts);
     const op        = propStr(node, 'op') ?? 'JSON_QUERY';
     const context   = prop(node, 'context');
     const path      = prop(node, 'path');
@@ -685,6 +685,6 @@ function printJsonFuncExpr(node: SqlNode, opts: Options, printNode: PrintFn): Do
         ', ',
         path ? printNode(path) : '',
     ];
-    if (returning) parts.push(' ', mk('RETURNING'), ' ', returning);
-    return [mk(op), '(', ...parts, ')'];
+    if (returning) parts.push(' ', makeKeyword('RETURNING'), ' ', returning);
+    return [makeKeyword(op), '(', ...parts, ')'];
 }

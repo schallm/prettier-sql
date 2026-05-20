@@ -130,7 +130,7 @@ public class AstBuilder {
                     : null)
                 .Where(n => n != null).Cast<SqlNode>().ToList();
             return new SqlNode("ValuesStatement", start, end, null, BuildProps(
-                ("rows", rows.Count > 0 ? (object?)rows : null)
+                ("rows", MaybeList(rows))
             ));
         }
 
@@ -280,7 +280,7 @@ public class AstBuilder {
                 .ToList();
             partitionBy = new SqlNode("PartitionBy", 0, 0, null, BuildProps(
                 ("strategy", strategy),
-                ("columns",  cols.Count > 0 ? (object?)cols : null)
+                ("columns",  MaybeList(cols))
             ));
         }
 
@@ -291,13 +291,13 @@ public class AstBuilder {
         ));
     }
 
-    private SqlNode? BuildPartitionBound(PartitionBoundSpec pb) {
-        if (pb.IsDefault) {
+    private SqlNode? BuildPartitionBound(PartitionBoundSpec partitionBound) {
+        if (partitionBound.IsDefault) {
             return new SqlNode("PartitionBound", 0, 0, null, BuildProps(("isDefault", true)));
         }
-        var lowerDatums = pb.Lowerdatums.Select(BuildPartitionDatum).OfType<string>().ToList();
-        var upperDatums = pb.Upperdatums.Select(BuildPartitionDatum).OfType<string>().ToList();
-        var listDatums  = pb.Listdatums.Select(n => {
+        var lowerDatums = partitionBound.Lowerdatums.Select(BuildPartitionDatum).OfType<string>().ToList();
+        var upperDatums = partitionBound.Upperdatums.Select(BuildPartitionDatum).OfType<string>().ToList();
+        var listDatums  = partitionBound.Listdatums.Select(n => {
             if (n.NodeCase == Node.NodeOneofCase.AConst) {
                 var v = BuildAConst(n.AConst);
                 return v.Text;
@@ -306,11 +306,11 @@ public class AstBuilder {
         }).OfType<string>().ToList();
 
         return new SqlNode("PartitionBound", 0, 0, null, BuildProps(
-            ("lower",      lowerDatums.Count > 0 ? (object?)lowerDatums : null),
-            ("upper",      upperDatums.Count > 0 ? (object?)upperDatums : null),
-            ("listDatums", listDatums.Count  > 0 ? (object?)listDatums  : null),
-            ("modulus",    pb.Modulus > 0 ? (object?)pb.Modulus   : null),
-            ("remainder",  pb.Modulus > 0 ? (object?)pb.Remainder : null)
+            ("lower",      MaybeList(lowerDatums)),
+            ("upper",      MaybeList(upperDatums)),
+            ("listDatums", MaybeList(listDatums)),
+            ("modulus",    partitionBound.Modulus > 0 ? (object?)partitionBound.Modulus   : null),
+            ("remainder",  partitionBound.Modulus > 0 ? (object?)partitionBound.Remainder : null)
         ));
     }
 
@@ -347,17 +347,17 @@ public class AstBuilder {
         string? body = null;
         foreach (var o in s.Options) {
             if (o.NodeCase != Node.NodeOneofCase.DefElem) continue;
-            var de = o.DefElem;
-            switch (de.Defname) {
+            var defElem = o.DefElem;
+            switch (defElem.Defname) {
                 case "language":
-                    if (de.Arg?.NodeCase == Node.NodeOneofCase.String)
-                        language = de.Arg.String.Sval;
+                    if (defElem.Arg?.NodeCase == Node.NodeOneofCase.String)
+                        language = defElem.Arg.String.Sval;
                     break;
                 case "as":
                     // AS body is a List with one String item (dollar-quoted body contents)
-                    if (de.Arg?.NodeCase == Node.NodeOneofCase.List && de.Arg.List.Items.Count > 0
-                        && de.Arg.List.Items[0].NodeCase == Node.NodeOneofCase.String)
-                        body = de.Arg.List.Items[0].String.Sval;
+                    if (defElem.Arg?.NodeCase == Node.NodeOneofCase.List && defElem.Arg.List.Items.Count > 0
+                        && defElem.Arg.List.Items[0].NodeCase == Node.NodeOneofCase.String)
+                        body = defElem.Arg.List.Items[0].String.Sval;
                     break;
             }
         }
@@ -373,7 +373,7 @@ public class AstBuilder {
             ("name",         s.Funcname.Count > 0 ? string.Join(".", s.Funcname.Select(n => n.String.Sval)) : null),
             ("parameters",   MapList(regularParams, BuildFunctionParam)),
             ("returnType",   tableParams.Count == 0 && s.ReturnType != null ? BuildPgTypeName(s.ReturnType) : null),
-            ("returnsTable", tableParams.Count > 0 ? (object?)tableParams : null),
+            ("returnsTable", MaybeList(tableParams)),
             ("language",     language),
             ("body",         body)
         ));
@@ -393,29 +393,12 @@ public class AstBuilder {
         ));
 
     private static SqlNode BuildDrop(DropStmt s, int start, int end) {
-        var objectType = s.RemoveType switch {
-            ObjectType.ObjectTable     => "TABLE",
-            ObjectType.ObjectIndex     => "INDEX",
-            ObjectType.ObjectView      => "VIEW",
-            ObjectType.ObjectMatview   => "MATERIALIZED VIEW",
-            ObjectType.ObjectSequence  => "SEQUENCE",
-            ObjectType.ObjectFunction  => "FUNCTION",
-            ObjectType.ObjectProcedure => "PROCEDURE",
-            ObjectType.ObjectType      => "TYPE",
-            ObjectType.ObjectSchema    => "SCHEMA",
-            ObjectType.ObjectDatabase  => "DATABASE",
-            ObjectType.ObjectExtension => "EXTENSION",
-            ObjectType.ObjectTrigger   => "TRIGGER",
-            ObjectType.ObjectRule      => "RULE",
-            ObjectType.ObjectPolicy    => "POLICY",
-            _                          => s.RemoveType.ToString().Replace("Object", "").ToUpper(),
-        };
+        var objectType = ObjectTypeKw(s.RemoveType);
         var names = s.Objects.Select(o => o.NodeCase switch {
             Node.NodeOneofCase.List => string.Join(".", o.List.Items
                 .Where(n => n.NodeCase == Node.NodeOneofCase.String)
                 .Select(n => n.String.Sval)),
-            Node.NodeOneofCase.ObjectWithArgs => string.Join(".", o.ObjectWithArgs.Objname
-                .Select(n => n.String.Sval)),
+            Node.NodeOneofCase.ObjectWithArgs => OwaName(o.ObjectWithArgs.Objname),
             Node.NodeOneofCase.TypeName => string.Join(".", o.TypeName.Names
                 .Where(n => n.NodeCase == Node.NodeOneofCase.String)
                 .Select(n => n.String.Sval)
@@ -425,7 +408,7 @@ public class AstBuilder {
         }).OfType<string>().Where(n => !string.IsNullOrEmpty(n)).ToList();
         return new SqlNode("DropStatement", start, end, null, BuildProps(
             ("objectType", objectType),
-            ("names",      names.Count > 0 ? (object?)names : null),
+            ("names",      MaybeList(names)),
             ("ifExists",   s.MissingOk ? true : null),
             ("cascade",    s.Behavior == DropBehavior.DropCascade ? true : null)
         ));
@@ -583,7 +566,7 @@ public class AstBuilder {
         if (right != null) args.Add(right);
         return new SqlNode("FunctionCall", 0, 0, null, BuildProps(
             ("name", "NULLIF"),
-            ("args", args.Count > 0 ? (object?)args : null)
+            ("args", MaybeList(args))
         ));
     }
 
@@ -929,7 +912,7 @@ public class AstBuilder {
                     .ToList();
                 search = new SqlNode("CTESearch", 0, 0, null, BuildProps(
                     ("breadthFirst", sc.SearchBreadthFirst ? true : null),
-                    ("columns",      cols.Count > 0 ? (object?)cols : null),
+                    ("columns",      MaybeList(cols)),
                     ("seqColumn",    string.IsNullOrEmpty(sc.SearchSeqColumn) ? null : sc.SearchSeqColumn)
                 ));
             }
@@ -946,7 +929,7 @@ public class AstBuilder {
                     .Cast<string>()
                     .ToList();
                 cycle = new SqlNode("CTECycle", 0, 0, null, BuildProps(
-                    ("columns",    cols.Count > 0 ? (object?)cols : null),
+                    ("columns",    MaybeList(cols)),
                     ("markColumn", string.IsNullOrEmpty(cc.CycleMarkColumn) ? null : cc.CycleMarkColumn),
                     ("pathColumn", string.IsNullOrEmpty(cc.CyclePathColumn) ? null : cc.CyclePathColumn)
                 ));
@@ -1001,43 +984,43 @@ public class AstBuilder {
     };
 
     private static SqlNode BuildTableLikeClause(TableLikeClause t) {
-        var opts = (int)t.Options;
+        var options = (int)t.Options;
         List<string> including;
-        if (opts == 0) {
+        if (options == 0) {
             including = new List<string>();
-        } else if (opts > 0x01FF) {
+        } else if (options > 0x01FF) {
             including = new List<string> { "ALL" };
         } else {
             including = new List<string>();
-            if ((opts & 0x0001) != 0) including.Add("COMMENTS");
-            if ((opts & 0x0004) != 0) including.Add("CONSTRAINTS");
-            if ((opts & 0x0008) != 0) including.Add("DEFAULTS");
-            if ((opts & 0x0010) != 0) including.Add("GENERATED");
-            if ((opts & 0x0020) != 0) including.Add("IDENTITY");
-            if ((opts & 0x0040) != 0) including.Add("INDEXES");
-            if ((opts & 0x0080) != 0) including.Add("STATISTICS");
-            if ((opts & 0x0100) != 0) including.Add("STORAGE");
+            if ((options & 0x0001) != 0) including.Add("COMMENTS");
+            if ((options & 0x0004) != 0) including.Add("CONSTRAINTS");
+            if ((options & 0x0008) != 0) including.Add("DEFAULTS");
+            if ((options & 0x0010) != 0) including.Add("GENERATED");
+            if ((options & 0x0020) != 0) including.Add("IDENTITY");
+            if ((options & 0x0040) != 0) including.Add("INDEXES");
+            if ((options & 0x0080) != 0) including.Add("STATISTICS");
+            if ((options & 0x0100) != 0) including.Add("STORAGE");
         }
         return new SqlNode("TableLikeClause", 0, 0, null, BuildProps(
             ("relation",  BuildRangeVar(t.Relation)),
-            ("including", including.Count > 0 ? (object?)including : null)
+            ("including", MaybeList(including))
         ));
     }
 
-    private SqlNode BuildColumnDef(ColumnDef cd) =>
+    private SqlNode BuildColumnDef(ColumnDef columnDef) =>
         new("ColumnDef", 0, 0, null, BuildProps(
-            ("name",        cd.Colname),
-            ("typeName",    cd.TypeName != null ? BuildPgTypeName(cd.TypeName) : null),
-            ("constraints", cd.Constraints.Count > 0
-                ? (object?)cd.Constraints
+            ("name",        columnDef.Colname),
+            ("typeName",    columnDef.TypeName != null ? BuildPgTypeName(columnDef.TypeName) : null),
+            ("constraints", columnDef.Constraints.Count > 0
+                ? (object?)columnDef.Constraints
                     .Where(n => n.NodeCase == Node.NodeOneofCase.Constraint)
                     .Select(n => BuildConstraint(n.Constraint))
                     .ToList()
                 : null)
         ));
 
-    private SqlNode BuildConstraint(Constraint c) {
-        var contype = c.Contype switch {
+    private SqlNode BuildConstraint(Constraint constraint) {
+        var contype = constraint.Contype switch {
             ConstrType.ConstrNull              => "NULL",
             ConstrType.ConstrNotnull           => "NOT NULL",
             ConstrType.ConstrDefault           => "DEFAULT",
@@ -1052,7 +1035,7 @@ public class AstBuilder {
             ConstrType.ConstrAttrNotDeferrable => "NOT DEFERRABLE",
             ConstrType.ConstrAttrDeferred      => "INITIALLY DEFERRED",
             ConstrType.ConstrAttrImmediate     => "INITIALLY IMMEDIATE",
-            _                                  => c.Contype.ToString(),
+            _                                  => constraint.Contype.ToString(),
         };
 
         // FK actions: 'a'=NO ACTION, 'r'=RESTRICT, 'c'=CASCADE, 'n'=SET NULL, 'd'=SET DEFAULT
@@ -1065,32 +1048,32 @@ public class AstBuilder {
         };
 
         // Keys list (PRIMARY KEY / UNIQUE column list at table level)
-        var keys = c.Keys.Count > 0
-            ? (object?)c.Keys.Select(k => k.NodeCase == Node.NodeOneofCase.String ? k.String.Sval : "").ToList()
+        var keys = constraint.Keys.Count > 0
+            ? (object?)constraint.Keys.Select(k => k.NodeCase == Node.NodeOneofCase.String ? k.String.Sval : "").ToList()
             : null;
 
         // FK columns
-        var fkAttrs = c.FkAttrs.Count > 0
-            ? (object?)c.FkAttrs.Select(k => k.String.Sval).ToList()
+        var fkAttrs = constraint.FkAttrs.Count > 0
+            ? (object?)constraint.FkAttrs.Select(k => k.String.Sval).ToList()
             : null;
-        var pkAttrs = c.PkAttrs.Count > 0
-            ? (object?)c.PkAttrs.Select(k => k.String.Sval).ToList()
+        var pkAttrs = constraint.PkAttrs.Count > 0
+            ? (object?)constraint.PkAttrs.Select(k => k.String.Sval).ToList()
             : null;
 
         return new SqlNode("Constraint", 0, 0, null, BuildProps(
             ("contype",          contype),
-            ("name",             string.IsNullOrEmpty(c.Conname) ? null : c.Conname),
-            ("expr",             c.RawExpr != null ? BuildExpr(c.RawExpr) : null),
+            ("name",             string.IsNullOrEmpty(constraint.Conname) ? null : constraint.Conname),
+            ("expr",             constraint.RawExpr != null ? BuildExpr(constraint.RawExpr) : null),
             ("keys",             keys),
-            ("nullsNotDistinct", c.NullsNotDistinct ? true : null),
-            ("pktable",          c.Pktable != null ? BuildRangeVar(c.Pktable) : null),
+            ("nullsNotDistinct", constraint.NullsNotDistinct ? true : null),
+            ("pktable",          constraint.Pktable != null ? BuildRangeVar(constraint.Pktable) : null),
             ("fkAttrs",          fkAttrs),
             ("pkAttrs",          pkAttrs),
-            ("fkUpdAction",      string.IsNullOrEmpty(c.FkUpdAction) || c.FkUpdAction == "a" ? null : FkAction(c.FkUpdAction)),
-            ("fkDelAction",      string.IsNullOrEmpty(c.FkDelAction) || c.FkDelAction == "a" ? null : FkAction(c.FkDelAction)),
-            ("generatedWhen",    string.IsNullOrEmpty(c.GeneratedWhen) ? null : (c.GeneratedWhen == "a" ? "ALWAYS" : "BY DEFAULT")),
-            ("deferrable",       c.Deferrable ? true : null),
-            ("initDeferred",     c.Initdeferred ? true : null)
+            ("fkUpdAction",      string.IsNullOrEmpty(constraint.FkUpdAction) || constraint.FkUpdAction == "a" ? null : FkAction(constraint.FkUpdAction)),
+            ("fkDelAction",      string.IsNullOrEmpty(constraint.FkDelAction) || constraint.FkDelAction == "a" ? null : FkAction(constraint.FkDelAction)),
+            ("generatedWhen",    string.IsNullOrEmpty(constraint.GeneratedWhen) ? null : (constraint.GeneratedWhen == "a" ? "ALWAYS" : "BY DEFAULT")),
+            ("deferrable",       constraint.Deferrable ? true : null),
+            ("initDeferred",     constraint.Initdeferred ? true : null)
         ));
     }
 
@@ -1099,34 +1082,34 @@ public class AstBuilder {
         return BuildAlterCmd(n.AlterTableCmd);
     }
 
-    private SqlNode BuildAlterCmd(AlterTableCmd c) {
-        var subtype = c.Subtype switch {
+    private SqlNode BuildAlterCmd(AlterTableCmd cmd) {
+        var subtype = cmd.Subtype switch {
             AlterTableType.AtAddColumn       => "ADD COLUMN",
             AlterTableType.AtDropColumn      => "DROP COLUMN",
             AlterTableType.AtAddConstraint   => "ADD CONSTRAINT",
             AlterTableType.AtDropConstraint  => "DROP CONSTRAINT",
             AlterTableType.AtAlterColumnType => "ALTER COLUMN TYPE",
-            AlterTableType.AtColumnDefault   => c.Def != null ? "SET DEFAULT" : "DROP DEFAULT",
+            AlterTableType.AtColumnDefault   => cmd.Def != null ? "SET DEFAULT" : "DROP DEFAULT",
             AlterTableType.AtSetNotNull      => "SET NOT NULL",
             AlterTableType.AtDropNotNull     => "DROP NOT NULL",
-            _ => c.Subtype.ToString().Replace("At", ""),
+            _ => cmd.Subtype.ToString().Replace("At", ""),
         };
         string? newType = null;
-        if (c.Subtype == AlterTableType.AtAlterColumnType && c.Def?.NodeCase == Node.NodeOneofCase.ColumnDef
-            && c.Def.ColumnDef.TypeName != null)
-            newType = BuildPgTypeName(c.Def.ColumnDef.TypeName);
+        if (cmd.Subtype == AlterTableType.AtAlterColumnType && cmd.Def?.NodeCase == Node.NodeOneofCase.ColumnDef
+            && cmd.Def.ColumnDef.TypeName != null)
+            newType = BuildPgTypeName(cmd.Def.ColumnDef.TypeName);
 
         return new SqlNode("AlterCmd", 0, 0, null, BuildProps(
             ("subtype", subtype),
-            ("name",    string.IsNullOrEmpty(c.Name) ? null : c.Name),
+            ("name",    string.IsNullOrEmpty(cmd.Name) ? null : cmd.Name),
             ("newType", newType),
-            ("expr",    c.Subtype == AlterTableType.AtColumnDefault && c.Def != null ? BuildExpr(c.Def) : null),
-            ("def",     c.Subtype == AlterTableType.AtAddColumn && c.Def?.NodeCase == Node.NodeOneofCase.ColumnDef
-                        ? BuildColumnDef(c.Def.ColumnDef)
-                        : c.Subtype == AlterTableType.AtAddConstraint && c.Def?.NodeCase == Node.NodeOneofCase.Constraint
-                        ? BuildConstraint(c.Def.Constraint)
+            ("expr",    cmd.Subtype == AlterTableType.AtColumnDefault && cmd.Def != null ? BuildExpr(cmd.Def) : null),
+            ("def",     cmd.Subtype == AlterTableType.AtAddColumn && cmd.Def?.NodeCase == Node.NodeOneofCase.ColumnDef
+                        ? BuildColumnDef(cmd.Def.ColumnDef)
+                        : cmd.Subtype == AlterTableType.AtAddConstraint && cmd.Def?.NodeCase == Node.NodeOneofCase.Constraint
+                        ? BuildConstraint(cmd.Def.Constraint)
                         : null),
-            ("ifExists", c.MissingOk ? true : null)
+            ("ifExists", cmd.MissingOk ? true : null)
         ));
     }
 
@@ -1257,7 +1240,7 @@ public class AstBuilder {
             .ToList();
         return new SqlNode("Subscript", 0, 0, null, BuildProps(
             ("arg",        BuildExpr(a.Arg)),
-            ("subscripts", subscripts.Count > 0 ? (object?)subscripts : null)
+            ("subscripts", MaybeList(subscripts))
         ));
     }
 
@@ -1316,7 +1299,7 @@ public class AstBuilder {
             .Select(n => BuildRangeVar(n.RangeVar))
             .ToList();
         return new SqlNode("TruncateStatement", start, end, null, BuildProps(
-            ("relations",   relations.Count > 0 ? (object?)relations : null),
+            ("relations",   MaybeList(relations)),
             ("restartSeqs", s.RestartSeqs ? true : null),
             ("cascade",     s.Behavior == DropBehavior.DropCascade ? true : null)
         ));
@@ -1341,30 +1324,30 @@ public class AstBuilder {
         var options = new List<string>();
         foreach (var n in t.Options) {
             if (n.NodeCase != Node.NodeOneofCase.DefElem) continue;
-            var de = n.DefElem;
-            switch (de.Defname) {
+            var defElem = n.DefElem;
+            switch (defElem.Defname) {
                 case "transaction_isolation": {
-                    string? isoLevel = de.Arg?.NodeCase == Node.NodeOneofCase.String
-                        ? de.Arg.String.Sval
-                        : de.Arg?.NodeCase == Node.NodeOneofCase.AConst && de.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval
-                            ? de.Arg.AConst.Sval.Sval
+                    string? isoLevel = defElem.Arg?.NodeCase == Node.NodeOneofCase.String
+                        ? defElem.Arg.String.Sval
+                        : defElem.Arg?.NodeCase == Node.NodeOneofCase.AConst && defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval
+                            ? defElem.Arg.AConst.Sval.Sval
                             : null;
                     if (isoLevel != null) options.Add($"ISOLATION LEVEL {isoLevel.ToUpper()}");
                     break;
                 }
                 case "transaction_read_only": {
-                    bool readOnly = de.Arg?.NodeCase == Node.NodeOneofCase.Integer
-                        ? de.Arg.Integer.Ival == 1
-                        : de.Arg?.NodeCase == Node.NodeOneofCase.AConst && de.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival
-                            && de.Arg.AConst.Ival.Ival == 1;
+                    bool readOnly = defElem.Arg?.NodeCase == Node.NodeOneofCase.Integer
+                        ? defElem.Arg.Integer.Ival == 1
+                        : defElem.Arg?.NodeCase == Node.NodeOneofCase.AConst && defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival
+                            && defElem.Arg.AConst.Ival.Ival == 1;
                     options.Add(readOnly ? "READ ONLY" : "READ WRITE");
                     break;
                 }
                 case "transaction_deferrable": {
-                    bool deferrable = de.Arg?.NodeCase == Node.NodeOneofCase.Integer
-                        ? de.Arg.Integer.Ival == 1
-                        : de.Arg?.NodeCase == Node.NodeOneofCase.AConst && de.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival
-                            && de.Arg.AConst.Ival.Ival == 1;
+                    bool deferrable = defElem.Arg?.NodeCase == Node.NodeOneofCase.Integer
+                        ? defElem.Arg.Integer.Ival == 1
+                        : defElem.Arg?.NodeCase == Node.NodeOneofCase.AConst && defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival
+                            && defElem.Arg.AConst.Ival.Ival == 1;
                     options.Add(deferrable ? "DEFERRABLE" : "NOT DEFERRABLE");
                     break;
                 }
@@ -1375,7 +1358,7 @@ public class AstBuilder {
             ("kind",      kind),
             ("savepoint", string.IsNullOrEmpty(t.SavepointName) ? null : t.SavepointName),
             ("gid",       string.IsNullOrEmpty(t.Gid) ? null : t.Gid),
-            ("options",   options.Count > 0 ? (object?)options : null)
+            ("options",   MaybeList(options))
         ));
     }
 
@@ -1384,25 +1367,25 @@ public class AstBuilder {
             var txOpts = new List<string>();
             foreach (var n in v.Args) {
                 if (n.NodeCase != Node.NodeOneofCase.DefElem) continue;
-                var de = n.DefElem;
-                switch (de.Defname) {
+                var defElem = n.DefElem;
+                switch (defElem.Defname) {
                     case "transaction_isolation": {
-                        string? iso = de.Arg?.NodeCase == Node.NodeOneofCase.String ? de.Arg.String.Sval
-                            : de.Arg?.NodeCase == Node.NodeOneofCase.AConst && de.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval
-                                ? de.Arg.AConst.Sval.Sval : null;
+                        string? iso = defElem.Arg?.NodeCase == Node.NodeOneofCase.String ? defElem.Arg.String.Sval
+                            : defElem.Arg?.NodeCase == Node.NodeOneofCase.AConst && defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval
+                                ? defElem.Arg.AConst.Sval.Sval : null;
                         if (iso != null) txOpts.Add($"ISOLATION LEVEL {iso.ToUpper()}");
                         break;
                     }
                     case "transaction_read_only":
-                        txOpts.Add(GetBoolFromArg(de.Arg) ? "READ ONLY" : "READ WRITE");
+                        txOpts.Add(GetBoolFromArg(defElem.Arg) ? "READ ONLY" : "READ WRITE");
                         break;
                     case "transaction_deferrable":
-                        txOpts.Add(GetBoolFromArg(de.Arg) ? "DEFERRABLE" : "NOT DEFERRABLE");
+                        txOpts.Add(GetBoolFromArg(defElem.Arg) ? "DEFERRABLE" : "NOT DEFERRABLE");
                         break;
                 }
             }
             return new SqlNode("TransactionStatement", start, end, null, BuildProps(
-                ("kind", "SET TRANSACTION"), ("options", txOpts.Count > 0 ? (object?)txOpts : null)));
+                ("kind", "SET TRANSACTION"), ("options", MaybeList(txOpts))));
         }
         if (v.Kind == VariableSetKind.VarSetValue) {
             var vals = v.Args.Select(a =>
@@ -1414,7 +1397,7 @@ public class AstBuilder {
             ).OfType<string>().ToList();
             return new SqlNode("VariableSetStatement", start, end, null, BuildProps(
                 ("kind", "SET"), ("name", v.Name),
-                ("values", vals.Count > 0 ? (object?)vals : null),
+                ("values", MaybeList(vals)),
                 ("local", v.IsLocal ? true : null)));
         }
         if (v.Kind == VariableSetKind.VarSetDefault)
@@ -1455,7 +1438,7 @@ public class AstBuilder {
             Node.NodeOneofCase.RangeVar       => BuildRangeVar(o.RangeVar),
             Node.NodeOneofCase.String         => new SqlNode("Literal", 0, 0, o.String.Sval, null),
             Node.NodeOneofCase.ObjectWithArgs => new SqlNode("Literal", 0, 0,
-                string.Join(".", o.ObjectWithArgs.Objname.Select(n => n.String.Sval)), null),
+                OwaName(o.ObjectWithArgs.Objname), null),
             _ => null,
         }).OfType<SqlNode>().ToList();
 
@@ -1464,10 +1447,10 @@ public class AstBuilder {
             : null).OfType<string>().ToList();
 
         return new SqlNode(g.IsGrant ? "GrantStatement" : "RevokeStatement", start, end, null, BuildProps(
-            ("privs",       privs.Count > 0 ? (object?)privs : null),
+            ("privs",       MaybeList(privs)),
             ("objtype",     objtypeStr),
-            ("objects",     objects.Count > 0 ? (object?)objects : null),
-            ("grantees",    grantees.Count > 0 ? (object?)grantees : null),
+            ("objects",     MaybeList(objects)),
+            ("grantees",    MaybeList(grantees)),
             ("grantOption", g.GrantOption ? true : null),
             ("cascade",     g.Behavior == DropBehavior.DropCascade ? true : null)
         ));
@@ -1482,23 +1465,23 @@ public class AstBuilder {
         return new SqlNode("CreateRoleStatement", start, end, null, BuildProps(
             ("stmtType", stmtType),
             ("name",     c.Role),
-            ("options",  ParseRoleOptions(c.Options) is { Count: > 0 } opts ? (object?)opts : null)
+            ("options",  ParseRoleOptions(c.Options) is { Count: > 0 } options ? (object?)options : null)
         ));
     }
 
     private static SqlNode BuildAlterRole(AlterRoleStmt ar, int start, int end) =>
         new("AlterRoleStatement", start, end, null, BuildProps(
             ("name",    ar.Role?.Rolename ?? ""),
-            ("options", ParseRoleOptions(ar.Options) is { Count: > 0 } opts ? (object?)opts : null)
+            ("options", ParseRoleOptions(ar.Options) is { Count: > 0 } options ? (object?)options : null)
         ));
 
     private static List<string> ParseRoleOptions(Google.Protobuf.Collections.RepeatedField<Node> options) {
         var result = new List<string>();
         foreach (var o in options) {
             if (o.NodeCase != Node.NodeOneofCase.DefElem) continue;
-            var de = o.DefElem;
-            bool flag = GetBoolFromArg(de.Arg);
-            switch (de.Defname) {
+            var defElem = o.DefElem;
+            bool flag = GetBoolFromArg(defElem.Arg);
+            switch (defElem.Defname) {
                 case "superuser":     result.Add(flag ? "SUPERUSER" : "NOSUPERUSER"); break;
                 case "createdb":      result.Add(flag ? "CREATEDB" : "NOCREATEDB"); break;
                 case "createrole":    result.Add(flag ? "CREATEROLE" : "NOCREATEROLE"); break;
@@ -1507,13 +1490,13 @@ public class AstBuilder {
                 case "isreplication": result.Add(flag ? "REPLICATION" : "NOREPLICATION"); break;
                 case "bypassrls":     result.Add(flag ? "BYPASSRLS" : "NOBYPASSRLS"); break;
                 case "password":
-                    var pwd = de.Arg?.NodeCase == Node.NodeOneofCase.String ? de.Arg.String.Sval
-                        : de.Arg?.NodeCase == Node.NodeOneofCase.AConst && de.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval
-                            ? de.Arg.AConst.Sval.Sval : null;
+                    var pwd = defElem.Arg?.NodeCase == Node.NodeOneofCase.String ? defElem.Arg.String.Sval
+                        : defElem.Arg?.NodeCase == Node.NodeOneofCase.AConst && defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval
+                            ? defElem.Arg.AConst.Sval.Sval : null;
                     result.Add(pwd != null ? $"PASSWORD '{pwd}'" : "PASSWORD NULL");
                     break;
                 case "connectionlimit":
-                    result.Add($"CONNECTION LIMIT {de.Arg?.Integer?.Ival ?? -1}");
+                    result.Add($"CONNECTION LIMIT {defElem.Arg?.Integer?.Ival ?? -1}");
                     break;
             }
         }
@@ -1540,9 +1523,7 @@ public class AstBuilder {
         List<string>? objArgTypes = null;
         if (r.Object != null && r.Object.NodeCase == Node.NodeOneofCase.ObjectWithArgs) {
             var owa = r.Object.ObjectWithArgs;
-            objName = string.Join(".", owa.Objname
-                .Where(n => n.NodeCase == Node.NodeOneofCase.String)
-                .Select(n => n.String.Sval));
+            objName = OwaName(owa.Objname);
             if (!owa.ArgsUnspecified && owa.Objargs.Count > 0)
                 objArgTypes = owa.Objargs
                     .Select(n => n.NodeCase == Node.NodeOneofCase.TypeName ? BuildPgTypeName(n.TypeName) : null)
@@ -1552,7 +1533,7 @@ public class AstBuilder {
             ("renameType",  renameType),
             ("relation",    r.Relation != null ? BuildRangeVar(r.Relation) : null),
             ("objName",     objName),
-            ("objArgTypes", objArgTypes != null && objArgTypes.Count > 0 ? (object?)objArgTypes : null),
+            ("objArgTypes", objArgTypes != null ? MaybeList(objArgTypes) : null),
             ("oldName",     string.IsNullOrEmpty(r.Subname) ? null : r.Subname),
             ("newName",     r.Newname)
         ));
@@ -1576,7 +1557,7 @@ public class AstBuilder {
         return new SqlNode("CreateTypeStatement", start, end, null, BuildProps(
             ("kind",     "ENUM"),
             ("typeName", typeName),
-            ("values",   vals.Count > 0 ? (object?)vals : null)
+            ("values",   MaybeList(vals))
         ));
     }
 
@@ -1593,39 +1574,39 @@ public class AstBuilder {
         var result = new List<string>();
         foreach (var o in options) {
             if (o.NodeCase != Node.NodeOneofCase.DefElem) continue;
-            var de = o.DefElem;
-            int? intVal = de.Arg?.NodeCase == Node.NodeOneofCase.Integer ? de.Arg.Integer.Ival
-                : de.Arg?.NodeCase == Node.NodeOneofCase.AConst && de.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival
-                    ? de.Arg.AConst.Ival.Ival : (int?)null;
-            switch (de.Defname) {
+            var defElem = o.DefElem;
+            int? intVal = defElem.Arg?.NodeCase == Node.NodeOneofCase.Integer ? defElem.Arg.Integer.Ival
+                : defElem.Arg?.NodeCase == Node.NodeOneofCase.AConst && defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival
+                    ? defElem.Arg.AConst.Ival.Ival : (int?)null;
+            switch (defElem.Defname) {
                 case "start":     result.Add($"START WITH {intVal ?? 1}"); break;
                 case "restart":   result.Add(intVal.HasValue ? $"RESTART WITH {intVal}" : "RESTART"); break;
                 case "increment": result.Add($"INCREMENT BY {intVal ?? 1}"); break;
                 case "minvalue":  result.Add(intVal.HasValue ? $"MINVALUE {intVal}" : "NO MINVALUE"); break;
                 case "maxvalue":  result.Add(intVal.HasValue ? $"MAXVALUE {intVal}" : "NO MAXVALUE"); break;
                 case "cache":     result.Add($"CACHE {intVal ?? 1}"); break;
-                case "cycle":     result.Add(GetBoolFromArg(de.Arg) ? "CYCLE" : "NO CYCLE"); break;
+                case "cycle":     result.Add(GetBoolFromArg(defElem.Arg) ? "CYCLE" : "NO CYCLE"); break;
             }
         }
         return result;
     }
 
     private SqlNode BuildCreateSeq(CreateSeqStmt seq, int start, int end) {
-        var opts = ParseSeqOptions(seq.Options);
+        var options = ParseSeqOptions(seq.Options);
         return new SqlNode("CreateSequenceStatement", start, end, null, BuildProps(
             ("name",        seq.Sequence?.Relname),
             ("schema",      string.IsNullOrEmpty(seq.Sequence?.Schemaname) ? null : seq.Sequence.Schemaname),
             ("ifNotExists", seq.IfNotExists ? true : null),
-            ("options",     opts.Count > 0 ? (object?)opts : null)
+            ("options",     MaybeList(options))
         ));
     }
 
     private SqlNode BuildAlterSeq(AlterSeqStmt seq, int start, int end) {
-        var opts = ParseSeqOptions(seq.Options);
+        var options = ParseSeqOptions(seq.Options);
         return new SqlNode("AlterSequenceStatement", start, end, null, BuildProps(
             ("name",    seq.Sequence?.Relname),
             ("schema",  string.IsNullOrEmpty(seq.Sequence?.Schemaname) ? null : seq.Sequence.Schemaname),
-            ("options", opts.Count > 0 ? (object?)opts : null)
+            ("options", MaybeList(options))
         ));
     }
 
@@ -1640,9 +1621,9 @@ public class AstBuilder {
         string? schema = null, version = null;
         foreach (var o in ce.Options) {
             if (o.NodeCase != Node.NodeOneofCase.DefElem) continue;
-            var de = o.DefElem;
-            if (de.Defname == "schema" && de.Arg?.NodeCase == Node.NodeOneofCase.String) schema = de.Arg.String.Sval;
-            if (de.Defname == "new_version" && de.Arg?.NodeCase == Node.NodeOneofCase.String) version = de.Arg.String.Sval;
+            var defElem = o.DefElem;
+            if (defElem.Defname == "schema" && defElem.Arg?.NodeCase == Node.NodeOneofCase.String) schema = defElem.Arg.String.Sval;
+            if (defElem.Defname == "new_version" && defElem.Arg?.NodeCase == Node.NodeOneofCase.String) version = defElem.Arg.String.Sval;
         }
         return new SqlNode("CreateExtensionStatement", start, end, null, BuildProps(
             ("name", ce.Extname), ("ifNotExists", ce.IfNotExists ? true : null),
@@ -1679,24 +1660,10 @@ public class AstBuilder {
     }
 
     private SqlNode BuildComment(CommentStmt cm, int start, int end) {
-        var objtype = cm.Objtype switch {
-            ObjectType.ObjectTable     => "TABLE",
-            ObjectType.ObjectColumn    => "COLUMN",
-            ObjectType.ObjectSchema    => "SCHEMA",
-            ObjectType.ObjectDatabase  => "DATABASE",
-            ObjectType.ObjectIndex     => "INDEX",
-            ObjectType.ObjectSequence  => "SEQUENCE",
-            ObjectType.ObjectView      => "VIEW",
-            ObjectType.ObjectFunction  => "FUNCTION",
-            ObjectType.ObjectProcedure => "PROCEDURE",
-            ObjectType.ObjectType      => "TYPE",
-            ObjectType.ObjectDomain    => "DOMAIN",
-            ObjectType.ObjectRole      => "ROLE",
-            _ => cm.Objtype.ToString().Replace("Object", "").ToUpper(),
-        };
+        var objtype = ObjectTypeKw(cm.Objtype);
         string? objectName = cm.Object?.NodeCase switch {
             Node.NodeOneofCase.List           => string.Join(".", cm.Object.List.Items.Select(n => n.String?.Sval).OfType<string>()),
-            Node.NodeOneofCase.ObjectWithArgs => string.Join(".", cm.Object.ObjectWithArgs.Objname.Select(n => n.String.Sval)),
+            Node.NodeOneofCase.ObjectWithArgs => OwaName(cm.Object.ObjectWithArgs.Objname),
             Node.NodeOneofCase.String         => cm.Object.String.Sval,
             Node.NodeOneofCase.TypeName       => string.Join(".", cm.Object.TypeName.Names
                 .Where(n => n.NodeCase == Node.NodeOneofCase.String)
@@ -1721,11 +1688,11 @@ public class AstBuilder {
         string? body = null;
         foreach (var n in d.Args) {
             if (n.NodeCase != Node.NodeOneofCase.DefElem) continue;
-            var de = n.DefElem;
-            if (de.Defname == "language" && de.Arg?.NodeCase == Node.NodeOneofCase.String)
-                language = de.Arg.String.Sval;
-            if (de.Defname == "as" && de.Arg?.NodeCase == Node.NodeOneofCase.String)
-                body = de.Arg.String.Sval;
+            var defElem = n.DefElem;
+            if (defElem.Defname == "language" && defElem.Arg?.NodeCase == Node.NodeOneofCase.String)
+                language = defElem.Arg.String.Sval;
+            if (defElem.Defname == "as" && defElem.Arg?.NodeCase == Node.NodeOneofCase.String)
+                body = defElem.Arg.String.Sval;
         }
         return new SqlNode("DoStatement", start, end, null, BuildProps(
             ("language", language),
@@ -1775,8 +1742,8 @@ public class AstBuilder {
         var actions = new List<(string key, string? value)>();
         foreach (var n in s.Actions) {
             if (n.NodeCase != Node.NodeOneofCase.DefElem) continue;
-            var de = n.DefElem;
-            actions.Add((de.Defname, BuildDefElemValue(de)?.ToString()));
+            var defElem = n.DefElem;
+            actions.Add((defElem.Defname, BuildDefElemValue(defElem)?.ToString()));
         }
 
         // Build the function name from ObjectWithArgs
@@ -1807,61 +1774,25 @@ public class AstBuilder {
             ("name",     funcName),
             ("argTypes", argTypes),
             ("rename",   rename),
-            ("options",  setOptions.Count > 0 ? (object?)setOptions : null)
+            ("options",  MaybeList(setOptions))
         ));
     }
 
     private static SqlNode BuildAlterOwner(AlterOwnerStmt s, int start, int end) {
-        var objType = s.ObjectType switch {
-            ObjectType.ObjectTable     => "TABLE",
-            ObjectType.ObjectIndex     => "INDEX",
-            ObjectType.ObjectView      => "VIEW",
-            ObjectType.ObjectMatview   => "MATERIALIZED VIEW",
-            ObjectType.ObjectSequence  => "SEQUENCE",
-            ObjectType.ObjectFunction  => "FUNCTION",
-            ObjectType.ObjectProcedure => "PROCEDURE",
-            ObjectType.ObjectType      => "TYPE",
-            ObjectType.ObjectSchema    => "SCHEMA",
-            ObjectType.ObjectDatabase  => "DATABASE",
-            _ => s.ObjectType.ToString().Replace("Object", "").ToUpper(),
-        };
-        var name = s.Object?.NodeCase switch {
-            Node.NodeOneofCase.RangeVar       => s.Object.RangeVar.Relname,
-            Node.NodeOneofCase.ObjectWithArgs => string.Join(".", s.Object.ObjectWithArgs.Objname.Select(n => n.String.Sval)),
-            Node.NodeOneofCase.List           => string.Join(".", s.Object.List.Items.Where(n => n.NodeCase == Node.NodeOneofCase.String).Select(n => n.String.Sval)),
-            Node.NodeOneofCase.String         => s.Object.String.Sval,
-            _ => null,
-        };
         var newOwner = s.Newowner?.Roletype == RoleSpecType.RolespecPublic ? "PUBLIC" : s.Newowner?.Rolename;
         return new SqlNode("AlterOwnerStatement", start, end, null, BuildProps(
-            ("objType",  objType),
-            ("name",     name),
+            ("objType",  ObjectTypeKw(s.ObjectType)),
+            ("name",     NodeObjName(s.Object)),
             ("newOwner", newOwner)
         ));
     }
 
-    private static SqlNode BuildAlterObjectSchema(AlterObjectSchemaStmt s, int start, int end) {
-        var objType = s.ObjectType switch {
-            ObjectType.ObjectTable     => "TABLE",
-            ObjectType.ObjectView      => "VIEW",
-            ObjectType.ObjectMatview   => "MATERIALIZED VIEW",
-            ObjectType.ObjectSequence  => "SEQUENCE",
-            ObjectType.ObjectFunction  => "FUNCTION",
-            ObjectType.ObjectType      => "TYPE",
-            _ => s.ObjectType.ToString().Replace("Object", "").ToUpper(),
-        };
-        var name = s.Object?.NodeCase switch {
-            Node.NodeOneofCase.RangeVar       => s.Object.RangeVar.Relname,
-            Node.NodeOneofCase.ObjectWithArgs => string.Join(".", s.Object.ObjectWithArgs.Objname.Select(n => n.String.Sval)),
-            Node.NodeOneofCase.List           => string.Join(".", s.Object.List.Items.Where(n => n.NodeCase == Node.NodeOneofCase.String).Select(n => n.String.Sval)),
-            _ => null,
-        };
-        return new SqlNode("AlterObjectSchemaStatement", start, end, null, BuildProps(
-            ("objType",   objType),
-            ("name",      name),
+    private static SqlNode BuildAlterObjectSchema(AlterObjectSchemaStmt s, int start, int end) =>
+        new("AlterObjectSchemaStatement", start, end, null, BuildProps(
+            ("objType",   ObjectTypeKw(s.ObjectType)),
+            ("name",      NodeObjName(s.Object)),
             ("newSchema", s.Newschema)
         ));
-    }
 
     private static SqlNode BuildRefreshMatView(RefreshMatViewStmt s, int start, int end) =>
         new("RefreshMatViewStatement", start, end, null, BuildProps(
@@ -2124,7 +2055,7 @@ public class AstBuilder {
             .Select(n => BuildRangeVar(n.RangeVar))
             .ToList();
         return new SqlNode("LockStatement", start, end, null, BuildProps(
-            ("relations", relations.Count > 0 ? (object?)relations : null),
+            ("relations", MaybeList(relations)),
             ("mode",      modeName),
             ("nowait",    s.Nowait ? true : null)
         ));
@@ -2179,16 +2110,16 @@ public class AstBuilder {
     }
 
     // Helper to extract a string or bool value from a DefElem Arg
-    private static object? BuildDefElemValue(DefElem de) {
-        if (de.Arg == null) return null;
-        return de.Arg.NodeCase switch {
-            Node.NodeOneofCase.String  => de.Arg.String.Sval,
-            Node.NodeOneofCase.Integer => de.Arg.Integer.Ival.ToString(),
-            Node.NodeOneofCase.Float   => de.Arg.Float.Fval,
-            Node.NodeOneofCase.AConst when de.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval    => de.Arg.AConst.Sval.Sval,
-            Node.NodeOneofCase.AConst when de.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival    => de.Arg.AConst.Ival.Ival.ToString(),
-            Node.NodeOneofCase.AConst when de.Arg.AConst.ValCase == A_Const.ValOneofCase.Fval    => de.Arg.AConst.Fval.Fval,
-            Node.NodeOneofCase.AConst when de.Arg.AConst.ValCase == A_Const.ValOneofCase.Boolval => de.Arg.AConst.Boolval.Boolval ? "true" : "false",
+    private static object? BuildDefElemValue(DefElem defElem) {
+        if (defElem.Arg == null) return null;
+        return defElem.Arg.NodeCase switch {
+            Node.NodeOneofCase.String  => defElem.Arg.String.Sval,
+            Node.NodeOneofCase.Integer => defElem.Arg.Integer.Ival.ToString(),
+            Node.NodeOneofCase.Float   => defElem.Arg.Float.Fval,
+            Node.NodeOneofCase.AConst when defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval    => defElem.Arg.AConst.Sval.Sval,
+            Node.NodeOneofCase.AConst when defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival    => defElem.Arg.AConst.Ival.Ival.ToString(),
+            Node.NodeOneofCase.AConst when defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Fval    => defElem.Arg.AConst.Fval.Fval,
+            Node.NodeOneofCase.AConst when defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Boolval => defElem.Arg.AConst.Boolval.Boolval ? "true" : "false",
             _ => null,
         };
     }
@@ -2199,7 +2130,7 @@ public class AstBuilder {
 
     private static SqlNode BuildVacuum(VacuumStmt s, int start, int end) {
         var isVacuum = s.IsVacuumcmd;
-        var opts = s.Options
+        var options = s.Options
             .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
             .Select(n => n.DefElem.Defname.ToUpper())
             .ToList();
@@ -2210,8 +2141,8 @@ public class AstBuilder {
 
         return new SqlNode("VacuumStatement", start, end, null, BuildProps(
             ("isVacuum",  isVacuum ? true : null),
-            ("options",   opts.Count > 0 ? (object?)opts : null),
-            ("relations", rels.Count > 0 ? (object?)rels : null)
+            ("options",   MaybeList(options)),
+            ("relations", MaybeList(rels))
         ));
     }
 
@@ -2229,14 +2160,14 @@ public class AstBuilder {
             ReindexObjectType.ReindexObjectDatabase => "DATABASE",
             _                                       => "TABLE",
         };
-        var opts = s.Params
+        var options = s.Params
             .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
             .Select(n => n.DefElem.Defname.ToUpper())
             .ToList();
         return new SqlNode("ReindexStatement", start, end, null, BuildProps(
             ("kind",     kind),
             ("relation", s.Relation != null ? BuildRangeVar(s.Relation) : null),
-            ("options",  opts.Count > 0 ? (object?)opts : null)
+            ("options",  MaybeList(options))
         ));
     }
 
@@ -2248,43 +2179,43 @@ public class AstBuilder {
         return nodes
             .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
             .Select(n => {
-                var de = n.DefElem;
-                string val = de.Arg?.NodeCase switch {
-                    Node.NodeOneofCase.String => de.Arg.String.Sval,
-                    Node.NodeOneofCase.AConst when de.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval
-                        => de.Arg.AConst.Sval.Sval,
+                var defElem = n.DefElem;
+                string val = defElem.Arg?.NodeCase switch {
+                    Node.NodeOneofCase.String => defElem.Arg.String.Sval,
+                    Node.NodeOneofCase.AConst when defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval
+                        => defElem.Arg.AConst.Sval.Sval,
                     _ => "",
                 };
-                return (de.Defname, val);
+                return (defElem.Defname, val);
             })
             .ToList();
     }
 
-    private static object? OptionsToObject(List<(string key, string val)> opts) {
-        if (opts.Count == 0) return null;
-        return opts.Select(o => new SqlNode("FdwOption", 0, 0, null, BuildProps(
+    private static object? OptionsToObject(List<(string key, string val)> options) {
+        if (options.Count == 0) return null;
+        return options.Select(o => new SqlNode("FdwOption", 0, 0, null, BuildProps(
             ("key", o.key),
             ("val", o.val)
         ))).ToList();
     }
 
     private static SqlNode BuildCreateForeignServer(CreateForeignServerStmt s, int start, int end) {
-        var opts = BuildDefElemOptions(s.Options);
+        var options = BuildDefElemOptions(s.Options);
         return new SqlNode("CreateForeignServerStatement", start, end, null, BuildProps(
             ("name",    s.Servername),
             ("fdwName", s.Fdwname),
-            ("options", OptionsToObject(opts))
+            ("options", OptionsToObject(options))
         ));
     }
 
     private SqlNode BuildCreateForeignTable(CreateForeignTableStmt s, int start, int end) {
         var columns = s.BaseStmt != null ? MapList(s.BaseStmt.TableElts, BuildTableElement) : null;
-        var opts = BuildDefElemOptions(s.Options);
+        var options = BuildDefElemOptions(s.Options);
         return new SqlNode("CreateForeignTableStatement", start, end, null, BuildProps(
             ("name",       s.BaseStmt?.Relation != null ? BuildRangeVar(s.BaseStmt.Relation) : null),
             ("columns",    columns),
             ("serverName", s.Servername),
-            ("options",    OptionsToObject(opts))
+            ("options",    OptionsToObject(options))
         ));
     }
 
@@ -2296,11 +2227,11 @@ public class AstBuilder {
             RoleSpecType.RolespecPublic       => "public",
             _                                 => s.User?.Rolename ?? "current_user",
         };
-        var opts = BuildDefElemOptions(s.Options);
+        var options = BuildDefElemOptions(s.Options);
         return new SqlNode("CreateUserMappingStatement", start, end, null, BuildProps(
             ("user",       roleText),
             ("serverName", s.Servername),
-            ("options",    OptionsToObject(opts))
+            ("options",    OptionsToObject(options))
         ));
     }
 
@@ -2324,7 +2255,7 @@ public class AstBuilder {
         return new SqlNode("CreatePublicationStatement", start, end, null, BuildProps(
             ("name",        s.Pubname),
             ("forAllTables", s.ForAllTables ? true : null),
-            ("tables",      tables.Count > 0 ? (object?)tables : null)
+            ("tables",      MaybeList(tables))
         ));
     }
 
@@ -2341,7 +2272,7 @@ public class AstBuilder {
         return new SqlNode("CreateSubscriptionStatement", start, end, null, BuildProps(
             ("name",         s.Subname),
             ("conninfo",     s.Conninfo),
-            ("publications", publications.Count > 0 ? (object?)publications : null)
+            ("publications", MaybeList(publications))
         ));
     }
 
@@ -2368,10 +2299,10 @@ public class AstBuilder {
         var defList = s.Definition
             .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
             .Select(n => {
-                var de = n.DefElem;
-                string argStr = BuildDefElemStringValue(de);
+                var defElem = n.DefElem;
+                string argStr = BuildDefElemStringValue(defElem);
                 return new SqlNode("DefOption", 0, 0, null, BuildProps(
-                    ("key", de.Defname),
+                    ("key", defElem.Defname),
                     ("val", argStr.Length > 0 ? argStr : null)
                 ));
             })
@@ -2389,14 +2320,14 @@ public class AstBuilder {
                 }
                 return new SqlNode("CreateAggregateStatement", start, end, null, BuildProps(
                     ("name",     name),
-                    ("argTypes", argTypes.Count > 0 ? (object?)argTypes : null),
-                    ("options",  defList.Count > 0 ? (object?)defList : null)
+                    ("argTypes", MaybeList(argTypes)),
+                    ("options",  MaybeList(defList))
                 ));
             }
             case ObjectType.ObjectOperator: {
                 return new SqlNode("CreateOperatorStatement", start, end, null, BuildProps(
                     ("name",    name),
-                    ("options", defList.Count > 0 ? (object?)defList : null)
+                    ("options", MaybeList(defList))
                 ));
             }
             case ObjectType.ObjectCollation: {
@@ -2411,7 +2342,7 @@ public class AstBuilder {
                 }
                 return new SqlNode("CreateCollationStatement", start, end, null, BuildProps(
                     ("name",    name),
-                    ("options", defList.Count > 0 ? (object?)defList : null)
+                    ("options", MaybeList(defList))
                 ));
             }
             default:
@@ -2419,25 +2350,25 @@ public class AstBuilder {
         }
     }
 
-    private static string BuildDefElemStringValue(DefElem de) {
-        if (de.Arg == null) return "";
-        return de.Arg.NodeCase switch {
-            Node.NodeOneofCase.String   => $"'{de.Arg.String.Sval.Replace("'", "''")}'",
-            Node.NodeOneofCase.TypeName => BuildPgTypeName(de.Arg.TypeName),
-            Node.NodeOneofCase.AConst when de.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval
-                => $"'{de.Arg.AConst.Sval.Sval.Replace("'", "''")}'",
-            Node.NodeOneofCase.AConst when de.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival
-                => de.Arg.AConst.Ival.Ival.ToString(),
+    private static string BuildDefElemStringValue(DefElem defElem) {
+        if (defElem.Arg == null) return "";
+        return defElem.Arg.NodeCase switch {
+            Node.NodeOneofCase.String   => $"'{defElem.Arg.String.Sval.Replace("'", "''")}'",
+            Node.NodeOneofCase.TypeName => BuildPgTypeName(defElem.Arg.TypeName),
+            Node.NodeOneofCase.AConst when defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval
+                => $"'{defElem.Arg.AConst.Sval.Sval.Replace("'", "''")}'",
+            Node.NodeOneofCase.AConst when defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival
+                => defElem.Arg.AConst.Ival.Ival.ToString(),
             _ => "",
         };
     }
 
-    private static string? GetFromDefElemCollationName(DefElem de) {
-        if (de.Arg?.NodeCase == Node.NodeOneofCase.List && de.Arg.List.Items.Count > 0) {
-            var item = de.Arg.List.Items[0];
+    private static string? GetFromDefElemCollationName(DefElem defElem) {
+        if (defElem.Arg?.NodeCase == Node.NodeOneofCase.List && defElem.Arg.List.Items.Count > 0) {
+            var item = defElem.Arg.List.Items[0];
             if (item.NodeCase == Node.NodeOneofCase.String) return item.String.Sval;
         }
-        if (de.Arg?.NodeCase == Node.NodeOneofCase.String) return de.Arg.String.Sval;
+        if (defElem.Arg?.NodeCase == Node.NodeOneofCase.String) return defElem.Arg.String.Sval;
         return null;
     }
 
@@ -2486,6 +2417,9 @@ public class AstBuilder {
         return list.Count > 0 ? list : null;
     }
 
+    /// <summary>Returns list cast to object? if non-empty, otherwise null — for use in BuildProps.</summary>
+    private static object? MaybeList<T>(ICollection<T> list) => list.Count > 0 ? (object?)list : null;
+
     private static Dictionary<string, object?> BuildProps(
         params (string key, object? value)[] entries
     ) {
@@ -2495,6 +2429,43 @@ public class AstBuilder {
         }
         return dict;
     }
+
+    /// <summary>Maps an ObjectType enum to its SQL keyword string.</summary>
+    private static string ObjectTypeKw(ObjectType t) => t switch {
+        ObjectType.ObjectTable     => "TABLE",
+        ObjectType.ObjectIndex     => "INDEX",
+        ObjectType.ObjectView      => "VIEW",
+        ObjectType.ObjectMatview   => "MATERIALIZED VIEW",
+        ObjectType.ObjectSequence  => "SEQUENCE",
+        ObjectType.ObjectFunction  => "FUNCTION",
+        ObjectType.ObjectProcedure => "PROCEDURE",
+        ObjectType.ObjectType      => "TYPE",
+        ObjectType.ObjectSchema    => "SCHEMA",
+        ObjectType.ObjectDatabase  => "DATABASE",
+        ObjectType.ObjectExtension => "EXTENSION",
+        ObjectType.ObjectTrigger   => "TRIGGER",
+        ObjectType.ObjectRule      => "RULE",
+        ObjectType.ObjectPolicy    => "POLICY",
+        ObjectType.ObjectDomain    => "DOMAIN",
+        ObjectType.ObjectRole      => "ROLE",
+        ObjectType.ObjectColumn    => "COLUMN",
+        _                          => t.ToString().Replace("Object", "").ToUpper(),
+    };
+
+    /// <summary>Extracts a dotted name from an ObjectWithArgs.Objname list.</summary>
+    private static string OwaName(Google.Protobuf.Collections.RepeatedField<Node> objname) =>
+        string.Join(".", objname.Select(n => n.String.Sval));
+
+    /// <summary>Extracts a dotted name from a Node (RangeVar, ObjectWithArgs, List of strings, or String).</summary>
+    private static string? NodeObjName(Node? node) => node?.NodeCase switch {
+        Node.NodeOneofCase.RangeVar       => node.RangeVar.Relname,
+        Node.NodeOneofCase.ObjectWithArgs => OwaName(node.ObjectWithArgs.Objname),
+        Node.NodeOneofCase.List           => string.Join(".", node.List.Items
+            .Where(n => n.NodeCase == Node.NodeOneofCase.String)
+            .Select(n => n.String.Sval)),
+        Node.NodeOneofCase.String         => node.String.Sval,
+        _                                 => null,
+    };
 
     private static bool GetBoolFromArg(Node? arg) => arg?.NodeCase switch {
         Node.NodeOneofCase.Integer => arg.Integer.Ival != 0,

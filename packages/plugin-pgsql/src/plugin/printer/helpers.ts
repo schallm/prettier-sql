@@ -35,3 +35,8 @@ export function rangeVarName(node: SqlNode | null): string {
     if (name) parts.push(name);
     return parts.join('.');
 }
+
+/** Return "schema.name" if schema is set, otherwise just "name". */
+export function qualifiedName(schema: string | null | undefined, name: string): string {
+    return schema ? `${schema}.${name}` : name;
+}
