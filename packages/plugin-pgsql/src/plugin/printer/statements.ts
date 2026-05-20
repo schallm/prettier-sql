@@ -149,10 +149,20 @@ function printWith(opts: Options): PrintFn {
 function printBoolClause(kw: string, where: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (k: string) => keyword(k, opts);
     const density = getDensity(opts);
-    const isMulti = where.type === 'BoolExpr';
+    const isMulti = where.type === 'BoolExpr' && (propStr(where, 'op') ?? 'AND') !== 'NOT';
     const inline = density !== 'spacious' && !isMulti;
     const body = printNode(where);
     return [makeKeyword(kw), inline ? [' ', body] : indent([hardline, body])];
+}
+
+/**
+ * FROM clause: single non-join item stays inline; joins and multiple items are indented.
+ */
+function printFromClause(items: SqlNode[], opts: Options, printNode: PrintFn): Doc {
+    const makeKeyword = (k: string) => keyword(k, opts);
+    const inline = items.length === 1 && items[0].type !== 'JoinExpr';
+    const body = join([',', hardline], items.map(printNode));
+    return [makeKeyword('FROM'), inline ? [' ', body] : indent([hardline, body])];
 }
 
 // ---------------------------------------------------------------------------
@@ -219,7 +229,7 @@ function printSelectBody(node: SqlNode, opts: Options): Doc {
 
     if (from.length > 0) {
         // Always indent from items so JOINs align properly under FROM
-        parts.push([makeKeyword('FROM'), indent([hardline, join([',', hardline], from.map(printNode))])]);
+        parts.push(printFromClause(from, opts, printNode));
     }
 
     if (where) parts.push(printBoolClause('WHERE', where, opts, printNode));
@@ -349,7 +359,7 @@ function printUpdateBody(node: SqlNode, opts: Options): Doc {
     ];
 
     if (from.length > 0) {
-        parts.push([makeKeyword('FROM'), indent([hardline, join([',', hardline], from.map(printNode))])]);
+        parts.push(printFromClause(from, opts, printNode));
     }
 
     if (where) parts.push(printBoolClause('WHERE', where, opts, printNode));
@@ -1145,7 +1155,7 @@ function printSelectInto(node: SqlNode, opts: Options): Doc {
     parts.push([intoKw, indent([hardline, rangeVarName(into)])]);
 
     if (from.length > 0) {
-        parts.push([makeKeyword('FROM'), indent([hardline, join([',', hardline], from.map(printNode))])]);
+        parts.push(printFromClause(from, opts, printNode));
     }
     if (where) parts.push(printBoolClause('WHERE', where, opts, printNode));
     if (groupBy.length > 0) {
