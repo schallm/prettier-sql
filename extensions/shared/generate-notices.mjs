@@ -3,17 +3,24 @@
  * Generates THIRD_PARTY_NOTICES.txt from the licenses of all packages
  * installed in bundled/node_modules.
  *
- * Usage: node scripts/generate-notices.mjs
+ * Usage: node ../../shared/generate-notices.mjs --dialect "T-SQL"
+ *        node ../../shared/generate-notices.mjs --dialect "PostgreSQL"
  */
 
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const rootDir = join(__dirname, '..');
-const nodeModulesDir = join(rootDir, 'bundled', 'node_modules');
-const outputFile = join(rootDir, 'THIRD_PARTY_NOTICES.txt');
+const dialectIndex = process.argv.indexOf('--dialect');
+if (dialectIndex === -1 || !process.argv[dialectIndex + 1]) {
+    process.stderr.write('Usage: generate-notices.mjs --dialect <name>\n');
+    process.exit(1);
+}
+const dialect = process.argv[dialectIndex + 1];
+
+// Script resolves paths relative to cwd, which must be the vsix package directory
+const callerDir = process.cwd();
+const nodeModulesDir = join(callerDir, 'bundled', 'node_modules');
+const outputFile = join(callerDir, 'THIRD_PARTY_NOTICES.txt');
 
 const LICENSE_FILE_NAMES = ['LICENSE', 'LICENSE.txt', 'LICENSE.md', 'LICENCE', 'LICENCE.txt', 'COPYING'];
 
@@ -52,8 +59,8 @@ const separator = '-'.repeat(72);
 const lines = [
     'THIRD-PARTY SOFTWARE NOTICES AND INFORMATION',
     '',
-    'This file contains the licenses for third-party software bundled with',
-    'the Prettier T-SQL Visual Studio extension.',
+    `This file contains the licenses for third-party software bundled with`,
+    `the Prettier ${dialect} Visual Studio extension.`,
     '',
     separator,
     '',

@@ -26,7 +26,25 @@ importers:
 
   extensions/vsix-pgsql: {}
 
+  extensions/vsix-pgsql/bundled:
+    dependencies:
+      prettier:
+        specifier: ^3.0.0
+        version: 3.8.3
+      prettier-plugin-pgsql:
+        specifier: workspace:*
+        version: link:../../../packages/plugin-pgsql
+
   extensions/vsix-tsql: {}
+
+  extensions/vsix-tsql/bundled:
+    dependencies:
+      prettier:
+        specifier: ^3.0.0
+        version: 3.8.3
+      prettier-plugin-tsql:
+        specifier: workspace:*
+        version: link:../../../packages/plugin-tsql
 
   packages/core:
     dependencies:
