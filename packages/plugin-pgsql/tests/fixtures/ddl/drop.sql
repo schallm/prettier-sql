@@ -1,11 +1,7 @@
--- DROP TABLE
-drop table temp_data;
-
-drop table if exists temp_data;
-
+-- DROP TABLE with CASCADE (pgsql-specific)
 drop table if exists temp_data cascade;
 
--- DROP INDEX
+-- DROP INDEX (pgsql syntax — no ON clause)
 drop index idx_books_author;
 
 drop index if exists idx_books_author;
@@ -16,9 +12,6 @@ drop index concurrently if exists idx_large_table;
 drop function get_count(integer);
 
 drop function if exists get_count(integer);
-
--- DROP VIEW (basic — fuller coverage in ddl/views.sql)
-drop view if exists old_summary;
 
 -- DROP TYPE
 drop type my_status;

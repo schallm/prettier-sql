@@ -1,7 +1,3 @@
--- Simple CREATE VIEW
-create view active_users as
-select id, name, email from users where active = true;
-
 -- CREATE VIEW with column aliases
 create view order_summary (order_id, total, status) as
 select id, amount, status from orders;
@@ -19,9 +15,5 @@ refresh materialized view user_stats;
 
 refresh materialized view concurrently user_stats;
 
--- DROP VIEW
-drop view active_users;
-
-drop view if exists old_report;
-
+-- DROP MATERIALIZED VIEW
 drop materialized view if exists stale_cache;

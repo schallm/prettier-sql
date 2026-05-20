@@ -1,12 +1,5 @@
 select id, title, price from books where in_stock = true order by price asc;
 
-select books.id, books.title, authors.first_name, authors.last_name from books inner join authors on authors.id = books.author_id where books.price < 50;
-
--- DISTINCT (non-ON form)
-select distinct author_id from books;
-
-select distinct author_id, category from books order by author_id;
-
 -- Parameterized queries
 select id, email from users where id = $1 and active = $2;
 

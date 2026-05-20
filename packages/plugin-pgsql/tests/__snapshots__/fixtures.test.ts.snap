@@ -306,14 +306,10 @@ where active = true;
 `;
 
 exports[`fixtures > ddl/drop.sql 1`] = `
-"-- DROP TABLE
-drop table temp_data;
-
-drop table if exists temp_data;
-
+"-- DROP TABLE with CASCADE (pgsql-specific)
 drop table if exists temp_data cascade;
 
--- DROP INDEX
+-- DROP INDEX (pgsql syntax — no ON clause)
 drop index idx_books_author;
 
 drop index if exists idx_books_author;
@@ -324,9 +320,6 @@ drop index if exists idx_large_table;
 drop function get_count;
 
 drop function if exists get_count;
-
--- DROP VIEW (basic — fuller coverage in ddl/views.sql)
-drop view if exists old_summary;
 
 -- DROP TYPE
 drop type my_status;
@@ -590,17 +583,7 @@ alter type mood add value if not exists 'meh' before 'ok';
 `;
 
 exports[`fixtures > ddl/views.sql 1`] = `
-"-- Simple CREATE VIEW
-create view active_users
-as
-select
-  id,
-  name,
-  email
-from users
-where active = true;
-
--- CREATE VIEW with column aliases
+"-- CREATE VIEW with column aliases
 create view order_summary
 as
 select
@@ -635,11 +618,7 @@ refresh materialized view user_stats;
 
 refresh materialized view concurrently user_stats;
 
--- DROP VIEW
-drop view active_users;
-
-drop view if exists old_report;
-
+-- DROP MATERIALIZED VIEW
 drop materialized view if exists stale_cache;
 "
 `;
@@ -947,8 +926,7 @@ rollback prepared 'txn-1234';
 `;
 
 exports[`fixtures > dml/truncate.sql 1`] = `
-"truncate table sessions;
-
+"-- Multi-table TRUNCATE with pgsql options
 truncate table sessions, temp_orders restart identity cascade;
 "
 `;
@@ -1013,33 +991,11 @@ returning
 `;
 
 exports[`fixtures > insert/values.sql 1`] = `
-"insert into orders (customer_id, total)
-values (1, 99.99);
-
-insert into products (name, price, category)
-values
-  ('Widget', 9.99, 'tools'),
-  ('Gadget', 19.99, 'electronics'),
-  ('Doohickey', 4.99, 'misc');
-
--- INSERT ... SELECT
-insert into archived_orders (id, customer_id, amount)
-select
-  id,
-  customer_id,
-  amount
-from orders
-where status = 'closed';
-
--- DEFAULT VALUES
-insert into audit_log
-default values;
-
--- OVERRIDING SYSTEM VALUE
+"-- OVERRIDING SYSTEM VALUE (pgsql-specific)
 insert into users (id, email) overriding system value
 values (100, 'admin@example.com');
 
--- OVERRIDING USER VALUE
+-- OVERRIDING USER VALUE (pgsql-specific)
 insert into users (id, email) overriding user value
 values (101, 'user@example.com');
 "
@@ -1249,27 +1205,6 @@ from t;
 -- Named function arguments
 select make_date(year => 2024, month => 1, day => 15);
 
--- ROLLUP / CUBE / GROUPING SETS
-select
-  dept,
-  sum(salary)
-from emp
-group by rollup(dept);
-
-select
-  dept,
-  job,
-  sum(salary)
-from emp
-group by cube(dept, job);
-
-select
-  dept,
-  job,
-  sum(salary)
-from emp
-group by grouping sets((dept, job), (dept), ());
-
 -- ARRAY constructor
 select array[1, 2, 3];
 
@@ -1278,7 +1213,7 @@ select array['a', 'b', 'c'];
 -- ROW constructor
 select (1, 'alice', true);
 
--- SQL value functions
+-- SQL value functions (current_date and session_user are pgsql-accessible)
 select
   current_date,
   current_timestamp,
@@ -1286,33 +1221,11 @@ select
   session_user
 from t;
 
--- COALESCE / NULLIF / GREATEST / LEAST
+-- GREATEST / LEAST (pgsql multi-arg form)
 select
-  coalesce(price, 0.00),
-  nullif(status, 'deleted'),
   greatest(a, b, c),
   least(x, y, z)
 from t;
-
--- CASE searched form
-select
-  id,
-  case
-    when price < 10 then 'budget'
-    when price < 50 then 'mid-range'
-  else 'premium'
-  end as tier
-from books;
-
--- CASE simple form
-select
-  id,
-  case status
-    when 'active' then 1
-    when 'inactive' then 0
-  else -1
-  end
-from users;
 
 -- AT TIME ZONE
 select
@@ -1377,26 +1290,6 @@ from books
 where in_stock = true
 order by price asc;
 
-select
-  books.id,
-  books.title,
-  authors.first_name,
-  authors.last_name
-from
-  books
-  join authors on authors.id = books.author_id
-where books.price < 50;
-
--- DISTINCT (non-ON form)
-select distinct author_id
-from books;
-
-select distinct
-  author_id,
-  category
-from books
-order by author_id;
-
 -- Parameterized queries
 select
   id,
@@ -1459,31 +1352,7 @@ from accounts; /* trailing block comment */
 `;
 
 exports[`fixtures > select/cte.sql 1`] = `
-"-- Basic multi-CTE
-with
-  active_users as (
-    select
-      id,
-      name
-    from users
-    where active = true
-  ),
-  recent_orders as (
-    select
-      customer_id,
-      sum(amount) as total
-    from orders
-    where created_at > now() - interval '30 days'
-    group by customer_id
-  )
-select
-  u.name,
-  ro.total
-from
-  active_users as u
-  join recent_orders as ro on u.id = ro.customer_id;
-
--- WITH RECURSIVE
+"-- WITH RECURSIVE
 with recursive
   org_tree as (
     select
@@ -1511,24 +1380,6 @@ from org_tree
 order by
   depth,
   name;
-
--- CTE with DISTINCT and set op
-with
-  top_authors as (
-    select
-      author_id,
-      count(*) as book_count
-    from books
-    group by author_id
-    having count(*) > 5
-  )
-select
-  a.name,
-  t.book_count
-from
-  authors as a
-  join top_authors as t on a.id = t.author_id
-order by t.book_count desc;
 "
 `;
 
@@ -1679,70 +1530,12 @@ group by grouping sets((region, product), (region), ());
 `;
 
 exports[`fixtures > select/in-between.sql 1`] = `
-"select
-  id,
-  title
-from books
-where id in (1, 2, 3);
-
-select
-  id,
-  title
-from books
-where id not in (1, 2, 3);
-
-select
-  id,
-  title,
-  price
-from books
-where price between 10 and 50;
-
-select
-  id,
-  title,
-  price
-from books
-where price not between 10 and 50;
-
--- ANY / ALL
+"-- ANY with array literal (pgsql-specific)
 select
   id,
   title
 from books
 where price = any(array[9.99, 19.99, 29.99]);
-
-select
-  id,
-  title
-from books
-where price > all (
-  select price
-  from books
-  where author_id = 5
-);
-
--- IS NULL / IS NOT NULL
-select
-  id,
-  title
-from books
-where deleted_at is null;
-
-select
-  id,
-  title
-from books
-where deleted_at is not null;
-
--- IS DISTINCT FROM / IS NOT DISTINCT FROM
-select id
-from t
-where a is distinct from b;
-
-select id
-from t
-where a is not distinct from b;
 
 -- SIMILAR TO
 select
@@ -1831,18 +1624,6 @@ from
 
 exports[`fixtures > select/like.sql 1`] = `
 "select
-  id,
-  title
-from books
-where title like 'The%';
-
-select
-  id,
-  title
-from books
-where title not like 'The%';
-
-select
   id,
   email
 from users
@@ -1987,71 +1768,6 @@ select
   id,
   name
 from archived_users;
-"
-`;
-
-exports[`fixtures > select/subqueries.sql 1`] = `
-"-- Subquery in FROM
-select sub.avg_price
-from (
-  select avg(price) as avg_price
-  from books
-) as sub;
-
--- Scalar subquery in column list
-select
-  id,
-  (
-    select count(*)
-    from orders
-    where customer_id = c.id
-  ) as order_count
-from customers as c;
-
--- EXISTS
-select
-  id,
-  name
-from customers
-where exists (
-  select 1
-  from orders
-  where orders.customer_id = customers.id
-);
-
--- NOT EXISTS
-select
-  id,
-  name
-from customers
-where not exists (
-  select 1
-  from orders
-  where orders.customer_id = customers.id
-);
-
--- Subquery in WHERE with IN
-select
-  id,
-  title
-from books
-where author_id in (
-  select id
-  from authors
-  where country = 'US'
-);
-
--- Correlated subquery
-select
-  id,
-  title,
-  price
-from books as b
-where price > (
-  select avg(price)
-  from books
-  where author_id = b.author_id
-);
 "
 `;
 
@@ -2240,6 +1956,101 @@ LIMIT 10;
 "
 `;
 
+exports[`shared fixtures > ddl/alter-table.sql 1`] = `
+"alter table books
+  add column summary varchar(500);
+
+alter table books
+  add column is_featured integer not null default 0;
+
+alter table books
+  drop column summary;
+
+alter table books
+  add constraint uq_books_title unique (title);
+
+alter table books
+  add constraint fk_books_publisher foreign key (publisher_id) references publishers (id);
+
+alter table books
+  add constraint chk_books_stock check (in_stock >= 0);
+
+alter table books
+  drop constraint uq_books_title;
+
+alter table books
+  drop constraint fk_books_publisher;
+"
+`;
+
+exports[`shared fixtures > ddl/create-index.sql 1`] = `
+"create index ix_books_author_id on books (author_id);
+
+create unique index ux_books_title on books (title);
+
+create index ix_books_price_desc on books (price desc);
+
+create index ix_books_genre_price on books (genre_id, price desc);
+
+create index ix_books_in_stock on books (author_id) where in_stock = 1;
+"
+`;
+
+exports[`shared fixtures > ddl/create-table.sql 1`] = `
+"create table authors (
+  id integer not null,
+  first_name varchar(100) not null,
+  last_name varchar(100) not null,
+  country varchar(100),
+  constraint pk_authors primary key (id)
+);
+
+create table books (
+  id integer not null,
+  title varchar(200) not null,
+  author_id integer not null,
+  price numeric(10, 2) not null,
+  in_stock integer not null default 1,
+  constraint pk_books primary key (id),
+  constraint fk_books_author foreign key (author_id) references authors (id),
+  constraint chk_books_price check (price >= 0)
+);
+
+create table order_items (
+  order_id integer not null,
+  book_id integer not null,
+  quantity integer not null default 1,
+  unit_price numeric(10, 2) not null,
+  constraint pk_order_items primary key (order_id, book_id),
+  constraint fk_order_items_order foreign key (order_id) references orders (id),
+  constraint fk_order_items_book foreign key (book_id) references books (id)
+);
+"
+`;
+
+exports[`shared fixtures > ddl/create-view.sql 1`] = `
+"create view available_books
+as
+select
+  id,
+  title,
+  price
+from books
+where in_stock = 1;
+"
+`;
+
+exports[`shared fixtures > ddl/drop.sql 1`] = `
+"drop table temp_log;
+
+drop table if exists temp_log;
+
+drop view old_summary;
+
+drop view if exists old_summary;
+"
+`;
+
 exports[`shared fixtures > dml/delete.sql 1`] = `
 "delete from books
 where
@@ -2251,6 +2062,25 @@ where
 exports[`shared fixtures > dml/insert.sql 1`] = `
 "insert into books (title, author_id, price, in_stock)
 values ('The Pragmatic Programmer', 1, 39.99, 1);
+
+insert into books (title, author_id, price, in_stock)
+values
+  ('Clean Code', 1, 39.99, 1),
+  ('The Pragmatic Programmer', 2, 49.99, 1),
+  ('Design Patterns', 3, 44.99, 0);
+
+insert into archived_books (id, title, price)
+select
+  id,
+  title,
+  price
+from books
+where in_stock = 0;
+"
+`;
+
+exports[`shared fixtures > dml/truncate.sql 1`] = `
+"truncate table sessions;
 "
 `;
 
@@ -2338,6 +2168,96 @@ from
   authors as a
   join top_authors as t on a.id = t.author_id
 order by t.book_count desc;
+
+with
+  bestsellers as (
+    select
+      author_id,
+      count(*) as book_count
+    from books
+    where in_stock = 1
+    group by author_id
+  ),
+  top_authors as (
+    select author_id
+    from bestsellers
+    where book_count > 3
+  )
+select
+  a.first_name,
+  a.last_name
+from
+  authors as a
+  join top_authors as t on a.id = t.author_id;
+"
+`;
+
+exports[`shared fixtures > select/distinct.sql 1`] = `
+"select distinct author_id
+from books;
+
+select distinct
+  author_id,
+  genre_id
+from books
+order by author_id;
+"
+`;
+
+exports[`shared fixtures > select/expressions.sql 1`] = `
+"select price::integer
+from books;
+
+select title::varchar(100)
+from books;
+
+select coalesce(deleted_at, current_timestamp)
+from books;
+
+select nullif(price, 0)
+from books;
+
+select
+  id,
+  price * 1.1 as adjusted,
+  price - 5.0 as discounted,
+  price + 3.0 as surcharge
+from books;
+
+select
+  current_timestamp,
+  current_user
+from books;
+"
+`;
+
+exports[`shared fixtures > select/group-by-advanced.sql 1`] = `
+"select
+  genre_id,
+  sum(price) as total
+from books
+group by rollup(genre_id);
+
+select
+  genre_id,
+  author_id,
+  sum(price) as total
+from books
+group by cube(genre_id, author_id);
+
+select
+  genre_id,
+  author_id,
+  sum(price) as total
+from books
+group by grouping sets((genre_id, author_id), (genre_id), ());
+
+select
+  genre_id,
+  author_id,
+  count(*) as book_count
+from books
+group by rollup(genre_id, author_id);
 "
 `;
 
@@ -2365,6 +2285,46 @@ select
 from
   books as b
   full join authors as a on b.author_id = a.id;
+
+select
+  b.title,
+  g.name
+from
+  books as b
+  right join genres as g on b.genre_id = g.id;
+
+select
+  b.title,
+  g.name
+from
+  books as b
+  cross join genres as g;
+
+select
+  b.title,
+  recent.total
+from
+  books as b
+  join (
+    select
+      book_id,
+      sum(quantity) as total
+    from order_items
+    group by book_id
+  ) as recent on b.id = recent.book_id;
+
+select
+  b.title,
+  a.last_name,
+  p.name as publisher
+from
+  books as b
+  join authors as a on b.author_id = a.id
+  join publishers as p on b.publisher_id = p.id
+where b.in_stock = 1
+order by
+  a.last_name,
+  b.title;
 "
 `;
 
@@ -2431,6 +2391,37 @@ where
 select author_id
 from authors
 where country in ('United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'France', 'Japan');
+
+select
+  id,
+  title
+from books
+where
+  in_stock = 1
+  or deleted_at is not null;
+
+select
+  id,
+  title
+from books
+where not in_stock = 0;
+
+select
+  id,
+  title
+from books
+where
+  price < 10
+  or price > 100
+  and deleted_at is null;
+
+select id
+from books
+where deleted_at is distinct from current_timestamp;
+
+select id
+from books
+where deleted_at is not distinct from current_timestamp;
 "
 `;
 
@@ -2519,9 +2510,79 @@ select
   id,
   title
 from books
+where not exists (
+  select 1
+  from order_items
+  where order_items.book_id = books.id
+);
+
+select
+  id,
+  title
+from books
 where not author_id in (
   select author_id
   from banned_authors
+);
+
+select
+  id,
+  title
+from books
+where
+  author_id in (
+    select book_id
+    from order_items
+    where unit_price > 50
+  )
+  and genre_id = (
+    select id
+    from genres
+    where name = 'Fiction'
+  );
+
+select
+  id,
+  title,
+  price
+from books as b
+where price > (
+  select avg(price)
+  from books
+  where author_id = b.author_id
+);
+
+select
+  id,
+  (
+    select count(*)
+    from order_items
+    where order_items.book_id = b.id
+  ) as order_count
+from books as b;
+
+select sub.avg_price
+from (
+  select avg(price) as avg_price
+  from books
+) as sub;
+
+select
+  id,
+  title
+from books
+where price > all (
+  select price
+  from archived_books
+);
+
+select
+  id,
+  title
+from books
+where price in (
+  select price
+  from featured_books
 );
 "
 `;
@@ -2581,5 +2642,35 @@ select
 from books
 window
   w as (partition by author_id order by price);
+
+select
+  id,
+  price,
+  lag(price, 1) over (order by id) as prev_price
+from books;
+
+select
+  id,
+  price,
+  lead(price, 1) over (order by id) as next_price
+from books;
+
+select
+  id,
+  price,
+  ntile(4) over (order by price) as quartile
+from books;
+
+select
+  id,
+  price,
+  first_value(price) over (partition by author_id order by id) as first_price
+from books;
+
+select
+  id,
+  price,
+  last_value(price) over (partition by author_id order by id rows between unbounded preceding and unbounded following) as last_price
+from books;
 "
 `;
