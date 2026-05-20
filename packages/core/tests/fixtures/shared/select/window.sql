@@ -6,3 +6,8 @@ select id, price, sum(price) over (order by id rows between current row and unbo
 select id, price, avg(price) over (order by id rows between 2 preceding and 2 following) as moving_avg from books;
 select id, author_id, count(*) over (partition by author_id) as author_book_count from books;
 select id, price, sum(price) over w as total, row_number() over w as rn from books window w as (partition by author_id order by price);
+select id, price, lag(price, 1) over (order by id) as prev_price from books;
+select id, price, lead(price, 1) over (order by id) as next_price from books;
+select id, price, ntile(4) over (order by price) as quartile from books;
+select id, price, first_value(price) over (partition by author_id order by id) as first_price from books;
+select id, price, last_value(price) over (partition by author_id order by id rows between unbounded preceding and unbounded following) as last_price from books;

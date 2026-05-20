@@ -8,3 +8,8 @@ select id, title from books where title like 'The%';
 select id, title from books where title not like '%old%';
 select id, title from books where title like '%sql%' and price between 20 and 100 and deleted_at is null;
 select author_id from authors where country in ('United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'France', 'Japan');
+select id, title from books where in_stock = 1 or deleted_at is not null;
+select id, title from books where not (in_stock = 0);
+select id, title from books where (price < 10 or price > 100) and deleted_at is null;
+select id from books where deleted_at is distinct from current_timestamp;
+select id from books where deleted_at is not distinct from current_timestamp;
