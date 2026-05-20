@@ -1,0 +1,1 @@
+select Id, Title, Price, row_number() over (partition by GenreId order by Price desc) as Rn, rank() over (partition by GenreId order by Price desc) as Rnk, sum(Price) over (partition by GenreId) as GenreTotal from Books

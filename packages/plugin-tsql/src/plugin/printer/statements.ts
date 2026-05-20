@@ -1,0 +1,955 @@
+import type { Doc } from 'prettier';
+import type { SqlNode } from '../parser/types.js';
+import type { Options } from './utils.js';
+import {
+    keyword,
+    getDensity,
+    getCommaStyle,
+    hardSep,
+    softSep,
+    hardline,
+    join,
+    indent,
+    group,
+    line,
+    softline,
+    lineSuffix,
+    appendTrailingLines,
+    parenList,
+} from './utils.js';
+import { prop, propArr, propStr, assignmentOp } from './helpers.js';
+import {
+    printExpression,
+    printBoolExpr,
+    printTableRef,
+    printOrderByClause,
+    printQueryExpression,
+} from './expressions.js';
+import {
+    printCreateTable,
+    printAlterTable,
+    printCreateIndex,
+    printCreateProcedure,
+    printCreateFunction,
+    printCreateView,
+    printCreateTrigger,
+    printAlterIndex,
+    printCreateSequence,
+    printAlterSequence,
+    printBulkInsert,
+    printCreateTypeUddt,
+    printCreateTypeTable,
+    printDropObjects,
+    printDropIndex,
+    printCreateSynonym,
+    printCreateSchema,
+    printAlterSchema,
+    printDropSchema,
+    printCreatePartitionFunction,
+    printAlterPartitionFunction,
+    printDropPartitionFunction,
+    printCreatePartitionScheme,
+    printAlterPartitionScheme,
+    printDropPartitionScheme,
+    printEnableDisableTrigger,
+    printCreateColumnStoreIndex,
+    printCreateStatistics,
+    printUpdateStatistics,
+    printDropStatistics,
+} from './ddl.js';
+import {
+    printBeginTransaction,
+    printCommitTransaction,
+    printRollbackTransaction,
+    printSaveTransaction,
+    printCheckpoint,
+    printKill,
+    printReconfigure,
+    printDeclareVariable,
+    printDeclareTableVariable,
+    printSetVariable,
+    printSetRowCount,
+    printUse,
+    printPredicateSet,
+    printSetStatistics,
+    printSetIdentityInsert,
+    printSetIsolationLevel,
+    printWaitFor,
+    printPrint,
+    printReturn,
+    printIf,
+    printWhile,
+    printExecute,
+    printTruncateTable,
+    printGoto,
+    printLabel,
+    printThrow,
+    printRaiseError,
+    printTryCatch,
+    printDeclareCursor,
+    printOpenCursor,
+    printFetchCursor,
+    printCloseCursor,
+    printDeallocateCursor,
+    printExecuteAsStatement,
+    printRevert,
+} from './procedural.js';
+import {
+    printGrantDenyRevoke,
+    printAlterAuthorization,
+    printCreateUser,
+    printAlterUser,
+    printDropUser,
+    printCreateLogin,
+    printAlterLogin,
+    printDropLogin,
+    printCreateRole,
+    printAlterRole,
+    printDropRole,
+} from './security.js';
+import {
+    printDropDatabase,
+    printDbcc,
+    printBackupDatabase,
+    printBackupLog,
+    printRestore,
+    printCreateDatabase,
+    printAlterDatabaseSet,
+    printAlterDatabaseCollate,
+    printAlterDatabaseModifyName,
+    printAlterDatabaseScopedConfigSet,
+    printAlterDatabaseScopedConfigClear,
+    printAlterDatabaseAddFile,
+    printAlterDatabaseAddFileGroup,
+    printAlterDatabaseRemoveFile,
+    printAlterDatabaseRemoveFileGroup,
+    printAlterDatabaseModifyFile,
+    printAlterDatabaseModifyFileGroup,
+    printAlterDatabaseRebuildLog,
+} from './admin.js';
+
+// ---------------------------------------------------------------------------
+// Shared helpers — exported for use in ddl.ts, procedural.ts, and admin.ts
+// (those files import printStatementWithComments from here; circular but safe in ESM)
+// ---------------------------------------------------------------------------
+
+/** Print a node via the expression dispatcher (no path needed for inner nodes). */
+export function printNode(node: SqlNode, opts: Options): Doc {
+    return printExpression(node, opts, (n) => printNode(n, opts));
+}
+
+/** Print a boolean expression node via the expression dispatcher. */
+export function printBool(node: SqlNode, opts: Options): Doc {
+    return printBoolExpr(node, opts, (n) => printNode(n, opts));
+}
+
+/** Print a query expression node via the expression dispatcher. */
+export function qexpr(node: SqlNode, opts: Options): Doc {
+    return printQueryExpression(node, opts, (n) => printNode(n, opts));
+}
+
+/**
+ * Append a trailing comment to a doc.
+ * Line comments (--) stay on the same line via lineSuffix.
+ * Block comments go on their own line(s) after the doc.
+ */
+function appendTrailingComment(doc: Doc, comment: string | undefined): Doc {
+    if (!comment) return doc;
+    if (comment.startsWith('--')) return [doc, lineSuffix([' ', comment])];
+    return appendTrailingLines(doc, comment);
+}
+
+/**
+ * Print a statement with its leading and trailing comments.
+ * Used for top-level statements and for bodies in procs/functions/triggers/IF/WHILE/etc.
+ * Exported so that ddl.ts and procedural.ts can call it (circular import — safe in ESM).
+ */
+export function printStatementWithComments(s: SqlNode, opts: Options): Doc {
+    const stmtDoc = printStatement(s, opts);
+    const withTrailing = appendTrailingComment(stmtDoc, s.trailingComment);
+    if (s.leadingComments?.length) {
+        return [...s.leadingComments.flatMap((c): Doc[] => [c, hardline]), withTrailing] as Doc;
+    }
+    return withTrailing;
+}
+
+// Walk to the rightmost non-BooleanBinary leaf (mirrors the one in expressions.ts).
+function rightmostBoolLeaf(node: SqlNode | null | undefined): SqlNode | null {
+    if (!node) return null;
+    if (node.type === 'BooleanBinary') return rightmostBoolLeaf(prop(node, 'right'));
+    return node;
+}
+
+// Append any trailing comment on the rightmost predicate leaf — covers single-predicate
+// WHERE with a comment below it, and comments after the last predicate in a multi-predicate WHERE.
+function printBoolDoc(where: SqlNode, opts: Options): Doc {
+    const base = printBool(where, opts);
+    const trailing = rightmostBoolLeaf(where)?.trailingComment;
+    return appendTrailingLines(base, trailing);
+}
+
+function printTable(node: SqlNode, opts: Options): Doc {
+    return printTableRef(node, opts, (n) => printNode(n, opts));
+}
+
+/**
+ * Print a clause keyword followed by a boolean expression.
+ * Single-predicate stays inline (` WHERE x = 1`); multi-predicate breaks to
+ * an indented block. In spacious mode all predicates are always indented.
+ */
+function printBoolClause(kw: string, where: SqlNode, opts: Options): Doc {
+    const density = getDensity(opts);
+    const inline = density !== 'spacious' && where.type !== 'BooleanBinary';
+    const body = printBoolDoc(where, opts);
+    return [keyword(kw, opts), inline ? [' ', body] : indent([hardline, body])];
+}
+
+// ---------------------------------------------------------------------------
+// Script / Batch
+// ---------------------------------------------------------------------------
+
+/** Statement types that must be isolated in their own batch. */
+const BATCH_ISOLATING = new Set([
+    'CreateViewStatement',
+    'AlterViewStatement',
+    'CreateOrAlterViewStatement',
+    'CreateProcedureStatement',
+    'CreateOrAlterProcedureStatement',
+    'AlterProcedureStatement',
+    'CreateFunctionStatement',
+    'AlterFunctionStatement',
+    'CreateOrAlterFunctionStatement',
+    'CreateTriggerStatement',
+    'AlterTriggerStatement',
+]);
+
+export function printScript(node: SqlNode, opts: Options): Doc {
+    const batches = propArr(node, 'batches');
+    if (batches.length === 0) return '';
+
+    const go = keyword('go', opts);
+    const parts: Doc[] = [];
+    for (let i = 0; i < batches.length; i++) {
+        if (i > 0) parts.push(hardline, hardline);
+        parts.push(printBatch(batches[i]!, opts));
+        const stmts = propArr(batches[i]!, 'statements');
+        const needsGo = batches.length > 1 || stmts.some((s) => BATCH_ISOLATING.has(s.type));
+        if (needsGo) parts.push(hardline, go);
+    }
+    return parts;
+}
+
+function printBatch(node: SqlNode, opts: Options): Doc {
+    const stmts = propArr(node, 'statements');
+    if (stmts.length === 0) return '';
+    return join(
+        [hardline, hardline],
+        stmts.map((s) => printStatementWithComments(s, opts)),
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Statement dispatcher
+// ---------------------------------------------------------------------------
+
+export function printStatement(node: SqlNode, opts: Options): Doc {
+    switch (node.type) {
+        // DML
+        case 'SelectStatement':
+            return printSelect(node, opts);
+        case 'InsertStatement':
+            return printInsert(node, opts);
+        case 'UpdateStatement':
+            return printUpdate(node, opts);
+        case 'DeleteStatement':
+            return printDelete(node, opts);
+        case 'MergeStatement':
+            return printMerge(node, opts);
+
+        // DDL — tables & indexes
+        case 'CreateTableStatement':
+            return printCreateTable(node, opts);
+        case 'AlterTableStatement':
+            return printAlterTable(node, opts);
+        case 'CreateIndexStatement':
+            return printCreateIndex(node, opts);
+        case 'AlterIndexStatement':
+            return printAlterIndex(node, opts);
+        case 'DropIndexStatement':
+            return printDropIndex(node, opts);
+
+        // DDL — procedures & functions
+        case 'CreateProcedureStatement':
+        case 'AlterProcedureStatement':
+        case 'CreateOrAlterProcedureStatement':
+            return printCreateProcedure(node, opts);
+        case 'CreateFunctionStatement':
+        case 'AlterFunctionStatement':
+        case 'CreateOrAlterFunctionStatement':
+            return printCreateFunction(node, opts);
+
+        // DDL — views
+        case 'CreateViewStatement':
+        case 'AlterViewStatement':
+        case 'CreateOrAlterViewStatement':
+            return printCreateView(node, opts);
+
+        // DDL — triggers
+        case 'CreateTriggerStatement':
+        case 'AlterTriggerStatement':
+            return printCreateTrigger(node, opts);
+        case 'EnableDisableTriggerStatement':
+            return printEnableDisableTrigger(node, opts);
+
+        // DDL — columnstore index
+        case 'CreateColumnStoreIndexStatement':
+            return printCreateColumnStoreIndex(node, opts);
+
+        // DDL — sequences
+        case 'CreateSequenceStatement':
+            return printCreateSequence(node, opts);
+        case 'AlterSequenceStatement':
+            return printAlterSequence(node, opts);
+
+        // DDL — types & bulk insert
+        case 'BulkInsertStatement':
+            return printBulkInsert(node, opts);
+        case 'CreateTypeUddtStatement':
+            return printCreateTypeUddt(node, opts);
+        case 'CreateTypeTableStatement':
+            return printCreateTypeTable(node, opts);
+
+        // DDL — DROP (shared helper)
+        case 'DropTableStatement':
+            return printDropObjects('TABLE', node, opts);
+        case 'DropProcedureStatement':
+            return printDropObjects('PROCEDURE', node, opts);
+        case 'DropViewStatement':
+            return printDropObjects('VIEW', node, opts);
+        case 'DropFunctionStatement':
+            return printDropObjects('FUNCTION', node, opts);
+        case 'DropTriggerStatement':
+            return printDropObjects('TRIGGER', node, opts);
+        case 'DropSequenceStatement':
+            return printDropObjects('SEQUENCE', node, opts);
+        case 'DropSynonymStatement':
+            return printDropObjects('SYNONYM', node, opts);
+
+        // DDL — synonyms
+        case 'CreateSynonymStatement':
+            return printCreateSynonym(node, opts);
+
+        // DDL — schemas
+        case 'CreateSchemaStatement':
+            return printCreateSchema(node, opts);
+        case 'AlterSchemaStatement':
+            return printAlterSchema(node, opts);
+        case 'DropSchemaStatement':
+            return printDropSchema(node, opts);
+
+        // DDL — partition functions & schemes
+        case 'CreatePartitionFunctionStatement':
+            return printCreatePartitionFunction(node, opts);
+        case 'AlterPartitionFunctionStatement':
+            return printAlterPartitionFunction(node, opts);
+        case 'DropPartitionFunctionStatement':
+            return printDropPartitionFunction(node, opts);
+        case 'CreatePartitionSchemeStatement':
+            return printCreatePartitionScheme(node, opts);
+        case 'AlterPartitionSchemeStatement':
+            return printAlterPartitionScheme(node, opts);
+        case 'DropPartitionSchemeStatement':
+            return printDropPartitionScheme(node, opts);
+
+        // BEGIN/END block (proc bodies, inline blocks)
+        case 'BeginEndBlock': {
+            const stmts = propArr(node, 'statements');
+            return join(
+                [hardline, hardline],
+                stmts.map((s) => printStatementWithComments(s, opts)),
+            );
+        }
+
+        // Transactions
+        case 'BeginTransactionStatement':
+            return printBeginTransaction(node, opts);
+        case 'CommitTransactionStatement':
+            return printCommitTransaction(node, opts);
+        case 'RollbackTransactionStatement':
+            return printRollbackTransaction(node, opts);
+        case 'SaveTransactionStatement':
+            return printSaveTransaction(node, opts);
+
+        // Variable management
+        case 'DeclareVariableStatement':
+            return printDeclareVariable(node, opts);
+        case 'DeclareTableVariableStatement':
+            return printDeclareTableVariable(node, opts);
+        case 'SetVariableStatement':
+            return printSetVariable(node, opts);
+        case 'SetRowCountStatement':
+            return printSetRowCount(node, opts);
+
+        // Operational
+        case 'CheckpointStatement':
+            return printCheckpoint(node, opts);
+        case 'KillStatement':
+            return printKill(node, opts);
+        case 'ReconfigureStatement':
+            return printReconfigure(node, opts);
+
+        // DDL — statistics
+        case 'CreateStatisticsStatement':
+            return printCreateStatistics(node, opts);
+        case 'UpdateStatisticsStatement':
+            return printUpdateStatistics(node, opts);
+        case 'DropStatisticsStatement':
+            return printDropStatistics(node, opts);
+
+        // SET / USE / WAITFOR
+        case 'UseStatement':
+            return printUse(node, opts);
+        case 'PredicateSetStatement':
+            return printPredicateSet(node, opts);
+        case 'SetStatisticsStatement':
+            return printSetStatistics(node, opts);
+        case 'SetIdentityInsertStatement':
+            return printSetIdentityInsert(node, opts);
+        case 'SetTransactionIsolationLevelStatement':
+            return printSetIsolationLevel(node, opts);
+        case 'WaitForStatement':
+            return printWaitFor(node, opts);
+
+        // Output / flow
+        case 'PrintStatement':
+            return printPrint(node, opts);
+        case 'ReturnStatement':
+            return printReturn(node, opts);
+        case 'IfStatement':
+            return printIf(node, opts);
+        case 'WhileStatement':
+            return printWhile(node, opts);
+        case 'ExecuteStatement':
+            return printExecute(node, opts);
+        case 'TruncateTableStatement':
+            return printTruncateTable(node, opts);
+        case 'BreakStatement':
+            return [keyword('BREAK', opts), ';'];
+        case 'ContinueStatement':
+            return [keyword('CONTINUE', opts), ';'];
+        case 'GotoStatement':
+            return printGoto(node, opts);
+        case 'LabelStatement':
+            return printLabel(node, opts);
+        case 'ThrowStatement':
+            return printThrow(node, opts);
+        case 'RaiseErrorStatement':
+            return printRaiseError(node, opts);
+        case 'TryCatchStatement':
+            return printTryCatch(node, opts);
+
+        // Cursors
+        case 'DeclareCursorStatement':
+            return printDeclareCursor(node, opts);
+        case 'OpenCursorStatement':
+            return printOpenCursor(node, opts);
+        case 'FetchCursorStatement':
+            return printFetchCursor(node, opts);
+        case 'CloseCursorStatement':
+            return printCloseCursor(node, opts);
+        case 'DeallocateCursorStatement':
+            return printDeallocateCursor(node, opts);
+
+        // Session context
+        case 'ExecuteAsStatement':
+            return printExecuteAsStatement(node, opts);
+        case 'RevertStatement':
+            return printRevert(node, opts);
+
+        // Security — GRANT / DENY / REVOKE / ALTER AUTHORIZATION
+        case 'GrantStatement':
+            return printGrantDenyRevoke(node, 'GRANT', opts);
+        case 'DenyStatement':
+            return printGrantDenyRevoke(node, 'DENY', opts);
+        case 'RevokeStatement':
+            return printGrantDenyRevoke(node, 'REVOKE', opts);
+        case 'AlterAuthorizationStatement':
+            return printAlterAuthorization(node, opts);
+
+        // Security — USER / LOGIN / ROLE
+        case 'CreateUserStatement':
+            return printCreateUser(node, opts);
+        case 'AlterUserStatement':
+            return printAlterUser(node, opts);
+        case 'DropUserStatement':
+            return printDropUser(node, opts);
+        case 'CreateLoginStatement':
+            return printCreateLogin(node, opts);
+        case 'AlterLoginStatement':
+            return printAlterLogin(node, opts);
+        case 'DropLoginStatement':
+            return printDropLogin(node, opts);
+        case 'CreateRoleStatement':
+            return printCreateRole(node, opts);
+        case 'AlterRoleStatement':
+            return printAlterRole(node, opts);
+        case 'DropRoleStatement':
+            return printDropRole(node, opts);
+
+        // Database admin — DROP DATABASE, DBCC, BACKUP, RESTORE, CREATE DATABASE
+        case 'DropDatabaseStatement':
+            return printDropDatabase(node, opts);
+        case 'DbccStatement':
+            return printDbcc(node, opts);
+        case 'BackupDatabaseStatement':
+            return printBackupDatabase(node, opts);
+        case 'BackupTransactionLogStatement':
+            return printBackupLog(node, opts);
+        case 'RestoreStatement':
+            return printRestore(node, opts);
+        case 'CreateDatabaseStatement':
+            return printCreateDatabase(node, opts);
+
+        // ALTER DATABASE variants
+        case 'AlterDatabaseSetStatement':
+            return printAlterDatabaseSet(node, opts);
+        case 'AlterDatabaseCollateStatement':
+            return printAlterDatabaseCollate(node, opts);
+        case 'AlterDatabaseModifyNameStatement':
+            return printAlterDatabaseModifyName(node, opts);
+        case 'AlterDatabaseScopedConfigurationSetStatement':
+            return printAlterDatabaseScopedConfigSet(node, opts);
+        case 'AlterDatabaseScopedConfigurationClearStatement':
+            return printAlterDatabaseScopedConfigClear(node, opts);
+        case 'AlterDatabaseAddFileStatement':
+            return printAlterDatabaseAddFile(node, opts);
+        case 'AlterDatabaseAddFileGroupStatement':
+            return printAlterDatabaseAddFileGroup(node, opts);
+        case 'AlterDatabaseRemoveFileStatement':
+            return printAlterDatabaseRemoveFile(node, opts);
+        case 'AlterDatabaseRemoveFileGroupStatement':
+            return printAlterDatabaseRemoveFileGroup(node, opts);
+        case 'AlterDatabaseModifyFileStatement':
+            return printAlterDatabaseModifyFile(node, opts);
+        case 'AlterDatabaseModifyFileGroupStatement':
+            return printAlterDatabaseModifyFileGroup(node, opts);
+        case 'AlterDatabaseRebuildLogStatement':
+            return printAlterDatabaseRebuildLog(node, opts);
+
+        default:
+            return node.text ?? `/* unhandled statement: ${node.type} */`;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SELECT
+// ---------------------------------------------------------------------------
+
+function printCtes(node: SqlNode, opts: Options): Doc[] {
+    const ctes = propArr(node, 'ctes');
+    if (ctes.length === 0) return [];
+
+    const leading = getCommaStyle(opts) === 'leading';
+    const cteDocs = ctes.map((cte, i) => {
+        const name = propStr(cte, 'name') ?? 'cte';
+        const cols = cte.props?.['columns'] as string[] | undefined;
+        const query = prop(cte, 'query');
+
+        const colsPart: Doc = cols?.length ? [' ', parenList(cols)] : '';
+
+        // trailing: align subsequent CTEs under "with " with 4 spaces
+        // leading:  no prefix — the separator provides ", " before the CTE name
+        return [
+            i === 0 ? keyword('WITH', opts) + ' ' : leading ? '' : '    ',
+            name,
+            colsPart,
+            ' ',
+            keyword('AS', opts),
+            ' (',
+            indent([hardline, query ? qexpr(query, opts) : '']),
+            hardline,
+            ')',
+        ] as Doc;
+    });
+
+    const sep: Doc = leading ? [hardline, ', '] : [',', hardline];
+    return [join(sep, cteDocs), hardline];
+}
+
+function printSelect(node: SqlNode, opts: Options): Doc {
+    const ctesDocs = printCtes(node, opts);
+    const queryExpr = prop(node, 'queryExpression');
+    const orderBy = prop(node, 'orderBy');
+    const optimizerHints = node.props?.['optimizerHints'] as string[] | undefined;
+
+    const parts: Doc[] = [...ctesDocs, queryExpr ? qexpr(queryExpr, opts) : ''];
+
+    if (orderBy) {
+        parts.push(
+            hardline,
+            printOrderByClause(orderBy, opts, (n) => printNode(n, opts)),
+        );
+    }
+    if (optimizerHints?.length) {
+        parts.push(
+            hardline,
+            keyword('OPTION', opts),
+            ' (',
+            join(
+                ', ',
+                optimizerHints.map((h) => keyword(h, opts)),
+            ),
+            ')',
+        );
+    }
+
+    parts.push(';');
+    return group(parts);
+}
+
+// ---------------------------------------------------------------------------
+// INSERT
+// ---------------------------------------------------------------------------
+
+function printInsert(node: SqlNode, opts: Options): Doc {
+    const ctesDocs = printCtes(node, opts);
+    const target = prop(node, 'target');
+    const columns = propArr(node, 'columns');
+    const source = prop(node, 'source');
+    const output = prop(node, 'output');
+    const outputInto = prop(node, 'outputInto');
+
+    const colsPart: Doc = columns.length
+        ? group([
+              ' (',
+              indent([
+                  softline,
+                  join(
+                      softSep(opts),
+                      columns.map((c) => printNode(c, opts)),
+                  ),
+              ]),
+              softline,
+              ')',
+          ])
+        : '';
+
+    const sourcePart: Doc =
+        source?.type === 'ValuesSource'
+            ? printValuesSource(source, opts)
+            : source
+              ? [hardline, qexpr(source, opts)]
+              : '';
+
+    const parts: Doc[] = [
+        ...ctesDocs,
+        keyword('INSERT INTO', opts),
+        ' ',
+        target ? printTable(target, opts) : '',
+        colsPart,
+    ];
+
+    if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
+    else if (output) parts.push(hardline, printOutputClause(output, opts));
+
+    parts.push(sourcePart, ';');
+    return group(parts);
+}
+
+function printValuesSource(node: SqlNode, opts: Options): Doc {
+    const rows = node.props?.['rows'];
+    if (!Array.isArray(rows)) return [hardline, keyword('VALUES', opts), ' ()'];
+
+    const rowDocs = rows.map((row) => {
+        const rowNode = row as SqlNode;
+        const vals = propArr(rowNode, 'values').map((v) => printNode(v, opts));
+        const rowDoc = group(['(', indent([softline, join(softSep(opts), vals)]), softline, ')']);
+        return rowNode.trailingComment ? [rowDoc, lineSuffix([' ', rowNode.trailingComment])] : rowDoc;
+    });
+
+    if (rows.length === 1) {
+        return [hardline, keyword('VALUES', opts), ' ', rowDocs[0]];
+    }
+
+    return [hardline, keyword('VALUES', opts), indent([hardline, join(hardSep(opts), rowDocs)])];
+}
+
+// ---------------------------------------------------------------------------
+// UPDATE
+// ---------------------------------------------------------------------------
+
+function printUpdate(node: SqlNode, opts: Options): Doc {
+    const ctesDocs = printCtes(node, opts);
+    const density = getDensity(opts);
+    const target = prop(node, 'target');
+    const setClauses = propArr(node, 'set');
+    const from = prop(node, 'from');
+    const where = prop(node, 'where');
+    const output = prop(node, 'output');
+    const outputInto = prop(node, 'outputInto');
+
+    const setParts = setClauses.map((sc) => {
+        const col = prop(sc, 'column');
+        const val = prop(sc, 'value');
+        const opStr = assignmentOp(propStr(sc, 'operator') ?? 'Equals');
+        return [col ? printNode(col, opts) : '', ' ', opStr, ' ', val ? printNode(val, opts) : ''] as Doc;
+    });
+
+    const parts: Doc[] = [
+        ...ctesDocs,
+        keyword('UPDATE', opts),
+        ' ',
+        target ? printTable(target, opts) : '',
+        hardline,
+        keyword('SET', opts),
+        density !== 'spacious' && setParts.length === 1
+            ? [' ', setParts[0]!]
+            : indent([hardline, join(hardSep(opts), setParts)]),
+    ];
+
+    if (from) {
+        const tableRefs = propArr(from, 'tableReferences');
+        parts.push(
+            hardline,
+            keyword('FROM', opts),
+            indent([
+                hardline,
+                join(
+                    hardSep(opts),
+                    tableRefs.map((tr) => printTable(tr, opts)),
+                ),
+            ]),
+        );
+    }
+
+    if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
+    else if (output) parts.push(hardline, printOutputClause(output, opts));
+
+    if (where) parts.push(hardline, printBoolClause('WHERE', where, opts));
+
+    parts.push(';');
+    return group(parts);
+}
+
+// ---------------------------------------------------------------------------
+// DELETE
+// ---------------------------------------------------------------------------
+
+function printDelete(node: SqlNode, opts: Options): Doc {
+    const ctesDocs = printCtes(node, opts);
+    const target = prop(node, 'target');
+    const from = prop(node, 'from');
+    const where = prop(node, 'where');
+    const output = prop(node, 'output');
+    const outputInto = prop(node, 'outputInto');
+
+    const parts: Doc[] = [...ctesDocs, keyword('DELETE FROM', opts), ' ', target ? printTable(target, opts) : ''];
+
+    if (from) {
+        const tableRefs = propArr(from, 'tableReferences');
+        parts.push(
+            hardline,
+            keyword('FROM', opts),
+            indent([
+                hardline,
+                join(
+                    hardSep(opts),
+                    tableRefs.map((tr) => printTable(tr, opts)),
+                ),
+            ]),
+        );
+    }
+
+    if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
+    else if (output) parts.push(hardline, printOutputClause(output, opts));
+
+    if (where) parts.push(hardline, printBoolClause('WHERE', where, opts));
+
+    parts.push(';');
+    return group(parts);
+}
+
+// ---------------------------------------------------------------------------
+// OUTPUT clause (shared by INSERT / UPDATE / DELETE / MERGE)
+// ---------------------------------------------------------------------------
+
+function printOutputColumns(columns: SqlNode[], opts: Options): Doc {
+    return join(
+        [',', line],
+        columns.map((c) => printNode(c, opts)),
+    );
+}
+
+function printOutputClause(node: SqlNode, opts: Options): Doc {
+    const columns = propArr(node, 'columns');
+    return group([keyword('OUTPUT', opts), indent([line, printOutputColumns(columns, opts)])]);
+}
+
+function printOutputIntoClause(node: SqlNode, opts: Options): Doc {
+    const columns = propArr(node, 'columns');
+    const into = prop(node, 'into');
+    const intoColumns = propArr(node, 'intoColumns');
+
+    const intoColsPart: Doc = intoColumns.length
+        ? [
+              ' ',
+              group([
+                  '(',
+                  indent([
+                      softline,
+                      join(
+                          [',', line],
+                          intoColumns.map((c) => printNode(c, opts)),
+                      ),
+                  ]),
+                  softline,
+                  ')',
+              ]),
+          ]
+        : '';
+
+    return group([
+        keyword('OUTPUT', opts),
+        indent([line, printOutputColumns(columns, opts)]),
+        hardline,
+        keyword('INTO', opts),
+        ' ',
+        into ? printTable(into, opts) : '',
+        intoColsPart,
+    ]);
+}
+
+// ---------------------------------------------------------------------------
+// MERGE
+// ---------------------------------------------------------------------------
+
+function printMerge(node: SqlNode, opts: Options): Doc {
+    const ctesDocs = printCtes(node, opts);
+    const target = prop(node, 'target');
+    const targetAlias = propStr(node, 'targetAlias');
+    const source = prop(node, 'source');
+    const on = prop(node, 'on');
+    const clauses = propArr(node, 'clauses');
+    const output = prop(node, 'output');
+    const outputInto = prop(node, 'outputInto');
+
+    const targetDoc: Doc = target
+        ? targetAlias
+            ? [printTable(target, opts), ' ', keyword('AS', opts), ' ', targetAlias]
+            : printTable(target, opts)
+        : '';
+
+    const density = getDensity(opts);
+    let onDoc: Doc = '';
+    if (on) {
+        const isMultiple = on.type === 'BooleanBinary';
+        if (density === 'compact') {
+            onDoc = [' ', keyword('ON', opts), ' ', printBool(on, opts)];
+        } else if (density === 'standard' && !isMultiple) {
+            onDoc = [' ', keyword('ON', opts), group([indent([line, printBool(on, opts)])])];
+        } else {
+            onDoc = [' ', keyword('ON', opts), indent([hardline, printBool(on, opts)])];
+        }
+    }
+
+    const parts: Doc[] = [
+        ...ctesDocs,
+        keyword('MERGE INTO', opts),
+        ' ',
+        targetDoc,
+        hardline,
+        keyword('USING', opts),
+        ' ',
+        source ? printTable(source, opts) : '',
+        onDoc,
+    ];
+
+    for (const clause of clauses) {
+        parts.push(hardline, printMergeClause(clause, opts));
+    }
+
+    if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
+    else if (output) parts.push(hardline, printOutputClause(output, opts));
+
+    parts.push(';');
+    return group(parts);
+}
+
+function printMergeClause(node: SqlNode, opts: Options): Doc {
+    const condition = propStr(node, 'condition') ?? 'Matched';
+    const predicate = prop(node, 'predicate');
+    const action = prop(node, 'action');
+
+    const condKw: Doc =
+        condition === 'Matched'
+            ? keyword('WHEN MATCHED', opts)
+            : condition === 'NotMatchedByTarget'
+              ? keyword('WHEN NOT MATCHED BY TARGET', opts)
+              : condition === 'NotMatched'
+                ? keyword('WHEN NOT MATCHED', opts)
+                : keyword('WHEN NOT MATCHED BY SOURCE', opts);
+
+    const predPart: Doc = predicate ? [' ', keyword('AND', opts), ' ', printBool(predicate, opts)] : '';
+    const actionDoc = action ? printMergeAction(action, opts) : '';
+    const density = getDensity(opts);
+    const thenAction: Doc =
+        density === 'compact'
+            ? [' ', keyword('THEN', opts), ' ', actionDoc]
+            : [' ', keyword('THEN', opts), indent([hardline, actionDoc])];
+
+    return [condKw, predPart, thenAction];
+}
+
+function printMergeAction(node: SqlNode, opts: Options): Doc {
+    switch (node.type) {
+        case 'MergeUpdateAction': {
+            const setParts = propArr(node, 'set').map((sc) => {
+                const col = prop(sc, 'column');
+                const val = prop(sc, 'value');
+                const opStr = assignmentOp(propStr(sc, 'operator') ?? 'Equals');
+                return [col ? printNode(col, opts) : '', ' ', opStr, ' ', val ? printNode(val, opts) : ''] as Doc;
+            });
+            const density = getDensity(opts);
+            const setBody: Doc =
+                density !== 'spacious' && setParts.length === 1
+                    ? [' ', setParts[0]!]
+                    : indent([hardline, join(hardSep(opts), setParts)]);
+            return [keyword('UPDATE SET', opts), setBody];
+        }
+        case 'MergeInsertAction': {
+            const columns = propArr(node, 'columns');
+            const source = prop(node, 'source');
+            const colsPart: Doc = columns.length
+                ? group([
+                      '(',
+                      indent([
+                          softline,
+                          join(
+                              [',', line],
+                              columns.map((c) => printNode(c, opts)),
+                          ),
+                      ]),
+                      softline,
+                      ')',
+                  ])
+                : '';
+            return [keyword('INSERT', opts), ' ', colsPart, source ? printMergeValues(source, opts) : ''];
+        }
+        case 'MergeDeleteAction':
+            return keyword('DELETE', opts);
+        default:
+            return node.text ?? `/* ${node.type} */`;
+    }
+}
+
+function printMergeValues(source: SqlNode, opts: Options): Doc {
+    if (source.type !== 'ValuesSource') return source.text ? [hardline, source.text] : '';
+    const rows = source.props?.['rows'];
+    if (!Array.isArray(rows) || rows.length === 0) return [hardline, keyword('VALUES', opts), ' ()'];
+    // MERGE INSERT has exactly one VALUES row
+    const row = rows[0] as SqlNode;
+    const vals = propArr(row, 'values').map((v) => printNode(v, opts));
+    const valuesDoc: Doc = [keyword('VALUES', opts), ' (', join(', ', vals), ')'];
+    const density = getDensity(opts);
+    return density === 'compact' ? [' ', valuesDoc] : [hardline, valuesDoc];
+}

@@ -1,0 +1,1698 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`fixtures > admin/alter-database.sql 1`] = `
+"alter database SalesDB
+set automatic_index_compaction = on;
+
+alter database SalesDB
+set automatic_index_compaction = off;"
+`;
+
+exports[`fixtures > admin/backup-restore.sql 1`] = `
+"backup database Bookstore
+  to disk = N'C:\\Backups\\Bookstore_Full.bak'
+  with noformat, init, name = N'Bookstore Full Backup', stats = 10;
+
+backup database Bookstore
+  to disk = N'C:\\Backups\\Bookstore_Full_1.bak',
+  disk = N'C:\\Backups\\Bookstore_Full_2.bak'
+  with compression, checksum;
+
+backup log Bookstore
+  to disk = N'C:\\Backups\\Bookstore_Log.bak'
+  with norecovery;
+
+restore database Bookstore
+  from disk = N'C:\\Backups\\Bookstore_Full.bak'
+  with norecovery;
+
+restore database Bookstore
+  from disk = N'C:\\Backups\\Bookstore_Full.bak'
+  with
+    move N'Bookstore_Data' to N'C:\\Data\\Bookstore.mdf',
+    move N'Bookstore_Log' to N'C:\\Data\\Bookstore.ldf',
+    recovery,
+    stats = 5;
+
+restore log Bookstore
+  from disk = N'C:\\Backups\\Bookstore_Log.bak'
+  with recovery;
+
+restore filelistonly
+  from disk = N'C:\\Backups\\Bookstore_Full.bak';
+
+restore headeronly
+  from disk = N'C:\\Backups\\Bookstore_Full.bak';
+
+restore verifyonly
+  from disk = N'C:\\Backups\\Bookstore_Full.bak';
+
+drop database Bookstore;
+
+drop database if exists Bookstore;
+
+drop database Bookstore, BookstoreDev;"
+`;
+
+exports[`fixtures > admin/create-database.sql 1`] = `
+"create database SalesDB;
+
+create database SalesDB collate Latin1_General_CI_AS;
+
+create database SalesSnap as snapshot of SalesDB;
+
+drop database SalesDB;
+
+drop database if exists SalesDB;"
+`;
+
+exports[`fixtures > admin/statistics.sql 1`] = `
+"create statistics stat1
+on dbo.Orders (OrderDate);
+
+create statistics stat2
+on dbo.Orders (CustomerId, OrderDate)
+with fullscan;
+
+create statistics stat3
+on dbo.Orders (Status)
+where Status = 'Active'
+with sample 50 percent, norecompute;
+
+update statistics dbo.Orders;
+
+update statistics dbo.Orders (stat1);
+
+update statistics dbo.Orders
+with fullscan;
+
+update statistics dbo.Orders (stat1, stat2)
+with norecompute;
+
+drop statistics dbo.Orders.stat1;
+
+drop statistics dbo.Orders.stat1,
+dbo.Orders.stat2;"
+`;
+
+exports[`fixtures > alter-table/add-column.sql 1`] = `
+"alter table Books
+add
+  Isbn nvarchar(20) null,
+  Summary nvarchar(max) null;"
+`;
+
+exports[`fixtures > alter-table/alter-column.sql 1`] = `
+"alter table Books
+alter column Title nvarchar(500) null;
+
+alter table Books
+alter column Price decimal(12, 2) not null;
+
+alter table Books
+alter column Code varchar(20);"
+`;
+
+exports[`fixtures > alter-table/constraints.sql 1`] = `
+"alter table Books
+add constraint UQ_Books_Isbn unique (Isbn);
+
+alter table Orders
+add constraint FK_Orders_Customers
+  foreign key (CustomerId) references Customers (Id)
+  on delete cascade
+  on update no action;
+
+alter table Books
+add constraint CK_Books_Price check (Price > 0);
+
+alter table Books
+drop constraint UQ_Books_Isbn;
+
+alter table Books
+drop constraint if exists CK_Books_Price;
+
+alter table Orders
+with check
+add constraint FK_Orders_Customers
+  foreign key (CustomerId) references Customers (Id);
+
+alter table Orders
+nocheck constraint FK_Orders_Customers;
+
+alter table Orders
+check constraint all;"
+`;
+
+exports[`fixtures > alter-table/drop-column.sql 1`] = `
+"alter table Books
+drop column Isbn, Summary;"
+`;
+
+exports[`fixtures > alter-table/set-rebuild-switch.sql 1`] = `
+"alter table Orders
+set (lock_escalation = auto);
+
+alter table Orders
+set (lock_escalation = disable);
+
+alter table Orders
+rebuild partition = all;
+
+alter table Orders
+rebuild partition = 3 with (data_compression = row);
+
+alter table Orders
+switch partition 3 to ArchivedOrders partition 1;
+
+alter table Orders
+switch to ArchivedOrders;"
+`;
+
+exports[`fixtures > create-table/basic.sql 1`] = `
+"create table Books (
+  Id int identity(1, 1) not null,
+  Title nvarchar(200) not null,
+  Price decimal(10, 2) not null,
+  InStock bit default 1 not null,
+  PublishedDate datetime2 default getdate() not null,
+  constraint PK_Books primary key (Id)
+);"
+`;
+
+exports[`fixtures > create-table/computed-columns.sql 1`] = `
+"create table OrderItems (
+  Id int identity(1, 1) not null,
+  Quantity int not null,
+  UnitPrice decimal(10, 2) not null,
+  LineTotal as Quantity * UnitPrice,
+  constraint PK_OrderItems primary key (Id)
+);
+
+create table Products (
+  Id int identity(1, 1) not null,
+  Name nvarchar(200) not null,
+  Price decimal(10, 2) not null,
+  PriceWithTax as Price * 1.1 persisted,
+  constraint PK_Products primary key (Id)
+);"
+`;
+
+exports[`fixtures > create-table/with-constraints.sql 1`] = `
+"create table Orders (
+  Id int identity(1, 1) not null,
+  CustomerId int not null,
+  Total decimal(18, 2) not null,
+  Status nvarchar(50) default 'pending' not null,
+  OrderDate datetime2 default getdate() not null,
+  constraint PK_Orders primary key (Id),
+  constraint FK_Orders_Customers
+    foreign key (CustomerId) references Customers (Id),
+  constraint CK_Orders_Total check (Total >= 0)
+);"
+`;
+
+exports[`fixtures > create-table/with-indexes.sql 1`] = `
+"create table Products (
+  Id int identity(1, 1) not null,
+  Sku nvarchar(50) not null,
+  Name nvarchar(200) not null,
+  Price decimal(10, 2) not null,
+  constraint PK_Products primary key (Id),
+  constraint UQ_Products_Sku unique (Sku)
+);
+
+create table OrderItems (
+  Id int identity(1, 1) not null,
+  OrderId int not null,
+  ProductId int not null,
+  Quantity int default 1 not null,
+  constraint PK_OrderItems primary key (Id),
+  constraint FK_OrderItems_Orders foreign key (OrderId) references Orders (Id),
+  constraint FK_OrderItems_Products
+    foreign key (ProductId) references Products (Id)
+);"
+`;
+
+exports[`fixtures > create-table/with-options.sql 1`] = `
+"create table ArchivedOrders (
+  Id int not null,
+  CustomerId int not null,
+  Total decimal(18, 2) not null,
+  constraint PK_ArchivedOrders primary key (Id)
+)
+with (data_compression = page);
+
+create table BigData (
+  Id int not null,
+  Payload nvarchar(max) null,
+  constraint PK_BigData primary key (Id)
+)
+with (data_compression = row, memory_optimized = off);"
+`;
+
+exports[`fixtures > delete/basic.sql 1`] = `
+"delete from Books
+where
+  InStock = 0
+  and PublishedDate < dateadd(year, -10, getdate());"
+`;
+
+exports[`fixtures > delete/cte.sql 1`] = `
+"with cte as (
+  select Id
+  from Books
+  where InStock = 0
+)
+delete from Books
+from
+  Books
+  inner join cte on Books.Id = cte.Id;
+
+with old as (
+  select Id
+  from OrderItems
+  where OrderId = 99
+)
+delete from old;"
+`;
+
+exports[`fixtures > execute/dynamic-sql.sql 1`] = `
+"execute (@sql);
+
+execute (@sql1 + @sql2);"
+`;
+
+exports[`fixtures > execute/proc-call.sql 1`] = `
+"execute dbo.GetAvailableBooks;
+
+execute dbo.GetBooksByGenre
+  @GenreId = 3;
+
+execute dbo.UpdateBookPrice
+  @BookId = 42,
+  @NewPrice = 19.99;
+
+execute dbo.GetCount
+  @Result = @count output;"
+`;
+
+exports[`fixtures > execute/proc-variable.sql 1`] = `
+"execute @procName;
+
+execute @procName
+  @param1,
+  @param2;"
+`;
+
+exports[`fixtures > function/multi-statement-tvf.sql 1`] = `
+"create function GetTopBooks(@MaxPrice decimal(10, 2)) returns @result table (
+  Id int not null,
+  Title nvarchar(200) not null,
+  Price decimal(10, 2) not null
+)
+as
+begin
+  insert into @result
+  select
+    Id,
+    Title,
+    Price
+  from Books
+  where Price <= @MaxPrice
+  order by Price asc;
+
+  return;
+end;
+go"
+`;
+
+exports[`fixtures > function/scalar.sql 1`] = `
+"create function GetAuthorFullName(
+  @FirstName nvarchar(50),
+  @LastName nvarchar(50)
+) returns nvarchar(101)
+as
+begin
+  return @FirstName + ' ' + @LastName;
+end;
+go"
+`;
+
+exports[`fixtures > function/table-valued.sql 1`] = `
+"create function GetBooksByGenre(@GenreId int) returns table
+as
+return (
+  select
+    Id,
+    Title,
+    Price
+  from Books
+  where
+    GenreId = @GenreId
+    and InStock = 1
+);
+go"
+`;
+
+exports[`fixtures > function/trim.sql 1`] = `
+"create function dbo.TrimCharsFrom(@str nvarchar(max)) returns nvarchar(max)
+as
+begin
+  return trim(nchar(12288) from @str);
+end;
+go"
+`;
+
+exports[`fixtures > index/basic.sql 1`] = `
+"create nonclustered index IX_Books_Title
+  on Books (
+    Title asc
+  );
+
+create unique nonclustered index UX_Books_Isbn
+  on Books (
+    Isbn asc
+  );
+
+create clustered index CX_Orders_Date
+  on Orders (
+    OrderDate desc
+  );
+
+create nonclustered index IX_Books_Genre_Price
+  on Books (
+    GenreId asc,
+    Price desc
+  )
+  include (Title, InStock);
+
+create unique nonclustered index UX_Authors_Email
+  on Authors (
+    Email asc
+  );
+
+alter index IX_Books_Title on Books rebuild;
+
+alter index IX_Books_Genre_Price on Books reorganize;
+
+alter index all on Books disable;
+
+drop index IX_Books_Title on Books;
+
+drop index IX_Books_Title on Books;"
+`;
+
+exports[`fixtures > index/columnstore.sql 1`] = `
+"create clustered columnstore index cci
+on dbo.Orders;
+
+create nonclustered columnstore index ncci
+on dbo.Orders (CustomerId, OrderDate, Total);
+
+create nonclustered columnstore index ncci_filtered
+on dbo.Orders (CustomerId, OrderDate)
+where Status = 'Closed'
+with (drop_existing = on);"
+`;
+
+exports[`fixtures > insert/basic.sql 1`] = `
+"insert into Customers (Name, Email, Active)
+values
+  ('John Doe', 'john@example.com', 1),
+  ('Jane Smith', 'jane@example.com', 1);"
+`;
+
+exports[`fixtures > insert/cte.sql 1`] = `
+"with src as (
+  select
+    Id,
+    Title
+  from StagingBooks
+)
+insert into Books (Id, Title)
+select
+  Id,
+  Title
+from src;"
+`;
+
+exports[`fixtures > insert/select-into.sql 1`] = `
+"insert into ArchivedBooks (Id, Title, Price)
+select
+  Id,
+  Title,
+  Price
+from Books
+where InStock = 0;"
+`;
+
+exports[`fixtures > merge/basic.sql 1`] = `
+"merge into Books as tgt
+using (
+  select
+    Id,
+    Title,
+    Price,
+    InStock
+  from BookUpdates
+) as src on tgt.Id = src.Id
+when matched and src.InStock = 0 then
+  delete
+when matched then
+  update set
+    tgt.Title = src.Title,
+    tgt.Price = src.Price,
+    tgt.InStock = src.InStock
+when not matched by target then
+  insert (Title, Price, InStock)
+  values (src.Title, src.Price, src.InStock);
+
+merge into Books as tgt
+using BookUpdates as src on tgt.Id = src.Id
+when matched and tgt.Price <> src.Price then
+  update set tgt.Price = src.Price
+when not matched by target then
+  insert (Title, Price, InStock)
+  values (src.Title, src.Price, 1)
+when not matched by source then
+  update set tgt.InStock = 0;
+
+merge into Books as tgt
+using BookUpdates as src on tgt.Id = src.Id
+when matched then
+  update set
+    tgt.Title = src.Title,
+    tgt.Price = src.Price
+when not matched by target then
+  insert (Title, Price, InStock)
+  values (src.Title, src.Price, src.InStock)
+output $action, inserted.Id, inserted.Title, deleted.Price;"
+`;
+
+exports[`fixtures > partition/basic.sql 1`] = `
+"create partition function pf_OrderDate (datetime2) as range right
+  for values ('2021-01-01', '2022-01-01', '2023-01-01', '2024-01-01');
+
+create partition function pf_Price (decimal(10, 2)) as range left
+  for values (100, 500, 1000, 5000);
+
+alter partition function pf_OrderDate()
+  split range ('2025-01-01');
+
+alter partition function pf_OrderDate()
+  merge range ('2021-01-01');
+
+drop partition function pf_Price;
+
+create partition scheme ps_OrderDate
+  as partition pf_OrderDate
+  to ([PRIMARY], fg2021, fg2022, fg2023, fg2024, fg2025);
+
+create partition scheme ps_OrderDateArchive
+  as partition pf_OrderDate
+  all to ([PRIMARY]);
+
+alter partition scheme ps_OrderDate
+  next used fg2026;
+
+drop partition scheme ps_OrderDate;"
+`;
+
+exports[`fixtures > procedural/control-flow.sql 1`] = `
+"declare @price decimal(10, 2) = 29.99;
+
+declare @title nvarchar(200);
+
+declare @count int;
+
+set @count = (
+  select count(*)
+  from Books
+  where InStock = 1
+);
+
+if @count > 0
+begin
+  set @title = 'Books available';
+end
+else
+begin
+  set @title = 'No books available';
+end
+
+if @price < 10
+  set @title = 'cheap';
+else
+  if @price < 50
+    set @title = 'mid-range';
+  else
+    set @title = 'expensive';
+
+while @count > 0
+begin
+  set @count = @count - 1;
+
+  if @count = 5
+    continue;
+
+  if @count = 0
+    break;
+end
+
+begin try
+  insert into Books (Title, Price, InStock)
+  values ('New Book', 19.99, 1);
+end try
+begin catch
+  declare @msg nvarchar(4000) = error_message();
+
+  declare @sev int = error_severity();
+
+  declare @state int = error_state();
+
+  raiserror (@msg, @sev, @state);
+end catch
+
+goto Cleanup;
+
+Cleanup:
+
+print 'done';
+
+return;"
+`;
+
+exports[`fixtures > procedural/cursors.sql 1`] = `
+"declare @bookId int;
+
+declare @title nvarchar(200);
+
+declare @price decimal(10, 2);
+
+declare BookCursor cursor
+for
+select
+  Id,
+  Title,
+  Price
+from Books
+where InStock = 1
+order by Title asc;
+
+open BookCursor;
+
+fetch next from BookCursor into @bookId, @title, @price;
+
+while @@fetch_status = 0
+begin
+  print @title;
+
+  fetch next from BookCursor into @bookId, @title, @price;
+end
+
+close BookCursor;
+
+deallocate BookCursor;
+
+declare ScrollCursor SCROLL cursor
+for
+select
+  Id,
+  Title
+from Books
+order by Id asc;
+
+open ScrollCursor;
+
+fetch first from ScrollCursor into @bookId, @title;
+
+fetch last from ScrollCursor into @bookId, @title;
+
+fetch absolute 5 from ScrollCursor into @bookId, @title;
+
+fetch relative -2 from ScrollCursor into @bookId, @title;
+
+fetch prior from ScrollCursor into @bookId, @title;
+
+close ScrollCursor;
+
+deallocate ScrollCursor;"
+`;
+
+exports[`fixtures > procedural/operational.sql 1`] = `
+"save transaction SavePoint1;
+
+save transaction @sp;
+
+checkpoint;
+
+checkpoint 5;
+
+kill 52;
+
+kill 52 with statusonly;
+
+reconfigure;
+
+reconfigure with override;"
+`;
+
+exports[`fixtures > procedural/transactions.sql 1`] = `
+"begin transaction;
+
+begin transaction SaveOrder;
+
+save transaction BeforeSave;
+
+rollback transaction;
+
+rollback transaction BeforeSave;
+
+commit transaction;
+
+commit transaction SaveOrder;
+
+begin try
+  begin transaction;
+
+  insert into Orders (CustomerId, Total)
+  values (1, 99.99);
+
+  commit transaction;
+end try
+begin catch
+  rollback transaction throw;
+end catch
+
+set transaction isolation level read committed;
+
+set transaction isolation level serializable;
+
+set transaction isolation level snapshot;"
+`;
+
+exports[`fixtures > security/alter-authorization.sql 1`] = `
+"alter authorization
+on schema::Sales
+to Mary;
+
+alter authorization
+on dbo.Orders
+to Mary;
+
+alter authorization
+on object::dbo.Orders
+to dbo;
+
+alter authorization
+on database::Bookstore
+to sa;"
+`;
+
+exports[`fixtures > security/grants.sql 1`] = `
+"create user AppUser
+for login AppLogin;
+
+create user ReportUser
+without login
+with default_schema = dbo;
+
+alter user AppUser
+with name = NewAppUser, default_schema = sales;
+
+drop user AppUser;
+
+drop user if exists AppUser;
+
+create login AppLogin
+with password = 'Str0ngP@ssw0rd!';
+
+create login DomainUser
+from windows
+with default_database = AdventureWorks;
+
+alter login AppLogin
+with password = 'NewP@ssw0rd!' old_password = 'Str0ngP@ssw0rd!';
+
+alter login AppLogin enable;
+
+drop login AppLogin;
+
+create role db_reader
+authorization dbo;
+
+alter role db_reader
+add member AppUser;
+
+alter role db_reader
+drop member AppUser;
+
+drop role db_reader;
+
+grant select
+on dbo.Books
+to AppUser;
+
+grant select, insert, update
+on dbo.Books
+to AppUser, ReportUser;
+
+grant select
+on dbo.Books (Title, Price)
+to ReportUser;
+
+grant execute
+on dbo.GetAvailableBooks
+to AppUser
+with grant option;
+
+deny delete
+on dbo.Books
+to AppUser;
+
+revoke select
+on dbo.Books
+from AppUser;
+
+revoke select
+on dbo.Books
+from AppUser
+cascade;
+
+grant select, insert, update, delete
+on schema::dbo
+to AppUser;
+
+grant control
+on database::AdventureWorks
+to AppUser;"
+`;
+
+exports[`fixtures > security/users-roles.sql 1`] = `
+"create user AppUser
+for login AppLogin
+with default_schema = dbo;
+
+create user ReportUser
+without login
+with default_schema = reporting;
+
+create user ExternalUser
+from external provider;
+
+alter user AppUser
+with name = NewAppUser;
+
+alter user AppUser
+with default_schema = sales;
+
+create role ReadOnly;
+
+create role DataReader
+authorization dbo;
+
+alter role ReadOnly
+add member AppUser;
+
+alter role ReadOnly
+drop member AppUser;
+
+alter role ReadOnly
+with name = db_readonly;
+
+drop role ReadOnly;
+
+drop role if exists db_readonly;
+
+grant select, insert, update
+on schema::dbo
+to AppUser;
+
+grant control
+on database::AdventureWorks
+to AppUser;
+
+grant impersonate
+on login::ServiceLogin
+to AppUser;
+
+deny delete
+on object::dbo.AuditLog
+to AppUser;
+
+revoke select
+on schema::dbo
+from AppUser
+cascade;
+
+grant select
+on dbo.Books (Title, Price)
+to ReportUser;
+
+grant execute
+on dbo.GetAvailableBooks
+to AppUser
+with grant option;"
+`;
+
+exports[`fixtures > select/basic.sql 1`] = `
+"select
+  Books.Id,
+  Books.Title,
+  Authors.FirstName
+from
+  Books
+  inner join Authors on Books.AuthorId = Authors.Id
+where Books.InStock = 1
+order by Books.Title asc;"
+`;
+
+exports[`fixtures > select/cte.sql 1`] = `
+"with availableBooks as (
+  select
+    Id,
+    Title
+  from Books
+  where InStock = 1
+),
+    bookOrders as (
+  select
+    BookId,
+    count(*) as OrderCount
+  from OrderItems
+  group by BookId
+)
+select
+  availableBooks.Title,
+  bookOrders.OrderCount
+from
+  availableBooks
+  inner join bookOrders on availableBooks.Id = bookOrders.BookId
+order by bookOrders.OrderCount desc;"
+`;
+
+exports[`fixtures > select/expressions.sql 1`] = `
+"select
+  current_timestamp,
+  current_user,
+  session_user,
+  system_user;
+
+select $PARTITION.PF_OrderDate(OrderDate)
+from Orders;
+
+insert into Books (Title, Price, InStock)
+values ('Clean Code', 39.99, default);
+
+select
+  identity(int, 1, 1) as Id,
+  Name
+from Source;
+
+select next value for dbo.OrderSeq;
+
+select next value for dbo.OrderSeq over (order by Id asc);
+
+select parse('2023-01-01' as date);
+
+select parse('3.14' as decimal(10, 2) using 'en-US');
+
+select try_parse('abc' as int);
+
+select try_parse('2023-01-01' as date using 'en-US');
+
+select string_agg(Name, ', ') within group (order by Name asc)
+from Authors;
+
+select percentile_cont(0.5) within group (order by Salary asc) over (
+  partition by Department
+)
+from Employees;
+
+select top (10) with ties
+  Id,
+  Title,
+  Price
+from Books
+order by Price desc;
+
+select top (10) percent
+  Id,
+  Title
+from Books
+order by Price desc;"
+`;
+
+exports[`fixtures > select/for-xml-json.sql 1`] = `
+"select
+  Id,
+  Title,
+  Price
+from Books
+for xml auto;
+
+select
+  Id,
+  Title,
+  Price
+from Books
+for xml path('Book'), root('Books'), type;
+
+select
+  Id,
+  Name,
+  Category
+from Products
+for xml raw('Product'), elements, root('Catalog');
+
+select
+  OrderId,
+  CustomerId,
+  Total
+from Orders
+for json auto;
+
+select
+  Id,
+  Title as name,
+  Price as price
+from Books
+for json path, root('Books'), include_null_values;
+
+select
+  Id,
+  Title
+from Books
+for json path, without_array_wrapper;
+
+select *
+from Books
+for browse;"
+`;
+
+exports[`fixtures > select/inline-values.sql 1`] = `
+"select
+  v.Id,
+  v.Name
+from (values (1, 'Alice'), (2, 'Bob')) as v(Id, Name);
+
+select v.Id
+from (values (1), (2), (3)) as v(Id);
+
+select
+  p.ProductId,
+  p.Price
+from (values (101, 9.99), (102, 14.99), (103, 4.99)) as p(ProductId, Price)
+where p.Price < 10;"
+`;
+
+exports[`fixtures > select/joins.sql 1`] = `
+"-- INNER JOIN (keyword form)
+select
+  b.Id,
+  b.Title,
+  a.LastName
+from
+  Books as b
+  inner join Authors as a on b.AuthorId = a.Id
+where b.InStock = 1
+order by b.Title asc;
+
+-- LEFT JOIN with aliased columns
+select
+  b.Title,
+  p.Name as Publisher
+from
+  Books as b
+  left join Publishers as p on b.PublisherId = p.Id;
+
+-- RIGHT JOIN
+select
+  b.Title,
+  g.Name as Genre
+from
+  Books as b
+  right join Genres as g on b.GenreId = g.Id;
+
+-- FULL OUTER JOIN
+select
+  b.Title,
+  a.LastName
+from
+  Books as b
+  full join Authors as a on b.AuthorId = a.Id;
+
+-- CROSS JOIN
+select
+  b.Title,
+  g.Name
+from
+  Books as b
+  cross join Genres as g;
+
+-- Multiple joins on the same table
+select
+  b.Title,
+  a.LastName,
+  p.Name as Publisher,
+  g.Name as Genre
+from
+  Books as b
+  inner join Authors as a on b.AuthorId = a.Id
+  inner join Publishers as p on b.PublisherId = p.Id
+  inner join Genres as g on b.GenreId = g.Id
+where b.InStock = 1;
+
+-- JOIN with multiple ON predicates (AND)
+select
+  b.Title,
+  oi.Quantity
+from
+  Books as b
+  inner join OrderItems as oi on
+    b.Id = oi.BookId
+    and oi.UnitPrice > 10
+    and oi.Quantity > 1;
+
+-- Self-join
+select
+  b1.Title as Original,
+  b2.Title as Companion
+from
+  Books as b1
+  inner join Books as b2 on
+    b1.AuthorId = b2.AuthorId
+    and b1.Id <> b2.Id;
+
+-- JOIN with subquery (derived table)
+select
+  b.Title,
+  recent.Total
+from
+  Books as b
+  inner join (
+    select
+      BookId,
+      sum(Quantity) as Total
+    from OrderItems
+    group by BookId
+  ) as recent on b.Id = recent.BookId;
+
+-- CROSS APPLY
+select
+  b.Title,
+  top5.OrderId
+from
+  Books as b
+  cross apply (
+    select top (5) OrderId
+    from OrderItems
+    where BookId = b.Id
+    order by UnitPrice desc
+  ) as top5;
+
+-- OUTER APPLY
+select
+  b.Title,
+  latest.OrderId
+from
+  Books as b
+  outer apply (
+    select top (1) OrderId
+    from OrderItems
+    where BookId = b.Id
+    order by UnitPrice desc
+  ) as latest;
+
+-- JOIN with table hint
+select
+  b.Title,
+  a.LastName
+from
+  Books as b with (nolock)
+  inner join Authors as a with (nolock) on b.AuthorId = a.Id;
+
+-- Three-way join with WHERE and ORDER BY
+select
+  b.Title,
+  a.LastName,
+  o.Total
+from
+  Orders as o
+  inner join OrderItems as oi on o.Id = oi.OrderId
+  inner join Books as b on oi.BookId = b.Id
+  inner join Authors as a on b.AuthorId = a.Id
+where o.Status = 'Shipped'
+order by
+  o.OrderDate desc,
+  b.Title asc;
+
+-- UPDATE with JOIN (join-based update)
+update Books
+set InStock = 0
+from
+  Books as b
+  inner join Publishers as p on b.PublisherId = p.Id
+where p.Country = 'UK';"
+`;
+
+exports[`fixtures > select/pivot-unpivot.sql 1`] = `
+"select *
+from Sales
+pivot (
+  sum(Amount)
+  for Quarter in ([Q1], [Q2], [Q3], [Q4])
+) as PivotTable;
+
+select
+  CustomerId,
+  [2022],
+  [2023],
+  [2024]
+from (
+  select
+    CustomerId,
+    year(OrderDate) as OrderYear,
+    Total
+  from Orders
+) as src
+pivot (
+  sum(Total)
+  for OrderYear in ([2022], [2023], [2024])
+) as YearlyTotals;
+
+select *
+from PivotedSales
+unpivot (
+  Amount for Quarter in (Q1, Q2, Q3, Q4)
+) as UnpivotTable;"
+`;
+
+exports[`fixtures > select/quoted-identifiers.sql 1`] = `
+"-- Brackets stripped when not needed
+select
+  Books.Id,
+  Books.Title
+from Books
+where Books.InStock = 1;
+
+-- Brackets preserved when name contains spaces
+select
+  [My Table].[Book Id],
+  [My Table].[Book Title]
+from [My Table];
+
+-- Brackets preserved when name starts with digit
+select [123abc]
+from [My Schema].[My Table];
+
+-- Mixed: some need brackets, some don't
+select
+  Books.Id,
+  [My Table].[Book Title]
+from
+  Books
+  inner join [My Table] on Books.Id = [My Table].[Book Id];"
+`;
+
+exports[`fixtures > select/subquery.sql 1`] = `
+"select
+  Id,
+  Title
+from Books
+where
+  Id in (
+    select BookId
+    from OrderItems
+    where UnitPrice > 50
+  )
+  and GenreId = (
+    select Id
+    from Genres
+    where Name = 'Fiction'
+  );"
+`;
+
+exports[`fixtures > select/subquery-predicate.sql 1`] = `
+"select Id
+from Books
+where Price > all (
+  select Price
+  from ArchivedBooks
+);
+
+select Id
+from Books
+where Price = any (
+  select Price
+  from FeaturedBooks
+);
+
+select Id
+from Books
+where Price >= any (
+  select min(Price)
+  from Books
+  where InStock = 1
+);"
+`;
+
+exports[`fixtures > select/tablesample-temporal.sql 1`] = `
+"select *
+from BigTable tablesample (10 percent);
+
+select *
+from BigTable tablesample (1000 rows);
+
+select *
+from BigTable tablesample system (10 percent) repeatable (42);
+
+select
+  Id,
+  Name
+from dbo.Employee for system_time as of '2023-01-01';
+
+select
+  Id,
+  Name
+from dbo.Employee for system_time from '2022-01-01' to '2023-01-01';
+
+select
+  Id,
+  Name
+from dbo.Employee for system_time between '2022-01-01' and '2023-01-01';
+
+select
+  Id,
+  Name
+from dbo.Employee for system_time contained in ('2022-01-01', '2023-01-01');
+
+select
+  Id,
+  Name
+from dbo.Employee for system_time all;"
+`;
+
+exports[`fixtures > select/window.sql 1`] = `
+"select
+  Id,
+  Title,
+  Price,
+  row_number() over (
+    partition by GenreId
+    order by Price desc
+  ) as Rn,
+  rank() over (
+    partition by GenreId
+    order by Price desc
+  ) as Rnk,
+  sum(Price) over (partition by GenreId) as GenreTotal
+from Books;"
+`;
+
+exports[`fixtures > sequence/basic.sql 1`] = `
+"create sequence OrderSeq as int
+  start with 1
+  increment by 1;
+
+create sequence dbo.InvoiceSeq as bigint
+  start with 1000
+  increment by 1
+  minvalue 1000
+  maxvalue 9999999
+  no cycle
+  cache 50;
+
+alter sequence OrderSeq
+  restart with 1;
+
+alter sequence dbo.InvoiceSeq
+  increment by 10
+  maxvalue 99999999
+  cycle
+  cache 100;
+
+drop sequence OrderSeq;
+
+drop sequence if exists OrderSeq;
+
+drop sequence dbo.InvoiceSeq, dbo.OrderSeq;"
+`;
+
+exports[`fixtures > shared/dml/delete.sql 1`] = `
+"delete from books
+where
+  in_stock = 0
+  and price < 5;"
+`;
+
+exports[`fixtures > shared/dml/insert.sql 1`] = `
+"insert into books (title, author_id, price, in_stock)
+values ('The Pragmatic Programmer', 1, 39.99, 1);"
+`;
+
+exports[`fixtures > shared/dml/update.sql 1`] = `
+"update books
+set
+  price = price * 0.9,
+  in_stock = 1
+where
+  author_id = 1
+  and price > 20;"
+`;
+
+exports[`fixtures > shared/select/aggregates.sql 1`] = `
+"select
+  author_id,
+  count(*) as book_count,
+  avg(price) as avg_price
+from books
+where in_stock = 1
+group by author_id
+having count(*) > 5
+order by book_count desc;"
+`;
+
+exports[`fixtures > shared/select/basic.sql 1`] = `
+"select
+  id,
+  title,
+  price
+from books
+where in_stock = 1
+order by price asc;
+
+select
+  id,
+  title,
+  price
+from books
+where
+  in_stock = 1
+  and price < 50
+order by price desc;"
+`;
+
+exports[`fixtures > shared/select/case.sql 1`] = `
+"select
+  id,
+  case
+    when price < 10 then 'Budget'
+    when price < 30 then 'Mid'
+    else 'Premium'
+  end as tier
+from books;
+
+select
+  id,
+  case genre_id
+    when 1 then 'Fiction'
+    when 2 then 'Non-Fiction'
+    else 'Other'
+  end as genre
+from books;"
+`;
+
+exports[`fixtures > shared/select/cte.sql 1`] = `
+"with top_authors as (
+  select
+    author_id,
+    count(*) as book_count
+  from books
+  group by author_id
+  having count(*) > 5
+)
+select
+  a.first_name,
+  a.last_name,
+  t.book_count
+from
+  authors as a
+  inner join top_authors as t on a.id = t.author_id
+order by t.book_count desc;"
+`;
+
+exports[`fixtures > shared/select/joins.sql 1`] = `
+"select
+  b.id,
+  b.title,
+  a.first_name,
+  a.last_name
+from
+  books as b
+  inner join authors as a on b.author_id = a.id;
+
+select
+  b.title,
+  a.first_name
+from
+  books as b
+  left join authors as a on b.author_id = a.id
+where a.id is null;
+
+select
+  b.title,
+  a.first_name
+from
+  books as b
+  full join authors as a on b.author_id = a.id;"
+`;
+
+exports[`fixtures > shared/select/subqueries.sql 1`] = `
+"select
+  id,
+  title
+from books
+where author_id in (
+  select id
+  from authors
+  where country = 'USA'
+);
+
+select
+  id,
+  title
+from books
+where exists (
+  select 1
+  from order_items
+  where order_items.book_id = books.id
+);
+
+select
+  id,
+  title
+from books
+where author_id not in (
+  select author_id
+  from banned_authors
+);"
+`;
+
+exports[`fixtures > stored-proc/basic.sql 1`] = `
+"create procedure GetAvailableBooks
+as
+begin
+  select
+    Id,
+    Title,
+    Price
+  from Books
+  where InStock = 1
+  order by Title asc;
+end;
+go"
+`;
+
+exports[`fixtures > stored-proc/with-params.sql 1`] = `
+"create procedure GetBookById
+  @BookId int,
+  @IncludeOutOfStock bit = 0
+as
+begin
+  select
+    Id,
+    Title,
+    Price,
+    InStock
+  from Books
+  where
+    Id = @BookId
+    and (
+      InStock = 1
+      or @IncludeOutOfStock = 1
+    );
+end;
+go"
+`;
+
+exports[`fixtures > trigger/after-insert.sql 1`] = `
+"create trigger BooksAfterInsert
+on Books
+after insert
+as
+begin
+  insert into AuditLog (TableName, Action, RecordId, ChangedAt)
+  select
+    'Books',
+    'INSERT',
+    Id,
+    getdate()
+  from inserted;
+end;
+go"
+`;
+
+exports[`fixtures > trigger/enable-disable.sql 1`] = `
+"enable trigger tr1
+on dbo.Orders;
+
+disable trigger tr1
+on dbo.Orders;
+
+enable trigger tr1, tr2
+on dbo.Orders;
+
+disable trigger all
+on dbo.Orders;
+
+enable trigger all
+on database;
+
+disable trigger all
+on all server;"
+`;
+
+exports[`fixtures > trigger/instead-of-delete.sql 1`] = `
+"create trigger BooksInsteadOfDelete
+on Books
+instead of delete
+as
+begin
+  update Books
+  set
+    IsDeleted = 1,
+    DeletedAt = getdate()
+  where Id in (
+    select Id
+    from deleted
+  );
+end;
+go"
+`;
+
+exports[`fixtures > type/basic.sql 1`] = `
+"create type dbo.BookTitle from nvarchar(200) not null;
+
+create type dbo.Price from decimal(10, 2) null;
+
+create type dbo.BookTableType as table (
+  Id int not null,
+  Title nvarchar(200) not null,
+  Price decimal(10, 2) not null,
+  InStock bit not null
+);
+
+create type dbo.OrderLineType as table (
+  LineId int not null,
+  BookId int not null,
+  Quantity int not null,
+  UnitPrice decimal(10, 2) not null
+);"
+`;
+
+exports[`fixtures > type/table-types.sql 1`] = `
+"create type dbo.IdList as table (
+  Id int not null
+);
+
+create type dbo.NameValuePair as table (
+  Name nvarchar(100) not null,
+  [Value] nvarchar(500) null
+);
+
+create type dbo.OrderLine as table (
+  LineId int not null,
+  ProductId int not null,
+  Quantity int default 1 not null,
+  UnitPrice decimal(10, 2) not null
+);
+
+drop type dbo.IdList
+
+drop type if exists dbo.NameValuePair"
+`;
+
+exports[`fixtures > update/basic.sql 1`] = `
+"update Books
+set
+  Title = 'Updated Title',
+  Price = 29.99
+where Id = 42;"
+`;
+
+exports[`fixtures > update/cte.sql 1`] = `
+"with cte as (
+  select
+    Id,
+    Price
+  from Books
+  where InStock = 1
+)
+update Books
+set Price = Price * 0.9
+from
+  Books
+  inner join cte on Books.Id = cte.Id;
+
+with cte as (
+  select
+    Id,
+    Price,
+    row_number() over (
+      partition by AuthorId
+      order by Price desc
+    ) as rn
+  from Books
+)
+update cte
+set Price = Price * 0.9
+where rn = 1;"
+`;
+
+exports[`fixtures > update/join-update.sql 1`] = `
+"update Books
+set InStock = 0
+from
+  Books
+  inner join Publishers on Books.PublisherId = Publishers.Id
+where Publishers.Country = 'UK';"
+`;
+
+exports[`fixtures > view/basic.sql 1`] = `
+"create view AvailableBooks
+as
+select
+  b.Id,
+  b.Title,
+  b.Price,
+  a.Name as AuthorName
+from
+  Books as b
+  inner join Authors as a on b.AuthorId = a.Id
+where b.InStock = 1;
+go"
+`;
+
+exports[`fixtures > view/schemabinding.sql 1`] = `
+"create view dbo.BookSummary
+with schemabinding
+as
+select
+  b.Id,
+  b.Title,
+  b.Price
+from dbo.Books as b;
+go"
+`;

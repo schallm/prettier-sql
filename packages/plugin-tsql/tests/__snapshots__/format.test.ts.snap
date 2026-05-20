@@ -1,0 +1,1194 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ALTER INDEX > ALTER INDEX ALL REBUILD 1`] = `"alter index all on Books rebuild;"`;
+
+exports[`ALTER INDEX > ALTER INDEX DISABLE 1`] = `"alter index ix_Books_title on Books disable;"`;
+
+exports[`ALTER INDEX > ALTER INDEX REBUILD 1`] = `"alter index ix_Books_title on Books rebuild;"`;
+
+exports[`ALTER INDEX > ALTER INDEX REORGANIZE 1`] = `"alter index ix_Books_title on Books reorganize;"`;
+
+exports[`ALTER TABLE formatting > add column 1`] = `
+"alter table Books
+add Isbn nvarchar(20) null;"
+`;
+
+exports[`ALTER TABLE formatting > drop column 1`] = `
+"alter table Books
+drop column Isbn;"
+`;
+
+exports[`BULK INSERT > BULK INSERT basic 1`] = `
+"bulk insert Books
+from 'C:\\data\\books.csv';"
+`;
+
+exports[`BULK INSERT > BULK INSERT with WITH options 1`] = `
+"bulk insert Books
+from 'C:\\data\\books.csv'
+with (
+  fieldterminator = ',',
+  rowterminator = '\\n',
+  firstrow = 2
+);"
+`;
+
+exports[`CREATE PROCEDURE formatting > block comment after last parameter (before AS) stays between params and as 1`] = `
+"create procedure GetBookById
+  @Id int,
+  @Active bit
+/*WITH ENCRYPTION*/
+as
+begin
+  select BookId
+  from Books
+  where BookId = @Id;
+end;
+go"
+`;
+
+exports[`CREATE PROCEDURE formatting > block comment between procedure Name and first parameter is preserved 1`] = `
+"create procedure GetBookById
+/**********************
+** Author: Jon
+** Date:   2012-01-10
+**********************/
+  @Id int,
+  @IncludeOutOfStock bit = 0
+as
+begin
+  select BookId
+  from Books
+  where BookId = @Id;
+end;
+go"
+`;
+
+exports[`CREATE PROCEDURE formatting > line comment inside procedure body is preserved 1`] = `
+"create procedure GetAvailableBooks
+as
+begin
+  -- fetch available books only
+  select
+    BookId,
+    Title
+  from Books
+  where InStock = 1;
+end;
+go"
+`;
+
+exports[`CREATE PROCEDURE formatting > procedure with parameters 1`] = `
+"create procedure GetBookById
+  @Id int,
+  @IncludeOutOfStock bit = 0
+as
+begin
+  select
+    BookId,
+    Title
+  from Books
+  where BookId = @Id;
+end;
+go"
+`;
+
+exports[`CREATE PROCEDURE formatting > simple procedure 1`] = `
+"create procedure GetAvailableBooks
+as
+begin
+  select
+    BookId,
+    Title
+  from Books
+  where InStock = 1;
+end;
+go"
+`;
+
+exports[`CREATE TABLE formatting > basic table 1`] = `
+"create table Books (
+  BookId int identity(1, 1) not null,
+  Title nvarchar(200) not null,
+  Price decimal(10, 2) not null,
+  InStock bit default 1 not null,
+  constraint pk_books primary key (BookId)
+);"
+`;
+
+exports[`CREATE TABLE formatting > table with foreign key constraint 1`] = `
+"create table Orders (
+  OrderId int identity(1, 1) not null,
+  CustomerId int not null,
+  Total decimal(18, 2) not null,
+  constraint pk_orders primary key (OrderId),
+  constraint fk_orders_customers
+    foreign key (CustomerId) references Customers (CustomerId)
+);"
+`;
+
+exports[`CREATE TYPE > CREATE TYPE scalar UDDT 1`] = `"create type BookTitle from nvarchar(200) not null;"`;
+
+exports[`CREATE TYPE > CREATE TYPE table type 1`] = `
+"create type BookList as table (
+  BookId int not null,
+  Title nvarchar(200),
+  Price decimal(10, 2)
+);"
+`;
+
+exports[`CREATE/ALTER TRIGGER > ALTER TRIGGER 1`] = `
+"alter trigger BooksAfterInsertTrigger
+on Books
+after insert
+as
+begin
+  return;
+end;
+go"
+`;
+
+exports[`CREATE/ALTER TRIGGER > CREATE TRIGGER after insert 1`] = `
+"create trigger BooksAfterInsertTrigger
+on Books
+after insert
+as
+begin
+  update Books
+  set Price = Price * 1.1
+  where BookId in (
+    select BookId
+    from inserted
+  );
+end;
+go"
+`;
+
+exports[`CREATE/ALTER TRIGGER > CREATE TRIGGER instead of update/delete 1`] = `
+"create trigger BooksInsteadOfDeleteTrigger
+on Books
+instead of update, delete
+as
+begin
+  print 'blocked';
+end;
+go"
+`;
+
+exports[`CREATE/ALTER/DROP SEQUENCE > ALTER SEQUENCE restart 1`] = `
+"alter sequence OrderSeq
+  restart with 100
+  increment by 5;"
+`;
+
+exports[`CREATE/ALTER/DROP SEQUENCE > CREATE SEQUENCE minimal 1`] = `
+"create sequence OrderSeq as int
+  start with 1
+  increment by 1;"
+`;
+
+exports[`CREATE/ALTER/DROP SEQUENCE > CREATE SEQUENCE with min/max/cycle/cache 1`] = `
+"create sequence Seq as bigint
+  start with 1
+  increment by 1
+  minvalue 1
+  maxvalue 9999
+  cycle
+  cache 20;"
+`;
+
+exports[`Control flow & DDL additions > CREATE OR ALTER PROCEDURE emits correct keyword and GO 1`] = `
+"create or alter procedure GetBooks
+as
+begin
+  select BookId
+  from Books;
+end;
+go"
+`;
+
+exports[`Control flow & DDL additions > SELECT @var assignment in select list 1`] = `
+"select @total = sum(Price)
+from Books
+where InStock = 1;"
+`;
+
+exports[`Control flow & DDL additions > TRY/CATCH block 1`] = `
+"begin try
+  select BookId
+  from Books;
+end try
+begin catch
+  throw;
+end catch"
+`;
+
+exports[`Cursor operations > DECLARE CURSOR basic 1`] = `
+"declare BookCursor cursor
+for
+select
+  BookId,
+  Title
+from Books
+where InStock = 1;"
+`;
+
+exports[`Cursor operations > OPEN / FETCH NEXT / CLOSE / DEALLOCATE 1`] = `
+"open BookCursor;
+
+fetch next from BookCursor into @id, @title;
+
+close BookCursor;
+
+deallocate BookCursor;"
+`;
+
+exports[`DELETE formatting > basic delete 1`] = `
+"delete from Books
+where
+  InStock = 0
+  and PublishedDate < dateadd(year, -10, getdate());"
+`;
+
+exports[`Full-text predicates > CONTAINS with LANGUAGE 1`] = `
+"select BookId
+from Books
+where contains(Title, 'query', language 1033);"
+`;
+
+exports[`Full-text predicates > CONTAINS with multiple columns 1`] = `
+"select BookId
+from Books
+where contains((Title, AuthorId), 'design');"
+`;
+
+exports[`Full-text predicates > CONTAINS with single column 1`] = `
+"select
+  BookId,
+  Title
+from Books
+where contains(Title, '"SQL Server"');"
+`;
+
+exports[`Full-text predicates > CONTAINS with wildcard * 1`] = `
+"select BookId
+from Books
+where contains(*, 'programming');"
+`;
+
+exports[`Full-text predicates > CONTAINSTABLE in FROM clause 1`] = `
+"select
+  b.BookId,
+  b.Title,
+  ft.rank
+from
+  Books as b
+  inner join containstable(Books, Title, '"SQL"') as ft on b.BookId = ft.[key];"
+`;
+
+exports[`Full-text predicates > FREETEXT with single column 1`] = `
+"select
+  BookId,
+  Title
+from Books
+where freetext(Title, 'database programming');"
+`;
+
+exports[`Full-text predicates > FREETEXTTABLE with wildcard and TOP N 1`] = `
+"select
+  b.BookId,
+  ft.rank
+from
+  Books as b
+  inner join freetexttable(Books, *, 'programming', 10) as ft on
+    b.BookId = ft.[key];"
+`;
+
+exports[`IGNORE NULLS / RESPECT NULLS (SQL Server 2022+) > FIRST_VALUE IGNORE NULLS 1`] = `
+"select first_value(Price) ignore nulls over (
+  partition by AuthorId
+  order by PublishedDate asc
+)
+from Books;"
+`;
+
+exports[`IGNORE NULLS / RESPECT NULLS (SQL Server 2022+) > LAST_VALUE RESPECT NULLS 1`] = `
+"select last_value(Price) respect nulls over (order by PublishedDate asc)
+from Books;"
+`;
+
+exports[`IN clause formatting > IN subquery is unaffected 1`] = `
+"select BookId
+from Books
+where BookId in (
+  select BookId
+  from OrderItems
+  where UnitPrice > 50
+);"
+`;
+
+exports[`IN clause formatting > NOT IN short list stays inline 1`] = `
+"select BookId
+from Books
+where GenreId not in (1, 2);"
+`;
+
+exports[`IN clause formatting > long value list wraps each value to its own line 1`] = `
+"select AuthorId
+from Authors
+where Country in (
+  'United States',
+  'United Kingdom',
+  'Canada',
+  'Australia',
+  'Germany'
+);"
+`;
+
+exports[`IN clause formatting > short value list stays on one line 1`] = `
+"select BookId
+from Books
+where GenreId in (1, 2, 3);"
+`;
+
+exports[`INSERT formatting > INSERT ... SELECT 1`] = `
+"insert into ArchivedBooks (BookId, Title)
+select
+  BookId,
+  Title
+from Books
+where InStock = 0;"
+`;
+
+exports[`INSERT formatting > VALUES insert 1`] = `
+"insert into Customers (Name, Email, Active)
+values ('Jane Smith', 'jane@example.com', 1);"
+`;
+
+exports[`IS [NOT] DISTINCT FROM (SQL Server 2022+) > IS DISTINCT FROM 1`] = `
+"select 1
+where a is distinct from b;"
+`;
+
+exports[`IS [NOT] DISTINCT FROM (SQL Server 2022+) > IS NOT DISTINCT FROM 1`] = `
+"select 1
+where a is not distinct from b;"
+`;
+
+exports[`JSON_ARRAY (SQL Server 2022+) > basic values 1`] = `"select json_array(1, 2, 'three');"`;
+
+exports[`JSON_ARRAY (SQL Server 2022+) > with ABSENT ON NULL 1`] = `"select json_array(1, 2, 'three' absent on null);"`;
+
+exports[`JSON_ARRAY (SQL Server 2022+) > with NULL ON NULL 1`] = `"select json_array(1, null null on null);"`;
+
+exports[`JSON_ARRAYAGG (SQL Server 2022+) > basic aggregation 1`] = `
+"select json_arrayagg(Title)
+from Books;"
+`;
+
+exports[`JSON_ARRAYAGG (SQL Server 2022+) > with ORDER BY 1`] = `
+"select json_arrayagg(Title order by Title asc)
+from Books;"
+`;
+
+exports[`JSON_ARRAYAGG (SQL Server 2022+) > with ORDER BY and ABSENT ON NULL 1`] = `
+"select json_arrayagg(Title order by Title asc absent on null)
+from Books;"
+`;
+
+exports[`JSON_OBJECT (SQL Server 2022+) > basic key-value pairs 1`] = `
+"select json_object('name': Title, 'price': Price)
+from Books;"
+`;
+
+exports[`JSON_OBJECT (SQL Server 2022+) > single pair inline 1`] = `
+"select json_object('id': Id)
+from Books;"
+`;
+
+exports[`JSON_OBJECT (SQL Server 2022+) > with ABSENT ON NULL 1`] = `
+"select json_object('name': Title, 'price': Price absent on null)
+from Books;"
+`;
+
+exports[`JSON_OBJECT (SQL Server 2022+) > with NULL ON NULL 1`] = `
+"select json_object('id': Id null on null)
+from Books;"
+`;
+
+exports[`MERGE statement > MERGE with AND predicate on WHEN MATCHED 1`] = `
+"merge into Books as t
+using ArchivedBooks as s on t.BookId = s.BookId
+when matched and t.Price <> s.Price then
+  update set t.Price = s.Price;"
+`;
+
+exports[`MERGE statement > MERGE with subquery as source 1`] = `
+"merge into Books as t
+using (
+  select
+    BookId,
+    Title,
+    Price
+  from ArchivedBooks
+  where Price > 0
+) as s on t.BookId = s.BookId
+when matched then
+  update set
+    t.Title = s.Title,
+    t.Price = s.Price;"
+`;
+
+exports[`MERGE statement > full MERGE with all three clause types 1`] = `
+"merge into Books as t
+using ArchivedBooks as s on t.BookId = s.BookId
+when matched then
+  update set
+    t.Title = s.Title,
+    t.Price = s.Price
+when not matched by target then
+  insert (BookId, Title, Price)
+  values (s.BookId, s.Title, s.Price)
+when not matched by source then
+  delete;"
+`;
+
+exports[`OPTION clause formatting > OPTION (RECOMPILE) is preserved on its own line 1`] = `
+"select
+  BookId,
+  Title
+from Books
+where InStock = 1
+option (recompile);"
+`;
+
+exports[`OPTION clause formatting > OPTION clause respects keyword case upper 1`] = `
+"SELECT BookId
+FROM Books
+OPTION (RECOMPILE);"
+`;
+
+exports[`OPTION clause formatting > OPTION clause with ORDER BY appears after ORDER BY 1`] = `
+"select
+  BookId,
+  Title
+from Books
+where InStock = 1
+order by Title asc
+option (recompile);"
+`;
+
+exports[`OUTPUT clause > DELETE with OUTPUT INTO 1`] = `
+"delete from Books
+output
+  deleted.BookId,
+  deleted.Title
+into @removed (BookId, Title)
+where InStock = 0;"
+`;
+
+exports[`OUTPUT clause > INSERT with OUTPUT inserted.* 1`] = `
+"insert into Books (Title, Price)
+output inserted.BookId, inserted.Title
+values ('New Book', 9.99);"
+`;
+
+exports[`OUTPUT clause > MERGE with OUTPUT $action and inserted/deleted columns 1`] = `
+"merge into Books as t
+using ArchivedBooks as s on t.BookId = s.BookId
+when matched then
+  update set t.Price = s.Price
+when not matched by target then
+  insert (BookId, Title, Price)
+  values (s.BookId, s.Title, s.Price)
+when not matched by source then
+  delete
+output $action, inserted.BookId, deleted.Price;"
+`;
+
+exports[`OUTPUT clause > MERGE with OUTPUT INTO table variable 1`] = `
+"merge into Books as t
+using ArchivedBooks as s on t.BookId = s.BookId
+when matched then
+  update set t.Price = s.Price
+output
+  $action,
+  inserted.BookId,
+  inserted.Price
+into @changes (action, BookId, Price);"
+`;
+
+exports[`OUTPUT clause > UPDATE with OUTPUT 1`] = `
+"update Books
+set Price = Price * 1.1
+output inserted.BookId, deleted.Price, inserted.Price
+where InStock = 1;"
+`;
+
+exports[`OVER (window_name) (SQL Server 2022+) > inline window frame on OVER clause (no named window) 1`] = `
+"select sum(Price) over (
+  partition by AuthorId
+  order by Id asc
+  rows between unbounded preceding and current row
+)
+from Books;"
+`;
+
+exports[`OVER (window_name) (SQL Server 2022+) > multiple named windows 1`] = `
+"select
+  row_number() over w1,
+  rank() over w2
+from Books
+window
+  w1 as (
+    partition by AuthorId
+    order by Id asc
+  ),
+  w2 as (order by Price asc);"
+`;
+
+exports[`OVER (window_name) (SQL Server 2022+) > window function referencing named window 1`] = `
+"select row_number() over w
+from Books
+window w as (
+  partition by AuthorId
+  order by Title asc
+);"
+`;
+
+exports[`OVER (window_name) (SQL Server 2022+) > window with ROWS BETWEEN frame 1`] = `
+"select sum(Price) over w
+from Books
+window w as (
+  partition by AuthorId
+  order by Id asc
+  rows between unbounded preceding and current row
+);"
+`;
+
+exports[`SELECT formatting > CTE 1`] = `
+"with availableBooks as (
+  select
+    BookId,
+    Title
+  from Books
+  where InStock = 1
+)
+select b.Title
+from availableBooks as b
+order by b.Title asc;"
+`;
+
+exports[`SELECT formatting > GROUP BY CUBE respects keyword case 1`] = `
+"SELECT
+  GenreId,
+  InStock,
+  COUNT(*) AS BookCount
+FROM Books
+GROUP BY CUBE(GenreId, InStock);"
+`;
+
+exports[`SELECT formatting > GROUP BY GROUPING SETS with composite groups and grand Total 1`] = `
+"select
+  GenreId,
+  AuthorId,
+  sum(Price) as Total
+from Books
+group by grouping sets((GenreId, AuthorId), (GenreId), ());"
+`;
+
+exports[`SELECT formatting > GROUP BY ROLLUP respects keyword case 1`] = `
+"select
+  GenreId,
+  AuthorId,
+  sum(Price) as Total
+from Books
+group by rollup(GenreId, AuthorId);"
+`;
+
+exports[`SELECT formatting > SELECT DISTINCT 1`] = `
+"select distinct GenreId
+from Books;"
+`;
+
+exports[`SELECT formatting > aggregate with GROUP BY / HAVING 1`] = `
+"select
+  GenreId,
+  count(*) as BookCount,
+  avg(Price) as AvgPrice
+from Books
+group by GenreId
+having count(*) > 5;"
+`;
+
+exports[`SELECT formatting > basic select with join and where 1`] = `
+"select
+  b.BookId,
+  b.Title,
+  b.Price
+from
+  Books as b
+  inner join Authors as a on b.AuthorId = a.Id
+where b.InStock = 1
+order by b.Title asc;"
+`;
+
+exports[`SELECT formatting > nested CASE in THEN branch indents inner case on new line 1`] = `
+"select
+  case
+    when ContentType = 'movie' then
+      case
+        when
+          BoxOfficeTotal is null
+          or BoxOfficeTotal < 250000000
+        then 2.78
+        else 3.69
+      end
+    when ContentType = 'tv-episode' then
+      case
+        when ContentLength < 30 * 60 then 0.61
+        else 0.91
+      end
+    else -1
+  end as AgencyCost
+from Content;"
+`;
+
+exports[`SELECT formatting > searched CASE with AND condition 1`] = `
+"select
+  case
+    when
+      b.AuthorId is not null
+      and b.GenreId in (1, 2, 3)
+    then 1
+    else 0
+  end as IsAvailable
+from Books as b;"
+`;
+
+exports[`SELECT formatting > subquery in WHERE 1`] = `
+"select
+  BookId,
+  Title
+from Books
+where BookId in (
+  select BookId
+  from OrderItems
+  where UnitPrice > 50
+);"
+`;
+
+exports[`SELECT formatting > window functions 1`] = `
+"select
+  BookId,
+  Price,
+  row_number() over (
+    partition by GenreId
+    order by Price desc
+  ) as rn
+from Books;"
+`;
+
+exports[`SET ROWCOUNT formatting > SET ROWCOUNT 0 resets to unlimited 1`] = `"set rowcount 0;"`;
+
+exports[`SET ROWCOUNT formatting > SET ROWCOUNT respects keyword case 1`] = `"set rowcount 5;"`;
+
+exports[`SET ROWCOUNT formatting > SET ROWCOUNT with integer literal 1`] = `"set rowcount 10;"`;
+
+exports[`TRIM(direction ...) (SQL Server 2022+) > TRIM with BOTH 1`] = `
+"select trim(both ' ' from Title)
+from Books;"
+`;
+
+exports[`TRIM(direction ...) (SQL Server 2022+) > TRIM with LEADING 1`] = `
+"select trim(leading ' ' from Title)
+from Books;"
+`;
+
+exports[`TRIM(direction ...) (SQL Server 2022+) > TRIM with TRAILING 1`] = `
+"select trim(trailing ' ' from Title)
+from Books;"
+`;
+
+exports[`TRIM(direction ...) (SQL Server 2022+) > TRIM without direction still works 1`] = `
+"select trim(' ' from Title)
+from Books;"
+`;
+
+exports[`UNION / INTERSECT / EXCEPT formatting > UNION (distinct) has blank lines around the operator 1`] = `
+"select AuthorId
+from Books
+
+union
+
+select AuthorId
+from ArchivedBooks;"
+`;
+
+exports[`UNION / INTERSECT / EXCEPT formatting > UNION ALL has blank lines before and after the operator 1`] = `
+"select
+  BookId,
+  Title
+from Books
+where InStock = 1
+
+union all
+
+select
+  BookId,
+  Title
+from ArchivedBooks;"
+`;
+
+exports[`UPDATE formatting > basic update 1`] = `
+"update Books
+set
+  Title = 'Updated Title',
+  Price = 29.99
+where BookId = 42;"
+`;
+
+exports[`UPDATE formatting > update with join 1`] = `
+"update b
+set b.InStock = 0
+from
+  Books as b
+  inner join Publishers as p on b.PublisherId = p.Id
+where p.Country = 'UK';"
+`;
+
+exports[`USE / SET / WAITFOR / ALTER PROC/FUNC > CREATE FUNCTION inline TVF (RETURNS TABLE) 1`] = `
+"create function GetBooksByGenre(@GenreId int) returns table
+as
+return (
+  select
+    Id,
+    Title
+  from Books
+  where GenreId = @GenreId
+);
+go"
+`;
+
+exports[`USE / SET / WAITFOR / ALTER PROC/FUNC > CREATE FUNCTION multi-statement TVF (RETURNS @t TABLE) 1`] = `
+"create function GetTopBooks(@MaxPrice decimal(10,2)) returns @result table (
+  Id int,
+  Title nvarchar(200)
+)
+as
+begin
+  insert into @result
+  select
+    Id,
+    Title
+  from Books
+  where Price <= @MaxPrice;
+
+  return;
+end;
+go"
+`;
+
+exports[`VIEW formatting > CREATE OR ALTER VIEW basic 1`] = `
+"create or alter view AvailableBooksView
+as
+select
+  BookId,
+  Title
+from Books
+where InStock = 1;
+go"
+`;
+
+exports[`VIEW formatting > block comment between view Name and AS is preserved in place 1`] = `
+"create or alter view dbo.ExampleView
+/* with encryption */
+as
+select BookId
+from Books;
+go"
+`;
+
+exports[`VIEW formatting > block comment inside first view does not appear before second view 1`] = `
+"create or alter view BooksView
+/* with encryption */
+as
+select 1 as x;
+go
+
+create or alter view AuthorsView
+as
+select 2 as y;
+go"
+`;
+
+exports[`VIEW formatting > leading comment before CREATE VIEW attaches correctly 1`] = `
+"-- view description
+create or alter view TestBooksView
+as
+select 1 as x;
+go"
+`;
+
+exports[`comma style option > trailing commas (default) 1`] = `
+"select
+  BookId,
+  Title,
+  Price
+from Books;"
+`;
+
+exports[`comment between JOIN clauses > line comment between two joins is preserved on its own line 1`] = `
+"select
+  b.BookId,
+  b.Title
+from
+  Books as b
+  inner join Authors as a on b.AuthorId = a.Id
+  -- left join: publishers may not exist for all books
+  left join Publishers as p on b.PublisherId = p.Id;"
+`;
+
+exports[`comment between JOIN clauses > multiple comments between joins are all preserved 1`] = `
+"select b.BookId
+from
+  Books as b
+  inner join Authors as a on b.AuthorId = a.Id
+  -- optional: genre
+  left join Genres as g on b.GenreId = g.Id
+  -- optional: publisher
+  left join Publishers as p on b.PublisherId = p.Id;"
+`;
+
+exports[`comment preservation > block comment after last statement in file is not lost 1`] = `
+"select BookId
+from Books;
+/* end of queries */"
+`;
+
+exports[`comment preservation > commented-out predicate in WHERE is preserved between surrounding predicates 1`] = `
+"select Id
+from Books
+where
+  InStock = 1
+  -- and Price < 20
+  and GenreId = 1;"
+`;
+
+exports[`comment preservation > line comment after last statement in file is not lost 1`] = `
+"select BookId
+from Books; -- end of queries"
+`;
+
+exports[`density option > compact > join with ON inline 1`] = `
+"select b.BookId, b.Title
+from Books as b inner join Authors as a on b.AuthorId = a.Id
+where b.InStock = 1
+order by b.Title asc;"
+`;
+
+exports[`density option > compact > multiple predicates wrap at printWidth 1`] = `"select BookId from Books where InStock = 1 and Price < 100;"`;
+
+exports[`density option > compact > single-line query stays inline 1`] = `"select BookId from Books where InStock = 1;"`;
+
+exports[`density option > spacious > multiple ON predicates each on own line 1`] = `
+"select
+  b.BookId
+from
+  Books as b
+  inner join Authors as a on
+    b.AuthorId = a.Id
+    and b.PublisherId = a.PublisherId;"
+`;
+
+exports[`density option > spacious > single ON predicate on own line 1`] = `
+"select
+  b.BookId,
+  b.Title
+from
+  Books as b
+  inner join Authors as a on
+    b.AuthorId = a.Id
+where
+  b.InStock = 1
+order by
+  b.Title asc;"
+`;
+
+exports[`density option > spacious > single WHERE predicate on own line 1`] = `
+"select
+  BookId
+from
+  Books
+where
+  InStock = 1;"
+`;
+
+exports[`density option > standard > multiple ON predicates each on own line 1`] = `
+"select b.BookId
+from
+  Books as b
+  inner join Authors as a on
+    b.AuthorId = a.Id
+    and b.PublisherId = a.PublisherId;"
+`;
+
+exports[`density option > standard > multiple WHERE predicates each on own line 1`] = `
+"select BookId
+from Books
+where
+  InStock = 1
+  and Price < 100;"
+`;
+
+exports[`density option > standard > single ON predicate stays inline 1`] = `
+"select
+  b.BookId,
+  b.Title
+from
+  Books as b
+  inner join Authors as a on b.AuthorId = a.Id
+where b.InStock = 1
+order by b.Title asc;"
+`;
+
+exports[`derived table (subquery in FROM) > derived table joined to another table 1`] = `
+"select
+  b.Title,
+  a.LastName
+from
+  (
+    select
+      BookId,
+      Title,
+      AuthorId
+    from Books
+    where Price > 20
+  ) as b
+  inner join Authors as a on b.AuthorId = a.Id;"
+`;
+
+exports[`derived table (subquery in FROM) > simple derived table with alias 1`] = `
+"select
+  b.Title,
+  b.Price
+from (
+  select
+    Title,
+    Price
+  from Books
+  where InStock = 1
+) as b;"
+`;
+
+exports[`expression functions > AT TIME ZONE expression 1`] = `
+"SELECT GETDATE() AT TIME ZONE 'UTC'
+FROM Books;"
+`;
+
+exports[`expression functions > CAST preserves length 1`] = `
+"SELECT CAST(Title AS NVARCHAR(100))
+FROM Books;"
+`;
+
+exports[`expression functions > COALESCE expression 1`] = `
+"SELECT COALESCE(Price, 0.0)
+FROM Books;"
+`;
+
+exports[`expression functions > CONVERT preserves length and style 1`] = `
+"SELECT CONVERT(NVARCHAR(50), Price, 1)
+FROM Books;"
+`;
+
+exports[`expression functions > IIF expression 1`] = `
+"SELECT IIF(InStock = 1, 'yes', 'no')
+FROM Books;"
+`;
+
+exports[`expression functions > NULLIF expression 1`] = `
+"SELECT NULLIF(Price, 0)
+FROM Books;"
+`;
+
+exports[`expression functions > TRY_CAST expression 1`] = `
+"SELECT TRY_CAST(Title AS INT)
+FROM Books;"
+`;
+
+exports[`expression functions > TRY_CONVERT expression 1`] = `
+"SELECT TRY_CONVERT(DECIMAL(10,2), Price)
+FROM Books;"
+`;
+
+exports[`expression functions > TVF in FROM clause 1`] = `
+"select *
+from GetBooks(1) as b;"
+`;
+
+exports[`expression functions > long string concatenation breaks before + not inside function args 1`] = `
+"select isnull(VID.LastNm, '') + ', ' + isnull(VID.FirstNm, '') + ' '
++ isnull(VID.MiddleNm, '') + ' ' + isnull(S.Suffix, '') as VisitorNm
+from
+  Visitors as VID
+  inner join Suffixes as S on VID.SuffixId = S.SuffixId;"
+`;
+
+exports[`expression functions > short string concatenation stays on one line 1`] = `
+"select isnull(LastName, '') + ', ' + isnull(FirstName, '') as FullName
+from Authors;"
+`;
+
+exports[`intra-WHERE comments > commented-out predicates are preserved between Active predicates 1`] = `
+"select BookId
+from Books
+where
+  1 = 1
+  and Books.GenreId in (1)
+  --and Books.GenreId in (select GenreId from Genres where Name = 'Fiction')
+  and Books.PublisherId in (4)
+  --and Books.PublisherId in (select PublisherId from Publishers where Country = 'UK')
+  and Books.AuthorId in (101, 102);"
+`;
+
+exports[`nested join formatting > parenthesized nested join 1`] = `
+"select b.Title
+from
+  Books as b
+  left join (
+    Authors as a
+    inner join Publishers as p on a.PublisherId = p.Id
+  ) on b.AuthorId = a.Id;"
+`;
+
+exports[`partition functions > ALTER PARTITION FUNCTION MERGE RANGE 1`] = `
+"alter partition function pf_date()
+  merge range ('2020-01-01');"
+`;
+
+exports[`partition functions > ALTER PARTITION FUNCTION SPLIT RANGE 1`] = `
+"alter partition function pf_date()
+  split range ('2023-01-01');"
+`;
+
+exports[`partition functions > CREATE PARTITION FUNCTION RANGE LEFT 1`] = `
+"create partition function pf_price (decimal(10,2)) as range left
+  for values (100, 500, 1000);"
+`;
+
+exports[`partition functions > CREATE PARTITION FUNCTION RANGE RIGHT 1`] = `
+"create partition function pf_date (date) as range right
+  for values ('2020-01-01', '2021-01-01', '2022-01-01');"
+`;
+
+exports[`partition schemes > ALTER PARTITION SCHEME NEXT USED with filegroup 1`] = `
+"alter partition scheme ps_date
+  next used fg_new;"
+`;
+
+exports[`partition schemes > CREATE PARTITION SCHEME 1`] = `
+"create partition scheme ps_date
+  as partition pf_date
+  to ([PRIMARY], fg1, fg2, fg3);"
+`;
+
+exports[`partition schemes > CREATE PARTITION SCHEME ALL TO 1`] = `
+"create partition scheme ps_date
+  as partition pf_date
+  all to ([PRIMARY]);"
+`;
+
+exports[`sqlCommaStyle: leading > CTE list uses leading commas 1`] = `
+"with cte1 as (
+  select 1 as x
+)
+, cte2 as (
+  select 2 as y
+)
+, cte3 as (
+  select 3 as z
+)
+select *
+from cte1;"
+`;
+
+exports[`sqlCommaStyle: leading > GROUP BY multi-column uses leading commas 1`] = `
+"select
+  GenreId
+  , AuthorId
+  , count(*)
+from Books
+group by
+  GenreId
+  , AuthorId;"
+`;
+
+exports[`sqlCommaStyle: leading > INSERT VALUES multi-row uses leading commas between rows 1`] = `
+"insert into Books (
+  Title
+  , Price
+)
+values
+  (
+    'A'
+    , 1.00
+  )
+  , (
+    'B'
+    , 2.00
+  )
+  , (
+    'C'
+    , 3.00
+  );"
+`;
+
+exports[`sqlCommaStyle: leading > ORDER BY multi-column uses leading commas 1`] = `
+"select Id
+from Books
+order by
+  Title asc
+  , Price desc
+  , AuthorId asc;"
+`;
+
+exports[`sqlCommaStyle: leading > SELECT multi-column uses leading commas 1`] = `
+"select
+  b.BookId
+  , b.Title
+  , b.Price
+from Books as b;"
+`;
+
+exports[`sqlCommaStyle: leading > UPDATE SET multi-column uses leading commas 1`] = `
+"update Books
+set
+  Title = @title
+  , Price = @price
+  , AuthorId = @authorId
+where BookId = @id;"
+`;
+
+exports[`table hints > NOLOCK on joined table 1`] = `
+"select
+  b.BookId,
+  p.Name
+from
+  Books as b with (nolock)
+  inner join Publishers as p with (nolock) on b.PublisherId = p.Id;"
+`;
+
+exports[`table hints > NOLOCK on single table 1`] = `
+"select BookId
+from Books as b with (nolock);"
+`;
+
+exports[`table hints > hints respect keyword case upper 1`] = `
+"SELECT BookId
+FROM Books WITH (NOLOCK);"
+`;
+
+exports[`table hints > multiple hints 1`] = `
+"select BookId
+from Books with (nolock, rowlock);"
+`;
