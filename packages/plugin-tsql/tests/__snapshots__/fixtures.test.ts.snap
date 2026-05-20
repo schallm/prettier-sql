@@ -2020,7 +2020,23 @@ exports[`shared fixtures > dml/delete.sql 1`] = `
 "delete from books
 where
   in_stock = 0
-  and price < 5;"
+  and price < 5;
+
+delete from order_items
+where order_id in (
+  select id
+  from orders
+  where status = 'cancelled'
+);
+
+delete from sessions
+where exists (
+  select 1
+  from users
+  where
+    users.id = sessions.user_id
+    and users.active = 0
+);"
 `;
 
 exports[`shared fixtures > dml/insert.sql 1`] = `
@@ -2051,7 +2067,23 @@ set
   in_stock = 1
 where
   author_id = 1
-  and price > 20;"
+  and price > 20;
+
+update books
+set in_stock = 0
+from
+  publishers
+where
+  books.publisher_id = publishers.id
+  and publishers.country = 'UK';
+
+update books
+set price = (
+  select avg(price)
+  from books
+  where author_id = 1
+)
+where author_id = 1;"
 `;
 
 exports[`shared fixtures > select/aggregates.sql 1`] = `
