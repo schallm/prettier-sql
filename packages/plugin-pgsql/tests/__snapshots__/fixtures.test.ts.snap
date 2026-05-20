@@ -658,8 +658,7 @@ returning
 
 -- DELETE with USING
 delete from order_items
-using
-  orders
+using orders
 where
   order_items.order_id = orders.id
   and orders.status = 'cancelled';
@@ -990,8 +989,7 @@ where inventory.quantity < 1000;
 exports[`fixtures > insert/returning.sql 1`] = `
 "insert into users (name, email)
 values ('Alice', 'alice@example.com')
-returning
-  id;
+returning id;
 
 insert into orders (customer_id, amount)
 values (42, 150.00)

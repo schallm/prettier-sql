@@ -324,7 +324,7 @@ function printInsertBody(node: SqlNode, opts: Options): Doc {
     if (onConflict) parts.push(printOnConflict(onConflict, opts, printNode));
 
     if (returning.length > 0) {
-        parts.push([makeKeyword('RETURNING'), indent([hardline, join(hardSep(opts), returning.map(printNode))])]);
+        parts.push(printListClause('RETURNING', returning, opts, printNode));
     }
 
     return group(join(hardline, parts));
@@ -372,7 +372,7 @@ function printUpdateBody(node: SqlNode, opts: Options): Doc {
     if (where) parts.push(printBoolClause('WHERE', where, opts, printNode));
 
     if (returning.length > 0) {
-        parts.push([makeKeyword('RETURNING'), indent([hardline, join(hardSep(opts), returning.map(printNode))])]);
+        parts.push(printListClause('RETURNING', returning, opts, printNode));
     }
 
     return group(join(hardline, parts));
@@ -399,14 +399,12 @@ function printDeleteBody(node: SqlNode, opts: Options): Doc {
         [makeKeyword('DELETE FROM'), ' ', rangeVarName(target)],
     ];
 
-    if (using.length > 0) {
-        parts.push([makeKeyword('USING'), indent([hardline, join([',', hardline], using.map(printNode))])]);
-    }
+    if (using.length > 0) parts.push(printListClause('USING', using, opts, printNode));
 
     if (where) parts.push(printBoolClause('WHERE', where, opts, printNode));
 
     if (returning.length > 0) {
-        parts.push([makeKeyword('RETURNING'), indent([hardline, join(hardSep(opts), returning.map(printNode))])]);
+        parts.push(printListClause('RETURNING', returning, opts, printNode));
     }
 
     return group(join(hardline, parts));
@@ -1062,7 +1060,7 @@ function printMerge(node: SqlNode, opts: Options): Doc {
     }
 
     if (returning.length > 0) {
-        parts.push([makeKeyword('RETURNING'), indent([hardline, join(hardSep(opts), returning.map(printNode))])]);
+        parts.push(printListClause('RETURNING', returning, opts, printNode));
     }
 
     return [join(hardline, parts), ';'];
@@ -1156,7 +1154,7 @@ function printSelectInto(node: SqlNode, opts: Options): Doc {
     const offset   = prop(node, 'offset');
 
     const parts: Doc[] = [];
-    parts.push([makeKeyword('SELECT'), indent([hardline, join(hardSep(opts), targets.map(printNode))])]);
+    parts.push(printListClause('SELECT', targets, opts, printNode));
 
     const intoKw: Doc = temp ? [makeKeyword('INTO'), ' ', makeKeyword('TEMP')] : makeKeyword('INTO');
     parts.push([intoKw, indent([hardline, rangeVarName(into)])]);
