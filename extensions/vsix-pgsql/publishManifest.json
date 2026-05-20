@@ -1,0 +1,13 @@
+{
+    "$schema": "http://json.schemastore.org/vsix-publish",
+    "categories": ["Coding", "Formatting"],
+    "identity": {
+        "internalName": "prettier-pgsql"
+    },
+    "overview": "README.md",
+    "priceCategory": "free",
+    "publisher": "PickyCode",
+    "private": false,
+    "qnaUrl": "https://github.com/schallm/prettier-pgsql/issues",
+    "repo": "https://github.com/schallm/prettier-pgsql"
+}

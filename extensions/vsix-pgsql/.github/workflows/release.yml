@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    env:
+      MARKETPLACE_PAT: ${{ secrets.MARKETPLACE_PAT }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+      - name: Install bundled dependencies
+        run: npm install
+        working-directory: bundled
+      - uses: microsoft/setup-msbuild@v2
+      - name: Restore NuGet packages
+        shell: cmd
+        run: msbuild src/PrettierTsql.slnx /t:Restore
+      - name: Build VSIX
+        shell: cmd
+        run: msbuild src/PrettierTsql.slnx /p:Configuration=Release /p:DeployExtension=false /t:Build
+
+      - name: List build output
+        shell: pwsh
+        run: |
+          Write-Host "=== VSIX files anywhere ==="
+          Get-ChildItem -Recurse -Filter "*.vsix" -ErrorAction SilentlyContinue | Select-Object FullName
+          Write-Host "=== bin directory ==="
+          Get-ChildItem -Recurse src/PrettierTsql/bin -Exclude "node_modules" | Where-Object { -not $_.PSIsContainer } | Select-Object FullName | Where-Object { $_.FullName -notmatch "node_modules" }
+
+      - name: Find VSIX path
+        id: vsix
+        shell: pwsh
+        run: |
+          $vsix = Get-ChildItem -Recurse -Filter "*.vsix" | Select-Object -First 1
+          if (-not $vsix) { Write-Error "No .vsix file found"; exit 1 }
+          Write-Host "Found: $($vsix.FullName)"
+          echo "path=$($vsix.FullName)" >> $env:GITHUB_OUTPUT
+          echo "name=$($vsix.Name)" >> $env:GITHUB_OUTPUT
+
+      - name: Publish to Visual Studio Marketplace
+        if: env.MARKETPLACE_PAT != ''
+        shell: bash
+        run: |
+          vsix_publisher="C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VSSDK/VisualStudioIntegration/Tools/Bin/VsixPublisher.exe"
+          if [ ! -f "$vsix_publisher" ]; then
+            vsix_publisher="C:/Program Files/Microsoft Visual Studio/2022/Professional/VSSDK/VisualStudioIntegration/Tools/Bin/VsixPublisher.exe"
+          fi
+          if [ ! -f "$vsix_publisher" ]; then
+            vsix_publisher="C:/Program Files/Microsoft Visual Studio/2022/Community/VSSDK/VisualStudioIntegration/Tools/Bin/VsixPublisher.exe"
+          fi
+          "$vsix_publisher" publish \
+            -payload "${{ steps.vsix.outputs.path }}" \
+            -publishManifest publishManifest.json \
+            -personalAccessToken "${{ secrets.MARKETPLACE_PAT }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.vsix.outputs.path }}
+          generate_release_notes: true
