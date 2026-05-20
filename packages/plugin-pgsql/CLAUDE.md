@@ -2,9 +2,8 @@
 
 ## What this project is
 
-A Prettier plugin for PostgreSQL SQL, structured identically to
-[prettier-plugin-tsql](../prettier-plugin-tsql). Read that project's code freely
-for patterns to follow — the architecture is intentionally the same.
+A Prettier plugin for PostgreSQL SQL. Part of the `prettier-sql` monorepo.
+See the root `CLAUDE.md` for the full monorepo structure and shared code in `@prettier-sql/core`.
 
 ## Architecture
 
@@ -34,11 +33,12 @@ ScriptDOM calls you. PostgreSQL has no visitor; `AstBuilder.cs` manually switche
 ### `SqlParser.cs`
 Calls `PgSqlParser.Parser.Parse(sql)` which returns `Result<ParseResult?>`.
 Serializes `AstBuilder.Build(result.Value)` as JSON with camelCase keys, null values omitted.
-No comment extraction yet (libpg_query does not expose a comment token stream the same way
-ScriptDOM does — this is a future task).
+Also calls `Parser.Scan(sql)` to extract comment tokens and includes them in the JSON output.
 
 ### `AstBuilder.cs`
 Walks the `ParseResult.Stmts` list. Each `RawStmt` has a `Stmt` (`Node`) with a `NodeCase` oneof.
+Uses `using PrettierSql.Core;` for the shared `SqlNode` record.
+
 Key patterns:
 
 ```csharp
@@ -90,16 +90,26 @@ If you add a new platform RID, update `scripts/copy-native.mjs`.
 
 ## TypeScript project — `src/plugin/`
 
-### Shared with tsql (identical or near-identical)
-- `parser/types.ts` — `SqlNode` and `CommentToken` interfaces
-- `printer/utils.ts` — `keyword()`, `parenList()`, `aliasDoc()`, `hardSep()`, `softSep()`,
-  `commentsBlock()`, etc. Copied verbatim from tsql.
-- `printer/helpers.ts` — `prop()`, `propArr()`, `propStr()`, `propBool()`, `rangeVarName()`
+### Imports from @prettier-sql/core
+
+Shared types and utilities come from the core package — do not duplicate them locally:
+
+| What | Import from |
+|---|---|
+| `SqlNode`, `CommentToken` | `@prettier-sql/core/types` |
+| `sqlKeywordCase`, `sqlDensity`, `sqlCommaStyle` options | `@prettier-sql/core/options` |
+| `keyword()`, `parenList()`, `aliasDoc()`, `hardSep()`, `softSep()`, `commentsBlock()`, etc. | `@prettier-sql/core/printer/utils` |
+| `prop()`, `propArr()`, `propStr()`, `propBool()` | `@prettier-sql/core/printer/helpers` |
+
+### Dialect-specific helpers (`src/plugin/printer/helpers.ts`)
+
+Imports and re-exports the core helpers, then adds pgsql-specific ones:
+- `rangeVarName(node)` — formats `schema.table` from a `RangeVar` node
+- `qualifiedName(schema, name)` — formats a possibly-schema-qualified name
 
 ### Plugin wiring
 - `index.ts` — registers parser `pgsql` and printer `pgsql-ast`
 - `language.ts` — extensions `.sql`, `.pgsql`
-- `options.ts` — same three options as tsql: `sqlKeywordCase`, `sqlDensity`, `sqlCommaStyle`
 
 ### Printer dispatch (`printer/index.ts`)
 ```ts
@@ -168,9 +178,9 @@ SortItem
 ## Build & test
 
 ```bash
-npm run build        # dotnet publish + copy native + tsc
-npm test             # vitest run
-npm run test:watch   # vitest watch
+pnpm run build        # dotnet publish + copy native + tsc
+pnpm run test         # vitest run
+pnpm run test:watch   # vitest watch
 ```
 
 ## What's NOT yet implemented
@@ -181,14 +191,14 @@ npm run test:watch   # vitest watch
 - **Density-aware WHERE** — currently always inline; tsql has compact/standard/spacious logic
 - **Leading comma style** — `sqlCommaStyle: 'leading'` is wired up in utils but not used in SELECT lists
 
-## Patterns to follow from tsql
+## Adding a new node type
 
-When adding a new node type:
 1. Add a `BuildXxx` method in `AstBuilder.cs` that returns a `SqlNode` with the right `Type` string
 2. Add the `Node.NodeOneofCase.Xxx => BuildXxx(...)` case in `BuildExpr` or `BuildFromItem`
 3. Add a `case 'XxxNode': return printXxx(...)` in `expressions.ts` or `statements.ts`
 4. Add a fixture `.sql` file in `tests/fixtures/<category>/`
-5. Run `npm test` — first run writes the snapshot, subsequent runs assert it
+5. Run `pnpm run test` — first run writes the snapshot, subsequent runs assert it
 
 Fixtures are auto-discovered; any `.sql` file under `tests/fixtures/` that doesn't end in
-`.output.sql` becomes a test case.
+`.output.sql` becomes a test case. Shared dialect-agnostic fixtures live in
+`packages/core/tests/fixtures/shared/` and are run automatically by the test harness.
