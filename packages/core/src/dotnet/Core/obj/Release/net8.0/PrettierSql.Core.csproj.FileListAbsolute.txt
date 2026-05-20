@@ -1,0 +1,10 @@
+/Users/mike/Projects/schall/prettier-sql/packages/core/src/dotnet/Core/bin/Release/net8.0/PrettierSql.Core.deps.json
+/Users/mike/Projects/schall/prettier-sql/packages/core/src/dotnet/Core/bin/Release/net8.0/PrettierSql.Core.dll
+/Users/mike/Projects/schall/prettier-sql/packages/core/src/dotnet/Core/obj/Release/net8.0/PrettierSql.Core.GeneratedMSBuildEditorConfig.editorconfig
+/Users/mike/Projects/schall/prettier-sql/packages/core/src/dotnet/Core/obj/Release/net8.0/PrettierSql.Core.AssemblyInfoInputs.cache
+/Users/mike/Projects/schall/prettier-sql/packages/core/src/dotnet/Core/obj/Release/net8.0/PrettierSql.Core.AssemblyInfo.cs
+/Users/mike/Projects/schall/prettier-sql/packages/core/src/dotnet/Core/obj/Release/net8.0/PrettierSql.Core.csproj.CoreCompileInputs.cache
+/Users/mike/Projects/schall/prettier-sql/packages/core/src/dotnet/Core/obj/Release/net8.0/PrettierSql.Core.sourcelink.json
+/Users/mike/Projects/schall/prettier-sql/packages/core/src/dotnet/Core/obj/Release/net8.0/PrettierSql.Core.dll
+/Users/mike/Projects/schall/prettier-sql/packages/core/src/dotnet/Core/obj/Release/net8.0/refint/PrettierSql.Core.dll
+/Users/mike/Projects/schall/prettier-sql/packages/core/src/dotnet/Core/obj/Release/net8.0/ref/PrettierSql.Core.dll

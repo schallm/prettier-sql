@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "DDHHwnkg2aU=",
+  "success": true,
+  "projectFilePath": "/Users/mike/Projects/schall/prettier-sql/packages/core/src/dotnet/Core/PrettierSql.Core.csproj",
+  "expectedPackageFiles": [
+    "/Users/mike/.nuget/packages/microsoft.netcore.app.ref/8.0.26/microsoft.netcore.app.ref.8.0.26.nupkg.sha512",
+    "/Users/mike/.nuget/packages/microsoft.aspnetcore.app.ref/8.0.26/microsoft.aspnetcore.app.ref.8.0.26.nupkg.sha512"
+  ],
+  "logs": []
+}
