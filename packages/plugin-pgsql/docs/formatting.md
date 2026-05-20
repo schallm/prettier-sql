@@ -112,8 +112,8 @@ The `TABLESAMPLE` method and percentage follow the table name on the same line. 
 ```sql
 select
   id,
-  name
-from users tablesample bernoulli(10);
+  title
+from books tablesample bernoulli(10);
 
 select
   count(*)
@@ -146,49 +146,49 @@ order by
 
 ```sql
 select
-  dept,
-  job,
-  sum(salary)
-from emp
+  genre_id,
+  author_id,
+  sum(price)
+from books
 group by
-  dept,
-  job;
+  genre_id,
+  author_id;
 ```
 
 ### HAVING
 
 ```sql
 select
-  dept,
-  sum(salary)
-from emp
+  genre_id,
+  sum(price)
+from books
 group by
-  dept
-having sum(salary) > 100000;
+  genre_id
+having sum(price) > 5000;
 ```
 
 ### ROLLUP
 
 ```sql
 select
-  dept,
-  job,
-  sum(salary)
-from emp
+  genre_id,
+  author_id,
+  sum(price)
+from books
 group by
-  rollup(dept, job);
+  rollup(genre_id, author_id);
 ```
 
 ### CUBE
 
 ```sql
 select
-  dept,
-  job,
-  sum(salary)
-from emp
+  genre_id,
+  author_id,
+  sum(price)
+from books
 group by
-  cube(dept, job);
+  cube(genre_id, author_id);
 ```
 
 ### GROUPING SETS
@@ -197,12 +197,12 @@ Multi-column groupings use parentheses inside `GROUPING SETS`. Single-column gro
 
 ```sql
 select
-  dept,
-  job,
-  sum(salary)
-from emp
+  genre_id,
+  author_id,
+  sum(price)
+from books
 group by
-  grouping sets((dept, job), (dept), ());
+  grouping sets((genre_id, author_id), (genre_id), ());
 ```
 
 ### ORDER BY
@@ -239,7 +239,7 @@ Each CTE is indented inside its own `as (...)` block. Multiple CTEs are separate
 with
   active_users as (
     select id, name
-    from users
+    from customers
     where active = true
   ),
   recent_orders as (
@@ -263,13 +263,13 @@ from
 with recursive
   org_tree as (
     select id, name, parent_id, 0 as depth
-    from departments
+    from publishers
     where parent_id is null
     union all
-    select d.id, d.name, d.parent_id, t.depth + 1
+    select publishers.id, publishers.name, publishers.parent_id, org_tree.depth + 1
     from
-      departments as d
-      join org_tree as t on d.parent_id = t.id
+      publishers
+      join org_tree on publishers.parent_id = org_tree.id
   )
 select
   id,
@@ -319,16 +319,16 @@ from customers
 union
 select
   id,
-  name
-from prospects;
+  title as name
+from archived_books;
 ```
 
 `UNION ALL`:
 
 ```sql
-select id, name from table_a
+select id, title from books
 union all
-select id, name from table_b;
+select id, title from archived_books;
 ```
 
 ### Subquery (scalar and correlated)
@@ -352,9 +352,9 @@ select
   (
     select count(*)
     from orders
-    where customer_id = c.id
+    where customer_id = customers.id
   ) as order_count
-from customers as c;
+from customers;
 ```
 
 ### Window functions
@@ -381,7 +381,7 @@ sum(price) over (order by id rows between unbounded preceding and current row)
 avg(price) over (order by price range between unbounded preceding and current row)
 
 -- GROUPS frame
-count(*) over (order by dept groups between 1 preceding and 1 following)
+count(*) over (order by genre_id groups between 1 preceding and 1 following)
 ```
 
 ### Aggregate FILTER
@@ -412,7 +412,7 @@ group by
 select id, title from books for update;
 
 -- Skip locked rows
-select id from jobs for update skip locked;
+select id from orders for update skip locked;
 
 -- No-wait
 select id from orders for no key update nowait;
@@ -421,7 +421,7 @@ select id from orders for no key update nowait;
 select id from orders for update of orders;
 
 -- FOR KEY SHARE
-select id from accounts for key share;
+select id from books for key share;
 ```
 
 ### IN / NOT IN
@@ -478,7 +478,7 @@ where deleted_at is null;
 ### IS DISTINCT FROM
 
 ```sql
-select id from t where a is distinct from b;
+select id from books where price is distinct from 0;
 ```
 
 ### CASE expression
@@ -509,11 +509,11 @@ values (1, 99.99);
 ### Multi-row VALUES
 
 ```sql
-insert into products (name, price, category)
+insert into books (title, price, genre_id)
 values
-  ('Widget', 9.99, 'tools'),
-  ('Gadget', 19.99, 'electronics'),
-  ('Doohickey', 4.99, 'misc');
+  ('The Pragmatic Programmer', 49.99, 1),
+  ('Clean Code', 39.99, 1),
+  ('Dune', 14.99, 2);
 ```
 
 ### INSERT ... SELECT
@@ -531,14 +531,14 @@ where status = 'closed';
 ### DEFAULT VALUES
 
 ```sql
-insert into audit_log
+insert into reviews
 default values;
 ```
 
 ### ON CONFLICT DO NOTHING
 
 ```sql
-insert into users (id, email)
+insert into customers (id, email)
 values (1, 'alice@example.com')
 on conflict do nothing;
 ```
@@ -546,12 +546,11 @@ on conflict do nothing;
 ### ON CONFLICT DO UPDATE
 
 ```sql
-insert into users (id, email, updated_at)
-values (1, 'alice@example.com', now())
+insert into customers (id, email)
+values (1, 'alice@example.com')
 on conflict (id) do update
 set
-  email = excluded.email,
-  updated_at = excluded.updated_at;
+  email = excluded.email;
 ```
 
 ### RETURNING
@@ -567,7 +566,7 @@ returning
 ### OVERRIDING SYSTEM VALUE
 
 ```sql
-insert into users (id, email)
+insert into customers (id, email)
 overriding system value
 values (100, 'admin@example.com');
 ```
@@ -596,19 +595,18 @@ from new_data;
 ### Basic UPDATE
 
 ```sql
-update users
+update customers
 set
-  active = false,
-  updated_at = now()
-where last_login < now() - interval '1 year';
+  active = false
+where last_order_at < now() - interval '1 year';
 ```
 
 ### UPDATE with RETURNING
 
 ```sql
-update users
+update customers
 set active = false
-where last_login < now() - interval '1 year'
+where last_order_at < now() - interval '1 year'
 returning
   id,
   email;
@@ -620,11 +618,11 @@ returning
 with
   stale as (
     select id
-    from sessions
-    where expires_at < now()
+    from orders
+    where placed_at < now() - interval '1 year'
   )
-update sessions
-set active = false
+update orders
+set status = 'archived'
 where id in (
   select id
   from stale
@@ -638,18 +636,18 @@ where id in (
 ### Basic DELETE
 
 ```sql
-delete from sessions
-where expires_at < now();
+delete from orders
+where placed_at < now() - interval '1 year';
 ```
 
 ### DELETE with RETURNING
 
 ```sql
-delete from sessions
-where expires_at < now()
+delete from orders
+where placed_at < now() - interval '1 year'
 returning
   id,
-  user_id;
+  customer_id;
 ```
 
 ### Data-modifying CTE
@@ -679,9 +677,9 @@ from moved;
 ## TRUNCATE
 
 ```sql
-truncate table sessions;
+truncate table orders;
 
-truncate table sessions, temp_orders restart identity cascade;
+truncate table orders, archived_books restart identity cascade;
 ```
 
 ---
@@ -699,11 +697,11 @@ create table orders (
 )
 partition by range (region);
 
-create table measurements (
-  city_id integer not null,
-  logdate date not null
+create table order_items_2024 (
+  order_id integer not null,
+  book_id integer not null
 )
-partition by list (city_id);
+partition by range (order_id);
 ```
 
 ### CREATE TABLE ... PARTITION OF
@@ -779,12 +777,12 @@ create table sales (
 ### CREATE VIEW
 
 ```sql
-create view active_users as
+create view active_customers as
 select
   id,
   name,
   email
-from users
+from customers
 where active = true;
 ```
 
@@ -793,7 +791,7 @@ where active = true;
 ```sql
 create index idx_books_author on books (author_id);
 
-create unique index idx_users_email on users (email);
+create unique index idx_customers_email on customers (email);
 ```
 
 ### CREATE FUNCTION
@@ -810,9 +808,9 @@ $$;
 ### DROP
 
 ```sql
-drop table if exists temp_data;
+drop table if exists archived_books;
 
-drop view active_users;
+drop view active_customers;
 
 drop index if exists idx_books_author;
 ```
@@ -863,7 +861,7 @@ into local_schema;
 
 ```sql
 create publication my_pub
-for table orders, users;
+for table orders, customers;
 
 create subscription my_sub
 connection 'host=localhost dbname=mydb'
@@ -1215,7 +1213,7 @@ array['a', 'b', 'c']
 ### Parameterized queries
 
 ```sql
-select id from users where id = $1 and active = $2;
+select id, email from customers where id = $1 and active = $2;
 ```
 
 ---
@@ -1245,7 +1243,7 @@ A comment on the same line as, or after, the final token of a statement becomes 
 ```sql
 select
   id
-from users; -- inline trailing comment
+from customers; -- inline trailing comment
 ```
 
 ---
@@ -1255,7 +1253,7 @@ from users; -- inline trailing comment
 Every statement ends with a semicolon. Multiple statements in a file are separated by a blank line.
 
 ```sql
-select id from users;
+select id from customers;
 
 select id from orders;
 ```

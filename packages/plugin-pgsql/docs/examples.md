@@ -170,7 +170,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 ### Set operations (UNION / INTERSECT / EXCEPT)
 
 ```diff
-- select id, name from customers union select id, name from prospects;
+- select id, name from customers union select id, title as name from archived_books;
 + select
 +   id,
 +   name
@@ -178,49 +178,49 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 + union
 + select
 +   id,
-+   name
-+ from prospects;
++   title as name
++ from archived_books;
 ```
 
 ### GROUP BY / HAVING
 
 ```diff
-- select dept, job, sum(salary) from emp group by dept, job having sum(salary) > 100000 order by sum(salary) desc;
+- select genre_id, author_id, sum(price) from books group by genre_id, author_id having sum(price) > 5000 order by sum(price) desc;
 + select
-+   dept,
-+   job,
-+   sum(salary)
-+ from emp
++   genre_id,
++   author_id,
++   sum(price)
++ from books
 + group by
-+   dept,
-+   job
-+ having sum(salary) > 100000
++   genre_id,
++   author_id
++ having sum(price) > 5000
 + order by
-+   sum(salary) desc;
++   sum(price) desc;
 ```
 
 ### ROLLUP / CUBE / GROUPING SETS
 
 ```diff
-- select dept, job, sum(salary) from emp group by rollup(dept, job);
+- select genre_id, author_id, sum(price) from books group by rollup(genre_id, author_id);
 + select
-+   dept,
-+   job,
-+   sum(salary)
-+ from emp
++   genre_id,
++   author_id,
++   sum(price)
++ from books
 + group by
-+   rollup(dept, job);
++   rollup(genre_id, author_id);
 ```
 
 ```diff
-- select dept, job, sum(salary) from emp group by grouping sets ((dept, job), (dept), ());
+- select genre_id, author_id, sum(price) from books group by grouping sets ((genre_id, author_id), (genre_id), ());
 + select
-+   dept,
-+   job,
-+   sum(salary)
-+ from emp
++   genre_id,
++   author_id,
++   sum(price)
++ from books
 + group by
-+   grouping sets((dept, job), (dept), ());
++   grouping sets((genre_id, author_id), (genre_id), ());
 ```
 
 ### LATERAL subquery
@@ -276,23 +276,22 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 ### INSERT — single and multi-row VALUES
 
 ```diff
-- insert into products (name, price, category) values ('Widget', 9.99, 'tools'), ('Gadget', 19.99, 'electronics');
-+ insert into products (name, price, category)
+- insert into books (title, price, genre_id) values ('The Pragmatic Programmer', 49.99, 1), ('Clean Code', 39.99, 1);
++ insert into books (title, price, genre_id)
 + values
-+   ('Widget', 9.99, 'tools'),
-+   ('Gadget', 19.99, 'electronics');
++   ('The Pragmatic Programmer', 49.99, 1),
++   ('Clean Code', 39.99, 1);
 ```
 
 ### INSERT — ON CONFLICT DO UPDATE
 
 ```diff
-- insert into users (id, email, updated_at) values (1, 'alice@example.com', now()) on conflict (id) do update set email = excluded.email, updated_at = excluded.updated_at;
-+ insert into users (id, email, updated_at)
-+ values (1, 'alice@example.com', now())
+- insert into customers (id, email) values (1, 'alice@example.com') on conflict (id) do update set email = excluded.email;
++ insert into customers (id, email)
++ values (1, 'alice@example.com')
 + on conflict (id) do update
 + set
-+   email = excluded.email,
-+   updated_at = excluded.updated_at;
++   email = excluded.email;
 ```
 
 ### INSERT — RETURNING
@@ -309,8 +308,8 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 ### INSERT — DEFAULT VALUES
 
 ```diff
-- insert into logs default values returning id, created_at;
-+ insert into logs
+- insert into reviews default values returning id, created_at;
++ insert into reviews
 + default values
 + returning
 +   id,
@@ -320,12 +319,11 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 ### UPDATE with RETURNING
 
 ```diff
-- update users set active = false, updated_at = now() where last_login < now() - interval '1 year' returning id, email;
-+ update users
+- update customers set active = false where last_order_at < now() - interval '1 year' returning id, email;
++ update customers
 + set
-+   active = false,
-+   updated_at = now()
-+ where last_login < now() - interval '1 year'
++   active = false
++ where last_order_at < now() - interval '1 year'
 + returning
 +   id,
 +   email;
@@ -334,12 +332,12 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 ### DELETE with RETURNING
 
 ```diff
-- delete from sessions where expires_at < now() returning id, user_id;
-+ delete from sessions
-+ where expires_at < now()
+- delete from orders where placed_at < now() - interval '1 year' returning id, customer_id;
++ delete from orders
++ where placed_at < now() - interval '1 year'
 + returning
 +   id,
-+   user_id;
++   customer_id;
 ```
 
 ### Data-modifying CTE
@@ -366,8 +364,8 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 ### TRUNCATE
 
 ```diff
-- truncate table sessions, temp_orders restart identity cascade;
-+ truncate table sessions, temp_orders restart identity cascade;
+- truncate table orders, archived_books restart identity cascade;
++ truncate table orders, archived_books restart identity cascade;
 ```
 
 ---
@@ -377,13 +375,13 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 ### CREATE TABLE with type modifiers
 
 ```diff
-- create table products (id integer, name varchar(100), price numeric(10,2), tags text[], created_at timestamptz);
-+ create table products (
+- create table books (id integer, title varchar(100), price numeric(10,2), tags text[], published_date timestamptz);
++ create table books (
 +   id integer,
-+   name varchar(100),
++   title varchar(100),
 +   price numeric(10, 2),
 +   tags text[],
-+   created_at timestamptz
++   published_date timestamptz
 + );
 ```
 
@@ -456,11 +454,11 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 ### TABLESAMPLE
 
 ```diff
-- select id, name from users tablesample bernoulli(10);
+- select id, title from books tablesample bernoulli(10);
 + select
 +   id,
-+   name
-+ from users tablesample bernoulli(10);
++   title
++ from books tablesample bernoulli(10);
 ```
 
 ---
@@ -490,55 +488,55 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 ### TRIM
 
 ```diff
-- select trim(leading ' ' from name), trim(trailing ' ' from name), trim(both ' ' from name) from users;
+- select trim(leading ' ' from name), trim(trailing ' ' from name), trim(both ' ' from name) from customers;
 + select
 +   trim(leading ' ' from name),
 +   trim(trailing ' ' from name),
 +   trim(both ' ' from name)
-+ from users;
++ from customers;
 ```
 
 ### AT TIME ZONE
 
 ```diff
-- select created_at at time zone 'UTC', updated_at at time zone 'America/New_York' from events;
+- select created_at at time zone 'UTC', placed_at at time zone 'America/New_York' from orders;
 + select
 +   created_at at time zone 'UTC',
-+   updated_at at time zone 'America/New_York'
-+ from events;
++   placed_at at time zone 'America/New_York'
++ from orders;
 ```
 
 ### INTERVAL literals and :: casts
 
 ```diff
-- select price::numeric, name::text, interval '30 days', '2024-01-01'::date from t;
+- select price::numeric, title::text, interval '30 days', '2024-01-01'::date from books;
 + select
 +   price::numeric,
-+   name::text,
++   title::text,
 +   interval '30 days',
 +   '2024-01-01'::date
-+ from t;
++ from books;
 ```
 
 ### INTERVAL with field modifiers
 
 ```diff
-- select interval '1' year, interval '1:30' hour to minute from t;
+- select interval '1' year, interval '1:30' hour to minute from books;
 + select
 +   interval '1' year,
 +   interval '1:30' hour to minute
-+ from t;
++ from books;
 ```
 
 ### Array subscripts
 
 ```diff
-- select arr[1], arr[2:4], arr[:3] from t;
+- select arr[1], arr[2:4], arr[:3] from books;
 + select
 +   arr[1],
 +   arr[2:4],
 +   arr[:3]
-+ from t;
++ from books;
 ```
 
 ### Named function arguments
@@ -552,11 +550,11 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 ### SQL value functions
 
 ```diff
-- select current_date, current_timestamp, current_user, session_user from t;
+- select current_date, current_timestamp, current_user, session_user from books;
 + select
 +   current_date,
 +   current_timestamp,
 +   current_user,
 +   session_user
-+ from t;
++ from books;
 ```
