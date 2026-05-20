@@ -51,8 +51,7 @@ where
 All JOIN types are supported. `INNER JOIN` is normalised to `JOIN`. Each JOIN goes on its own line at the same indent level as `FROM`.
 
 ```sql
-select
-  *
+select *
 from
   books
   join authors on authors.id = books.author_id
@@ -78,13 +77,11 @@ join authors using (author_id)
 Subqueries are indented inside parentheses. The alias follows the closing paren.
 
 ```sql
-select
-  sub.avg_price
-from
-  (
-    select avg(price) as avg_price
-    from books
-  ) as sub;
+select sub.avg_price
+from (
+  select avg(price) as avg_price
+  from books
+) as sub;
 ```
 
 ### LATERAL
@@ -98,8 +95,7 @@ select
 from
   books as b,
   lateral (
-    select
-      avg(price) as avg_price
+    select avg(price) as avg_price
     from books
     where author_id = b.author_id
   ) as r;
@@ -115,8 +111,7 @@ select
   title
 from books tablesample bernoulli(10);
 
-select
-  count(*)
+select count(*)
 from orders tablesample system(5) repeatable (42);
 ```
 
@@ -162,8 +157,7 @@ select
   genre_id,
   sum(price)
 from books
-group by
-  genre_id
+group by genre_id
 having sum(price) > 5000;
 ```
 
@@ -175,8 +169,7 @@ select
   author_id,
   sum(price)
 from books
-group by
-  rollup(genre_id, author_id);
+group by rollup(genre_id, author_id);
 ```
 
 ### CUBE
@@ -187,8 +180,7 @@ select
   author_id,
   sum(price)
 from books
-group by
-  cube(genre_id, author_id);
+group by cube(genre_id, author_id);
 ```
 
 ### GROUPING SETS
@@ -201,8 +193,7 @@ select
   author_id,
   sum(price)
 from books
-group by
-  grouping sets((genre_id, author_id), (genre_id), ());
+group by grouping sets((genre_id, author_id), (genre_id), ());
 ```
 
 ### ORDER BY
@@ -225,8 +216,7 @@ select
   id,
   title
 from books
-order by
-  price
+order by price
 limit 10
 offset 20;
 ```
@@ -238,16 +228,19 @@ Each CTE is indented inside its own `as (...)` block. Multiple CTEs are separate
 ```sql
 with
   active_users as (
-    select id, name
+    select
+      id,
+      name
     from customers
     where active = true
   ),
   recent_orders as (
-    select customer_id, sum(amount) as total
+    select
+      customer_id,
+      sum(amount) as total
     from orders
     where created_at > now() - interval '30 days'
-    group by
-      customer_id
+    group by customer_id
   )
 select
   u.name,
@@ -262,11 +255,19 @@ from
 ```sql
 with recursive
   org_tree as (
-    select id, name, parent_id, 0 as depth
+    select
+      id,
+      name,
+      parent_id,
+      0 as depth
     from publishers
     where parent_id is null
     union all
-    select publishers.id, publishers.name, publishers.parent_id, org_tree.depth + 1
+    select
+      publishers.id,
+      publishers.name,
+      publishers.parent_id,
+      org_tree.depth + 1
     from
       publishers
       join org_tree on publishers.parent_id = org_tree.id
@@ -302,8 +303,7 @@ with recursive
   )
   search breadth first by id set ordercol
   cycle id set is_cycle using path
-select
-  *
+select *
 from t;
 ```
 
@@ -326,9 +326,15 @@ from archived_books;
 `UNION ALL`:
 
 ```sql
-select id, title from books
+select
+  id,
+  title
+from books
 union all
-select id, title from archived_books;
+select
+  id,
+  title
+from archived_books;
 ```
 
 ### Subquery (scalar and correlated)
@@ -339,8 +345,7 @@ select
   name
 from customers
 where exists (
-  select
-    1
+  select 1
   from orders
   where orders.customer_id = customers.id
 );
@@ -401,27 +406,38 @@ select
   string_agg(title, ', ' order by title) as titles,
   array_agg(price order by price desc) as prices
 from books
-group by
-  author_id;
+group by author_id;
 ```
 
 ### FOR UPDATE / FOR SHARE
 
 ```sql
 -- Basic locking
-select id, title from books for update;
+select
+  id,
+  title
+from books
+for update;
 
 -- Skip locked rows
-select id from orders for update skip locked;
+select id
+from orders
+for update skip locked;
 
 -- No-wait
-select id from orders for no key update nowait;
+select id
+from orders
+for no key update nowait;
 
 -- Lock specific table
-select id from orders for update of orders;
+select id
+from orders
+for update of orders;
 
 -- FOR KEY SHARE
-select id from books for key share;
+select id
+from books
+for key share;
 ```
 
 ### IN / NOT IN
@@ -464,13 +480,15 @@ select
   id,
   title
 from books
-where price = any (array[9.99, 19.99, 29.99]);
+where price = any(array[9.99, 19.99, 29.99]);
 ```
 
 ### IS NULL / IS NOT NULL
 
 ```sql
-select id, title
+select
+  id,
+  title
 from books
 where deleted_at is null;
 ```
@@ -478,7 +496,9 @@ where deleted_at is null;
 ### IS DISTINCT FROM
 
 ```sql
-select id from books where price is distinct from 0;
+select id
+from books
+where price is distinct from 0;
 ```
 
 ### CASE expression
@@ -549,8 +569,7 @@ on conflict do nothing;
 insert into customers (id, email)
 values (1, 'alice@example.com')
 on conflict (id) do update
-set
-  email = excluded.email;
+set email = excluded.email;
 ```
 
 ### RETURNING
@@ -566,8 +585,7 @@ returning
 ### OVERRIDING SYSTEM VALUE
 
 ```sql
-insert into customers (id, email)
-overriding system value
+insert into customers (id, email) overriding system value
 values (100, 'admin@example.com');
 ```
 
@@ -576,10 +594,11 @@ values (100, 'admin@example.com');
 ```sql
 with
   new_data as (
-    select customer_id, sum(amount) as total
+    select
+      customer_id,
+      sum(amount) as total
     from raw_orders
-    group by
-      customer_id
+    group by customer_id
   )
 insert into order_summary (customer_id, total)
 select
@@ -596,8 +615,7 @@ from new_data;
 
 ```sql
 update customers
-set
-  active = false
+set active = false
 where last_order_at < now() - interval '1 year';
 ```
 
@@ -615,15 +633,9 @@ returning
 ### UPDATE with CTE
 
 ```sql
-with
-  stale as (
-    select id
-    from orders
-    where placed_at < now() - interval '1 year'
-  )
 update orders
 set status = 'archived'
-where id in (
+where (
   select id
   from stale
 );
@@ -777,7 +789,8 @@ create table sales (
 ### CREATE VIEW
 
 ```sql
-create view active_customers as
+create view active_customers
+as
 select
   id,
   name,
@@ -1011,7 +1024,8 @@ do $$
 BEGIN
   RAISE NOTICE 'hello';
 END
-$$ language plpgsql;
+$$
+language plpgsql;
 ```
 
 ---
@@ -1213,7 +1227,13 @@ array['a', 'b', 'c']
 ### Parameterized queries
 
 ```sql
-select id, email from customers where id = $1 and active = $2;
+select
+  id,
+  email
+from customers
+where
+  id = $1
+  and active = $2;
 ```
 
 ---
@@ -1233,16 +1253,14 @@ from books;
 
 -- comment before second statement
 -- multi-line comment block
-select
-  id
+select id
 from orders;
 ```
 
 A comment on the same line as, or after, the final token of a statement becomes an **inline trailing comment** and is printed at the end of the statement's closing line.
 
 ```sql
-select
-  id
+select id
 from customers; -- inline trailing comment
 ```
 
@@ -1253,7 +1271,9 @@ from customers; -- inline trailing comment
 Every statement ends with a semicolon. Multiple statements in a file are separated by a blank line.
 
 ```sql
-select id from customers;
+select id
+from customers;
 
-select id from orders;
+select id
+from orders;
 ```

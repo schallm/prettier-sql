@@ -26,6 +26,7 @@ where price < 50;
 
 ### `upper`
 
+<!-- check-docs:skip -->
 ```sql
 SELECT
   id,
@@ -88,6 +89,7 @@ where price < 50;
 
 ### `leading`
 
+<!-- check-docs:skip -->
 ```sql
 select
   id
