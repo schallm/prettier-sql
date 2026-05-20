@@ -98,6 +98,12 @@ Each plugin's `src/dotnet/<Name>/<Name>.csproj` targets net8.0 and references
 compiles against it. `dotnet publish` output lands in `bin/dotnet/` where node-api-dotnet
 can load it.
 
+## Pending tasks
+
+- [ ] **Add `NPM_TOKEN` secret** — generate a Granular Access Token at npmjs.com (Account → Access Tokens, read+write for `prettier-plugin-tsql` and `prettier-plugin-pgsql`) and add it to GitHub repo settings (Settings → Secrets and variables → Actions → `NPM_TOKEN`).
+- [ ] **Update npmjs.org** — update the package pages for `prettier-plugin-tsql` and `prettier-plugin-pgsql` to reflect the new monorepo home. Run `pnpm changeset` (patch bump on both plugins), merge the resulting "Version Packages" PR, and the release workflow will publish automatically.
+- [ ] **Publish to npm** — after testing is complete, trigger a release by running `pnpm changeset`, committing the changeset file, and merging the "Version Packages" PR that the release workflow opens.
+
 ## Adding a new SQL dialect
 
 1. Create `packages/plugin-<dialect>/` modelled on `packages/plugin-pgsql/`
