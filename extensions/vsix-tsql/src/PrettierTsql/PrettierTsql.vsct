@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable"
+              xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <Extern href="stdidcmd.h"/>
+  <Extern href="vsshlids.h"/>
+
+  <Commands package="guidPrettierTsqlPackage">
+    <Groups>
+      <Group guid="guidPrettierTsqlCmdSet" id="PrettierTsqlGroup" priority="0x0600">
+        <!-- Place in Edit menu -->
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_EDIT"/>
+      </Group>
+    </Groups>
+
+    <Buttons>
+      <Button guid="guidPrettierTsqlCmdSet" id="FormatSqlCommandId" priority="0x0100" type="Button">
+        <Parent guid="guidPrettierTsqlCmdSet" id="PrettierTsqlGroup"/>
+        <Strings>
+          <ButtonText>Format SQL (Prettier)</ButtonText>
+          <CommandName>FormatSql</CommandName>
+        </Strings>
+      </Button>
+    </Buttons>
+  </Commands>
+
+  <KeyBindings>
+    <!-- Ctrl+K, Ctrl+J  (matches PrettierX64 shortcut) -->
+    <KeyBinding guid="guidPrettierTsqlCmdSet" id="FormatSqlCommandId"
+                editor="guidVSStd97"
+                key1="K" mod1="Control"
+                key2="J" mod2="Control" />
+  </KeyBindings>
+
+  <Symbols>
+    <GuidSymbol name="guidPrettierTsqlPackage" value="{A3DF9C1B-A4BF-4315-B0EB-5DBAE5EDBC05}" />
+    <GuidSymbol name="guidPrettierTsqlCmdSet"  value="{11BF6762-35E0-4573-8672-1DDEDAB35E85}">
+      <IDSymbol name="PrettierTsqlGroup"   value="0x1020" />
+      <IDSymbol name="FormatSqlCommandId"  value="0x0100" />
+    </GuidSymbol>
+  </Symbols>
+
+</CommandTable>

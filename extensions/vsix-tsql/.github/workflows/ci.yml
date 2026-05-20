@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Node tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+      - name: Install bundled dependencies
+        run: npm install
+        working-directory: bundled
+      - run: npm test
+
+  build:
+    name: Build VSIX
+    runs-on: windows-latest
+    # Only on PRs — main pushes are covered by the release workflow on tags
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+      - name: Install bundled dependencies
+        run: npm install
+        working-directory: bundled
+      - uses: microsoft/setup-msbuild@v2
+      - name: Restore NuGet packages
+        shell: cmd
+        run: msbuild src/PrettierTsql.slnx /t:Restore
+      - name: Build VSIX
+        shell: cmd
+        run: msbuild src/PrettierTsql.slnx /p:Configuration=Release /p:DeployExtension=false /t:Build
+      - name: Find VSIX path
+        id: vsix
+        shell: pwsh
+        run: |
+          $vsix = Get-ChildItem -Recurse -Filter "*.vsix" | Select-Object -First 1
+          if (-not $vsix) { Write-Error "No .vsix file found"; exit 1 }
+          Write-Host "Found: $($vsix.FullName)"
+          echo "path=$($vsix.FullName)" >> $env:GITHUB_OUTPUT
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsix
+          path: ${{ steps.vsix.outputs.path }}
+          if-no-files-found: error

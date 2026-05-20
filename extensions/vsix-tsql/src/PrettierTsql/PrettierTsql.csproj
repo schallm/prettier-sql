@@ -1,0 +1,110 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <OutputType>Library</OutputType>
+    <RootNamespace>PickyCode.PrettierTsql</RootNamespace>
+    <AssemblyName>PickyCode.PrettierTsql</AssemblyName>
+    <GeneratePkgDefFile>true</GeneratePkgDefFile>
+    <IncludeAssemblyInVSIXContainer>true</IncludeAssemblyInVSIXContainer>
+    <IncludeDebugSymbolsInVSIXContainer>false</IncludeDebugSymbolsInVSIXContainer>
+    <IncludeDebugSymbolsInLocalVSIXDeployment>true</IncludeDebugSymbolsInLocalVSIXDeployment>
+    <CopyBuildOutputToOutputDirectory>true</CopyBuildOutputToOutputDirectory>
+    <UseCodebase>true</UseCodebase>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- VS SDK — keep version in sync with oldest targeted VS (17.0 = VS 2022) -->
+    <PackageReference Include="Microsoft.VisualStudio.SDK" Version="17.0.31902.203" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="17.11.414" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Required for OleMenuCommandService (inherits MenuCommandService from System.Design) -->
+    <Reference Include="System.Design" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="source.extension.vsixmanifest">
+      <SubType>Designer</SubType>
+    </Content>
+    <!-- Command table -->
+    <VSCTCompile Include="PrettierTsql.vsct">
+      <ResourceName>Menus.ctmenu</ResourceName>
+      <SubType>Designer</SubType>
+    </VSCTCompile>
+  </ItemGroup>
+
+  <!-- Regenerate THIRD_PARTY_NOTICES.txt before each build -->
+  <Target Name="GenerateThirdPartyNotices" BeforeTargets="Build">
+    <Exec Command="node &quot;$(MSBuildThisFileDirectory)..\..\scripts\generate-notices.mjs&quot;" />
+  </Target>
+
+  <!-- Include the notices file in the VSIX -->
+  <ItemGroup>
+    <Content Include="..\..\THIRD_PARTY_NOTICES.txt">
+      <Link>THIRD_PARTY_NOTICES.txt</Link>
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!-- Bundle the Node.js formatter and its dependencies into the VSIX -->
+  <ItemGroup>
+    <Content Include="..\..\bundled\**" Exclude="..\..\bundled\node_modules\**">
+      <Link>bundled\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\bundled\node_modules\**">
+      <Link>bundled\node_modules\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!-- Include LICENSE.txt in the VSIX (referenced by source.extension.vsixmanifest) -->
+  <ItemGroup>
+    <Content Include="..\..\LICENSE.txt">
+      <Link>LICENSE.txt</Link>
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!-- Required for SDK-style projects: import the VSSDK targets that define CreateVsixContainer.
+       Uses VSToolsPath (set by setup-msbuild / VS dev environment) with a fallback to VsSDKInstall
+       (set by Microsoft.VSSDK.BuildTools NuGet package after restore). -->
+  <Import Project="$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets"
+          Condition="'$(VSToolsPath)' != '' and Exists('$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets')" />
+  <Import Project="$(VsSDKInstall)\Microsoft.VsSDK.targets"
+          Condition="'$(VSToolsPath)' == '' and '$(VsSDKInstall)' != '' and Exists('$(VsSDKInstall)\Microsoft.VsSDK.targets')" />
+
+  <!-- Fix VSSDK intermediate path properties: Microsoft.VsSDK.targets evaluates these in a
+       PropertyGroup before the SDK targets set IntermediateOutputPath, so they resolve to
+       \filename. Override them inside a target where IntermediateOutputPath is fully resolved. -->
+  <Target Name="FixVssdkIntermediatePaths" BeforeTargets="MergeCtoResource;CreateVsixContainer;GenerateFileManifest;GenerateResourcePackagesManifest;DetokenizeVsixManifestFile;GeneratePkgDef">
+    <PropertyGroup>
+      <IntermediateVsixManifest>$(IntermediateOutputPath)$(VsixManifestFileName)</IntermediateVsixManifest>
+      <FileManifest>$(IntermediateOutputPath)files.json</FileManifest>
+      <TemplateFileManifest>$(IntermediateOutputPath)templateFiles.json</TemplateFileManifest>
+      <ResourceManifest>$(IntermediateOutputPath)resources.json</ResourceManifest>
+      <CtoFileManifest>$(IntermediateOutputPath)ctoFiles.json</CtoFileManifest>
+      <CtoCacheFile>$(IntermediateOutputPath)mergeCto.cache</CtoCacheFile>
+      <CreateTemplateManifestsCacheFile>$(IntermediateOutputPath)createTemplateManifests.cache</CreateTemplateManifestsCacheFile>
+      <ResourcePackagesManifest Condition="'$(GenerateResourcePackages)' == 'true'">$(IntermediateOutputPath)resourcePackages.json</ResourcePackagesManifest>
+      <TemplateOutputDirectory>$(IntermediateOutputPath)</TemplateOutputDirectory>
+      <TargetVsixContainerName>$(AssemblyName).vsix</TargetVsixContainerName>
+      <TargetVsixContainer>$(OutDir)$(TargetVsixContainerName)</TargetVsixContainer>
+      <!-- TargetPath is also empty at project-load time; fix it here so GeneratePkgDef finds the assembly -->
+      <CreatePkgDefAssemblyToProcess>$(TargetPath)</CreatePkgDefAssemblyToProcess>
+    </PropertyGroup>
+  </Target>
+
+  <!-- SDK-style projects override PrepareForRunDependsOn, removing the VSSDK hooks that normally
+       call GeneratePkgDef and CreateVsixContainer. Invoke them explicitly after the build. -->
+  <Target Name="InvokeCreateVsixContainer" AfterTargets="Build" DependsOnTargets="GeneratePkgDef;CreateVsixContainer" />
+
+</Project>
