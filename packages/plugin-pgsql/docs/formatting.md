@@ -307,6 +307,24 @@ select *
 from t;
 ```
 
+### Named WINDOW clause
+
+Define reusable window specifications with a `WINDOW` clause. Window names are referenced by name in `OVER` expressions elsewhere in the same query.
+
+```sql
+select
+  id,
+  dept,
+  salary,
+  row_number() over w1 as dept_rank,
+  sum(salary) over w2 as dept_total,
+  avg(salary) over (partition by dept) as dept_avg
+from employees
+window
+  w1 as (partition by dept order by salary desc),
+  w2 as (partition by dept);
+```
+
 ### Set operations (UNION / INTERSECT / EXCEPT)
 
 The set operator is placed on its own line between the two queries.
@@ -513,6 +531,20 @@ select
   else 'luxury'
   end as price_tier
 from books;
+```
+
+### SELECT INTO
+
+Creates a new table populated with the result of a query. The new table takes its column structure from the query's output.
+
+```sql
+select
+  id,
+  name
+into
+  archive_users
+from users
+where active = false;
 ```
 
 ---
@@ -786,7 +818,74 @@ create table sales (
 );
 ```
 
-### CREATE VIEW
+### ALTER TABLE
+
+#### Rename column / table
+
+```sql
+alter table users rename column email to email_address;
+
+alter table users rename to customers;
+```
+
+#### Alter column
+
+```sql
+-- Change type
+alter table products
+  alter column price type numeric(12, 4);
+
+-- Set / drop default
+alter table users
+  alter column active set default true;
+
+alter table users
+  alter column active drop default;
+
+-- Set / drop not null
+alter table orders
+  alter column status set not null;
+
+alter table orders
+  alter column notes drop not null;
+```
+
+#### Add / drop column
+
+```sql
+alter table users
+  add column phone text;
+
+alter table users
+  add column verified boolean not null default false;
+
+alter table users
+  drop column phone;
+
+alter table users
+  drop column if exists legacy_field;
+```
+
+#### Add / drop constraint
+
+```sql
+alter table order_items
+  add constraint fk_order foreign key (order_id) references orders (id);
+
+alter table products
+  add constraint price_positive check (price > 0);
+
+alter table users
+  add constraint users_email_unique unique (email);
+
+alter table products
+  drop constraint price_positive;
+
+alter table products
+  drop constraint old_check;
+```
+
+### CREATE / REPLACE VIEW
 
 ```sql
 create view active_customers
@@ -799,12 +898,97 @@ from customers
 where active = true;
 ```
 
+Optional column aliases immediately after the view name:
+
+```sql
+create view order_summary
+as
+select
+  id,
+  amount,
+  status
+from orders;
+```
+
+`CREATE OR REPLACE VIEW` preserves existing grants and other dependencies:
+
+```sql
+create view active_users
+as
+select
+  id,
+  name,
+  email
+from users
+where
+  active = true
+  and deleted_at is null;
+```
+
+### Materialized Views
+
+A materialized view stores the query result on disk. It must be refreshed explicitly.
+
+```sql
+create materialized view user_stats as
+select
+  user_id,
+  count(*) as order_count,
+  sum(amount) as total_spent
+from orders
+group by user_id;
+```
+
+`REFRESH MATERIALIZED VIEW` re-executes the query and replaces the stored data. The `CONCURRENTLY` option allows reads during the refresh (requires a unique index on the view):
+
+```sql
+refresh materialized view user_stats;
+
+refresh materialized view concurrently user_stats;
+```
+
+```sql
+drop materialized view if exists stale_cache;
+```
+
 ### CREATE INDEX
 
 ```sql
 create index idx_books_author on books (author_id);
 
 create unique index idx_customers_email on customers (email);
+```
+
+Expression index (index on a function of a column):
+
+```sql
+create index idx_users_lower_email on users (lower(email));
+```
+
+Covering index with `INCLUDE` columns (available from PostgreSQL 11):
+
+```sql
+create index idx_orders_lookup on orders (customer_id) include (status, amount);
+```
+
+Index method with `USING`:
+
+```sql
+create index idx_events_data on events using gin (data);
+
+create index idx_locations on places using gist (location);
+```
+
+`CONCURRENTLY` builds the index without locking writes:
+
+```sql
+create index concurrently idx_big_table_col on big_table (col);
+```
+
+`IF NOT EXISTS` avoids an error when the index already exists:
+
+```sql
+create index if not exists idx_books_author on books (author_id);
 ```
 
 ### CREATE FUNCTION
@@ -921,6 +1105,305 @@ security label for my_provider on table orders is 'sensitive';
 security label for my_provider on column orders.amount is 'pii';
 ```
 
+### CREATE / ALTER SEQUENCE
+
+Each option appears on its own indented line:
+
+```sql
+create sequence order_seq
+start with 1000
+increment by 1
+no maxvalue
+no cycle;
+```
+
+Minimal sequence (all defaults):
+
+```sql
+create sequence event_seq;
+```
+
+`ALTER SEQUENCE` uses `RESTART WITH` to reset the current value:
+
+```sql
+alter sequence order_seq
+restart with 1
+increment by 5;
+```
+
+### CREATE TYPE
+
+#### Composite type
+
+```sql
+create type address as (
+  street text,
+  city varchar(100),
+  zip varchar(10)
+);
+```
+
+#### Enum type
+
+```sql
+create type mood as enum (
+  'sad',
+  'ok',
+  'happy'
+);
+```
+
+#### ALTER TYPE
+
+```sql
+alter type mood add value 'excited' after 'happy';
+
+alter type mood add value if not exists 'meh' before 'ok';
+```
+
+### CREATE TRIGGER
+
+The trigger name, timing/event, target table, scope, optional `WHEN` condition, and function call each appear on their own line:
+
+```sql
+-- BEFORE INSERT
+create trigger check_before_insert
+before insert on accounts
+for each row
+execute function check_account_insert();
+
+-- AFTER UPDATE (statement-level)
+create trigger log_update
+after update on accounts
+for each statement
+execute function log_account_change();
+
+-- Multiple events
+create trigger validate_order
+before insert or update on orders
+for each row
+execute function validate_order_data();
+
+-- WHEN condition (row-level only)
+create trigger audit_price_change
+before update on products
+for each row
+when (old.price is distinct from new.price)
+execute function audit_price();
+
+-- INSTEAD OF trigger on a view
+create trigger view_insert
+instead of insert on v_active_users
+for each row
+execute function handle_view_insert();
+
+-- Constraint trigger (deferrable)
+create trigger check_fk
+after insert on order_items
+for each row
+execute function check_order_item_fk();
+```
+
+### Row Level Security
+
+#### CREATE POLICY
+
+```sql
+-- SELECT policy — USING clause filters visible rows
+create policy view_own_data
+on users
+for select
+using (user_id = current_user_id());
+
+-- INSERT policy — WITH CHECK validates new rows
+create policy insert_own_rows
+on orders
+for insert
+with check (customer_id = current_user_id());
+
+-- USING and WITH CHECK together
+create policy manage_own_orders
+on orders
+for all
+using (customer_id = current_user_id())
+with check (customer_id = current_user_id());
+
+-- Permissive vs restrictive
+create policy admin_all
+on orders
+for all
+using (true);
+
+create policy restrict_sensitive
+on users
+for all
+using (not is_internal);
+```
+
+#### ALTER POLICY
+
+```sql
+alter policy view_own_data
+on users
+using (user_id = current_user_id());
+```
+
+### CREATE / ALTER ROLE
+
+```sql
+create role alice
+login password 'secret' nosuperuser;
+
+create user bob
+nosuperuser nologin;
+
+alter role alice
+createdb;
+
+alter role bob
+connection limit 10;
+```
+
+### GRANT / REVOKE
+
+```sql
+-- GRANT permissions on a table
+grant select, insert on table books
+to alice;
+
+grant all privileges on table orders
+to bob;
+
+-- GRANT on schema
+grant usage on schema myschema
+to alice;
+
+-- GRANT on all tables in schema
+grant select on all tables in schema public
+to alice;
+
+-- GRANT on a function
+grant execute on function get_count
+to PUBLIC;
+
+-- WITH GRANT OPTION
+grant select on table books
+to alice
+with grant option;
+
+-- REVOKE
+revoke select on table books
+from alice;
+
+revoke all privileges on table orders
+from bob
+cascade;
+```
+
+### COMMENT ON
+
+Attaches a description string to any database object. Set to `NULL` to remove a comment.
+
+```sql
+comment on table books is 'Book catalog';
+
+comment on column books.title is 'The book''s title';
+
+comment on schema public is 'Public schema';
+
+comment on function get_count is 'Returns count for given id';
+
+comment on view active_users is 'Users with active accounts';
+
+comment on index idx_books_author is 'Author lookup index';
+
+comment on sequence order_seq is 'Order ID sequence';
+
+comment on type order_status is 'Possible order states';
+
+comment on database mydb is 'Main application database';
+
+-- Remove a comment
+comment on table temp_data is null;
+```
+
+### CREATE RULE
+
+Rules redirect or suppress DML operations on a table or view. The action (`DO ALSO` or `DO INSTEAD`) and body appear on their own lines:
+
+```sql
+create rule log_insert
+as on insert
+to orders
+do also
+  insert into audit_log (event)
+  values ('insert');
+
+-- DO INSTEAD with NOTHING suppresses the original operation
+create rule redirect_update
+as on update
+to archived_orders
+do instead nothing;
+
+-- INSTEAD OF on a view (rewrite to base table)
+create rule insert_view
+as on insert
+to user_view
+do instead
+  insert into users (name, email)
+  values (new.name, new.email);
+
+-- With a WHEN condition
+create rule no_delete
+as on delete
+to orders
+where old.status = 'locked'
+do instead nothing;
+```
+
+### CREATE SCHEMA / CREATE EXTENSION
+
+```sql
+create schema myschema;
+
+create schema if not exists reporting;
+
+create schema myschema authorization alice;
+```
+
+```sql
+create extension "uuid-ossp";
+
+create extension if not exists "pgcrypto";
+```
+
+### ALTER FUNCTION
+
+```sql
+alter function get_count(integer)
+  cost 100;
+
+alter function get_books(integer)
+  rows 100;
+
+-- Volatility
+alter function compute_tax(numeric)
+  volatile;
+
+alter function get_config(text)
+  stable;
+
+alter function format_name(text, text)
+  immutable;
+
+-- Rename / owner / schema
+alter function get_count(integer) rename to count_items;
+
+alter function get_count owner to admin;
+
+alter function get_count set schema reporting;
+```
+
 ---
 
 ## Transaction Control
@@ -1030,6 +1513,148 @@ language plpgsql;
 
 ---
 
+## Session / Utility Statements
+
+### EXPLAIN
+
+`EXPLAIN` shows the query plan without executing. `EXPLAIN ANALYZE` executes and reports timing.
+
+```sql
+explain select id
+from users;
+
+explain analyze select id
+from users;
+
+explain (analyze true, verbose true, format json) select id
+from users;
+```
+
+---
+
+### COPY
+
+`COPY` transfers data between a table and a file. The `FROM` form loads data; `TO` exports it. A subquery can be used in the `TO` form.
+
+```sql
+copy orders from '/tmp/orders.csv';
+
+copy orders to '/tmp/orders.csv';
+
+copy (
+  select id
+  from orders
+) to '/tmp/ids.csv';
+```
+
+With options:
+
+```sql
+copy orders from '/tmp/orders.csv' (format csv, header true, delimiter ',', null '');
+
+copy orders (id, customer_id, amount) to '/tmp/orders_partial.csv' (format csv, header true);
+```
+
+---
+
+### SET / SHOW / RESET
+
+```sql
+-- SET a session parameter
+set search_path = public, myschema;
+
+set work_mem = '64MB';
+
+-- SET LOCAL applies only within the current transaction
+set local client_encoding = utf8;
+
+-- SET TO DEFAULT restores the compiled-in value
+set work_mem to default;
+
+-- RESET is equivalent to SET TO DEFAULT
+reset search_path;
+
+reset all;
+
+-- SHOW displays the current effective value
+show work_mem;
+
+show all;
+```
+
+---
+
+### LOCK TABLE
+
+```sql
+lock table orders in exclusive mode;
+
+lock table orders in access exclusive mode nowait;
+```
+
+---
+
+### LISTEN / NOTIFY / UNLISTEN
+
+```sql
+listen my_channel;
+
+unlisten my_channel;
+
+unlisten *;
+
+notify my_channel;
+
+notify my_channel, 'payload text';
+```
+
+---
+
+### Cursors
+
+```sql
+declare my_cursor cursor for
+select
+  id,
+  name
+from users;
+
+declare scroll_cursor scroll cursor for
+select id
+from orders;
+
+fetch next from my_cursor;
+
+fetch forward 10 from my_cursor;
+
+fetch all from my_cursor;
+
+move prior from scroll_cursor;
+
+close my_cursor;
+```
+
+---
+
+### PREPARE / EXECUTE / DEALLOCATE
+
+```sql
+prepare get_user(integer) as
+select
+  id,
+  name
+from users
+where id = $1;
+
+execute get_user(42);
+
+deallocate get_user;
+
+deallocate all;
+```
+
+---
+
 ## Expressions
 
 ### SUBSTRING — SQL standard form
@@ -1101,6 +1726,20 @@ coalesce(price, 0.00)
 nullif(status, 'deleted')
 greatest(a, b, c)
 least(x, y, z)
+```
+
+### GROUPING
+
+`GROUPING(col, ...)` returns 0 when all listed columns are part of the current grouping key, or 1 when any of them are being aggregated away. Used with `GROUPING SETS`, `ROLLUP`, and `CUBE` to distinguish subtotals from detail rows.
+
+```sql
+select
+  region,
+  product,
+  grouping(region, product) as grp,
+  sum(amount)
+from sales
+group by grouping sets((region, product), (region), ());
 ```
 
 ### Type casting — :: style

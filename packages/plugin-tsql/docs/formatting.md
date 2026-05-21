@@ -126,6 +126,36 @@ from
   inner join Genres on b.GenreId = Genres.Id;
 ```
 
+##### CROSS APPLY / OUTER APPLY
+
+`CROSS APPLY` and `OUTER APPLY` pass each outer row into a correlated subquery or TVF. `CROSS APPLY` returns only rows where the subquery produces results; `OUTER APPLY` always returns the outer row (with `NULL`s when the subquery is empty). The subquery is indented inside parentheses and aliased with `as`:
+
+```sql
+select
+  b.Title,
+  top5.OrderId
+from
+  Books as b
+  cross apply (
+    select top (5) OrderId
+    from OrderItems
+    where BookId = b.Id
+    order by UnitPrice desc
+  ) as top5;
+
+select
+  b.Title,
+  latest.OrderId
+from
+  Books as b
+  outer apply (
+    select top (1) OrderId
+    from OrderItems
+    where BookId = b.Id
+    order by UnitPrice desc
+  ) as latest;
+```
+
 #### WHERE
 
 A single predicate stays inline with `where` (standard density):
@@ -409,6 +439,24 @@ select percentile_cont(0.5) within group (order by Salary asc) over (
   partition by Department
 )
 from Employees;
+```
+
+##### JSON_OBJECT / JSON_ARRAY / JSON_ARRAYAGG
+
+SQL Server 2022 JSON constructor functions. Key-value pairs use `:` syntax; `ABSENT ON NULL` / `NULL ON NULL` control how null values are emitted:
+
+```sql
+select json_object('name': Title, 'price': Price)
+from Books;
+
+select json_object('name': Title, 'price': Price absent on null)
+from Books;
+
+select json_array(1, 2, 'three')
+from Books;
+
+select json_arrayagg(Title order by Title asc)
+from Books;
 ```
 
 #### TOP
@@ -824,6 +872,31 @@ from Books
 where InStock = 1;
 ```
 
+#### OPTION clause
+
+Query hints are placed in an `OPTION (...)` clause after the last clause of the statement. Multiple hints are comma-separated:
+
+```sql
+select
+  BookId,
+  Title
+from Books
+where InStock = 1
+option (recompile);
+
+select BookId
+from Books
+option (maxdop 4);
+
+select
+  BookId,
+  Title
+from Books
+where InStock = 1
+order by Title asc
+option (recompile, maxdop 4);
+```
+
 ---
 
 ### INSERT
@@ -1119,6 +1192,19 @@ create table BigData (
 with (data_compression = row, memory_optimized = off);
 ```
 
+Inline index declarations may appear after constraints inside the column list. Each `INDEX` entry includes the index name, type, and column list:
+
+```sql
+create table Products (
+  Id int identity(1, 1) not null,
+  Sku nvarchar(50) not null,
+  Name nvarchar(200) not null,
+  Price decimal(10, 2) not null,
+  constraint PK_Products primary key (Id),
+  constraint UQ_Products_Sku unique (Sku)
+);
+```
+
 ---
 
 ### ALTER TABLE
@@ -1191,6 +1277,42 @@ check constraint FK_Orders_Customers, CK_Orders_Total;
 ```sql
 alter table Books
 alter column Price decimal(12, 2) not null;
+```
+
+**SET TABLE OPTIONS**
+
+Sets storage-level options such as lock escalation:
+
+```sql
+alter table Orders
+set (lock_escalation = auto);
+
+alter table Orders
+set (lock_escalation = disable);
+```
+
+**REBUILD PARTITION**
+
+Rebuilds a single partition or all partitions of a partitioned table. An optional `WITH` options block follows the partition specifier:
+
+```sql
+alter table Orders
+rebuild partition = all;
+
+alter table Orders
+rebuild partition = 3 with (data_compression = row);
+```
+
+**SWITCH PARTITION**
+
+Moves a partition between two tables. The target partition number is optional when the target is not partitioned:
+
+```sql
+alter table Orders
+switch partition 3 to ArchivedOrders partition 1;
+
+alter table Orders
+switch to ArchivedOrders;
 ```
 
 ---
@@ -1769,6 +1891,104 @@ dbo.Orders.stat2;
 ---
 
 ## Procedural / Control Flow
+
+### DECLARE
+
+Variables are declared one per statement. An optional initializer follows the type:
+
+```sql
+declare @price decimal(10, 2) = 29.99;
+
+declare @title nvarchar(200);
+
+declare @count int;
+```
+
+---
+
+### SET @variable
+
+Variable assignment uses `SET @var = expr`. A subquery assigned via `SET` is wrapped in parentheses:
+
+```sql
+set @count = (
+  select count(*)
+  from Books
+  where InStock = 1
+);
+
+set @title = 'Books available';
+```
+
+---
+
+### IF / ELSE
+
+A single-statement body stays inline; a multi-statement body uses `begin`/`end`:
+
+```sql
+if @count > 0
+begin
+  set @title = 'Books available';
+end
+else
+begin
+  set @title = 'No books available';
+end
+```
+
+`else if` chains do not add an extra `begin`/`end` level for the intermediate branch:
+
+```sql
+if @price < 10
+  set @title = 'cheap';
+else
+  if @price < 50
+    set @title = 'mid-range';
+  else
+    set @title = 'expensive';
+```
+
+---
+
+### WHILE
+
+```sql
+while @count > 0
+begin
+  set @count = @count - 1;
+
+if @count = 5
+  continue;
+
+if @count = 0
+    break;
+end
+```
+
+---
+
+### PRINT
+
+```sql
+print 'Books loaded.';
+
+print @message;
+```
+
+---
+
+### RETURN
+
+`RETURN` exits the current batch or procedure, optionally returning an integer status:
+
+```sql
+return;
+
+return @count;
+```
+
+---
 
 ### USE
 
