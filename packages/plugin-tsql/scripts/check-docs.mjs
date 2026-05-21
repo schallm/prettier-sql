@@ -33,7 +33,7 @@ const DIFF_FENCE = /^(```diff\n)([\s\S]*?)(^```)/gm;
 
 async function fmt(sql) {
     return prettier.format(sql, {
-        parser: 'pgsql',
+        parser: 'tsql',
         plugins: [join(root, 'dist/index.js')],
     });
 }

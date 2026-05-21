@@ -53,6 +53,8 @@
     "format:cs": "dotnet format src/dotnet/SqlScriptDom/SqlScriptDom.csproj",
     "format": "pnpm run format:ts && pnpm run format:md && pnpm run format:cs",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check:docs": "node scripts/check-docs.mjs",
+    "fix:docs": "node scripts/check-docs.mjs --fix"
   }
 }
