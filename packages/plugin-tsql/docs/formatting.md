@@ -1937,7 +1937,7 @@ begin
 end
 ```
 
-`else if` chains do not add an extra `begin`/`end` level for the intermediate branch:
+T-SQL treats `ELSE IF` as an `ELSE` clause containing a single `IF` statement, so the formatter places the nested `IF` on the next line indented one level under `ELSE`:
 
 ```sql
 if @price < 10
@@ -1953,15 +1953,18 @@ else
 
 ### WHILE
 
+Statements inside the `begin`/`end` body are indented one level. `IF` bodies are indented a further level:
+
+<!-- check-docs:skip -->
 ```sql
 while @count > 0
 begin
   set @count = @count - 1;
 
-if @count = 5
-  continue;
+  if @count = 5
+    continue;
 
-if @count = 0
+  if @count = 0
     break;
 end
 ```
