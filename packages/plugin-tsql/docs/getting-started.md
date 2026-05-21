@@ -172,7 +172,16 @@ Create a test file `test.sql`:
 
 <!-- prettier-ignore -->
 ```sql
-SELECT Books.BookId,Books.Title,Books.Price,Authors.LastName FROM Books INNER JOIN Authors ON Books.AuthorId=Authors.Id WHERE Books.InStock=1 ORDER BY Books.Title ASC;
+select
+  Books.BookId,
+  Books.Title,
+  Books.Price,
+  Authors.LastName
+from
+  Books
+  inner join Authors on Books.AuthorId = Authors.Id
+where Books.InStock = 1
+order by Books.Title asc;
 ```
 
 Run Prettier:
@@ -185,13 +194,13 @@ Expected output:
 
 ```sql
 select
-    Books.BookId,
-    Books.Title,
-    Books.Price,
-    Authors.LastName
+  Books.BookId,
+  Books.Title,
+  Books.Price,
+  Authors.LastName
 from
-    Books
-    inner join Authors on Books.AuthorId = Authors.Id
+  Books
+  inner join Authors on Books.AuthorId = Authors.Id
 where Books.InStock = 1
 order by Books.Title asc;
 ```

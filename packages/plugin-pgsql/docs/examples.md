@@ -30,7 +30,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   authors.last_name
 + from
 +   books
-+   join authors on authors.id = books.author_id
++   join authors on books.author_id = authors.id
 + where books.price < 50;
 ```
 

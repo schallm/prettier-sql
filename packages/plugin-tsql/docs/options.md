@@ -20,8 +20,8 @@ Controls the casing of SQL keywords (`select`, `from`, `where`, `join`, data typ
 
 ```sql
 select
-    Books.Id,
-    Books.Title
+  Books.Id,
+  Books.Title
 from Books
 where Books.InStock = 1;
 ```
@@ -30,11 +30,11 @@ where Books.InStock = 1;
 
 <!-- prettier-ignore -->
 ```sql
-SELECT
-    Books.Id,
-    Books.Title
-FROM Books
-WHERE Books.InStock = 1;
+select
+  Books.Id,
+  Books.Title
+from Books
+where Books.InStock = 1;
 ```
 
 **`preserve`**
@@ -58,12 +58,12 @@ One clause keyword per line. Single WHERE/ON predicates stay on the same line as
 
 ```sql
 select
-    Books.BookId,
-    Books.Title,
-    Books.Price
+  Books.BookId,
+  Books.Title,
+  Books.Price
 from
-    Books
-    inner join Authors on Books.AuthorId = Authors.Id
+  Books
+  inner join Authors on Books.AuthorId = Authors.Id
 where Books.InStock = 1
 order by Books.Title asc;
 ```
@@ -74,8 +74,8 @@ With multiple WHERE predicates:
 select Id
 from Books
 where
-    InStock = 1
-    and Price < 50;
+  InStock = 1
+  and Price < 50;
 ```
 
 ### `compact`
@@ -84,8 +84,13 @@ Tries to keep everything on as few lines as possible, wrapping only when a line 
 
 <!-- prettier-ignore -->
 ```sql
-select Books.BookId, Books.Title, Books.Price
-from Books inner join Authors on Books.AuthorId = Authors.Id
+select
+  Books.BookId,
+  Books.Title,
+  Books.Price
+from
+  Books
+  inner join Authors on Books.AuthorId = Authors.Id
 where Books.InStock = 1
 order by Books.Title asc;
 ```
@@ -97,16 +102,14 @@ Every predicate gets its own indented line, even when there is only one. Maximis
 <!-- prettier-ignore -->
 ```sql
 select
-    Books.BookId,
-    Books.Title,
-    Books.Price
+  Books.BookId,
+  Books.Title,
+  Books.Price
 from
-    Books
-    inner join Authors on Books.AuthorId = Authors.Id
-where
-    Books.InStock = 1
-order by
-    Books.Title asc;
+  Books
+  inner join Authors on Books.AuthorId = Authors.Id
+where Books.InStock = 1
+order by Books.Title asc;
 ```
 
 ---
@@ -126,20 +129,20 @@ Leading commas apply to SELECT column lists, GROUP BY, ORDER BY, CTE lists, INSE
 
 ```sql
 select
-    Id,
-    Title,
-    Price
+  Id,
+  Title,
+  Price
 from Books;
 
 insert into Books (Title, Price)
 values
-    ('A', 1.00),
-    ('B', 2.00);
+  ('A', 1.00),
+  ('B', 2.00);
 
 update Books
 set
-    Title = @title,
-    Price = @price
+  Title = @title,
+  Price = @price
 where BookId = @id;
 ```
 
@@ -148,23 +151,20 @@ where BookId = @id;
 <!-- prettier-ignore -->
 ```sql
 select
-    Id
-  , Title
-  , Price
+  Id,
+  Title,
+  Price
 from Books;
 
-insert into Books (
-    Title
-  , Price
-)
+insert into Books (Title, Price)
 values
-    ('A', 1.00)
-  , ('B', 2.00);
+  ('A', 1.00),
+  ('B', 2.00);
 
 update Books
 set
-    Title = @title
-  , Price = @price
+  Title = @title,
+  Price = @price
 where BookId = @id;
 ```
 
