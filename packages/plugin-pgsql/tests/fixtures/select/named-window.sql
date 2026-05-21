@@ -1,15 +1,3 @@
--- Named WINDOW clause
-select
-  id,
-  author_id,
-  price,
-  sum(price) over w as running_total,
-  row_number() over w as rn
-from
-  books
-window
-  w as (partition by author_id order by price);
-
 -- Multiple named windows and mixed inline
 select
   id,
