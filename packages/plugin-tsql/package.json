@@ -6,7 +6,8 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/schallm/prettier-sql.git"
+    "url": "git+https://github.com/schallm/prettier-sql.git",
+    "directory": "packages/plugin-tsql"
   },
   "homepage": "https://github.com/schallm/prettier-sql/tree/main/packages/plugin-tsql#readme",
   "bugs": {

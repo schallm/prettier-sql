@@ -196,8 +196,8 @@ order by Books.Title asc;
 ## Building from Source
 
 ```bash
-git clone <repo>
-cd prettier-plugin-tsql
+git clone https://github.com/schallm/prettier-sql.git
+cd prettier-sql/packages/plugin-tsql
 npm install
 npm run build      # builds .NET DLL and TypeScript
 npm test
