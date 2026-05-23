@@ -1,6 +1,6 @@
 # Prettier PostgreSQL
 
-Format PostgreSQL / SQL Server scripts using [Prettier](https://prettier.io/), powered by [prettier-plugin-pgsql](https://github.com/schallm/prettier-plugin-pgsql) and Microsoft's ScriptDom parser.
+Format PostgreSQL / SQL Server scripts using [Prettier](https://prettier.io/), powered by [prettier-plugin-postgresql](https://github.com/schallm/prettier-sql/tree/main/packages/plugin-pgsql) and Microsoft's ScriptDom parser.
 
 ## Features
 

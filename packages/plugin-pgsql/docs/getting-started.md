@@ -17,7 +17,7 @@ Download .NET 8: <https://dotnet.microsoft.com/download/dotnet/8.0>
 ## Installation
 
 ```sh
-npm install --save-dev prettier prettier-plugin-pgsql
+npm install --save-dev prettier prettier-plugin-postgresql
 ```
 
 ### Basic configuration
@@ -25,7 +25,7 @@ npm install --save-dev prettier prettier-plugin-pgsql
 ```js
 // prettier.config.js
 export default {
-  plugins: ['prettier-plugin-pgsql'],
+  plugins: ['prettier-plugin-postgresql'],
   overrides: [
     {
       files: ['*.sql', '*.pgsql'],
@@ -77,8 +77,8 @@ order by price;
 ## Building from Source
 
 ```sh
-git clone https://github.com/your-org/prettier-plugin-pgsql
-cd prettier-plugin-pgsql
+git clone https://github.com/your-org/prettier-plugin-postgresql
+cd prettier-plugin-postgresql
 npm install
 npm run build
 npm test

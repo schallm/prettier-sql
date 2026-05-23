@@ -4,6 +4,6 @@
     "type": "module",
     "dependencies": {
         "prettier": "^3.0.0",
-        "prettier-plugin-pgsql": "workspace:*"
+        "prettier-plugin-postgresql": "workspace:*"
     }
 }

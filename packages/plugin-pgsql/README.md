@@ -1,4 +1,4 @@
-# prettier-plugin-pgsql
+# prettier-plugin-postgresql
 
 > **Beta** — covers the core PostgreSQL DML and DDL statement set. A small number of advanced or uncommon constructs fall back to a `/* unknown */` comment placeholder while support is being added.
 
@@ -110,7 +110,7 @@ A [Prettier](https://prettier.io) plugin for PostgreSQL SQL. Parses SQL with [li
 ## Installation
 
 ```sh
-npm install --save-dev prettier prettier-plugin-pgsql
+npm install --save-dev prettier prettier-plugin-postgresql
 ```
 
 Then add the plugin to your Prettier configuration:
@@ -118,7 +118,7 @@ Then add the plugin to your Prettier configuration:
 ```js
 // prettier.config.js
 export default {
-  plugins: ['prettier-plugin-pgsql'],
+  plugins: ['prettier-plugin-postgresql'],
   overrides: [
     {
       files: ['*.sql', '*.pgsql'],
@@ -172,7 +172,7 @@ Three formatting options are available. See [Options](docs/options.md) for full 
 ```js
 // prettier.config.js
 export default {
-  plugins: ['prettier-plugin-pgsql'],
+  plugins: ['prettier-plugin-postgresql'],
   overrides: [
     {
       files: '*.sql',

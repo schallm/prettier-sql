@@ -1,2 +1,2 @@
 import { runFormat } from '../../shared/format-core.mjs';
-await runFormat({ callerUrl: import.meta.url, pluginName: 'prettier-plugin-pgsql', parser: 'pgsql' });
+await runFormat({ callerUrl: import.meta.url, pluginName: 'prettier-plugin-postgresql', parser: 'pgsql' });

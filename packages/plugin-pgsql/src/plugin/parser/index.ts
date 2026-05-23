@@ -13,7 +13,7 @@ let dotnetModule: PgsqlDotnet | null = null;
 
 function loadDotnet(): PgsqlDotnet {
     if (dotnetModule) return dotnetModule;
-    dotnetModule = loadDotnetDll(import.meta.url, 'PgScriptDom.dll', 'prettier-plugin-pgsql') as PgsqlDotnet;
+    dotnetModule = loadDotnetDll(import.meta.url, 'PgScriptDom.dll', 'prettier-plugin-postgresql') as PgsqlDotnet;
     return dotnetModule;
 }
 

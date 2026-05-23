@@ -40,7 +40,7 @@ WHERE price < 50;
 ```js
 // prettier.config.js
 export default {
-  plugins: ['prettier-plugin-pgsql'],
+  plugins: ['prettier-plugin-postgresql'],
   overrides: [
     {
       files: '*.sql',
@@ -112,7 +112,7 @@ Prettier's standard `printWidth` option (default `80`) is respected. Column list
 ```js
 // prettier.config.js
 export default {
-  plugins: ['prettier-plugin-pgsql'],
+  plugins: ['prettier-plugin-postgresql'],
   overrides: [
     {
       files: ['*.sql', '*.pgsql'],

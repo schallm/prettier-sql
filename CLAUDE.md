@@ -7,7 +7,7 @@ prettier-sql/
 ├── packages/
 │   ├── core/            # @prettier-sql/core — shared TS + C# (private, not published)
 │   ├── plugin-tsql/     # prettier-plugin-tsql (npm published)
-│   └── plugin-pgsql/    # prettier-plugin-pgsql (npm published)
+│   └── plugin-pgsql/    # prettier-plugin-postgresql (npm published)
 └── extensions/
     ├── vsix-tsql/       # VS/SSMS extension for T-SQL (Windows-only)
     └── vsix-pgsql/      # VS/SSMS extension for PostgreSQL (Windows-only)
@@ -32,8 +32,8 @@ pnpm -r build             # build all packages in dependency order
 pnpm -r test              # run all test suites
 
 # Per-package (from root):
-pnpm --filter prettier-plugin-pgsql build
-pnpm --filter prettier-plugin-pgsql test
+pnpm --filter prettier-plugin-postgresql build
+pnpm --filter prettier-plugin-postgresql test
 pnpm --filter prettier-plugin-tsql test
 
 # Or cd into a package and use pnpm run:
@@ -100,8 +100,8 @@ can load it.
 
 ## Pending tasks
 
-- [ ] **Add `NPM_TOKEN` secret** — generate a Granular Access Token at npmjs.com (Account → Access Tokens, read+write for `prettier-plugin-tsql` and `prettier-plugin-pgsql`) and add it to GitHub repo settings (Settings → Secrets and variables → Actions → `NPM_TOKEN`).
-- [ ] **Update npmjs.org** — update the package pages for `prettier-plugin-tsql` and `prettier-plugin-pgsql` to reflect the new monorepo home. Run `pnpm changeset` (patch bump on both plugins), merge the resulting "Version Packages" PR, and the release workflow will publish automatically.
+- [ ] **Add `NPM_TOKEN` secret** — generate a Granular Access Token at npmjs.com (Account → Access Tokens, read+write for `prettier-plugin-tsql` and `prettier-plugin-postgresql`) and add it to GitHub repo settings (Settings → Secrets and variables → Actions → `NPM_TOKEN`).
+- [ ] **Update npmjs.org** — update the package pages for `prettier-plugin-tsql` and `prettier-plugin-postgresql` to reflect the new monorepo home. Run `pnpm changeset` (patch bump on both plugins), merge the resulting "Version Packages" PR, and the release workflow will publish automatically.
 - [ ] **Publish to npm** — after testing is complete, trigger a release by running `pnpm changeset`, committing the changeset file, and merging the "Version Packages" PR that the release workflow opens.
 
 ## Adding a new SQL dialect

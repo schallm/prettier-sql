@@ -5,7 +5,7 @@ Prettier plugins for SQL dialects, powered by native parsers — no regex, no gu
 | Package | Dialect | npm |
 |---|---|---|
 | [prettier-plugin-tsql](packages/plugin-tsql/) | T-SQL (SQL Server / Azure SQL) | [![npm](https://img.shields.io/npm/v/prettier-plugin-tsql)](https://www.npmjs.com/package/prettier-plugin-tsql) |
-| [prettier-plugin-pgsql](packages/plugin-pgsql/) | PostgreSQL | [![npm](https://img.shields.io/npm/v/prettier-plugin-pgsql)](https://www.npmjs.com/package/prettier-plugin-pgsql) |
+| [prettier-plugin-postgresql](packages/plugin-pgsql/) | PostgreSQL | [![npm](https://img.shields.io/npm/v/prettier-plugin-postgresql)](https://www.npmjs.com/package/prettier-plugin-postgresql) |
 
 Each plugin ships its own docs:
 

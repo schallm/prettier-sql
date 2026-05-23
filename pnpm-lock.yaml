@@ -31,7 +31,7 @@ importers:
       prettier:
         specifier: ^3.0.0
         version: 3.8.3
-      prettier-plugin-pgsql:
+      prettier-plugin-postgresql:
         specifier: workspace:*
         version: link:../../../packages/plugin-pgsql
 
