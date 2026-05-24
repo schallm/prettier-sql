@@ -48,6 +48,9 @@ A [Prettier](https://prettier.io) plugin for PostgreSQL SQL. Parses SQL with [li
 - **Table partitioning** — `PARTITION BY RANGE/LIST/HASH`, `CREATE TABLE ... PARTITION OF`, partition bounds (`FOR VALUES FROM/TO`, `IN`, `WITH`, `DEFAULT`)
 - **TABLESAMPLE** — `FROM t TABLESAMPLE BERNOULLI(10)` / `SYSTEM(5) REPEATABLE (42)`
 - **VACUUM / ANALYZE / CLUSTER / REINDEX** — maintenance statements with options
+- **CHECKPOINT** — `CHECKPOINT`
+- **LOAD** — `LOAD 'filename'`
+- **CREATE / DROP TABLESPACE** — `CREATE TABLESPACE name LOCATION path`, `DROP TABLESPACE [IF EXISTS] name`
 - **Foreign data wrappers** — `CREATE SERVER`, `CREATE FOREIGN TABLE`, `CREATE USER MAPPING`, `IMPORT FOREIGN SCHEMA`
 - **Logical replication** — `CREATE / ALTER / DROP PUBLICATION` and `SUBSCRIPTION`
 - **CREATE AGGREGATE** — `CREATE AGGREGATE name (SFUNC = ..., STYPE = ...)`
@@ -73,6 +76,8 @@ A [Prettier](https://prettier.io) plugin for PostgreSQL SQL. Parses SQL with [li
 ### DML (continued)
 
 - **SET / SHOW / RESET** — `SET search_path = myschema`, `SHOW work_mem`, `RESET ALL`
+- **ALTER SYSTEM** — `ALTER SYSTEM SET param = value`, `ALTER SYSTEM RESET [ALL]` — writes to `postgresql.conf`
+- **DISCARD** — `DISCARD ALL`, `DISCARD PLANS`, `DISCARD SEQUENCES`, `DISCARD TEMP`
 - **SELECT INTO** — `SELECT ... INTO [TEMP] table`
 - **COPY** — `COPY table FROM/TO`, `COPY (query) TO`; program and option list
 - **EXPLAIN** — `EXPLAIN`, `EXPLAIN ANALYZE`, `EXPLAIN (ANALYZE, VERBOSE, FORMAT JSON) stmt`
@@ -88,6 +93,8 @@ A [Prettier](https://prettier.io) plugin for PostgreSQL SQL. Parses SQL with [li
 - **REFRESH MATERIALIZED VIEW** — with CONCURRENTLY
 - **CREATE RULE** — BEFORE/AFTER/INSTEAD, INSERT/UPDATE/DELETE/SELECT, DO ALSO/INSTEAD
 - **Row Security Policies** — `CREATE / ALTER POLICY` with USING and WITH CHECK
+- **REASSIGN OWNED** — `REASSIGN OWNED BY old_role TO new_role`
+- **DROP OWNED** — `DROP OWNED BY roles [CASCADE]`
 
 ### Pending Implementation
 
