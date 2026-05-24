@@ -820,6 +820,8 @@ public class AstBuilder {
         Node.NodeOneofCase.RangeSubselect => BuildRangeSubselect(n.RangeSubselect),
         Node.NodeOneofCase.RangeFunction => BuildRangeFunction(n.RangeFunction),
         Node.NodeOneofCase.RangeTableSample => BuildRangeTableSample(n.RangeTableSample),
+        Node.NodeOneofCase.RangeTableFunc   => BuildRangeTableFunc(n.RangeTableFunc),
+        Node.NodeOneofCase.JsonTable        => BuildJsonTable(n.JsonTable),
         _ => new SqlNode("RawFrom", 0, 0, n.NodeCase.ToString(), null),
     };
 
@@ -2407,6 +2409,102 @@ public class AstBuilder {
             ("objName",  objName),
             ("label",    s.Label)
         ));
+    }
+
+    // -------------------------------------------------------------------------
+    // XMLTABLE / JSON_TABLE (FROM-clause table functions)
+    // -------------------------------------------------------------------------
+
+    private SqlNode BuildRangeTableFunc(RangeTableFunc r) {
+        var columns = r.Columns
+            .Where(n => n.NodeCase == Node.NodeOneofCase.RangeTableFuncCol)
+            .Select(n => {
+                var col = n.RangeTableFuncCol;
+                if (col.ForOrdinality) {
+                    return new SqlNode("XmlTableOrdinalityCol", 0, 0, null, BuildProps(
+                        ("name", col.Colname)
+                    ));
+                }
+                return new SqlNode("XmlTableCol", 0, 0, null, BuildProps(
+                    ("name",     col.Colname),
+                    ("typeName", col.TypeName != null ? BuildPgTypeName(col.TypeName) : null),
+                    ("path",     col.Colexpr    != null ? BuildExpr(col.Colexpr)    : null),
+                    ("default",  col.Coldefexpr != null ? BuildExpr(col.Coldefexpr) : null),
+                    ("notNull",  col.IsNotNull  ? true : null)
+                ));
+            })
+            .ToList();
+
+        return new SqlNode("XmlTable", 0, 0, null, BuildProps(
+            ("rowExpr", BuildExpr(r.Rowexpr)),
+            ("docExpr", BuildExpr(r.Docexpr)),
+            ("columns", MaybeList(columns)),
+            ("alias",   r.Alias?.Aliasname),
+            ("lateral", r.Lateral ? true : null)
+        ));
+    }
+
+    private SqlNode BuildJsonTable(JsonTable jt) {
+        var context  = jt.ContextItem != null ? BuildExpr(jt.ContextItem.RawExpr) : null;
+        var path     = jt.Pathspec?.String != null ? BuildExpr(jt.Pathspec.String) : null;
+        var pathName = !string.IsNullOrEmpty(jt.Pathspec?.Name) ? jt.Pathspec!.Name : null;
+        var columns  = BuildJsonTableColumns(jt.Columns);
+        var onError  = BuildJsonBehavior(jt.OnError);
+
+        return new SqlNode("JsonTable", 0, 0, null, BuildProps(
+            ("context",  context),
+            ("path",     path),
+            ("pathName", pathName),
+            ("columns",  MaybeList(columns)),
+            ("onError",  onError),
+            ("alias",    jt.Alias?.Aliasname),
+            ("lateral",  jt.Lateral ? true : null)
+        ));
+    }
+
+    private List<SqlNode> BuildJsonTableColumns(IEnumerable<Node> cols) =>
+        cols
+            .Where(n => n.NodeCase == Node.NodeOneofCase.JsonTableColumn)
+            .Select(n => {
+                var col = n.JsonTableColumn;
+                var coltype = col.Coltype switch {
+                    JsonTableColumnType.JtcForOrdinality => "FOR_ORDINALITY",
+                    JsonTableColumnType.JtcExists        => "EXISTS",
+                    JsonTableColumnType.JtcFormatted     => "FORMATTED",
+                    JsonTableColumnType.JtcNested        => "NESTED",
+                    _                                    => "REGULAR",
+                };
+                var path     = col.Pathspec?.String != null ? BuildExpr(col.Pathspec.String) : null;
+                var pathName = !string.IsNullOrEmpty(col.Pathspec?.Name) ? col.Pathspec!.Name : null;
+                var nested   = col.Columns.Count > 0
+                    ? (object?)BuildJsonTableColumns(col.Columns)
+                    : null;
+                return new SqlNode("JsonTableColumn", 0, 0, null, BuildProps(
+                    ("coltype",  coltype),
+                    ("name",     string.IsNullOrEmpty(col.Name) ? null : col.Name),
+                    ("typeName", col.TypeName != null ? BuildPgTypeName(col.TypeName) : null),
+                    ("path",     path),
+                    ("pathName", pathName),
+                    ("onEmpty",  BuildJsonBehavior(col.OnEmpty)),
+                    ("onError",  BuildJsonBehavior(col.OnError)),
+                    ("columns",  nested)
+                ));
+            })
+            .ToList();
+
+    private static string? BuildJsonBehavior(JsonBehavior? b) {
+        if (b == null) return null;
+        return b.Btype switch {
+            JsonBehaviorType.JsonBehaviorNull        => "NULL",
+            JsonBehaviorType.JsonBehaviorError       => "ERROR",
+            JsonBehaviorType.JsonBehaviorEmpty       => "EMPTY",
+            JsonBehaviorType.JsonBehaviorEmptyArray  => "EMPTY ARRAY",
+            JsonBehaviorType.JsonBehaviorEmptyObject => "EMPTY OBJECT",
+            JsonBehaviorType.JsonBehaviorDefault     => "DEFAULT",
+            JsonBehaviorType.JsonBehaviorTrue        => "TRUE",
+            JsonBehaviorType.JsonBehaviorFalse       => "FALSE",
+            _                                        => null,
+        };
     }
 
     private static SqlNode Fallback(int start, int end) =>

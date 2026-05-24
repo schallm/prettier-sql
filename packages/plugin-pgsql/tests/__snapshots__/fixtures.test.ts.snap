@@ -1593,6 +1593,41 @@ from events;
 "
 `;
 
+exports[`fixtures > select/json-table.sql 1`] = `
+"-- Basic JSON_TABLE with PATH columns and FOR ORDINALITY
+select
+  t.id,
+  t.name,
+  t.row_num
+from
+  documents,
+  json_table(
+    documents.data,
+    '$[*]'
+    columns (
+      id integer path '$.id',
+      name text path '$.name',
+      row_num for ordinality
+    )
+  ) as t;
+
+-- JSON_TABLE with EXISTS column
+select
+  t.id,
+  t.active
+from
+  events,
+  json_table(
+    events.payload,
+    '$'
+    columns (
+      id integer path '$.id',
+      active boolean exists path '$.active'
+    )
+  ) as t;
+"
+`;
+
 exports[`fixtures > select/lateral.sql 1`] = `
 "select
   b.id,
@@ -1709,6 +1744,39 @@ select xmlconcat(xmlelement(name a, 1), xmlelement(name b, 2));
 
 select xmlagg(xmlelement(name item, title) order by title)
 from books;
+"
+`;
+
+exports[`fixtures > select/xmltable.sql 1`] = `
+"-- Basic XMLTABLE with PATH and FOR ORDINALITY
+select
+  t.title,
+  t.price,
+  t.id
+from
+  books_xml as src,
+  xmltable(
+    '/bookstore/book'
+    passing src.content
+    columns
+      title text path '@title',
+      price numeric path 'price',
+      id for ordinality
+  ) as t;
+
+-- XMLTABLE with DEFAULT and NOT NULL
+select
+  t.title,
+  t.qty
+from
+  catalog_xml as src,
+  xmltable(
+    '//item'
+    passing src.doc
+    columns
+      title text path 'title' default 'Unknown',
+      qty integer path 'quantity' not null
+  ) as t;
 "
 `;
 

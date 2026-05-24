@@ -59,6 +59,8 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'TableLikeClause':  return printTableLikeClause(node, opts);
         case 'XmlExpr':          return printXmlExpr(node, opts, printNode);
         case 'JsonFuncExpr':     return printJsonFuncExpr(node, opts, printNode);
+        case 'XmlTable':         return printXmlTable(node, opts, printNode);
+        case 'JsonTable':        return printJsonTable(node, opts, printNode);
         default: return node.text ?? `/* unknown: ${node.type} */`;
     }
 }
@@ -697,4 +699,112 @@ function printJsonFuncExpr(node: SqlNode, opts: Options, printNode: PrintFn): Do
     ];
     if (returning) parts.push(' ', makeKeyword('RETURNING'), ' ', returning);
     return [makeKeyword(op), '(', ...parts, ')'];
+}
+
+// ---------------------------------------------------------------------------
+// XMLTABLE / JSON_TABLE
+// ---------------------------------------------------------------------------
+
+function printXmlTable(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const makeKeyword = (kw: string) => keyword(kw, opts);
+    const rowExpr = prop(node, 'rowExpr');
+    const docExpr = prop(node, 'docExpr');
+    const columns = propArr(node, 'columns');
+    const alias   = propStr(node, 'alias');
+
+    const colDocs: Doc[] = columns.map((col, i) => {
+        const comma: Doc = i < columns.length - 1 ? ',' : '';
+        if (col.type === 'XmlTableOrdinalityCol') {
+            return [propStr(col, 'name') ?? '', ' ', makeKeyword('FOR ORDINALITY'), comma];
+        }
+        // XmlTableCol
+        const parts: Doc[] = [
+            propStr(col, 'name') ?? '',
+            ' ',
+            makeKeyword(propStr(col, 'typeName') ?? ''),
+        ];
+        const path    = prop(col, 'path');
+        const defExpr = prop(col, 'default');
+        const notNull = propBool(col, 'notNull');
+        if (path)    parts.push(' ', makeKeyword('PATH'), ' ', printNode(path));
+        if (defExpr) parts.push(' ', makeKeyword('DEFAULT'), ' ', printNode(defExpr));
+        if (notNull) parts.push(' ', makeKeyword('NOT NULL'));
+        parts.push(comma);
+        return parts;
+    });
+
+    const inner: Doc = indent([
+        hardline, rowExpr ? printNode(rowExpr) : '',
+        hardline, makeKeyword('PASSING'), ' ', docExpr ? printNode(docExpr) : '',
+        hardline, makeKeyword('COLUMNS'),
+        indent(colDocs.map((c) => [hardline, c])),
+    ]);
+
+    return [makeKeyword('XMLTABLE'), '(', inner, hardline, ')', aliasDoc(alias, opts)];
+}
+
+function printJsonTable(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const makeKeyword = (kw: string) => keyword(kw, opts);
+    const context  = prop(node, 'context');
+    const path     = prop(node, 'path');
+    const pathName = propStr(node, 'pathName');
+    const columns  = propArr(node, 'columns');
+    const onError  = propStr(node, 'onError');
+    const alias    = propStr(node, 'alias');
+
+    const colDocs = buildJsonTableColumnDocs(columns, opts, printNode);
+
+    const inner: Doc = indent([
+        hardline, context ? printNode(context) : '',
+        ',',
+        hardline, path ? printNode(path) : '',
+        pathName ? [' ', makeKeyword('AS'), ' ', pathName] : '',
+        hardline, makeKeyword('COLUMNS'), ' (',
+        indent(colDocs.map((c) => [hardline, c])),
+        hardline, ')',
+        onError ? [hardline, makeKeyword('ON ERROR'), ' ', makeKeyword(onError)] : '',
+    ]);
+
+    return [makeKeyword('JSON_TABLE'), '(', inner, hardline, ')', aliasDoc(alias, opts)];
+}
+
+function buildJsonTableColumnDocs(columns: SqlNode[], opts: Options, printNode: PrintFn): Doc[] {
+    const makeKeyword = (kw: string) => keyword(kw, opts);
+    return columns.map((col, i) => {
+        const comma: Doc   = i < columns.length - 1 ? ',' : '';
+        const coltype      = propStr(col, 'coltype') ?? 'REGULAR';
+        const name         = propStr(col, 'name') ?? '';
+        const typeName     = propStr(col, 'typeName') ?? '';
+        const path         = prop(col, 'path');
+        const onEmpty      = propStr(col, 'onEmpty');
+        const onError      = propStr(col, 'onError');
+        const nested       = propArr(col, 'columns');
+
+        if (coltype === 'FOR_ORDINALITY') {
+            return [name, ' ', makeKeyword('FOR ORDINALITY'), comma] as Doc;
+        }
+
+        if (coltype === 'NESTED') {
+            const nestedDocs = buildJsonTableColumnDocs(nested, opts, printNode);
+            return [
+                makeKeyword('NESTED PATH'), ' ', path ? printNode(path) : '',
+                ' ', makeKeyword('COLUMNS'), ' (',
+                indent(nestedDocs.map((c) => [hardline, c])),
+                hardline, ')', comma,
+            ] as Doc;
+        }
+
+        const parts: Doc[] = [name, ' ', makeKeyword(typeName)];
+        if (coltype === 'EXISTS') {
+            parts.push(' ', makeKeyword('EXISTS PATH'), ' ', path ? printNode(path) : '');
+        } else if (coltype === 'FORMATTED') {
+            parts.push(' ', makeKeyword('FORMAT JSON PATH'), ' ', path ? printNode(path) : '');
+        } else if (path) {
+            parts.push(' ', makeKeyword('PATH'), ' ', printNode(path));
+        }
+        if (onEmpty) parts.push(' ', makeKeyword('ON EMPTY'), ' ', makeKeyword(onEmpty));
+        if (onError) parts.push(' ', makeKeyword('ON ERROR'), ' ', makeKeyword(onError));
+        parts.push(comma);
+        return parts as Doc;
+    });
 }

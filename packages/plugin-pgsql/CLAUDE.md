@@ -130,7 +130,7 @@ Currently covers: Literal, ColumnRef, BinaryExpr, BoolExpr, FunctionCall, Cast, 
 CaseExpr, NullTest, BooleanTest, ResTarget, RangeVar, JoinExpr, Subquery, RangeFunction,
 SortItem, ColumnDef, Constraint, AlterCmd, FunctionParam, IndexElem, ArrayExpr, Coalesce,
 RowExpr, ParamRef, ExprList, GroupingFunc, IntervalLiteral, RangeTableSample, TableLikeClause,
-XmlExpr, JsonFuncExpr.
+XmlExpr, JsonFuncExpr, XmlTable, JsonTable.
 
 ## SqlNode shape produced by AstBuilder
 
@@ -185,8 +185,6 @@ pnpm run test:watch   # vitest watch
 
 ## What's NOT yet implemented
 
-- **XMLTABLE** — `XMLTABLE(xpath COLUMNS ...)` tabular XML query; complex dedicated parse node
-- **JSON_TABLE** — `JSON_TABLE(data, path COLUMNS ...)` PostgreSQL 16+; complex dedicated parse node
 - **Procedural / PL/pgSQL** — out of scope for now
 - **Density-aware WHERE** — currently always inline; tsql has compact/standard/spacious logic
 - **Leading comma style** — `sqlCommaStyle: 'leading'` is wired up in utils but not used in SELECT lists

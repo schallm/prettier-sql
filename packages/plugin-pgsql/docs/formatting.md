@@ -1838,6 +1838,42 @@ xmlconcat(xmlelement(name a, 1), xmlelement(name b, 2))
 xmlagg(xmlelement(name item, title) order by title)
 ```
 
+### XMLTABLE
+
+`XMLTABLE` is a table-valued function in the `FROM` clause that shreds XML into rows. The row expression and document expression each appear on their own indented line; columns are further indented below the `COLUMNS` keyword.
+
+```sql
+select
+  t.title,
+  t.price,
+  t.id
+from
+  books_xml as src,
+  xmltable(
+    '/bookstore/book'
+    passing src.content
+    columns
+      title text path '@title',
+      price numeric path 'price',
+      id for ordinality
+  ) as t;
+```
+
+Column definitions support `PATH`, `DEFAULT`, and `NOT NULL`:
+
+```sql
+select t.title, t.qty
+from
+  catalog_xml as src,
+  xmltable(
+    '//item'
+    passing src.doc
+    columns
+      title text path 'title' default 'Unknown',
+      qty integer path 'quantity' not null
+  ) as t;
+```
+
 ### SQL/JSON functions (PostgreSQL 16+)
 
 `JSON_QUERY`, `JSON_EXISTS`, and `JSON_VALUE` with optional `RETURNING` type.
@@ -1848,6 +1884,44 @@ json_query(data, '$.name')
 json_exists(data, '$.active')
 
 json_value(data, '$.price' returning numeric)
+```
+
+### JSON_TABLE (PostgreSQL 16+)
+
+`JSON_TABLE` is a table-valued function in the `FROM` clause that shreds JSON into rows. The context expression and path appear on separate indented lines; the `COLUMNS (...)` block is further indented.
+
+```sql
+select
+  t.id,
+  t.name,
+  t.row_num
+from
+  documents,
+  json_table(
+    documents.data,
+    '$[*]'
+    columns (
+      id integer path '$.id',
+      name text path '$.name',
+      row_num for ordinality
+    )
+  ) as t;
+```
+
+Column types: `FOR ORDINALITY`, `PATH`, `EXISTS PATH`, `FORMAT JSON PATH`, and `NESTED PATH`:
+
+```sql
+select t.id, t.active
+from
+  events,
+  json_table(
+    events.payload,
+    '$'
+    columns (
+      id integer path '$.id',
+      active boolean exists path '$.active'
+    )
+  ) as t;
 ```
 
 ### ARRAY constructor
