@@ -1,5 +1,7 @@
 # Prettier PostgreSQL
 
+> **Not yet released.** The extension is under active development. Watch this repo for updates.
+
 Format PostgreSQL / SQL Server scripts using [Prettier](https://prettier.io/), powered by [prettier-plugin-postgresql](https://github.com/schallm/prettier-sql/tree/main/packages/plugin-pgsql) and Microsoft's ScriptDom parser.
 
 ## Features

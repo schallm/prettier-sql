@@ -1,5 +1,7 @@
 # Prettier T-SQL
 
+> **Not yet released.** The extension is under active development. Watch this repo for updates.
+
 Format T-SQL / SQL Server scripts using [Prettier](https://prettier.io/), powered by [prettier-plugin-tsql](https://github.com/schallm/prettier-plugin-tsql) and Microsoft's ScriptDom parser.
 
 ## Features
