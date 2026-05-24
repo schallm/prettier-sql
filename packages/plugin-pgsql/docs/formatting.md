@@ -1862,7 +1862,9 @@ from
 Column definitions support `PATH`, `DEFAULT`, and `NOT NULL`:
 
 ```sql
-select t.title, t.qty
+select
+  t.title,
+  t.qty
 from
   catalog_xml as src,
   xmltable(
@@ -1911,7 +1913,9 @@ from
 Column types: `FOR ORDINALITY`, `PATH`, `EXISTS PATH`, `FORMAT JSON PATH`, and `NESTED PATH`:
 
 ```sql
-select t.id, t.active
+select
+  t.id,
+  t.active
 from
   events,
   json_table(
