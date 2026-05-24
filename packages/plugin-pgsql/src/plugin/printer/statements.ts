@@ -111,6 +111,14 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'SecurityLabelStatement':         return printSecurityLabel(node, opts);
         case 'AlterOwnerStatement':            return printAlterOwner(node, opts);
         case 'AlterObjectSchemaStatement':     return printAlterObjectSchema(node, opts);
+        case 'CheckpointStatement':            return [[keyword('CHECKPOINT', opts)], ';'];
+        case 'DiscardStatement':               return printDiscard(node, opts);
+        case 'LoadStatement':                  return printLoad(node, opts);
+        case 'AlterSystemStatement':           return printAlterSystem(node, opts);
+        case 'ReassignOwnedStatement':         return printReassignOwned(node, opts);
+        case 'DropOwnedStatement':             return printDropOwned(node, opts);
+        case 'CreateTableSpaceStatement':      return printCreateTableSpace(node, opts);
+        case 'DropTableSpaceStatement':        return printDropTableSpace(node, opts);
         default: return node.text ?? node.type;
     }
 }
@@ -1768,4 +1776,68 @@ function printSecurityLabel(node: SqlNode, opts: Options): Doc {
         [makeKeyword('SECURITY LABEL FOR'), ' ', provider, ' ', makeKeyword('ON'), ' ', makeKeyword(objType), ' ', objName, ' ', makeKeyword('IS'), " '", label, "'"],
         ';',
     ];
+}
+
+// ---------------------------------------------------------------------------
+// DBA / utility statements
+// ---------------------------------------------------------------------------
+
+function printDiscard(node: SqlNode, opts: Options): Doc {
+    const target = propStr(node, 'target') ?? 'ALL';
+    return [[keyword('DISCARD', opts), ' ', keyword(target, opts)], ';'];
+}
+
+function printLoad(node: SqlNode, opts: Options): Doc {
+    const filename = propStr(node, 'filename') ?? '';
+    return [[keyword('LOAD', opts), ` '${filename}'`], ';'];
+}
+
+function printAlterSystem(node: SqlNode, opts: Options): Doc {
+    const makeKeyword = (k: string) => keyword(k, opts);
+    const kind   = propStr(node, 'kind') ?? 'SET';
+    const name   = propStr(node, 'name') ?? '';
+    const values = (node.props?.['values'] as string[] | undefined) ?? [];
+
+    if (kind === 'RESET ALL') return [[makeKeyword('ALTER SYSTEM RESET ALL')], ';'];
+    if (kind === 'RESET')     return [[makeKeyword('ALTER SYSTEM RESET'), ' ', name], ';'];
+
+    const valDocs: Doc[] = values.map((v) => {
+        if (/^[0-9]/.test(v) || /[^a-zA-Z0-9_$]/.test(v)) return `'${v.replace(/'/g, "''")}'`;
+        return v.toLowerCase();
+    });
+    return [[makeKeyword('ALTER SYSTEM SET'), ' ', name, ' = ', join(', ', valDocs)], ';'];
+}
+
+function printReassignOwned(node: SqlNode, opts: Options): Doc {
+    const makeKeyword = (k: string) => keyword(k, opts);
+    const roles   = (node.props?.['roles'] as string[] | undefined) ?? [];
+    const newRole = propStr(node, 'newRole') ?? '';
+    return [[makeKeyword('REASSIGN OWNED BY'), ' ', join(', ', roles), ' ', makeKeyword('TO'), ' ', newRole], ';'];
+}
+
+function printDropOwned(node: SqlNode, opts: Options): Doc {
+    const makeKeyword = (k: string) => keyword(k, opts);
+    const roles    = (node.props?.['roles'] as string[] | undefined) ?? [];
+    const behavior = propStr(node, 'behavior');
+    const parts: Doc[] = [makeKeyword('DROP OWNED BY'), ' ', join(', ', roles)];
+    if (behavior) parts.push(' ', makeKeyword(behavior));
+    return [parts, ';'];
+}
+
+function printCreateTableSpace(node: SqlNode, opts: Options): Doc {
+    const makeKeyword = (k: string) => keyword(k, opts);
+    const name     = propStr(node, 'name') ?? '';
+    const location = propStr(node, 'location') ?? '';
+    const owner    = propStr(node, 'owner');
+    const parts: Doc[] = [makeKeyword('CREATE TABLESPACE'), ' ', name];
+    if (owner) parts.push(' ', makeKeyword('OWNER'), ' ', owner);
+    parts.push(hardline, indent([makeKeyword('LOCATION'), ' ', `'${location}'`]));
+    return [parts, ';'];
+}
+
+function printDropTableSpace(node: SqlNode, opts: Options): Doc {
+    const makeKeyword = (k: string) => keyword(k, opts);
+    const name     = propStr(node, 'name') ?? '';
+    const ifExists = propBool(node, 'ifExists');
+    return [[makeKeyword('DROP TABLESPACE'), ifExists ? [' ', makeKeyword('IF EXISTS')] : '', ' ', name], ';'];
 }

@@ -98,6 +98,14 @@ public class AstBuilder {
             Node.NodeOneofCase.SecLabelStmt             => BuildSecLabel(stmt.SecLabelStmt, start, end),
             Node.NodeOneofCase.AlterOwnerStmt           => BuildAlterOwner(stmt.AlterOwnerStmt, start, end),
             Node.NodeOneofCase.AlterObjectSchemaStmt    => BuildAlterObjectSchema(stmt.AlterObjectSchemaStmt, start, end),
+            Node.NodeOneofCase.DiscardStmt              => BuildDiscard(stmt.DiscardStmt, start, end),
+            Node.NodeOneofCase.CheckPointStmt           => new SqlNode("CheckpointStatement", start, end, null, null),
+            Node.NodeOneofCase.LoadStmt                 => BuildLoad(stmt.LoadStmt, start, end),
+            Node.NodeOneofCase.AlterSystemStmt          => BuildAlterSystem(stmt.AlterSystemStmt, start, end),
+            Node.NodeOneofCase.ReassignOwnedStmt        => BuildReassignOwned(stmt.ReassignOwnedStmt, start, end),
+            Node.NodeOneofCase.DropOwnedStmt            => BuildDropOwned(stmt.DropOwnedStmt, start, end),
+            Node.NodeOneofCase.CreateTableSpaceStmt     => BuildCreateTableSpace(stmt.CreateTableSpaceStmt, start, end),
+            Node.NodeOneofCase.DropTableSpaceStmt       => BuildDropTableSpace(stmt.DropTableSpaceStmt, start, end),
             _ => Fallback(start, end),
         };
     }
@@ -2506,6 +2514,91 @@ public class AstBuilder {
             _                                        => null,
         };
     }
+
+    // -------------------------------------------------------------------------
+    // DBA / utility statements
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildDiscard(DiscardStmt d, int start, int end) {
+        var target = d.Target switch {
+            DiscardMode.DiscardAll       => "ALL",
+            DiscardMode.DiscardPlans     => "PLANS",
+            DiscardMode.DiscardSequences => "SEQUENCES",
+            DiscardMode.DiscardTemp      => "TEMP",
+            _                            => "ALL",
+        };
+        return new SqlNode("DiscardStatement", start, end, null, BuildProps(("target", target)));
+    }
+
+    private static SqlNode BuildLoad(LoadStmt s, int start, int end) =>
+        new("LoadStatement", start, end, null, BuildProps(("filename", s.Filename)));
+
+    private SqlNode BuildAlterSystem(AlterSystemStmt s, int start, int end) {
+        var inner = s.Setstmt;
+        if (inner.Kind == VariableSetKind.VarSetValue) {
+            var vals = inner.Args.Select(a =>
+                a.NodeCase == Node.NodeOneofCase.AConst && a.AConst.ValCase == A_Const.ValOneofCase.Sval
+                    ? a.AConst.Sval.Sval
+                    : a.NodeCase == Node.NodeOneofCase.TypeCast
+                        ? a.TypeCast.Arg?.AConst?.Sval?.Sval
+                        : null
+            ).OfType<string>().ToList();
+            return new SqlNode("AlterSystemStatement", start, end, null, BuildProps(
+                ("kind", "SET"), ("name", inner.Name),
+                ("values", MaybeList(vals))));
+        }
+        if (inner.Kind == VariableSetKind.VarReset)
+            return new SqlNode("AlterSystemStatement", start, end, null, BuildProps(
+                ("kind", "RESET"), ("name", inner.Name)));
+        if (inner.Kind == VariableSetKind.VarResetAll)
+            return new SqlNode("AlterSystemStatement", start, end, null, BuildProps(("kind", "RESET ALL")));
+        return Fallback(start, end);
+    }
+
+    private static string RoleSpecName(RoleSpec? r) => r?.Roletype switch {
+        RoleSpecType.RolespecCurrentUser => "current_user",
+        RoleSpecType.RolespecCurrentRole => "current_role",
+        RoleSpecType.RolespecSessionUser => "session_user",
+        RoleSpecType.RolespecPublic      => "public",
+        _                                => r?.Rolename ?? "",
+    };
+
+    private static SqlNode BuildReassignOwned(ReassignOwnedStmt s, int start, int end) {
+        var roles = s.Roles
+            .Where(n => n.NodeCase == Node.NodeOneofCase.RoleSpec)
+            .Select(n => RoleSpecName(n.RoleSpec))
+            .ToList();
+        return new SqlNode("ReassignOwnedStatement", start, end, null, BuildProps(
+            ("roles",   MaybeList(roles)),
+            ("newRole", RoleSpecName(s.Newrole))
+        ));
+    }
+
+    private static SqlNode BuildDropOwned(DropOwnedStmt s, int start, int end) {
+        var roles = s.Roles
+            .Where(n => n.NodeCase == Node.NodeOneofCase.RoleSpec)
+            .Select(n => RoleSpecName(n.RoleSpec))
+            .ToList();
+        // Only emit CASCADE; RESTRICT is the default and is omitted (same as DROP TABLE)
+        var behavior = s.Behavior == DropBehavior.DropCascade ? "CASCADE" : null;
+        return new SqlNode("DropOwnedStatement", start, end, null, BuildProps(
+            ("roles",    MaybeList(roles)),
+            ("behavior", behavior)
+        ));
+    }
+
+    private static SqlNode BuildCreateTableSpace(CreateTableSpaceStmt s, int start, int end) =>
+        new("CreateTableSpaceStatement", start, end, null, BuildProps(
+            ("name",     s.Tablespacename),
+            ("location", s.Location),
+            ("owner",    string.IsNullOrEmpty(s.Owner?.Rolename) ? null : s.Owner.Rolename)
+        ));
+
+    private static SqlNode BuildDropTableSpace(DropTableSpaceStmt s, int start, int end) =>
+        new("DropTableSpaceStatement", start, end, null, BuildProps(
+            ("name",     s.Tablespacename),
+            ("ifExists", s.MissingOk ? true : null)
+        ));
 
     private static SqlNode Fallback(int start, int end) =>
         new("UnknownStatement", start, end, null, null);

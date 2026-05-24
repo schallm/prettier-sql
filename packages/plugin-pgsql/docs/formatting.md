@@ -1032,6 +1032,52 @@ reindex table orders;
 reindex (verbose) table orders;
 ```
 
+### CHECKPOINT
+
+Single-keyword statement — no arguments.
+
+```sql
+checkpoint;
+```
+
+### LOAD
+
+Loads a shared library.
+
+```sql
+load 'my_extension';
+```
+
+### CREATE / DROP TABLESPACE
+
+`LOCATION` appears indented on its own line. `OWNER` is optional and follows the name inline.
+
+```sql
+create tablespace fastspace
+location '/ssd/data';
+
+create tablespace fastspace owner admin
+location '/ssd/data';
+
+drop tablespace fastspace;
+
+drop tablespace if exists fastspace;
+```
+
+### REASSIGN OWNED / DROP OWNED
+
+Role management — transfer or drop objects owned by one or more roles.
+
+```sql
+reassign owned by old_role to new_owner;
+
+reassign owned by role1, role2 to new_owner;
+
+drop owned by old_role;
+
+drop owned by role1, role2 cascade;
+```
+
 ### Foreign data wrappers
 
 `OPTIONS (...)` lists are emitted inline. The `FOREIGN DATA WRAPPER` phrase follows on a new line for `CREATE SERVER`.
@@ -1582,6 +1628,34 @@ show work_mem;
 show all;
 ```
 
+### ALTER SYSTEM
+
+Writes a persistent parameter to `postgresql.conf`. Uses the same value formatting as `SET`.
+
+```sql
+alter system set work_mem = '256MB';
+
+alter system set search_path = myschema, public;
+
+alter system reset work_mem;
+
+alter system reset all;
+```
+
+### DISCARD
+
+Releases session-level resources.
+
+```sql
+discard all;
+
+discard plans;
+
+discard sequences;
+
+discard temp;
+```
+
 ---
 
 ### LOCK TABLE
@@ -1862,7 +1936,9 @@ from
 Column definitions support `PATH`, `DEFAULT`, and `NOT NULL`:
 
 ```sql
-select t.title, t.qty
+select
+  t.title,
+  t.qty
 from
   catalog_xml as src,
   xmltable(
@@ -1911,7 +1987,9 @@ from
 Column types: `FOR ORDINALITY`, `PATH`, `EXISTS PATH`, `FORMAT JSON PATH`, and `NESTED PATH`:
 
 ```sql
-select t.id, t.active
+select
+  t.id,
+  t.active
 from
   events,
   json_table(
