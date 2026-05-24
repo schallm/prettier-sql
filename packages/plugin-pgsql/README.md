@@ -63,7 +63,9 @@ A [Prettier](https://prettier.io) plugin for PostgreSQL SQL. Parses SQL with [li
 - **Named arguments** — `func(param => value)`
 - **Conditional** — CASE / WHEN / THEN / ELSE, COALESCE, NULLIF, GREATEST, LEAST
 - **XML functions** — `XMLELEMENT` (with `XMLATTRIBUTES`), `XMLFOREST`, `XMLCONCAT`, `XMLPI`, `XMLAGG`
+- **XMLTABLE** — tabular XML query in the `FROM` clause; `PASSING`, `COLUMNS` with `PATH`, `DEFAULT`, `NOT NULL`, `FOR ORDINALITY`
 - **SQL/JSON functions** — `JSON_QUERY`, `JSON_EXISTS`, `JSON_VALUE` (with `RETURNING` type) — PostgreSQL 16+
+- **JSON_TABLE** — tabular JSON query in the `FROM` clause; `PATH`, `EXISTS PATH`, `FORMAT JSON PATH`, `NESTED PATH`, `FOR ORDINALITY`, `ON EMPTY`/`ON ERROR` — PostgreSQL 16+
 - **Predicates** — IN / NOT IN, BETWEEN / NOT BETWEEN, LIKE / NOT LIKE, ILIKE / NOT ILIKE, SIMILAR TO, IS NULL / IS NOT NULL, IS DISTINCT FROM, ANY / ALL
 - **SQL value functions** — CURRENT_DATE, CURRENT_TIMESTAMP, CURRENT_USER, SESSION_USER, LOCALTIME, LOCALTIMESTAMP, and others
 - **GROUPING()** — `GROUPING(col)` predicate used alongside GROUPING SETS
@@ -91,8 +93,6 @@ A [Prettier](https://prettier.io) plugin for PostgreSQL SQL. Parses SQL with [li
 
 | Feature | Notes |
 |---|---|
-| **XMLTABLE** | `XMLTABLE(xpath COLUMNS ...)` — tabular XML query |
-| **JSON_TABLE** | `JSON_TABLE(data, path COLUMNS ...)` — tabular JSON query (PostgreSQL 16+) |
 | **PL/pgSQL** | Full procedural language (IF/ELSIF, LOOP, RETURN, EXCEPTION, DECLARE) — out of scope for a SQL formatter |
 
 ---
