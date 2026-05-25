@@ -237,7 +237,8 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) =
 
     // Standard function call (JSON_ARRAY and others with optional ABSENT/NULL ON NULL)
     const callTarget = propStr(node, 'callTarget');
-    const callTargetPrefix: Doc = callTarget ? [callTarget, '::'] : '';
+    const callTargetSep = (node.props?.['callTargetSeparator'] as string) ?? '::';
+    const callTargetPrefix: Doc = callTarget ? [callTarget, callTargetSep] : '';
     const nullClause: Doc = nullOnNullDoc ? [' ', nullOnNullDoc] : '';
     const argsDoc = group([
         callTargetPrefix,

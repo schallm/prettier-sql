@@ -180,9 +180,14 @@ public class AstBuilder : TSqlFragmentVisitor {
             fc.FunctionName?.Value,
             new Dictionary<string, object?> {
                 ["name"] = fc.FunctionName?.Value,
+                // UDT static: geography::STGeomFromText — separator is "::"
+                // XML/instance method: Data.value() — separator is "."
                 ["callTarget"] = fc.CallTarget is UserDefinedTypeCallTarget udt
                     ? (object?)(QuotedName(udt.SchemaObjectName?.Identifiers?.LastOrDefault()) ?? RawText(fc.CallTarget).Trim())
-                    : null,
+                    : fc.CallTarget is MultiPartIdentifierCallTarget mpit
+                        ? (object?)string.Join(".", mpit.MultiPartIdentifier?.Identifiers.Select(i => QuotedName(i) ?? i.Value) ?? [])
+                        : null,
+                ["callTargetSeparator"] = fc.CallTarget is MultiPartIdentifierCallTarget ? (object?)"." : "::",
                 ["args"] = args,
                 ["over"] = overClause,
                 ["uniqueRowFilter"] = fc.UniqueRowFilter.ToString(),
@@ -1058,6 +1063,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         var target = BuildTableReference(spec.Target);
         var columns = spec.Columns?.Select(c => (object?)BuildColumnRef(c)).ToList();
         SqlNode? source = spec.InsertSource switch {
+            ValuesInsertSource { IsDefaultValues: true } dvs => Node("DefaultValuesSource", dvs, new Dictionary<string, object?>()),
             ValuesInsertSource vals => BuildValuesInsertSource(vals),
             SelectInsertSource sel => BuildQueryExpression(sel.Select),
             _ => spec.InsertSource != null

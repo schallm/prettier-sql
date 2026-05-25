@@ -625,9 +625,11 @@ function printInsert(node: SqlNode, opts: Options): Doc {
     const sourcePart: Doc =
         source?.type === 'ValuesSource'
             ? printValuesSource(source, opts)
-            : source
-              ? [hardline, qexpr(source, opts)]
-              : '';
+            : source?.type === 'DefaultValuesSource'
+              ? [hardline, keyword('DEFAULT VALUES', opts)]
+              : source
+                ? [hardline, qexpr(source, opts)]
+                : '';
 
     const parts: Doc[] = [
         ...ctesDocs,
