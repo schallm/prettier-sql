@@ -229,6 +229,11 @@ export function printThrow(node: SqlNode, opts: Options): Doc {
 export function printRaiseError(node: SqlNode, opts: Options): Doc {
     const extraParams = propArr(node, 'params');
     const extraDocs: Doc[] = extraParams.length > 0 ? extraParams.map((p) => [', ', printNode(p, opts)]) : [];
+    const withOpts = node.props?.['withOptions'] as string[] | undefined;
+    const withPart: Doc =
+        withOpts && withOpts.length > 0
+            ? [' ', keyword('WITH', opts), ' ', join(', ', withOpts.map((o) => keyword(o, opts)))]
+            : '';
     return [
         keyword('RAISERROR', opts),
         ' (',
@@ -238,7 +243,9 @@ export function printRaiseError(node: SqlNode, opts: Options): Doc {
         ', ',
         printNode(prop(node, 'state')!, opts),
         ...extraDocs,
-        ');',
+        ')',
+        withPart,
+        ';',
     ];
 }
 

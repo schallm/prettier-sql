@@ -1030,6 +1030,17 @@ public class AstBuilder : TSqlFragmentVisitor {
     }
 
     private static string BuildOptimizerHint(OptimizerHint hint) {
+        // OPTIMIZE FOR — variable list or OPTIMIZE FOR UNKNOWN
+        if (hint is OptimizeForOptimizerHint ofh) {
+            if (ofh.IsForUnknown) return "OPTIMIZE FOR UNKNOWN";
+            var pairs = ofh.Pairs?.Select(p => {
+                var varName = p.Variable?.Name ?? "";
+                if (p.IsForUnknown) return $"{varName} UNKNOWN";
+                var val = p.Value != null ? RawText(p.Value) : "UNKNOWN";
+                return $"{varName} = {val}";
+            }) ?? [];
+            return $"OPTIMIZE FOR ({string.Join(", ", pairs)})";
+        }
         var kind = hint.HintKind switch {
             OptimizerHintKind.Recompile => "RECOMPILE",
             OptimizerHintKind.MaxDop => "MAXDOP",
@@ -1779,15 +1790,21 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["state"] = BuildScalarExpression(thr.State),
         });
 
-    private static SqlNode BuildRaiseError(RaiseErrorStatement raise) =>
-        Node("RaiseErrorStatement", raise, new Dictionary<string, object?> {
+    private static SqlNode BuildRaiseError(RaiseErrorStatement raise) {
+        var flags = new List<string>();
+        if (raise.RaiseErrorOptions.HasFlag(RaiseErrorOptions.Log))      flags.Add("LOG");
+        if (raise.RaiseErrorOptions.HasFlag(RaiseErrorOptions.SetError)) flags.Add("SETERROR");
+        if (raise.RaiseErrorOptions.HasFlag(RaiseErrorOptions.NoWait))   flags.Add("NOWAIT");
+        return Node("RaiseErrorStatement", raise, new Dictionary<string, object?> {
             ["message"] = BuildScalarExpression(raise.FirstParameter),
             ["severity"] = BuildScalarExpression(raise.SecondParameter),
             ["state"] = BuildScalarExpression(raise.ThirdParameter),
             ["params"] = raise.OptionalParameters?.Count > 0
                 ? (object?)raise.OptionalParameters.Select(p => (object?)BuildScalarExpression(p)).ToList()
                 : null,
+            ["withOptions"] = flags.Count > 0 ? (object?)flags : null,
         });
+    }
 
     private static SqlNode BuildTryCatch(TryCatchStatement tc) =>
         Node("TryCatchStatement", tc, new Dictionary<string, object?> {
@@ -2827,7 +2844,11 @@ public class AstBuilder : TSqlFragmentVisitor {
     // -------------------------------------------------------------------------
 
     private static SqlNode BuildEnableDisableTrigger(EnableDisableTriggerStatement et) {
-        var names = et.TriggerNames?.Select(n => (object?)(QuotedName(n.BaseIdentifier) ?? RawText(n).Trim())).ToList();
+        var names = et.TriggerNames?.Select(n => {
+            var schema = QuotedName(n.SchemaIdentifier);
+            var baseName = QuotedName(n.BaseIdentifier) ?? RawText(n).Trim();
+            return (object?)(schema != null ? $"{schema}.{baseName}" : baseName);
+        }).ToList();
         var scope = et.TriggerObject?.TriggerScope.ToString() ?? "Normal";
         var targetName = scope == "Normal" ? BuildSchemaObjectName(et.TriggerObject?.Name) : null;
         return Node("EnableDisableTriggerStatement", et, new Dictionary<string, object?> {
