@@ -87,7 +87,10 @@ public class AstBuilder : TSqlFragmentVisitor {
         return expr switch {
             ColumnReferenceExpression col => BuildColumnRef(col),
             IntegerLiteral lit => Leaf("IntegerLiteral", lit, lit.Value),
-            StringLiteral str => Leaf("StringLiteral", str, str.Value),
+            StringLiteral str => str.IsNational
+                ? new SqlNode("StringLiteral", str.StartOffset, str.StartOffset + str.FragmentLength, str.Value,
+                    new Dictionary<string, object?> { ["isNational"] = true })
+                : Leaf("StringLiteral", str, str.Value),
             NullLiteral nl => Leaf("NullLiteral", nl),
             NumericLiteral num => Leaf("NumericLiteral", num, num.Value),
             RealLiteral real => Leaf("RealLiteral", real, real.Value),

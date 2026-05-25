@@ -38,7 +38,7 @@ export function printExpression(node: SqlNode, opts: Options, printFn: (n: SqlNo
         case 'MoneyLiteral':
             return node.text ?? '0';
         case 'StringLiteral':
-            return `'${node.text ?? ''}'`;
+            return node.props?.['isNational'] ? `N'${node.text ?? ''}'` : `'${node.text ?? ''}'`;
         case 'BinaryLiteral':
             return `0x${node.text ?? ''}`;
         case 'NullLiteral':

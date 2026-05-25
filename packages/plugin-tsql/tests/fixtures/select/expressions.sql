@@ -39,3 +39,8 @@ order by Price desc
 select 1 where a is distinct from b
 
 select 1 where a is not distinct from b
+
+-- N-prefix (unicode) string literals must be preserved
+select N'unicode string', 'regular string', N'unicode' + 'concat'
+from t
+where col = N'filter value'
