@@ -622,9 +622,23 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
         }
 
         if (offsetNode) {
-            parts.push(line, keyword('OFFSET', opts), ' ', printExpression(offsetNode, opts, printFn), ' ', keyword('ROWS', opts));
+            parts.push(
+                line,
+                keyword('OFFSET', opts),
+                ' ',
+                printExpression(offsetNode, opts, printFn),
+                ' ',
+                keyword('ROWS', opts),
+            );
             if (fetchNode) {
-                parts.push(line, keyword('FETCH NEXT', opts), ' ', printExpression(fetchNode, opts, printFn), ' ', keyword('ROWS ONLY', opts));
+                parts.push(
+                    line,
+                    keyword('FETCH NEXT', opts),
+                    ' ',
+                    printExpression(fetchNode, opts, printFn),
+                    ' ',
+                    keyword('ROWS ONLY', opts),
+                );
             }
         }
 
@@ -728,9 +742,23 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
     }
 
     if (offsetNode) {
-        parts.push(hardline, keyword('OFFSET', opts), ' ', printExpression(offsetNode, opts, printFn), ' ', keyword('ROWS', opts));
+        parts.push(
+            hardline,
+            keyword('OFFSET', opts),
+            ' ',
+            printExpression(offsetNode, opts, printFn),
+            ' ',
+            keyword('ROWS', opts),
+        );
         if (fetchNode) {
-            parts.push(hardline, keyword('FETCH NEXT', opts), ' ', printExpression(fetchNode, opts, printFn), ' ', keyword('ROWS ONLY', opts));
+            parts.push(
+                hardline,
+                keyword('FETCH NEXT', opts),
+                ' ',
+                printExpression(fetchNode, opts, printFn),
+                ' ',
+                keyword('ROWS ONLY', opts),
+            );
         }
     }
 
@@ -799,9 +827,23 @@ function printBinaryQuery(node: SqlNode, opts: Options, printFn: (n: SqlNode) =>
 
     if (orderBy) parts.push(hardline, printOrderByClause(orderBy, opts, printFn));
     if (offsetNode) {
-        parts.push(hardline, keyword('OFFSET', opts), ' ', printExpression(offsetNode, opts, printFn), ' ', keyword('ROWS', opts));
+        parts.push(
+            hardline,
+            keyword('OFFSET', opts),
+            ' ',
+            printExpression(offsetNode, opts, printFn),
+            ' ',
+            keyword('ROWS', opts),
+        );
         if (fetchNode) {
-            parts.push(hardline, keyword('FETCH NEXT', opts), ' ', printExpression(fetchNode, opts, printFn), ' ', keyword('ROWS ONLY', opts));
+            parts.push(
+                hardline,
+                keyword('FETCH NEXT', opts),
+                ' ',
+                printExpression(fetchNode, opts, printFn),
+                ' ',
+                keyword('ROWS ONLY', opts),
+            );
         }
     }
     return parts;
@@ -1389,7 +1431,10 @@ function printBuiltInFunctionTableRef(node: SqlNode, opts: Options, printFn: (n:
     const name = propStr(node, 'name') ?? '';
     const args = propArr(node, 'args');
     const alias = propStr(node, 'alias');
-    const argsDoc: Doc = join(', ', args.map((a) => printExpression(a, opts, printFn)));
+    const argsDoc: Doc = join(
+        ', ',
+        args.map((a) => printExpression(a, opts, printFn)),
+    );
     const aliasPart: Doc = aliasDoc(alias, opts);
     return [keyword(name, opts), '(', argsDoc, ')', aliasPart];
 }

@@ -293,8 +293,10 @@ export function printDropLogin(node: SqlNode, opts: Options): Doc {
 export function printCreateRole(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name') ?? '';
     const owner = propStr(node, 'owner');
+    const isServer = propBool(node, 'isServer');
+    const createKw = isServer ? keyword('CREATE SERVER ROLE', opts) : keyword('CREATE ROLE', opts);
     return [
-        keyword('CREATE ROLE', opts),
+        createKw,
         ' ',
         name,
         owner ? [hardline, keyword('AUTHORIZATION', opts), ' ', owner] : '',
@@ -305,7 +307,9 @@ export function printCreateRole(node: SqlNode, opts: Options): Doc {
 export function printAlterRole(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name') ?? '';
     const action = propStr(node, 'action') ?? '';
-    const base: Doc = [keyword('ALTER ROLE', opts), ' ', name];
+    const isServer = propBool(node, 'isServer');
+    const alterKw = isServer ? keyword('ALTER SERVER ROLE', opts) : keyword('ALTER ROLE', opts);
+    const base: Doc = [alterKw, ' ', name];
 
     if (action === 'AddMember')
         return [base, hardline, keyword('ADD MEMBER', opts), ' ', propStr(node, 'member') ?? '', ';'];

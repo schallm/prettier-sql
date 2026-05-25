@@ -367,7 +367,13 @@ export function printDeclareCursor(node: SqlNode, opts: Options): Doc {
     const options = node.props?.['options'];
     const optPart: Doc =
         Array.isArray(options) && options.length > 0
-            ? [join(' ', (options as string[]).map((o) => keyword(o, opts))), ' ']
+            ? [
+                  join(
+                      ' ',
+                      (options as string[]).map((o) => keyword(o, opts)),
+                  ),
+                  ' ',
+              ]
             : [];
     const select = prop(node, 'select');
     return group([

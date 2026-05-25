@@ -969,6 +969,13 @@ public class AstBuilder : TSqlFragmentVisitor {
             CreateLoginStatement clog => BuildCreateLogin(clog),
             AlterLoginStatement alog => BuildAlterLogin(alog),
             DropLoginStatement dlog => BuildDropLogin(dlog),
+            // Server roles are subtypes of the database-role statements — match first
+            CreateServerRoleStatement csrol => Node("CreateRoleStatement", csrol, new Dictionary<string, object?> {
+                ["name"] = csrol.Name?.Value,
+                ["owner"] = csrol.Owner?.Value,
+                ["isServer"] = true,
+            }),
+            AlterServerRoleStatement asrol => BuildAlterRole(asrol, isServer: true),
             CreateRoleStatement crol => BuildCreateRole(crol),
             AlterRoleStatement arol => BuildAlterRole(arol),
             DropRoleStatement drol => BuildDropRole(drol),
@@ -2755,8 +2762,11 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["owner"] = s.Owner?.Value,
         });
 
-    private static SqlNode BuildAlterRole(AlterRoleStatement s) {
-        var props = new Dictionary<string, object?> { ["name"] = s.Name?.Value };
+    private static SqlNode BuildAlterRole(AlterRoleStatement s, bool isServer = false) {
+        var props = new Dictionary<string, object?> {
+            ["name"] = s.Name?.Value,
+            ["isServer"] = isServer ? (object?)true : null,
+        };
         switch (s.Action) {
             case AddMemberAlterRoleAction add:
                 props["action"] = "AddMember";
