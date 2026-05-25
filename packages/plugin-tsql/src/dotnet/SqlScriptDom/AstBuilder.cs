@@ -1221,11 +1221,14 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildExecute(ExecuteStatement es) {
         var spec = es.ExecuteSpecification;
 
+        var linkedServer = spec?.LinkedServer?.Value;
+
         // EXECUTE (@sql) or EXECUTE (@sql1 + @sql2) — dynamic SQL string list
         if (spec?.ExecutableEntity is ExecutableStringList esl) {
             var sqlStrings = esl.Strings.Select(s => (object?)BuildScalarExpression(s)).ToList();
             return Node("ExecuteStatement", es, new Dictionary<string, object?> {
                 ["sqlStrings"] = sqlStrings,
+                ["linkedServer"] = linkedServer,
             });
         }
 
@@ -1247,6 +1250,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["proc"] = procNode,
             ["procVar"] = procVar,
             ["returnVar"] = spec?.Variable?.Name,
+            ["linkedServer"] = linkedServer,
             ["parameters"] = parameters,
         });
     }

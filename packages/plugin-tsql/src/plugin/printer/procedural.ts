@@ -319,11 +319,14 @@ export function printWhile(node: SqlNode, opts: Options): Doc {
 export function printExecute(node: SqlNode, opts: Options): Doc {
     const sqlStrings = propArr(node, 'sqlStrings');
 
+    const linkedServer = propStr(node, 'linkedServer');
+    const atClause: Doc = linkedServer ? [' ', keyword('AT', opts), ' ', linkedServer] : '';
+
     // EXECUTE (@sql) or EXECUTE (@sql1 + @sql2)
     if (sqlStrings.length > 0) {
         const strDocs = sqlStrings.map((s) => printNode(s, opts));
         const innerDoc = strDocs.length === 1 ? strDocs[0]! : join([' + '], strDocs);
-        return [keyword('EXECUTE', opts), ' (', innerDoc, ');'];
+        return [keyword('EXECUTE', opts), ' (', innerDoc, ')', atClause, ';'];
     }
 
     const procNode = prop(node, 'proc');
@@ -350,6 +353,7 @@ export function printExecute(node: SqlNode, opts: Options): Doc {
         returnVarPrefix,
         target,
         parameters.length > 0 ? indent([hardline, join([',', hardline], paramDocs)]) : '',
+        atClause,
         ';',
     ]);
 }
