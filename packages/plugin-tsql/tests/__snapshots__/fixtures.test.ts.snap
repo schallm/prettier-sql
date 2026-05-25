@@ -1843,7 +1843,7 @@ create type dbo.OrderLineType as table (
 
 exports[`fixtures > type/table-types.sql 1`] = `
 "create type dbo.IdList as table (
-  Id int not null
+  Id int not null primary key
 );
 
 create type dbo.NameValuePair as table (
@@ -1852,7 +1852,7 @@ create type dbo.NameValuePair as table (
 );
 
 create type dbo.OrderLine as table (
-  LineId int not null,
+  LineId int not null primary key,
   ProductId int not null,
   Quantity int default 1 not null,
   UnitPrice decimal(10, 2) not null

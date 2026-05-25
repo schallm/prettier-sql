@@ -1305,6 +1305,13 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["checkConstraint"] = col.Constraints?.OfType<CheckConstraintDefinition>().FirstOrDefault() is { } chk
                     ? BuildBooleanExpression(chk.CheckCondition)
                     : null,
+                // Inline PRIMARY KEY / UNIQUE on the column itself
+                ["uniqueConstraint"] = col.Constraints?.OfType<UniqueConstraintDefinition>().FirstOrDefault() is { } uq
+                    ? (object?)new Dictionary<string, object?> {
+                        ["isPrimaryKey"] = uq.IsPrimaryKey,
+                        ["clustered"] = uq.Clustered == true ? (object?)true : uq.Clustered == false ? (object?)false : null,
+                    }
+                    : null,
             });
     }
 

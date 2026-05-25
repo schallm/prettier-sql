@@ -118,6 +118,22 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
     parts.push(nullablePart(isNullable, opts));
     if (checkConstraint) parts.push(' ', keyword('CHECK', opts), ' (', printBool(checkConstraint, opts), ')');
 
+    // Inline PRIMARY KEY / UNIQUE constraint (e.g. in table variable declarations)
+    const uniqueConstraint = node.props?.['uniqueConstraint'] as
+        | { isPrimaryKey: boolean; clustered: boolean | null }
+        | null
+        | undefined;
+    if (uniqueConstraint) {
+        const uqKw = uniqueConstraint.isPrimaryKey ? keyword('PRIMARY KEY', opts) : keyword('UNIQUE', opts);
+        const clusteredKw: Doc =
+            uniqueConstraint.clustered === true
+                ? [' ', keyword('CLUSTERED', opts)]
+                : uniqueConstraint.clustered === false
+                  ? [' ', keyword('NONCLUSTERED', opts)]
+                  : '';
+        parts.push(' ', uqKw, clusteredKw);
+    }
+
     return parts;
 }
 
