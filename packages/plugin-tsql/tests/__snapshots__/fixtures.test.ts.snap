@@ -2001,9 +2001,9 @@ create type dbo.OrderLine as table (
   UnitPrice decimal(10, 2) not null
 );
 
-drop type dbo.IdList
+drop type dbo.IdList;
 
-drop type if exists dbo.NameValuePair"
+drop type if exists dbo.NameValuePair;"
 `;
 
 exports[`fixtures > update/basic.sql 1`] = `

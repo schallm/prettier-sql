@@ -536,8 +536,14 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'AlterDatabaseRebuildLogStatement':
             return printAlterDatabaseRebuildLog(node, opts);
 
-        default:
-            return node.text ?? `/* unhandled statement: ${node.type} */`;
+        default: {
+            // Raw-text fallback for statement types not yet explicitly handled.
+            // ScriptDOM includes the trailing ';' terminator in the fragment when the
+            // source already has one; strip it so we can add exactly one semicolon.
+            const raw = node.text ?? `/* unhandled statement: ${node.type} */`;
+            const clean = raw.replace(/;\s*$/, '');
+            return [clean, ';'];
+        }
     }
 }
 
@@ -557,7 +563,16 @@ function printCtes(node: SqlNode, opts: Options): Doc[] {
 
         const colsPart: Doc = cols?.length ? [' ', parenList(cols)] : '';
 
-        return [name, colsPart, ' ', keyword('AS', opts), ' (', indent([hardline, query ? qexpr(query, opts) : '']), hardline, ')'] as Doc;
+        return [
+            name,
+            colsPart,
+            ' ',
+            keyword('AS', opts),
+            ' (',
+            indent([hardline, query ? qexpr(query, opts) : '']),
+            hardline,
+            ')',
+        ] as Doc;
     });
 
     const sep: Doc = leading ? [hardline, ', '] : [',', hardline];

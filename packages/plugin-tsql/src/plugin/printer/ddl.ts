@@ -1065,7 +1065,10 @@ export function printDropIndex(node: SqlNode, opts: Options): Doc {
             [propStr(idx, 'name') ?? '', ' ', keyword('ON', opts), ' ', schemaObjectName(prop(idx, 'table'))] as Doc,
     );
     const ifExistsPart: Doc = ifExists ? [' ', keyword('IF EXISTS', opts)] : '';
-    return group([keyword('DROP INDEX', opts), ifExistsPart, ' ', join([',', hardline], indexDocs), ';']);
+    if (indexDocs.length === 1) {
+        return [keyword('DROP INDEX', opts), ifExistsPart, ' ', indexDocs[0]!, ';'];
+    }
+    return [keyword('DROP INDEX', opts), ifExistsPart, indent([hardline, join([',', hardline], indexDocs)]), ';'];
 }
 
 // ---------------------------------------------------------------------------
