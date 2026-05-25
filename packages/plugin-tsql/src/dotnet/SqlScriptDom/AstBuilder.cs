@@ -543,7 +543,10 @@ public class AstBuilder : TSqlFragmentVisitor {
         if (tableRef == null) return null;
         return tableRef switch {
             NamedTableReference named => BuildNamedTableRef(named),
-            VariableTableReference varRef => Leaf("VariableTableReference", varRef, varRef.Variable?.Name),
+            VariableTableReference varRef => Node("VariableTableReference", varRef, new Dictionary<string, object?> {
+                ["name"] = varRef.Variable?.Name,
+                ["alias"] = QuotedName(varRef.Alias),
+            }),
             QualifiedJoin qj => BuildQualifiedJoin(qj),
             UnqualifiedJoin uj => BuildUnqualifiedJoin(uj),
             QueryDerivedTable sub => BuildQueryDerivedTable(sub),
@@ -1365,6 +1368,15 @@ public class AstBuilder : TSqlFragmentVisitor {
                     ? (object?)new Dictionary<string, object?> {
                         ["isPrimaryKey"] = uq.IsPrimaryKey,
                         ["clustered"] = uq.Clustered == true ? (object?)true : uq.Clustered == false ? (object?)false : null,
+                    }
+                    : null,
+                // Inline REFERENCES (column-level foreign key)
+                ["foreignKey"] = col.Constraints?.OfType<ForeignKeyConstraintDefinition>().FirstOrDefault() is { } fk
+                    ? (object?)new Dictionary<string, object?> {
+                        ["refTable"] = BuildSchemaObjectName(fk.ReferenceTableName),
+                        ["refColumns"] = fk.ReferencedTableColumns?.Select(c => (object?)c.Value).ToList(),
+                        ["deleteAction"] = fk.DeleteAction != DeleteUpdateAction.NotSpecified ? (object?)fk.DeleteAction.ToString() : null,
+                        ["updateAction"] = fk.UpdateAction != DeleteUpdateAction.NotSpecified ? (object?)fk.UpdateAction.ToString() : null,
                     }
                     : null,
             });

@@ -180,6 +180,33 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         parts.push(' ', uqKw, clusteredKw);
     }
 
+    // Inline REFERENCES (column-level foreign key: col type REFERENCES Table(col))
+    const foreignKey = node.props?.['foreignKey'] as
+        | { refTable: SqlNode | null; refColumns?: string[]; deleteAction?: string; updateAction?: string }
+        | null
+        | undefined;
+    if (foreignKey) {
+        const refColsPart: Doc =
+            foreignKey.refColumns?.length ? [' (', join(', ', foreignKey.refColumns), ')'] : '';
+        parts.push(' ', keyword('REFERENCES', opts), ' ', schemaObjectName(foreignKey.refTable), refColsPart);
+        if (foreignKey.deleteAction) {
+            parts.push(
+                ' ',
+                keyword('ON DELETE', opts),
+                ' ',
+                keyword(foreignKey.deleteAction.replace(/([A-Z])/g, ' $1').trim().toUpperCase(), opts),
+            );
+        }
+        if (foreignKey.updateAction) {
+            parts.push(
+                ' ',
+                keyword('ON UPDATE', opts),
+                ' ',
+                keyword(foreignKey.updateAction.replace(/([A-Z])/g, ' $1').trim().toUpperCase(), opts),
+            );
+        }
+    }
+
     return parts;
 }
 

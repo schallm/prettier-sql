@@ -1163,8 +1163,11 @@ export function printTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode
     switch (node.type) {
         case 'NamedTableReference':
             return printNamedTableRef(node, opts, printFn);
-        case 'VariableTableReference':
-            return node.text ?? '/* unknown table var */';
+        case 'VariableTableReference': {
+            const varName = propStr(node, 'name') ?? node.text ?? '/* unknown table var */';
+            const varAlias = propStr(node, 'alias');
+            return varAlias ? [varName, aliasDoc(varAlias, opts)] : varName;
+        }
         case 'QualifiedJoin':
             return printQualifiedJoin(node, opts, printFn);
         case 'UnqualifiedJoin':
