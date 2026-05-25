@@ -434,7 +434,6 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
 export function printCreateIndex(node: SqlNode, opts: Options): Doc {
     const indexName = propStr(node, 'indexName') ?? 'idx';
     const isUnique = propBool(node, 'unique');
-    const isClustered = propBool(node, 'clustered');
     const table = prop(node, 'table');
     const columns = propArr(node, 'columns');
     const includeColumns = node.props?.['includeColumns'];
@@ -449,8 +448,14 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
     });
 
     const uniqueKw: Doc = isUnique ? [keyword('UNIQUE', opts), ' '] : '';
-    // Only emit CLUSTERED explicitly — NONCLUSTERED is the default and adding it is noise.
-    const clusteredKw: Doc = isClustered ? [keyword('CLUSTERED', opts), ' '] : '';
+    // Preserve CLUSTERED / NONCLUSTERED exactly as written; omit when not specified.
+    const clusteredProp = node.props?.['clustered'];
+    const clusteredKw: Doc =
+        clusteredProp === true
+            ? [keyword('CLUSTERED', opts), ' ']
+            : clusteredProp === false
+              ? [keyword('NONCLUSTERED', opts), ' ']
+              : '';
 
     const onClause: Doc = [
         keyword('ON', opts),
@@ -471,6 +476,12 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
         ? [hardline, keyword('WHERE', opts), ' ', filterPredicate]
         : '';
 
+    const indexOptions = node.props?.['indexOptions'] as string[] | undefined;
+    const withPart: Doc =
+        indexOptions && indexOptions.length > 0
+            ? [hardline, keyword('WITH', opts), ' (', join(', ', indexOptions), ')']
+            : '';
+
     return group([
         keyword('CREATE', opts),
         ' ',
@@ -480,6 +491,7 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
         ' ',
         indexName,
         indent([hardline, onClause, includePart, filterPart]),
+        withPart,
         ';',
     ]);
 }

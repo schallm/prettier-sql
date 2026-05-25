@@ -8,6 +8,10 @@ create nonclustered index IX_Books_Genre_Price on Books (GenreId asc, Price desc
 
 create unique nonclustered index UX_Authors_Email on Authors (Email asc) where Email is not null
 
+create clustered index IX_Orders_Id on Orders (Id asc) with (fillfactor = 80, pad_index = on)
+
+create nonclustered index IX_Orders_Status on Orders (Status asc) with (online = on, sort_in_tempdb = on)
+
 alter index IX_Books_Title on Books rebuild
 
 alter index IX_Books_Genre_Price on Books reorganize
