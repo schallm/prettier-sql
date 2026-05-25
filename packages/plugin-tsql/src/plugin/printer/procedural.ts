@@ -280,7 +280,14 @@ export function printIf(node: SqlNode, opts: Options): Doc {
     const condDoc = condition ? printBool(condition, opts) : '';
     const thenDoc = then ? printStatementBlock(then, opts) : ';';
     const parts: Doc[] = [keyword('IF', opts), ' ', condDoc, thenDoc];
-    if (els) parts.push(hardline, keyword('ELSE', opts), printStatementBlock(els, opts));
+    if (els) {
+        // ELSE IF chain: keep on the same line to avoid extra nesting
+        if (els.type === 'IfStatement') {
+            parts.push(hardline, keyword('ELSE', opts), ' ', printIf(els, opts));
+        } else {
+            parts.push(hardline, keyword('ELSE', opts), printStatementBlock(els, opts));
+        }
+    }
     return group(parts);
 }
 

@@ -1943,11 +1943,10 @@ T-SQL treats `ELSE IF` as an `ELSE` clause containing a single `IF` statement, s
 ```sql
 if @price < 10
   set @title = 'cheap';
+else if @price < 50
+  set @title = 'mid-range';
 else
-  if @price < 50
-    set @title = 'mid-range';
-  else
-    set @title = 'expensive';
+  set @title = 'expensive';
 ```
 
 ---
