@@ -182,12 +182,16 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["name"] = fc.FunctionName?.Value,
                 // UDT static: geography::STGeomFromText — separator is "::"
                 // XML/instance method: Data.value() — separator is "."
+                // Expression method: @g.STDistance() — ExpressionCallTarget, separator is "."
                 ["callTarget"] = fc.CallTarget is UserDefinedTypeCallTarget udt
                     ? (object?)(QuotedName(udt.SchemaObjectName?.Identifiers?.LastOrDefault()) ?? RawText(fc.CallTarget).Trim())
                     : fc.CallTarget is MultiPartIdentifierCallTarget mpit
                         ? (object?)string.Join(".", mpit.MultiPartIdentifier?.Identifiers.Select(i => QuotedName(i) ?? i.Value) ?? [])
                         : null,
-                ["callTargetSeparator"] = fc.CallTarget is MultiPartIdentifierCallTarget ? (object?)"." : "::",
+                ["callTargetExpr"] = fc.CallTarget is ExpressionCallTarget ect
+                    ? (object?)BuildScalarExpression(ect.Expression)
+                    : null,
+                ["callTargetSeparator"] = fc.CallTarget is MultiPartIdentifierCallTarget || fc.CallTarget is ExpressionCallTarget ? (object?)"." : "::",
                 ["args"] = args,
                 ["over"] = overClause,
                 ["uniqueRowFilter"] = fc.UniqueRowFilter.ToString(),
