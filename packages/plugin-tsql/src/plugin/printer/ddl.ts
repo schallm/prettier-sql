@@ -353,6 +353,7 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
     const table = prop(node, 'table');
     const columns = propArr(node, 'columns');
     const includeColumns = node.props?.['includeColumns'];
+    const filterPredicate = propStr(node, 'filterPredicate');
 
     const colDocs = columns.map((c) => {
         const colName = propStr(c, 'name') ?? c.text ?? '';
@@ -362,8 +363,9 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
             : ([colName, ' ', keyword('ASC', opts)] as Doc);
     });
 
-    const uniqueKw = isUnique ? keyword('UNIQUE ', opts) : '';
-    const clusteredKw = isClustered ? keyword('CLUSTERED ', opts) : keyword('NONCLUSTERED ', opts);
+    const uniqueKw: Doc = isUnique ? [keyword('UNIQUE', opts), ' '] : '';
+    // Only emit CLUSTERED explicitly — NONCLUSTERED is the default and adding it is noise.
+    const clusteredKw: Doc = isClustered ? [keyword('CLUSTERED', opts), ' '] : '';
 
     const onClause: Doc = [
         keyword('ON', opts),
@@ -380,14 +382,19 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
             ? [hardline, keyword('INCLUDE', opts), ' ', parenList(includeColumns as string[])]
             : '';
 
+    const filterPart: Doc = filterPredicate
+        ? [hardline, keyword('WHERE', opts), ' ', filterPredicate]
+        : '';
+
     return group([
-        keyword('CREATE ', opts),
+        keyword('CREATE', opts),
+        ' ',
         uniqueKw,
         clusteredKw,
         keyword('INDEX', opts),
         ' ',
         indexName,
-        indent([hardline, onClause, includePart]),
+        indent([hardline, onClause, includePart, filterPart]),
         ';',
     ]);
 }

@@ -1358,10 +1358,11 @@ public class AstBuilder : TSqlFragmentVisitor {
             new Dictionary<string, object?> {
                 ["indexName"] = ci.Name?.Value,
                 ["unique"] = ci.Unique,
-                ["clustered"] = ci.Clustered,
+                ["clustered"] = ci.Clustered == true ? (object?)true : null,
                 ["table"] = BuildSchemaObjectName(ci.OnName),
                 ["columns"] = cols,
                 ["includeColumns"] = ci.IncludeColumns?.Select(c => (object?)c.MultiPartIdentifier?.Identifiers.LastOrDefault()?.Value).ToList(),
+                ["filterPredicate"] = ci.FilterPredicate != null ? RawText(ci.FilterPredicate).Trim() : null,
             });
     }
 

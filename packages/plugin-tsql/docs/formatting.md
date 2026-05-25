@@ -1342,7 +1342,7 @@ with (drop_existing = on);
 `CREATE INDEX` places the index name on the first line. `ON table (columns)` and the optional `INCLUDE` clause are each indented one level as sub-clauses of the statement. Each column includes an explicit `ASC` or `DESC` direction. The `INCLUDE` column list wraps at `printWidth`.
 
 ```sql
-create nonclustered index IX_Books_Title
+create index IX_Books_Title
   on Books (
     Title asc
   );
@@ -1352,14 +1352,14 @@ create unique clustered index IX_Books_Id
     Id asc
   );
 
-create nonclustered index IX_Books_AuthorId_Price
+create index IX_Books_AuthorId_Price
   on Books (
     AuthorId asc,
     Price desc
   )
   include (Title, InStock);
 
-create nonclustered index IX_Books_Covering
+create index IX_Books_Covering
   on Books (
     AuthorId asc
   )
