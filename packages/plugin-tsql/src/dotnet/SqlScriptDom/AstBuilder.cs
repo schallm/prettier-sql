@@ -1302,6 +1302,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["defaultValue"] = col.DefaultConstraint != null
                     ? BuildScalarExpression(col.DefaultConstraint.Expression)
                     : null,
+                ["isRowGuidCol"] = col.IsRowGuidCol ? (object?)true : null,
                 ["checkConstraint"] = col.Constraints?.OfType<CheckConstraintDefinition>().FirstOrDefault() is { } chk
                     ? BuildBooleanExpression(chk.CheckCondition)
                     : null,
@@ -1886,6 +1887,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["indexName"] = ai.Name?.Value,   // null means ALL
             ["table"] = BuildSchemaObjectName(ai.OnName),
             ["alterType"] = ai.AlterIndexType.ToString(),
+            ["indexOptions"] = MapList(ai.IndexOptions, o => (object?)RawText(o).Trim()),
+            ["partition"] = ai.Partition != null ? RawText(ai.Partition) : null,
         });
 
     // -------------------------------------------------------------------------

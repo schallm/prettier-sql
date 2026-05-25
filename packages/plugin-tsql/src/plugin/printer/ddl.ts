@@ -114,6 +114,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         const inc = identityIncrement ?? '1';
         parts.push(' ', keyword('IDENTITY', opts), `(${seed}, ${inc})`);
     }
+    if (node.props?.['isRowGuidCol']) parts.push(' ', keyword('ROWGUIDCOL', opts));
     if (defaultValue) parts.push(' ', keyword('DEFAULT', opts), ' ', printNode(defaultValue, opts));
     parts.push(nullablePart(isNullable, opts));
     if (checkConstraint) parts.push(' ', keyword('CHECK', opts), ' (', printBool(checkConstraint, opts), ')');
@@ -444,6 +445,13 @@ export function printAlterIndex(node: SqlNode, opts: Options): Doc {
         Set: 'SET',
     };
     const typeKw = keyword(typeKwMap[alterType] ?? alterType.toUpperCase(), opts);
+    const indexOptions = node.props?.['indexOptions'] as string[] | undefined;
+    const partition = propStr(node, 'partition');
+    const withPart: Doc =
+        indexOptions && indexOptions.length > 0
+            ? [' ', keyword('WITH', opts), ' (', join(', ', indexOptions), ')']
+            : '';
+    const partitionPart: Doc = partition ? [' ', keyword('PARTITION', opts), ' = ', partition] : '';
     return [
         keyword('ALTER INDEX', opts),
         ' ',
@@ -454,6 +462,8 @@ export function printAlterIndex(node: SqlNode, opts: Options): Doc {
         schemaObjectName(table),
         ' ',
         typeKw,
+        withPart,
+        partitionPart,
         ';',
     ];
 }
