@@ -993,10 +993,16 @@ public class AstBuilder : TSqlFragmentVisitor {
             ?.Select(c => (object?)BuildCte(c)).ToList();
 
         var optimizerHints = MapList(sel.OptimizerHints, h => (object?)BuildOptimizerHint(h));
+        var queryExpr = BuildQueryExpression(sel.QueryExpression);
+
+        // SELECT INTO: inject the target table name into the QuerySpecification node so the
+        // printer can place "INTO #target" between the column list and the FROM clause.
+        if (sel.Into != null && queryExpr?.Props != null)
+            queryExpr.Props["into"] = BuildSchemaObjectName(sel.Into);
 
         return Node("SelectStatement", sel, new Dictionary<string, object?> {
             ["ctes"] = ctes,
-            ["queryExpression"] = BuildQueryExpression(sel.QueryExpression),
+            ["queryExpression"] = queryExpr,
             ["optimizerHints"] = optimizerHints,
         });
     }
