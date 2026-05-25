@@ -267,7 +267,8 @@ exports[`fixtures > create-table/with-indexes.sql 1`] = `
   Name nvarchar(200) not null,
   Price decimal(10, 2) not null,
   constraint PK_Products primary key (Id),
-  constraint UQ_Products_Sku unique (Sku)
+  constraint UQ_Products_Sku unique (Sku),
+  index IX_Products_Name nonclustered (Name asc)
 );
 
 create table OrderItems (
@@ -278,7 +279,9 @@ create table OrderItems (
   constraint PK_OrderItems primary key (Id),
   constraint FK_OrderItems_Orders foreign key (OrderId) references Orders (Id),
   constraint FK_OrderItems_Products
-    foreign key (ProductId) references Products (Id)
+    foreign key (ProductId) references Products (Id),
+  index IX_OrderItems_OrderId nonclustered (OrderId asc),
+  index IX_OrderItems_ProductId nonclustered (ProductId asc)
 );"
 `;
 

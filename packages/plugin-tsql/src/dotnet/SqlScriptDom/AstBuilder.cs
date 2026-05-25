@@ -1294,11 +1294,43 @@ public class AstBuilder : TSqlFragmentVisitor {
         return RawText(opt).Trim();
     }
 
+    private static SqlNode BuildInlineIndex(IndexDefinition idx) {
+        var kindStr = idx.IndexType?.IndexTypeKind switch {
+            IndexTypeKind.Clustered => "clustered",
+            IndexTypeKind.NonClustered => "nonclustered",
+            IndexTypeKind.ClusteredColumnStore => "clustered columnstore",
+            IndexTypeKind.NonClusteredColumnStore => "nonclustered columnstore",
+            IndexTypeKind.NonClusteredHash => "nonclustered hash",
+            _ => null,
+        };
+        var cols = idx.Columns?.Select(c => (object?)new SqlNode(
+            "IndexColumn",
+            c.StartOffset,
+            c.StartOffset + c.FragmentLength,
+            c.Column?.MultiPartIdentifier?.Identifiers.LastOrDefault()?.Value,
+            new Dictionary<string, object?> {
+                ["name"] = c.Column?.MultiPartIdentifier?.Identifiers.LastOrDefault()?.Value,
+                ["sortOrder"] = c.SortOrder.ToString(),
+            })).ToList();
+        return Node("InlineIndexDefinition", idx, new Dictionary<string, object?> {
+            ["indexName"] = idx.Name?.Value,
+            ["unique"] = idx.Unique ? (object?)true : null,
+            ["kind"] = kindStr,
+            ["columns"] = cols,
+            ["includeColumns"] = idx.IncludeColumns?.Select(c =>
+                (object?)(QuotedName(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()) ?? "")).ToList(),
+            ["filterPredicate"] = idx.FilterPredicate != null ? RawText(idx.FilterPredicate).Trim() : null,
+            ["indexOptions"] = MapList(idx.IndexOptions, o => (object?)SerializeIndexOption(o)),
+        });
+    }
+
     private static SqlNode BuildCreateTableStatement(CreateTableStatement ct) {
         var columns = ct.Definition?.ColumnDefinitions
             ?.Select(c => (object?)BuildColumnDefinition(c)).ToList();
         var constraints = ct.Definition?.TableConstraints
             ?.Select(c => (object?)BuildTableConstraint(c)).ToList();
+        var indexes = ct.Definition?.Indexes
+            ?.Select(i => (object?)BuildInlineIndex(i)).ToList();
         var options = MapList(ct.Options, o => (object?)SerializeTableOption(o));
 
         // PERIOD FOR SYSTEM_TIME (ValidFrom, ValidTo) — temporal table period definition
@@ -1312,6 +1344,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["name"] = BuildSchemaObjectName(ct.SchemaObjectName),
             ["columns"] = columns,
             ["constraints"] = constraints,
+            ["indexes"] = indexes,
             ["systemTimePeriod"] = systemTimePeriod,
             ["options"] = options,
         });
@@ -1366,10 +1399,14 @@ public class AstBuilder : TSqlFragmentVisitor {
                 // Inline PRIMARY KEY / UNIQUE on the column itself
                 ["uniqueConstraint"] = col.Constraints?.OfType<UniqueConstraintDefinition>().FirstOrDefault() is { } uq
                     ? (object?)new Dictionary<string, object?> {
+                        ["constraintName"] = uq.ConstraintIdentifier?.Value,
                         ["isPrimaryKey"] = uq.IsPrimaryKey,
                         ["clustered"] = uq.Clustered == true ? (object?)true : uq.Clustered == false ? (object?)false : null,
                     }
                     : null,
+                // Inline column-level CHECK constraint name
+                ["checkConstraintName"] = col.Constraints?.OfType<CheckConstraintDefinition>().FirstOrDefault()
+                    ?.ConstraintIdentifier?.Value,
                 // Inline REFERENCES (column-level foreign key)
                 ["foreignKey"] = col.Constraints?.OfType<ForeignKeyConstraintDefinition>().FirstOrDefault() is { } fk
                     ? (object?)new Dictionary<string, object?> {

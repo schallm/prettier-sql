@@ -52,6 +52,45 @@ function withOptionsClause(options: string[] | null | undefined, opts: Options):
 // CREATE TABLE
 // ---------------------------------------------------------------------------
 
+/** Inline INDEX definition within CREATE TABLE body. */
+function printInlineIndex(node: SqlNode, opts: Options): Doc {
+    const indexName = propStr(node, 'indexName') ?? '';
+    const isUnique = node.props?.['unique'];
+    const kind = propStr(node, 'kind'); // 'clustered', 'nonclustered', etc.
+    const columns = propArr(node, 'columns');
+    const includeColumns = node.props?.['includeColumns'] as string[] | undefined;
+    const filterPredicate = propStr(node, 'filterPredicate');
+    const indexOptions = node.props?.['indexOptions'] as string[] | undefined;
+
+    const uniqueKw: Doc = isUnique ? [keyword('UNIQUE', opts), ' '] : '';
+    const kindKw: Doc = kind ? [keyword(kind.toUpperCase(), opts), ' '] : '';
+
+    const colDocs = columns.map((c) => {
+        const colName = propStr(c, 'name') ?? '';
+        const sort = propStr(c, 'sortOrder') ?? 'Ascending';
+        return sort === 'Descending' ? [colName, ' ', keyword('DESC', opts)] : [colName, ' ', keyword('ASC', opts)];
+    });
+
+    const includePart: Doc =
+        includeColumns?.length ? [' ', keyword('INCLUDE', opts), ' ', parenList(includeColumns)] : '';
+    const filterPart: Doc = filterPredicate ? [' ', keyword('WHERE', opts), ' ', filterPredicate] : '';
+    const withPart: Doc =
+        indexOptions?.length ? [' ', keyword('WITH', opts), ' (', join(', ', indexOptions), ')'] : '';
+
+    return [
+        keyword('INDEX', opts),
+        ' ',
+        indexName,
+        ' ',
+        uniqueKw,
+        kindKw,
+        parenList(colDocs as Doc[]),
+        includePart,
+        filterPart,
+        withPart,
+    ];
+}
+
 export function printCreateTable(node: SqlNode, opts: Options): Doc {
     const columns = propArr(node, 'columns');
     const constraints = propArr(node, 'constraints');
@@ -61,9 +100,11 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
         | null
         | undefined;
 
+    const indexes = propArr(node, 'indexes');
     const allDefs: Doc[] = [
         ...columns.map((col) => printColumnDef(col, opts)),
         ...constraints.map((c) => printConstraintDef(c, opts)),
+        ...indexes.map((idx) => printInlineIndex(idx, opts)),
     ];
 
     // PERIOD FOR SYSTEM_TIME (ValidFrom, ValidTo) — always last in the table body
@@ -162,14 +203,21 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
 
     if (defaultValue) parts.push(' ', keyword('DEFAULT', opts), ' ', printNode(defaultValue, opts));
     parts.push(nullablePart(isNullable, opts));
-    if (checkConstraint) parts.push(' ', keyword('CHECK', opts), ' (', printBool(checkConstraint, opts), ')');
+    if (checkConstraint) {
+        const checkName = propStr(node, 'checkConstraintName');
+        const checkPrefix: Doc = checkName ? [keyword('CONSTRAINT', opts), ' ', checkName, ' '] : '';
+        parts.push(' ', checkPrefix, keyword('CHECK', opts), ' (', printBool(checkConstraint, opts), ')');
+    }
 
     // Inline PRIMARY KEY / UNIQUE constraint (e.g. in table variable declarations)
     const uniqueConstraint = node.props?.['uniqueConstraint'] as
-        | { isPrimaryKey: boolean; clustered: boolean | null }
+        | { constraintName?: string; isPrimaryKey: boolean; clustered: boolean | null }
         | null
         | undefined;
     if (uniqueConstraint) {
+        const constraintNamePrefix: Doc = uniqueConstraint.constraintName
+            ? [keyword('CONSTRAINT', opts), ' ', uniqueConstraint.constraintName, ' ']
+            : '';
         const uqKw = uniqueConstraint.isPrimaryKey ? keyword('PRIMARY KEY', opts) : keyword('UNIQUE', opts);
         const clusteredKw: Doc =
             uniqueConstraint.clustered === true
@@ -177,7 +225,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
                 : uniqueConstraint.clustered === false
                   ? [' ', keyword('NONCLUSTERED', opts)]
                   : '';
-        parts.push(' ', uqKw, clusteredKw);
+        parts.push(' ', constraintNamePrefix, uqKw, clusteredKw);
     }
 
     // Inline REFERENCES (column-level foreign key: col type REFERENCES Table(col))
