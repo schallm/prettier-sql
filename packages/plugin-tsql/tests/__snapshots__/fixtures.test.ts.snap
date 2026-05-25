@@ -486,7 +486,8 @@ go"
 `;
 
 exports[`fixtures > function/table-valued.sql 1`] = `
-"create function GetBooksByGenre(@GenreId int) returns table
+"create function GetBooksByGenre(@GenreId int)
+returns table
 as
 return (
   select

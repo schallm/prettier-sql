@@ -728,26 +728,25 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
               ? keyword('ALTER FUNCTION', opts)
               : keyword('CREATE FUNCTION', opts);
 
-    const nameAndParams: Doc = [
+    const nameAndParamsNoOpts: Doc = [
         fnKw,
         ' ',
         schemaObjectName(prop(node, 'name')),
         preBody,
         group(['(', parameters.length > 0 ? [indent([softline, join([',', line], paramDocs)]), softline] : '', ')']),
         postParam,
-        printModuleOptions(node, opts),
     ];
 
     if (bodyType === 'table') {
-        // Inline TVF: RETURNS TABLE AS RETURN (query) — no BEGIN/END
-        // returnType raw text contains the SELECT, not the word TABLE — hardcode TABLE
+        // Inline TVF: RETURNS TABLE [WITH options] AS RETURN (query) — no BEGIN/END
         const queryDoc = body && !Array.isArray(body) ? qexpr(body as SqlNode, opts) : '/* query */';
         return [
-            nameAndParams,
-            ' ',
+            nameAndParamsNoOpts,
+            hardline,
             keyword('RETURNS', opts),
             ' ',
             keyword('TABLE', opts),
+            printModuleOptions(node, opts),
             hardline,
             keyword('AS', opts),
             hardline,
@@ -759,6 +758,8 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
             ';',
         ];
     }
+
+    const nameAndParams = [nameAndParamsNoOpts, printModuleOptions(node, opts)];
 
     // Scalar or multi-statement TVF — both use BEGIN...END
     const stmts = Array.isArray(body) ? (body as SqlNode[]).map((s) => printStatementWithComments(s, opts)) : [];
