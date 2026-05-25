@@ -194,13 +194,13 @@ Expected output:
 
 ```sql
 select
-    Books.BookId,
-    Books.Title,
-    Books.Price,
-    Authors.LastName
+  Books.BookId,
+  Books.Title,
+  Books.Price,
+  Authors.LastName
 from
-    Books
-    inner join Authors on Books.AuthorId = Authors.Id
+  Books
+  inner join Authors on Books.AuthorId = Authors.Id
 where Books.InStock = 1
 order by Books.Title asc;
 ```
