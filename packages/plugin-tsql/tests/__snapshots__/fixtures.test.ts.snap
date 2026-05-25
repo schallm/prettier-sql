@@ -314,7 +314,7 @@ exports[`fixtures > delete/cte.sql 1`] = `
     from Books
     where InStock = 0
   )
-delete from Books
+delete Books
 from
   Books
   inner join cte on Books.Id = cte.Id;

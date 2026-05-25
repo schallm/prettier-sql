@@ -731,7 +731,10 @@ function printDelete(node: SqlNode, opts: Options): Doc {
     const output = prop(node, 'output');
     const outputInto = prop(node, 'outputInto');
 
-    const parts: Doc[] = [...ctesDocs, keyword('DELETE FROM', opts), ' ', target ? printTable(target, opts) : ''];
+    // Multi-table DELETE: DELETE alias FROM join-tree — omit the FROM before the alias.
+    // Simple DELETE: DELETE FROM table — no separate FROM clause.
+    const deleteKw: Doc = from ? keyword('DELETE', opts) : keyword('DELETE FROM', opts);
+    const parts: Doc[] = [...ctesDocs, deleteKw, ' ', target ? printTable(target, opts) : ''];
 
     if (from) {
         const tableRefs = propArr(from, 'tableReferences');
