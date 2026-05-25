@@ -1239,6 +1239,9 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["defaultValue"] = col.DefaultConstraint != null
                     ? BuildScalarExpression(col.DefaultConstraint.Expression)
                     : null,
+                ["checkConstraint"] = col.Constraints?.OfType<CheckConstraintDefinition>().FirstOrDefault() is { } chk
+                    ? BuildBooleanExpression(chk.CheckCondition)
+                    : null,
             });
     }
 

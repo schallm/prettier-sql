@@ -100,6 +100,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
     const identitySeed = propStr(node, 'identitySeed');
     const identityIncrement = propStr(node, 'identityIncrement');
     const defaultValue = prop(node, 'defaultValue');
+    const checkConstraint = prop(node, 'checkConstraint');
 
     const typeStr: Doc =
         Array.isArray(params) && params.length > 0
@@ -115,6 +116,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
     }
     if (defaultValue) parts.push(' ', keyword('DEFAULT', opts), ' ', printNode(defaultValue, opts));
     parts.push(nullablePart(isNullable, opts));
+    if (checkConstraint) parts.push(' ', keyword('CHECK', opts), ' (', printBool(checkConstraint, opts), ')');
 
     return parts;
 }

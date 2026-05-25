@@ -209,6 +209,14 @@ exports[`fixtures > create-table/with-constraints.sql 1`] = `
   constraint FK_Orders_Customers
     foreign key (CustomerId) references Customers (Id),
   constraint CK_Orders_Total check (Total >= 0)
+);
+
+-- inline column-level CHECK (previously silently dropped)
+create table Products (
+  Id int not null,
+  Status tinyint not null check (Status in (0, 1, 2)),
+  Rating decimal(3, 1) check (Rating between 0 and 10),
+  constraint PK_Products primary key (Id)
 );"
 `;
 
