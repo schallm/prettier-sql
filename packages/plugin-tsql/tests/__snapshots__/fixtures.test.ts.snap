@@ -452,7 +452,8 @@ execute @procName
 `;
 
 exports[`fixtures > function/multi-statement-tvf.sql 1`] = `
-"create function GetTopBooks(@MaxPrice decimal(10, 2)) returns @result table (
+"create function GetTopBooks(@MaxPrice decimal(10, 2))
+returns @result table (
   Id int not null,
   Title nvarchar(200) not null,
   Price decimal(10, 2) not null
@@ -477,7 +478,8 @@ exports[`fixtures > function/scalar.sql 1`] = `
 "create function GetAuthorFullName(
   @FirstName nvarchar(50),
   @LastName nvarchar(50)
-) returns nvarchar(101)
+)
+returns nvarchar(101)
 as
 begin
   return @FirstName + ' ' + @LastName;
@@ -503,7 +505,8 @@ go"
 `;
 
 exports[`fixtures > function/trim.sql 1`] = `
-"create function dbo.TrimCharsFrom(@str nvarchar(max)) returns nvarchar(max)
+"create function dbo.TrimCharsFrom(@str nvarchar(max))
+returns nvarchar(max)
 as
 begin
   return trim(nchar(12288) from @str);

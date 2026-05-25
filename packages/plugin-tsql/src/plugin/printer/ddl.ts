@@ -759,8 +759,6 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
         ];
     }
 
-    const nameAndParams = [nameAndParamsNoOpts, printModuleOptions(node, opts)];
-
     // Scalar or multi-statement TVF — both use BEGIN...END
     const stmts = Array.isArray(body) ? (body as SqlNode[]).map((s) => printStatementWithComments(s, opts)) : [];
     const bodyDoc: Doc = join([hardline, hardline], stmts);
@@ -783,12 +781,15 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
         retTypePart = keyword(returnType, opts);
     }
 
+    // WITH options come AFTER RETURNS (per T-SQL syntax):
+    // CREATE FUNCTION ... (params) RETURNS type WITH options AS BEGIN ... END
     return [
-        nameAndParams,
-        ' ',
+        nameAndParamsNoOpts,
+        hardline,
         keyword('RETURNS', opts),
         ' ',
         retTypePart,
+        printModuleOptions(node, opts),
         hardline,
         keyword('AS', opts),
         hardline,
@@ -871,6 +872,8 @@ export function printCreateTrigger(node: SqlNode, opts: Options): Doc {
               (actions as string[]).map((a) => keyword(a.toUpperCase(), opts)),
           )
         : '';
+    const notForReplication = propBool(node, 'notForReplication');
+    const notForReplicationDoc: Doc = notForReplication ? [hardline, keyword('NOT FOR REPLICATION', opts)] : '';
     const bodyDocs = propArr(node, 'body').map((s) => printStatementWithComments(s, opts));
 
     return [
@@ -885,6 +888,7 @@ export function printCreateTrigger(node: SqlNode, opts: Options): Doc {
         typeKw,
         ' ',
         actionList,
+        notForReplicationDoc,
         hardline,
         keyword('AS', opts),
         hardline,

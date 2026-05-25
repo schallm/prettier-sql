@@ -2017,6 +2017,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["onName"] = BuildSchemaObjectName(trigger.TriggerObject?.Name),
             ["triggerType"] = trigger.TriggerType.ToString(),
             ["actions"] = actions,
+            ["notForReplication"] = trigger.IsNotForReplication ? (object?)true : null,
             ["body"] = stmts,
         });
     }
