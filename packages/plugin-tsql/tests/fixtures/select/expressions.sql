@@ -57,3 +57,7 @@ from t
 select Name collate Latin1_General_CI_AS, Code collate SQL_Latin1_General_CP1_CS_AS
 from Products
 where Name collate SQL_Latin1_General_CP1_CI_AS = N'test'
+
+-- LEFT/RIGHT are special ScriptDom subtypes — must normalize case like any function
+select LEFT(Email, 10), RIGHT(Name, 5), LEFT(a, 1) + RIGHT(b, 2)
+from Users

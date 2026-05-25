@@ -1088,7 +1088,14 @@ select
   Name collate Latin1_General_CI_AS,
   Code collate SQL_Latin1_General_CP1_CS_AS
 from Products
-where Name collate SQL_Latin1_General_CP1_CI_AS = N'test';"
+where Name collate SQL_Latin1_General_CP1_CI_AS = N'test';
+
+-- LEFT/RIGHT are special ScriptDom subtypes — must normalize case like any function
+select
+  left(Email, 10),
+  right(Name, 5),
+  left(a, 1) + right(b, 2)
+from Users;"
 `;
 
 exports[`fixtures > select/for-xml-json.sql 1`] = `

@@ -120,6 +120,11 @@ public class AstBuilder : TSqlFragmentVisitor {
             PartitionFunctionCall pfc => BuildPartitionFunctionCall(pfc),
             IdentityFunctionCall ifc => BuildIdentityFunctionCall(ifc),
             ExtractFromExpression ext => BuildExtractFrom(ext),
+            // ScriptDom represents LEFT/RIGHT as dedicated subtypes (not FunctionCall)
+            LeftFunctionCall lfc => BuildBuiltinCall("left", lfc, lfc.Parameters),
+            RightFunctionCall rfc => BuildBuiltinCall("right", rfc, rfc.Parameters),
+            // ODBC escape function: {fn Name(args)} — render as a regular function call
+            OdbcFunctionCall odbc => BuildBuiltinCall(odbc.Name?.Value ?? "fn", odbc, odbc.Parameters),
             _ => Leaf("ScalarExpression", expr, RawText(expr)),
         };
     }
@@ -184,6 +189,25 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["nullOnNull"] = nullOnNull,
                 ["jsonOrderBy"] = jsonOrderBy,
                 ["withinGroup"] = withinGroup,
+            });
+    }
+
+    /// <summary>
+    /// Emit a FunctionCall node for built-in functions that ScriptDom represents as dedicated
+    /// subtypes rather than <see cref="FunctionCall"/> (e.g. LeftFunctionCall, RightFunctionCall).
+    /// The name is stored lowercase so the TS printer's keyword() normalises it correctly.
+    /// </summary>
+    private static SqlNode BuildBuiltinCall(string name, TSqlFragment f, IList<ScalarExpression>? parameters) {
+        var args = parameters?.Select(p => (object?)BuildScalarExpression(p)).ToList();
+        return new SqlNode(
+            "FunctionCall",
+            f.StartOffset,
+            f.StartOffset + f.FragmentLength,
+            name,
+            new Dictionary<string, object?> {
+                ["name"] = name,
+                ["args"] = args,
+                ["uniqueRowFilter"] = "NotSpecified",
             });
     }
 
