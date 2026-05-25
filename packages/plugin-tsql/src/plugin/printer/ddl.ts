@@ -747,6 +747,8 @@ export function printCreateView(node: SqlNode, opts: Options): Doc {
         : '';
 
     const preBodyPart = commentsBlock(node.preBodyComments);
+    const withCheckOption = node.props?.['withCheckOption'];
+    const checkOptionPart: Doc = withCheckOption ? [hardline, keyword('WITH CHECK OPTION', opts)] : '';
 
     return group([
         kw,
@@ -759,6 +761,7 @@ export function printCreateView(node: SqlNode, opts: Options): Doc {
         keyword('AS', opts),
         hardline,
         body ? qexpr(body, opts) : '',
+        checkOptionPart,
         ';',
     ]);
 }

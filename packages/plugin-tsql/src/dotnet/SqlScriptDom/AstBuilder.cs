@@ -1608,6 +1608,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["name"] = BuildSchemaObjectName(view.SchemaObjectName),
             ["columns"] = view.Columns?.Select(c => (object?)c.Value).ToList(),
             ["withOptions"] = withOptions,
+            ["withCheckOption"] = view.WithCheckOption ? (object?)true : null,
             ["body"] = queryExpr,
         });
     }
