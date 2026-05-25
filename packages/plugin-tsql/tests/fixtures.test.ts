@@ -46,4 +46,14 @@ describe('options', () => {
     it('sqlDensity: compact', async () => {
         expect(await fmt(`select BookId from Books where InStock = 1`, { sqlDensity: 'compact' })).toMatchSnapshot();
     });
+
+    it('sqlDensity: compact (wrapping columns)', async () => {
+        const sql = `select OrderId, CustomerId, ProductId, Quantity, UnitPrice, TotalAmount, OrderDate, ShipDate from Orders where IsActive = 1`;
+        expect(await fmt(sql, { sqlDensity: 'compact' })).toMatchSnapshot();
+    });
+
+    it('sqlDensity: compact (group by wrapping)', async () => {
+        const sql = `select CustomerId, ProductCategoryId, RegionId, sum(TotalAmount) as Revenue, count(*) as OrderCount from Orders group by CustomerId, ProductCategoryId, RegionId`;
+        expect(await fmt(sql, { sqlDensity: 'compact' })).toMatchSnapshot();
+    });
 });

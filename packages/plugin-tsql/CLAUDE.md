@@ -31,12 +31,14 @@ and ScriptDOM calls you during `fragment.Accept(builder)`. PostgreSQL has no vis
 ## C# project — `src/dotnet/SqlScriptDom/`
 
 ### `SqlParser.cs`
+
 Parses with `TSql180Parser(initialQuotedIdentifiers: false)`.
 Collects comments from `fragment.ScriptTokenStream` filtering for
 `TSqlTokenType.SingleLineComment` and `TSqlTokenType.MultilineComment`.
 Uses `using PrettierSql.Core;` for the shared `SqlNode` record.
 
 ### `AstBuilder.cs`
+
 Extends `TSqlFragmentVisitor`. Override pattern:
 
 ```csharp
@@ -48,6 +50,7 @@ public override void ExplicitVisit(SelectStatement node) {
 ScriptDOM handles tree traversal — you only override the node types you care about.
 
 Key helpers:
+
 ```csharp
 private static List<SqlNode>? MapList<T>(IEnumerable<T>? items, Func<T, SqlNode?> map)
 private static Dictionary<string, object?> BuildProps(params (string key, object? value)[] entries)
@@ -61,20 +64,22 @@ private static Dictionary<string, object?> BuildProps(params (string key, object
 
 Shared types and utilities come from the core package — do not duplicate them locally:
 
-| What | Import from |
-|---|---|
-| `SqlNode`, `CommentToken` | `@prettier-sql/core/types` |
-| `sqlKeywordCase`, `sqlDensity`, `sqlCommaStyle` options | `@prettier-sql/core/options` |
-| `keyword()`, `parenList()`, `aliasDoc()`, `hardSep()`, `softSep()`, `commentsBlock()`, etc. | `@prettier-sql/core/printer/utils` |
-| `prop()`, `propArr()`, `propStr()`, `propBool()` | `@prettier-sql/core/printer/helpers` |
+| What                                                                                        | Import from                          |
+| ------------------------------------------------------------------------------------------- | ------------------------------------ |
+| `SqlNode`, `CommentToken`                                                                   | `@prettier-sql/core/types`           |
+| `sqlKeywordCase`, `sqlDensity`, `sqlCommaStyle` options                                     | `@prettier-sql/core/options`         |
+| `keyword()`, `parenList()`, `aliasDoc()`, `hardSep()`, `softSep()`, `commentsBlock()`, etc. | `@prettier-sql/core/printer/utils`   |
+| `prop()`, `propArr()`, `propStr()`, `propBool()`                                            | `@prettier-sql/core/printer/helpers` |
 
 ### Dialect-specific helpers (`src/plugin/printer/helpers.ts`)
 
 Imports and re-exports the core helpers, then adds tsql-specific ones:
+
 - `schemaObjectName(nameNode)` — formats a four-part `[server].[db].[schema].[object]` name
 - `assignmentOp(op)` — maps T-SQL compound assignment operators (`+=`, `-=`, etc.)
 
 ### Plugin wiring
+
 - `index.ts` — registers parser `tsql` and printer `tsql-ast`
 - `language.ts` — extensions `.sql`, `.tsql`
 
@@ -82,17 +87,18 @@ Imports and re-exports the core helpers, then adds tsql-specific ones:
 
 The printer is split into multiple files for manageability:
 
-| File | What it handles |
-|---|---|
-| `printer/index.ts` | Top-level dispatch: script → statement → expression |
-| `printer/statements.ts` | SELECT, INSERT, UPDATE, DELETE, MERGE |
-| `printer/expressions.ts` | All expression node types |
-| `printer/ddl.ts` | CREATE/ALTER/DROP TABLE, VIEW, INDEX, SCHEMA |
-| `printer/admin.ts` | SET statements, USE, EXEC, BACKUP/RESTORE |
-| `printer/procedural.ts` | IF/ELSE, WHILE, BEGIN/END, TRY/CATCH, DECLARE, cursors |
-| `printer/security.ts` | GRANT, DENY, REVOKE, CREATE LOGIN/USER |
+| File                     | What it handles                                        |
+| ------------------------ | ------------------------------------------------------ |
+| `printer/index.ts`       | Top-level dispatch: script → statement → expression    |
+| `printer/statements.ts`  | SELECT, INSERT, UPDATE, DELETE, MERGE                  |
+| `printer/expressions.ts` | All expression node types                              |
+| `printer/ddl.ts`         | CREATE/ALTER/DROP TABLE, VIEW, INDEX, SCHEMA           |
+| `printer/admin.ts`       | SET statements, USE, EXEC, BACKUP/RESTORE              |
+| `printer/procedural.ts`  | IF/ELSE, WHILE, BEGIN/END, TRY/CATCH, DECLARE, cursors |
+| `printer/security.ts`    | GRANT, DENY, REVOKE, CREATE LOGIN/USER                 |
 
 ### `printer/statements.ts`
+
 **Critical**: always return `[join(hardline, parts), ';']` — never `join(...) + ';'`
 (the `+` operator calls Array.toString() which gives `[object Object]` output).
 

@@ -313,7 +313,10 @@ export function printAlterDatabaseAddFile(node: SqlNode, opts: Options): Doc {
     const clause: Doc = isLog ? keyword('ADD LOG FILE', opts) : keyword('ADD FILE', opts);
     const toFg: Doc = fileGroup ? [' ', keyword('TO FILEGROUP', opts), ' ', fileGroup] : '';
     const filesDoc: Doc = files?.length
-        ? join([',', line], files.map((f) => caseFileSpec(f, opts)))
+        ? join(
+              [',', line],
+              files.map((f) => caseFileSpec(f, opts)),
+          )
         : '';
 
     return group([alterDbHeader(node, opts), hardline, clause, ' ', filesDoc, toFg, ';']);

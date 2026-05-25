@@ -1867,6 +1867,29 @@ from Books
 where InStock = 1;"
 `;
 
+exports[`options > sqlDensity: compact (group by wrapping) 1`] = `
+"select CustomerId,
+  ProductCategoryId,
+  RegionId,
+  sum(TotalAmount) as Revenue,
+  count(*) as OrderCount
+from Orders
+group by CustomerId, ProductCategoryId, RegionId;"
+`;
+
+exports[`options > sqlDensity: compact (wrapping columns) 1`] = `
+"select OrderId,
+  CustomerId,
+  ProductId,
+  Quantity,
+  UnitPrice,
+  TotalAmount,
+  OrderDate,
+  ShipDate
+from Orders
+where IsActive = 1;"
+`;
+
 exports[`options > sqlDensity: compact 1`] = `"select BookId from Books where InStock = 1;"`;
 
 exports[`options > sqlDensity: spacious 1`] = `

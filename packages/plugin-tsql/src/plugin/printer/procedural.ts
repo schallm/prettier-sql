@@ -309,7 +309,7 @@ export function printExecute(node: SqlNode, opts: Options): Doc {
     const procVar = propStr(node, 'procVar');
     const parameters = propArr(node, 'parameters');
 
-    const target: Doc = procNode ? schemaObjectName(procNode) : procVar ?? '';
+    const target: Doc = procNode ? schemaObjectName(procNode) : (procVar ?? '');
 
     const paramDocs = parameters.map((p) => {
         const pname = propStr(p, 'name');

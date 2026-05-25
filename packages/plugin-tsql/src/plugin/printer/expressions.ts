@@ -562,14 +562,14 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
 
     if (density === 'compact') {
         // Compact: try to keep everything inline; wrap at printWidth
-        const colList = group(join(softSep(opts), colDocs));
+        const colList = group(indent(join(softSep(opts), colDocs)));
         const parts: Doc[] = [selectKw, ...(topDoc ? [' ', topDoc] : []), ' ', colList];
 
         if (from) {
             const tableRefs = propArr(from, 'tableReferences');
             const fromDocs = tableRefs.map((tr) => printTableRef(tr, opts, printFn));
             // Try to keep FROM on one line; if too long, each join on its own line
-            parts.push(line, keyword('FROM', opts), ' ', group(join(softSep(opts), fromDocs)));
+            parts.push(line, keyword('FROM', opts), ' ', group(indent(join(softSep(opts), fromDocs))));
         }
 
         if (where) {
@@ -579,7 +579,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
         if (groupBy) {
             const elems = propArr(groupBy, 'elements');
             const elemDocs = elems.map((e) => printExpression(e, opts, printFn));
-            parts.push(line, keyword('GROUP BY', opts), ' ', join(softSep(opts), elemDocs));
+            parts.push(line, keyword('GROUP BY', opts), ' ', group(indent(join(softSep(opts), elemDocs))));
         }
 
         if (having) {

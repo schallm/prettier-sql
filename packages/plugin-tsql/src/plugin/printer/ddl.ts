@@ -1,7 +1,18 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
-import { keyword, hardline, join, indent, group, softline, line, ifExistsDoc, commentsBlock, parenList } from '@prettier-sql/core/printer/utils';
+import {
+    keyword,
+    hardline,
+    join,
+    indent,
+    group,
+    softline,
+    line,
+    ifExistsDoc,
+    commentsBlock,
+    parenList,
+} from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, schemaObjectName } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
@@ -50,14 +61,7 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
         ...constraints.map((c) => printConstraintDef(c, opts)),
     ];
     const withPart: Doc =
-        options && options.length > 0
-            ? [
-                  hardline,
-                  keyword('WITH', opts),
-                  ' ',
-                  parenList(options),
-              ]
-            : '';
+        options && options.length > 0 ? [hardline, keyword('WITH', opts), ' ', parenList(options)] : '';
     return group([
         keyword('CREATE TABLE', opts),
         ' ',
@@ -371,12 +375,7 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
 
     const includePart: Doc =
         Array.isArray(includeColumns) && includeColumns.length > 0
-            ? [
-                  hardline,
-                  keyword('INCLUDE', opts),
-                  ' ',
-                  parenList(includeColumns as string[]),
-              ]
+            ? [hardline, keyword('INCLUDE', opts), ' ', parenList(includeColumns as string[])]
             : '';
 
     return group([
@@ -618,9 +617,7 @@ export function printCreateView(node: SqlNode, opts: Options): Doc {
               ? keyword('ALTER VIEW', opts)
               : keyword('CREATE VIEW', opts);
 
-    const colsPart: Doc = columns?.length
-        ? [' ', parenList(columns)]
-        : '';
+    const colsPart: Doc = columns?.length ? [' ', parenList(columns)] : '';
 
     const withPart: Doc = withOptions?.length
         ? [
