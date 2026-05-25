@@ -1643,6 +1643,7 @@ public class AstBuilder : TSqlFragmentVisitor {
 
     private static SqlNode BuildDropIndex(DropIndexStatement di) =>
         Node("DropIndexStatement", di, new Dictionary<string, object?> {
+            ["ifExists"] = di.IsIfExists ? (object?)true : null,
             ["indices"] = di.DropIndexClauses?.OfType<DropIndexClause>()
                 .Select(c => (object?)Node("IndexRef", c, new Dictionary<string, object?> {
                     ["name"] = c.Index?.Value,

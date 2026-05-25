@@ -513,7 +513,7 @@ alter index all on Books disable;
 
 drop index IX_Books_Title on Books;
 
-drop index IX_Books_Title on Books;"
+drop index if exists IX_Books_Title on Books;"
 `;
 
 exports[`fixtures > index/columnstore.sql 1`] = `

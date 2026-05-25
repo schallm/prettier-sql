@@ -885,12 +885,14 @@ export function printDropObjects(objType: string, node: SqlNode, opts: Options):
 }
 
 export function printDropIndex(node: SqlNode, opts: Options): Doc {
+    const ifExists = propBool(node, 'ifExists');
     const indices = propArr(node, 'indices');
     const indexDocs = indices.map(
         (idx) =>
             [propStr(idx, 'name') ?? '', ' ', keyword('ON', opts), ' ', schemaObjectName(prop(idx, 'table'))] as Doc,
     );
-    return group([keyword('DROP INDEX', opts), ' ', join([',', hardline], indexDocs), ';']);
+    const ifExistsPart: Doc = ifExists ? [' ', keyword('IF EXISTS', opts)] : '';
+    return group([keyword('DROP INDEX', opts), ifExistsPart, ' ', join([',', hardline], indexDocs), ';']);
 }
 
 // ---------------------------------------------------------------------------
