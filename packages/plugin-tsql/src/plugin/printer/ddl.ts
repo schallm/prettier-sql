@@ -56,10 +56,28 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
     const columns = propArr(node, 'columns');
     const constraints = propArr(node, 'constraints');
     const options = node.props?.['options'] as string[] | undefined;
-    const allDefs = [
+    const systemTimePeriod = node.props?.['systemTimePeriod'] as
+        | { startColumn: string; endColumn: string }
+        | null
+        | undefined;
+
+    const allDefs: Doc[] = [
         ...columns.map((col) => printColumnDef(col, opts)),
         ...constraints.map((c) => printConstraintDef(c, opts)),
     ];
+
+    // PERIOD FOR SYSTEM_TIME (ValidFrom, ValidTo) — always last in the table body
+    if (systemTimePeriod) {
+        allDefs.push([
+            keyword('PERIOD FOR SYSTEM_TIME', opts),
+            ' (',
+            systemTimePeriod.startColumn,
+            ', ',
+            systemTimePeriod.endColumn,
+            ')',
+        ]);
+    }
+
     const withPart: Doc =
         options && options.length > 0 ? [hardline, keyword('WITH', opts), ' ', parenList(options)] : '';
     return group([
@@ -115,6 +133,33 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         parts.push(' ', keyword('IDENTITY', opts), `(${seed}, ${inc})`);
     }
     if (node.props?.['isRowGuidCol']) parts.push(' ', keyword('ROWGUIDCOL', opts));
+
+    // Temporal table: GENERATED ALWAYS AS ROW START / ROW END [HIDDEN]
+    const generatedAlways = propStr(node, 'generatedAlways');
+    if (generatedAlways) {
+        const gaMap: Record<string, string> = {
+            RowStart: 'ROW START',
+            RowEnd: 'ROW END',
+            UserIdStart: 'USER ID START',
+            UserIdEnd: 'USER ID END',
+            UserNameStart: 'USER NAME START',
+            UserNameEnd: 'USER NAME END',
+            TransactionIdStart: 'TRANSACTION ID START',
+            TransactionIdEnd: 'TRANSACTION ID END',
+            SequenceNumberStart: 'SEQUENCE NUMBER START',
+            SequenceNumberEnd: 'SEQUENCE NUMBER END',
+        };
+        const gaKw = gaMap[generatedAlways] ?? generatedAlways.toUpperCase();
+        parts.push(' ', keyword('GENERATED ALWAYS AS', opts), ' ', keyword(gaKw, opts));
+    }
+    if (node.props?.['isHidden']) parts.push(' ', keyword('HIDDEN', opts));
+
+    // Dynamic data masking
+    if (node.props?.['isMasked']) {
+        const maskFn = propStr(node, 'maskingFunction') ?? 'default()';
+        parts.push(' ', keyword('MASKED WITH', opts), ' (', keyword('FUNCTION', opts), ` = '${maskFn}')`);
+    }
+
     if (defaultValue) parts.push(' ', keyword('DEFAULT', opts), ' ', printNode(defaultValue, opts));
     parts.push(nullablePart(isNullable, opts));
     if (checkConstraint) parts.push(' ', keyword('CHECK', opts), ' (', printBool(checkConstraint, opts), ')');

@@ -1254,6 +1254,22 @@ public class AstBuilder : TSqlFragmentVisitor {
         }
         if (opt is LockEscalationTableOption le)
             return $"lock_escalation = {le.Value.ToString().ToLower()}";
+        if (opt is SystemVersioningTableOption svo) {
+            var state = svo.OptionState == OptionState.On ? "on"
+                      : svo.OptionState == OptionState.Off ? "off"
+                      : "on";
+            // Optional HISTORY_TABLE and DATA_CONSISTENCY_CHECK sub-options
+            var extras = new System.Text.StringBuilder();
+            if (svo.HistoryTable != null) {
+                var histName = svo.HistoryTable.SchemaIdentifier?.Value != null
+                    ? $"{svo.HistoryTable.SchemaIdentifier.Value}.{svo.HistoryTable.BaseIdentifier?.Value}"
+                    : svo.HistoryTable.BaseIdentifier?.Value;
+                extras.Append($", history_table = {histName}");
+            }
+            if (svo.ConsistencyCheckEnabled == OptionState.On)  extras.Append(", data_consistency_check = on");
+            if (svo.ConsistencyCheckEnabled == OptionState.Off) extras.Append(", data_consistency_check = off");
+            return $"system_versioning = {state}{extras}";
+        }
         return RawText(opt);
     }
 
@@ -1264,10 +1280,18 @@ public class AstBuilder : TSqlFragmentVisitor {
             ?.Select(c => (object?)BuildTableConstraint(c)).ToList();
         var options = MapList(ct.Options, o => (object?)SerializeTableOption(o));
 
+        // PERIOD FOR SYSTEM_TIME (ValidFrom, ValidTo) — temporal table period definition
+        var stp = ct.Definition?.SystemTimePeriod;
+        var systemTimePeriod = stp != null ? (object?)new Dictionary<string, object?> {
+            ["startColumn"] = stp.StartTimeColumn?.Value,
+            ["endColumn"] = stp.EndTimeColumn?.Value,
+        } : null;
+
         return Node("CreateTableStatement", ct, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(ct.SchemaObjectName),
             ["columns"] = columns,
             ["constraints"] = constraints,
+            ["systemTimePeriod"] = systemTimePeriod,
             ["options"] = options,
         });
     }
@@ -1309,6 +1333,12 @@ public class AstBuilder : TSqlFragmentVisitor {
                     ? BuildScalarExpression(col.DefaultConstraint.Expression)
                     : null,
                 ["isRowGuidCol"] = col.IsRowGuidCol ? (object?)true : null,
+                // Temporal table: GENERATED ALWAYS AS ROW START / ROW END
+                ["generatedAlways"] = col.GeneratedAlways.HasValue ? (object?)col.GeneratedAlways.Value.ToString() : null,
+                ["isHidden"] = col.IsHidden ? (object?)true : null,
+                // Dynamic data masking
+                ["isMasked"] = col.IsMasked ? (object?)true : null,
+                ["maskingFunction"] = col.MaskingFunction?.Value,
                 ["checkConstraint"] = col.Constraints?.OfType<CheckConstraintDefinition>().FirstOrDefault() is { } chk
                     ? BuildBooleanExpression(chk.CheckCondition)
                     : null,
