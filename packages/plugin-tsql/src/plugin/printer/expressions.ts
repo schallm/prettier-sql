@@ -563,6 +563,8 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
     const having = prop(node, 'having');
     const orderBy = prop(node, 'orderBy');
     const windowDefs = propArr(node, 'windowDefs');
+    const offsetNode = prop(node, 'offset');
+    const fetchNode = prop(node, 'fetch');
 
     const selectKw = uniqueRowFilter === 'Distinct' ? keyword('SELECT DISTINCT', opts) : keyword('SELECT', opts);
 
@@ -602,6 +604,13 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
 
         if (orderBy) {
             parts.push(line, printOrderByClause(orderBy, opts, printFn));
+        }
+
+        if (offsetNode) {
+            parts.push(line, keyword('OFFSET', opts), ' ', printExpression(offsetNode, opts, printFn), ' ', keyword('ROWS', opts));
+            if (fetchNode) {
+                parts.push(line, keyword('FETCH NEXT', opts), ' ', printExpression(fetchNode, opts, printFn), ' ', keyword('ROWS ONLY', opts));
+            }
         }
 
         if (windowDefs.length > 0) {
@@ -696,6 +705,13 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
 
     if (orderBy) {
         parts.push(hardline, printOrderByClause(orderBy, opts, printFn));
+    }
+
+    if (offsetNode) {
+        parts.push(hardline, keyword('OFFSET', opts), ' ', printExpression(offsetNode, opts, printFn), ' ', keyword('ROWS', opts));
+        if (fetchNode) {
+            parts.push(hardline, keyword('FETCH NEXT', opts), ' ', printExpression(fetchNode, opts, printFn), ' ', keyword('ROWS ONLY', opts));
+        }
     }
 
     if (windowDefs.length > 0) {

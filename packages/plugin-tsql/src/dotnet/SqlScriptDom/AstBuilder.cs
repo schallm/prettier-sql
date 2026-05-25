@@ -613,6 +613,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["orderBy"] = orderByClause,
             ["windowDefs"] = windowClause,
             ["forClause"] = forClause,
+            ["offset"] = qs.OffsetClause?.OffsetExpression != null ? BuildScalarExpression(qs.OffsetClause.OffsetExpression) : null,
+            ["fetch"]  = qs.OffsetClause?.FetchExpression  != null ? BuildScalarExpression(qs.OffsetClause.FetchExpression)  : null,
         });
     }
 
