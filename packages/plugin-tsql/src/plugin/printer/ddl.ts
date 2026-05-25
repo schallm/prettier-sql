@@ -672,10 +672,13 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
     const paramDocs = parameters.map((p) => {
         const pName = propStr(p, 'name') ?? '@p';
         const dt = propStr(p, 'dataType') ?? 'INT';
+        const isUdt = propBool(p, 'isUdt');
         const isOutput = propBool(p, 'output');
         const isReadonly = propBool(p, 'readonly');
         const defaultVal = prop(p, 'defaultValue');
-        const parts: Doc[] = [pName, ' ', keyword(dt, opts)];
+        // UDT names are identifiers, not SQL keywords — skip keyword-casing
+        const dtDoc: Doc = isUdt ? dt : keyword(dt, opts);
+        const parts: Doc[] = [pName, ' ', dtDoc];
         if (defaultVal) parts.push(' = ', printNode(defaultVal, opts));
         if (isOutput) parts.push(' ', keyword('OUTPUT', opts));
         if (isReadonly) parts.push(' ', keyword('READONLY', opts));
@@ -726,7 +729,9 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
     const paramDocs = parameters.map((p) => {
         const pName = propStr(p, 'name') ?? '@p';
         const dt = propStr(p, 'dataType') ?? 'INT';
-        return [pName, ' ', keyword(dt, opts)] as Doc;
+        const isUdt = propBool(p, 'isUdt');
+        // UDT names are identifiers — skip keyword-casing
+        return [pName, ' ', isUdt ? dt : keyword(dt, opts)] as Doc;
     });
 
     const preBody = commentsBlock(node.preBodyComments);

@@ -1663,19 +1663,32 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildCreateProcedureStatement(CreateProcedureStatement cp) =>
         BuildProcedureStatement("CreateProcedureStatement", cp);
 
-    private static SqlNode BuildProcedureParameter(ProcedureParameter p) =>
-        new SqlNode(
+    private static SqlNode BuildProcedureParameter(ProcedureParameter p) {
+        // Distinguish user-defined types from built-in types so the printer can
+        // skip keyword-casing on UDT names (they are identifiers, not keywords).
+        string? dataType;
+        bool isUdt = p.DataType is UserDataTypeReference;
+        if (p.DataType is UserDataTypeReference udt) {
+            var schema = QuotedName(udt.Name?.SchemaIdentifier);
+            var name = QuotedName(udt.Name?.BaseIdentifier);
+            dataType = schema != null ? $"{schema}.{name}" : name;
+        } else {
+            dataType = RawTextOrNull(p.DataType);
+        }
+        return new SqlNode(
             "ProcedureParameter",
             p.StartOffset,
             p.StartOffset + p.FragmentLength,
             p.VariableName?.Value,
             new Dictionary<string, object?> {
                 ["name"] = p.VariableName?.Value,
-                ["dataType"] = RawTextOrNull(p.DataType),
+                ["dataType"] = dataType,
+                ["isUdt"] = isUdt ? (object?)true : null,
                 ["defaultValue"] = p.Value != null ? BuildScalarExpression(p.Value) : null,
                 ["output"] = p.Modifier == ParameterModifier.Output,
                 ["readonly"] = p.Modifier == ParameterModifier.ReadOnly,
             });
+    }
 
     // -------------------------------------------------------------------------
     // DDL: CREATE FUNCTION
