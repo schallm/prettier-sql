@@ -1273,6 +1273,21 @@ public class AstBuilder : TSqlFragmentVisitor {
         return RawText(opt);
     }
 
+    private static string SerializeIndexOption(IndexOption opt) {
+        // CompressionDelayIndexOption: compression_delay = N [minutes|minute]
+        if (opt is CompressionDelayIndexOption cdo) {
+            var unit = cdo.TimeUnit switch {
+                CompressionDelayTimeUnit.Minutes => " minutes",
+                CompressionDelayTimeUnit.Minute  => " minute",
+                _ => "",
+            };
+            var val = cdo.Expression is IntegerLiteral il ? il.Value
+                    : cdo.Expression != null ? RawText(cdo.Expression).Trim() : "0";
+            return $"compression_delay = {val}{unit}";
+        }
+        return RawText(opt).Trim();
+    }
+
     private static SqlNode BuildCreateTableStatement(CreateTableStatement ct) {
         var columns = ct.Definition?.ColumnDefinitions
             ?.Select(c => (object?)BuildColumnDefinition(c)).ToList();
@@ -1438,7 +1453,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         } else if (at is AlterTableRebuildStatement rebuild) {
             props["partitionAll"] = rebuild.Partition?.All == true ? (object?)true : null;
             props["partitionNumber"] = (rebuild.Partition?.Number as IntegerLiteral)?.Value;
-            props["indexOptions"] = MapList(rebuild.IndexOptions, o => (object?)RawText(o));
+            props["indexOptions"] = MapList(rebuild.IndexOptions, o => (object?)SerializeIndexOption(o));
         } else if (at is AlterTableSwitchStatement switchStmt) {
             props["sourcePartition"] = (switchStmt.SourcePartitionNumber as IntegerLiteral)?.Value;
             props["targetTable"] = BuildSchemaObjectName(switchStmt.TargetTable);
@@ -1479,7 +1494,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["columns"] = cols,
                 ["includeColumns"] = ci.IncludeColumns?.Select(c => (object?)c.MultiPartIdentifier?.Identifiers.LastOrDefault()?.Value).ToList(),
                 ["filterPredicate"] = ci.FilterPredicate != null ? RawText(ci.FilterPredicate).Trim() : null,
-                ["indexOptions"] = MapList(ci.IndexOptions, o => (object?)RawText(o).Trim()),
+                ["indexOptions"] = MapList(ci.IndexOptions, o => (object?)SerializeIndexOption(o)),
             });
     }
 
@@ -1933,7 +1948,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["indexName"] = ai.Name?.Value,   // null means ALL
             ["table"] = BuildSchemaObjectName(ai.OnName),
             ["alterType"] = ai.AlterIndexType.ToString(),
-            ["indexOptions"] = MapList(ai.IndexOptions, o => (object?)RawText(o).Trim()),
+            ["indexOptions"] = MapList(ai.IndexOptions, o => (object?)SerializeIndexOption(o)),
             ["partition"] = ai.Partition != null ? RawText(ai.Partition) : null,
         });
 
@@ -2751,7 +2766,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         var cols = csi.Columns?.Select(c => (object?)(
             QuotedName(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()) ?? RawText(c).Trim()
         )).ToList();
-        var opts = csi.IndexOptions?.Select(o => (object?)RawText(o).Trim()).ToList();
+        var opts = csi.IndexOptions?.Select(o => (object?)SerializeIndexOption(o)).ToList();
         return Node("CreateColumnStoreIndexStatement", csi, new Dictionary<string, object?> {
             ["name"] = QuotedName(csi.Name),
             ["clustered"] = csi.Clustered,
