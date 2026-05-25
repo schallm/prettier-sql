@@ -755,6 +755,9 @@ function printBinaryQuery(node: SqlNode, opts: Options, printFn: (n: SqlNode) =>
     const right = prop(node, 'right');
     const op = propStr(node, 'operator') ?? 'Union';
     const isAll = propBool(node, 'all');
+    const orderBy = prop(node, 'orderBy');
+    const offsetNode = prop(node, 'offset');
+    const fetchNode = prop(node, 'fetch');
 
     const opKw =
         op === 'Union'
@@ -763,7 +766,7 @@ function printBinaryQuery(node: SqlNode, opts: Options, printFn: (n: SqlNode) =>
               ? keyword('INTERSECT', opts)
               : keyword('EXCEPT', opts);
 
-    return [
+    const parts: Doc[] = [
         left ? printQueryExpression(left, opts, printFn) : '',
         hardline,
         hardline,
@@ -773,6 +776,15 @@ function printBinaryQuery(node: SqlNode, opts: Options, printFn: (n: SqlNode) =>
         hardline,
         right ? printQueryExpression(right, opts, printFn) : '',
     ];
+
+    if (orderBy) parts.push(hardline, printOrderByClause(orderBy, opts, printFn));
+    if (offsetNode) {
+        parts.push(hardline, keyword('OFFSET', opts), ' ', printExpression(offsetNode, opts, printFn), ' ', keyword('ROWS', opts));
+        if (fetchNode) {
+            parts.push(hardline, keyword('FETCH NEXT', opts), ' ', printExpression(fetchNode, opts, printFn), ' ', keyword('ROWS ONLY', opts));
+        }
+    }
+    return parts;
 }
 
 export function printOverClause(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {

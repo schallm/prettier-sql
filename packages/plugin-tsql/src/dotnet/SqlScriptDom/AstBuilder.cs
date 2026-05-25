@@ -687,6 +687,9 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["all"] = bq.All,
             ["left"] = BuildQueryExpression(bq.FirstQueryExpression),
             ["right"] = BuildQueryExpression(bq.SecondQueryExpression),
+            ["orderBy"] = bq.OrderByClause != null ? BuildOrderByClause(bq.OrderByClause) : null,
+            ["offset"] = bq.OffsetClause?.OffsetExpression != null ? BuildScalarExpression(bq.OffsetClause.OffsetExpression) : null,
+            ["fetch"]  = bq.OffsetClause?.FetchExpression  != null ? BuildScalarExpression(bq.OffsetClause.FetchExpression)  : null,
         });
 
     private static SqlNode BuildQueryParen(QueryParenthesisExpression qp) =>

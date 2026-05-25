@@ -1399,7 +1399,23 @@ order by
   Title asc,
   Price desc
 offset @skip rows
-fetch next @take rows only;"
+fetch next @take rows only;
+
+-- ORDER BY + OFFSET on UNION ALL result
+select
+  Id,
+  Title
+from Books
+
+union all
+
+select
+  Id,
+  Title
+from ArchivedBooks
+order by Title asc
+offset 0 rows
+fetch next 10 rows only;"
 `;
 
 exports[`fixtures > select/pivot-unpivot.sql 1`] = `
