@@ -592,13 +592,14 @@ from ArchivedBooks;
 Each CTE body is indented inside parentheses:
 
 ```sql
-with availableBooks as (
-  select
-    Id,
-    Title
-  from Books
-  where InStock = 1
-)
+with
+  availableBooks as (
+    select
+      Id,
+      Title
+    from Books
+    where InStock = 1
+  )
 select Title
 from availableBooks
 order by Title asc;

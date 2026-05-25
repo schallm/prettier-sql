@@ -291,21 +291,23 @@ where
 `;
 
 exports[`fixtures > delete/cte.sql 1`] = `
-"with cte as (
-  select Id
-  from Books
-  where InStock = 0
-)
+"with
+  cte as (
+    select Id
+    from Books
+    where InStock = 0
+  )
 delete from Books
 from
   Books
   inner join cte on Books.Id = cte.Id;
 
-with old as (
-  select Id
-  from OrderItems
-  where OrderId = 99
-)
+with
+  old as (
+    select Id
+    from OrderItems
+    where OrderId = 99
+  )
 delete from old;"
 `;
 
@@ -510,12 +512,13 @@ with (drop_existing = on);"
 `;
 
 exports[`fixtures > insert/cte.sql 1`] = `
-"with src as (
-  select
-    Id,
-    Title
-  from StagingBooks
-)
+"with
+  src as (
+    select
+      Id,
+      Title
+    from StagingBooks
+  )
 insert into Books (Id, Title)
 select
   Id,
@@ -1755,29 +1758,31 @@ where Id = 42;"
 `;
 
 exports[`fixtures > update/cte.sql 1`] = `
-"with cte as (
-  select
-    Id,
-    Price
-  from Books
-  where InStock = 1
-)
+"with
+  cte as (
+    select
+      Id,
+      Price
+    from Books
+    where InStock = 1
+  )
 update Books
 set Price = Price * 0.9
 from
   Books
   inner join cte on Books.Id = cte.Id;
 
-with cte as (
-  select
-    Id,
-    Price,
-    row_number() over (
-      partition by AuthorId
-      order by Price desc
-    ) as rn
-  from Books
-)
+with
+  cte as (
+    select
+      Id,
+      Price,
+      row_number() over (
+        partition by AuthorId
+        order by Price desc
+      ) as rn
+    from Books
+  )
 update cte
 set Price = Price * 0.9
 where rn = 1;"
@@ -2162,14 +2167,15 @@ from books;"
 `;
 
 exports[`shared fixtures > select/cte.sql 1`] = `
-"with top_authors as (
-  select
-    author_id,
-    count(*) as book_count
-  from books
-  group by author_id
-  having count(*) > 5
-)
+"with
+  top_authors as (
+    select
+      author_id,
+      count(*) as book_count
+    from books
+    group by author_id
+    having count(*) > 5
+  )
 select
   a.first_name,
   a.last_name,
@@ -2179,19 +2185,20 @@ from
   inner join top_authors as t on a.id = t.author_id
 order by t.book_count desc;
 
-with bestsellers as (
-  select
-    author_id,
-    count(*) as book_count
-  from books
-  where in_stock = 1
-  group by author_id
-),
-    top_authors as (
-  select author_id
-  from bestsellers
-  where book_count > 3
-)
+with
+  bestsellers as (
+    select
+      author_id,
+      count(*) as book_count
+    from books
+    where in_stock = 1
+    group by author_id
+  ),
+  top_authors as (
+    select author_id
+    from bestsellers
+    where book_count > 3
+  )
 select
   a.first_name,
   a.last_name
@@ -2498,13 +2505,14 @@ select
   name
 from leads;
 
-with active as (
-  select
-    id,
-    name
-  from users
-  where active = 1
-)
+with
+  active as (
+    select
+      id,
+      name
+    from users
+    where active = 1
+  )
 select
   id,
   name

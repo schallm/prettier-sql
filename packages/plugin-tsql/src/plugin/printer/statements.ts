@@ -550,30 +550,18 @@ function printCtes(node: SqlNode, opts: Options): Doc[] {
     if (ctes.length === 0) return [];
 
     const leading = getCommaStyle(opts) === 'leading';
-    const cteDocs = ctes.map((cte, i) => {
+    const cteDocs = ctes.map((cte) => {
         const name = propStr(cte, 'name') ?? 'cte';
         const cols = cte.props?.['columns'] as string[] | undefined;
         const query = prop(cte, 'query');
 
         const colsPart: Doc = cols?.length ? [' ', parenList(cols)] : '';
 
-        // trailing: align subsequent CTEs under "with " with 4 spaces
-        // leading:  no prefix — the separator provides ", " before the CTE name
-        return [
-            i === 0 ? keyword('WITH', opts) + ' ' : leading ? '' : '    ',
-            name,
-            colsPart,
-            ' ',
-            keyword('AS', opts),
-            ' (',
-            indent([hardline, query ? qexpr(query, opts) : '']),
-            hardline,
-            ')',
-        ] as Doc;
+        return [name, colsPart, ' ', keyword('AS', opts), ' (', indent([hardline, query ? qexpr(query, opts) : '']), hardline, ')'] as Doc;
     });
 
     const sep: Doc = leading ? [hardline, ', '] : [',', hardline];
-    return [join(sep, cteDocs), hardline];
+    return [[keyword('WITH', opts), indent([hardline, join(sep, cteDocs)])], hardline];
 }
 
 function printSelect(node: SqlNode, opts: Options): Doc {
