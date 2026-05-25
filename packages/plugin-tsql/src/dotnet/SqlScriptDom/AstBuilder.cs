@@ -677,7 +677,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["windowDefs"] = windowClause,
             ["forClause"] = forClause,
             ["offset"] = qs.OffsetClause?.OffsetExpression != null ? BuildScalarExpression(qs.OffsetClause.OffsetExpression) : null,
-            ["fetch"]  = qs.OffsetClause?.FetchExpression  != null ? BuildScalarExpression(qs.OffsetClause.FetchExpression)  : null,
+            ["fetch"] = qs.OffsetClause?.FetchExpression != null ? BuildScalarExpression(qs.OffsetClause.FetchExpression) : null,
         });
     }
 
@@ -752,7 +752,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["right"] = BuildQueryExpression(bq.SecondQueryExpression),
             ["orderBy"] = bq.OrderByClause != null ? BuildOrderByClause(bq.OrderByClause) : null,
             ["offset"] = bq.OffsetClause?.OffsetExpression != null ? BuildScalarExpression(bq.OffsetClause.OffsetExpression) : null,
-            ["fetch"]  = bq.OffsetClause?.FetchExpression  != null ? BuildScalarExpression(bq.OffsetClause.FetchExpression)  : null,
+            ["fetch"] = bq.OffsetClause?.FetchExpression != null ? BuildScalarExpression(bq.OffsetClause.FetchExpression) : null,
         });
 
     private static SqlNode BuildQueryParen(QueryParenthesisExpression qp) =>
@@ -1287,7 +1287,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                     : svo.HistoryTable.BaseIdentifier?.Value;
                 extras.Append($", history_table = {histName}");
             }
-            if (svo.ConsistencyCheckEnabled == OptionState.On)  extras.Append(", data_consistency_check = on");
+            if (svo.ConsistencyCheckEnabled == OptionState.On) extras.Append(", data_consistency_check = on");
             if (svo.ConsistencyCheckEnabled == OptionState.Off) extras.Append(", data_consistency_check = off");
             return $"system_versioning = {state}{extras}";
         }
@@ -1299,7 +1299,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         if (opt is CompressionDelayIndexOption cdo) {
             var unit = cdo.TimeUnit switch {
                 CompressionDelayTimeUnit.Minutes => " minutes",
-                CompressionDelayTimeUnit.Minute  => " minute",
+                CompressionDelayTimeUnit.Minute => " minute",
                 _ => "",
             };
             var val = cdo.Expression is IntegerLiteral il ? il.Value
@@ -1409,6 +1409,12 @@ public class AstBuilder : TSqlFragmentVisitor {
                     ? BuildScalarExpression(col.DefaultConstraint.Expression)
                     : null,
                 ["isRowGuidCol"] = col.IsRowGuidCol ? (object?)true : null,
+                // COLLATE clause on the column
+                ["collation"] = col.Collation?.Value,
+                // SPARSE / FILESTREAM / COLUMN_SET
+                ["isSparse"] = col.StorageOptions?.SparseOption == SparseColumnOption.Sparse ? (object?)true : null,
+                ["isFileStream"] = col.StorageOptions?.IsFileStream == true ? (object?)true : null,
+                ["isColumnSet"] = col.StorageOptions?.SparseOption == SparseColumnOption.ColumnSetForAllSparseColumns ? (object?)true : null,
                 // Temporal table: GENERATED ALWAYS AS ROW START / ROW END
                 ["generatedAlways"] = col.GeneratedAlways.HasValue ? (object?)col.GeneratedAlways.Value.ToString() : null,
                 ["isHidden"] = col.IsHidden ? (object?)true : null,
@@ -1717,7 +1723,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         var partitionRanges = trunc.PartitionRanges?.Count > 0
             ? trunc.PartitionRanges.Select(pr => (object?)Node("PartitionRange", pr, new Dictionary<string, object?> {
                 ["from"] = BuildScalarExpression(pr.From),
-                ["to"]   = pr.To != null ? (object?)BuildScalarExpression(pr.To) : null,
+                ["to"] = pr.To != null ? (object?)BuildScalarExpression(pr.To) : null,
             })).ToList()
             : null;
         return Node("TruncateTableStatement", trunc, new Dictionary<string, object?> {
@@ -2040,12 +2046,12 @@ public class AstBuilder : TSqlFragmentVisitor {
     // -------------------------------------------------------------------------
 
     private static string SerializeCursorOption(CursorOptionKind kind) => kind switch {
-        CursorOptionKind.ForwardOnly  => "FORWARD_ONLY",
-        CursorOptionKind.FastForward  => "FAST_FORWARD",
-        CursorOptionKind.ScrollLocks  => "SCROLL_LOCKS",
-        CursorOptionKind.ReadOnly     => "READ_ONLY",
-        CursorOptionKind.TypeWarning  => "TYPE_WARNING",
-        _                             => kind.ToString().ToUpper(),
+        CursorOptionKind.ForwardOnly => "FORWARD_ONLY",
+        CursorOptionKind.FastForward => "FAST_FORWARD",
+        CursorOptionKind.ScrollLocks => "SCROLL_LOCKS",
+        CursorOptionKind.ReadOnly => "READ_ONLY",
+        CursorOptionKind.TypeWarning => "TYPE_WARNING",
+        _ => kind.ToString().ToUpper(),
     };
 
     private static SqlNode BuildDeclareCursor(DeclareCursorStatement dc) {

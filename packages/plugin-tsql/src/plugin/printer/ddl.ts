@@ -71,11 +71,11 @@ function printInlineIndex(node: SqlNode, opts: Options): Doc {
         return sort === 'Descending' ? [colName, ' ', keyword('DESC', opts)] : [colName, ' ', keyword('ASC', opts)];
     });
 
-    const includePart: Doc =
-        includeColumns?.length ? [' ', keyword('INCLUDE', opts), ' ', parenList(includeColumns)] : '';
+    const includePart: Doc = includeColumns?.length
+        ? [' ', keyword('INCLUDE', opts), ' ', parenList(includeColumns)]
+        : '';
     const filterPart: Doc = filterPredicate ? [' ', keyword('WHERE', opts), ' ', filterPredicate] : '';
-    const withPart: Doc =
-        indexOptions?.length ? [' ', keyword('WITH', opts), ' (', join(', ', indexOptions), ')'] : '';
+    const withPart: Doc = indexOptions?.length ? [' ', keyword('WITH', opts), ' (', join(', ', indexOptions), ')'] : '';
 
     return [
         keyword('INDEX', opts),
@@ -124,9 +124,7 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
     const onFileGroup = propStr(node, 'onFileGroup');
     const textimageOn = propStr(node, 'textimageOn');
     const onPart: Doc = onFileGroup ? [hardline, keyword('ON', opts), ' ', onFileGroup] : '';
-    const textimagePart: Doc = textimageOn
-        ? [hardline, keyword('TEXTIMAGE_ON', opts), ' ', textimageOn]
-        : '';
+    const textimagePart: Doc = textimageOn ? [hardline, keyword('TEXTIMAGE_ON', opts), ' ', textimageOn] : '';
     return group([
         keyword('CREATE TABLE', opts),
         ' ',
@@ -168,6 +166,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
     const identityIncrement = propStr(node, 'identityIncrement');
     const defaultValue = prop(node, 'defaultValue');
     const checkConstraint = prop(node, 'checkConstraint');
+    const collation = propStr(node, 'collation');
 
     const typeStr: Doc =
         Array.isArray(params) && params.length > 0
@@ -176,12 +175,19 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
 
     const parts: Doc[] = [name, ' ', typeStr];
 
+    // COLLATE clause comes right after the data type
+    if (collation) parts.push(' ', keyword('COLLATE', opts), ' ', collation);
+
     if (isIdentity) {
         const seed = identitySeed ?? '1';
         const inc = identityIncrement ?? '1';
         parts.push(' ', keyword('IDENTITY', opts), `(${seed}, ${inc})`);
     }
     if (node.props?.['isRowGuidCol']) parts.push(' ', keyword('ROWGUIDCOL', opts));
+    // SPARSE / FILESTREAM / COLUMN_SET
+    if (node.props?.['isSparse']) parts.push(' ', keyword('SPARSE', opts));
+    if (node.props?.['isFileStream']) parts.push(' ', keyword('FILESTREAM', opts));
+    if (node.props?.['isColumnSet']) parts.push(' ', keyword('COLUMN_SET FOR ALL_SPARSE_COLUMNS', opts));
 
     // Temporal table: GENERATED ALWAYS AS ROW START / ROW END [HIDDEN]
     const generatedAlways = propStr(node, 'generatedAlways');
@@ -242,15 +248,20 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         | null
         | undefined;
     if (foreignKey) {
-        const refColsPart: Doc =
-            foreignKey.refColumns?.length ? [' (', join(', ', foreignKey.refColumns), ')'] : '';
+        const refColsPart: Doc = foreignKey.refColumns?.length ? [' (', join(', ', foreignKey.refColumns), ')'] : '';
         parts.push(' ', keyword('REFERENCES', opts), ' ', schemaObjectName(foreignKey.refTable), refColsPart);
         if (foreignKey.deleteAction) {
             parts.push(
                 ' ',
                 keyword('ON DELETE', opts),
                 ' ',
-                keyword(foreignKey.deleteAction.replace(/([A-Z])/g, ' $1').trim().toUpperCase(), opts),
+                keyword(
+                    foreignKey.deleteAction
+                        .replace(/([A-Z])/g, ' $1')
+                        .trim()
+                        .toUpperCase(),
+                    opts,
+                ),
             );
         }
         if (foreignKey.updateAction) {
@@ -258,7 +269,13 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
                 ' ',
                 keyword('ON UPDATE', opts),
                 ' ',
-                keyword(foreignKey.updateAction.replace(/([A-Z])/g, ' $1').trim().toUpperCase(), opts),
+                keyword(
+                    foreignKey.updateAction
+                        .replace(/([A-Z])/g, ' $1')
+                        .trim()
+                        .toUpperCase(),
+                    opts,
+                ),
             );
         }
     }
@@ -555,9 +572,7 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
             ? [hardline, keyword('INCLUDE', opts), ' ', parenList(includeColumns as string[])]
             : '';
 
-    const filterPart: Doc = filterPredicate
-        ? [hardline, keyword('WHERE', opts), ' ', filterPredicate]
-        : '';
+    const filterPart: Doc = filterPredicate ? [hardline, keyword('WHERE', opts), ' ', filterPredicate] : '';
 
     const indexOptions = node.props?.['indexOptions'] as string[] | undefined;
     const withPart: Doc =
