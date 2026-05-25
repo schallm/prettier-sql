@@ -26,3 +26,9 @@ alter partition scheme ps_OrderDate
 next used fg2026
 
 drop partition scheme ps_OrderDate
+
+truncate table dbo.Orders with (partitions (1, 2, 3))
+
+truncate table dbo.Orders with (partitions (1 to 3))
+
+truncate table dbo.Orders with (partitions (1, 5 to 10, 20))

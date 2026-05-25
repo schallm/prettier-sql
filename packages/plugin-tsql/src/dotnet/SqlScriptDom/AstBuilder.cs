@@ -1704,10 +1704,18 @@ public class AstBuilder : TSqlFragmentVisitor {
     // DDL: TRUNCATE TABLE
     // -------------------------------------------------------------------------
 
-    private static SqlNode BuildTruncateTable(TruncateTableStatement trunc) =>
-        Node("TruncateTableStatement", trunc, new Dictionary<string, object?> {
+    private static SqlNode BuildTruncateTable(TruncateTableStatement trunc) {
+        var partitionRanges = trunc.PartitionRanges?.Count > 0
+            ? trunc.PartitionRanges.Select(pr => (object?)Node("PartitionRange", pr, new Dictionary<string, object?> {
+                ["from"] = BuildScalarExpression(pr.From),
+                ["to"]   = pr.To != null ? (object?)BuildScalarExpression(pr.To) : null,
+            })).ToList()
+            : null;
+        return Node("TruncateTableStatement", trunc, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(trunc.TableName),
+            ["partitionRanges"] = partitionRanges,
         });
+    }
 
     // -------------------------------------------------------------------------
     // Control flow: GOTO / LABEL / THROW / RAISERROR / TRY-CATCH

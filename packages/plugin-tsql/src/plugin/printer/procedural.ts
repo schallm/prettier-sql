@@ -180,7 +180,18 @@ export function printReturn(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printTruncateTable(node: SqlNode, opts: Options): Doc {
-    return [keyword('TRUNCATE TABLE', opts), ' ', schemaObjectName(prop(node, 'name')), ';'];
+    const partitionRanges = propArr(node, 'partitionRanges');
+    let withPart: Doc = '';
+    if (partitionRanges.length > 0) {
+        const rangeDocs = partitionRanges.map((r) => {
+            const fromNode = prop(r, 'from');
+            const toNode = prop(r, 'to');
+            const fromDoc = fromNode ? printNode(fromNode, opts) : '';
+            return toNode ? [fromDoc, ' ', keyword('TO', opts), ' ', printNode(toNode, opts)] : fromDoc;
+        });
+        withPart = [' ', keyword('WITH', opts), ' (', keyword('PARTITIONS', opts), ' (', join(', ', rangeDocs), '))'];
+    }
+    return [keyword('TRUNCATE TABLE', opts), ' ', schemaObjectName(prop(node, 'name')), withPart, ';'];
 }
 
 // ---------------------------------------------------------------------------
