@@ -121,6 +121,12 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
 
     const withPart: Doc =
         options && options.length > 0 ? [hardline, keyword('WITH', opts), ' ', parenList(options)] : '';
+    const onFileGroup = propStr(node, 'onFileGroup');
+    const textimageOn = propStr(node, 'textimageOn');
+    const onPart: Doc = onFileGroup ? [hardline, keyword('ON', opts), ' ', onFileGroup] : '';
+    const textimagePart: Doc = textimageOn
+        ? [hardline, keyword('TEXTIMAGE_ON', opts), ' ', textimageOn]
+        : '';
     return group([
         keyword('CREATE TABLE', opts),
         ' ',
@@ -129,6 +135,8 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
         indent([hardline, join([',', hardline], allDefs)]),
         hardline,
         ')',
+        onPart,
+        textimagePart,
         withPart,
         ';',
     ]);

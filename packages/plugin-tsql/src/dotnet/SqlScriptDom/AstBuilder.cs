@@ -1340,6 +1340,11 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["endColumn"] = stp.EndTimeColumn?.Value,
         } : null;
 
+        // ON filegroup/partition — physical storage location
+        var fgName = ct.OnFileGroupOrPartitionScheme?.Name;
+        var onName = fgName?.Identifier?.Value ?? fgName?.Value;
+        var textimageOn = ct.TextImageOn?.Identifier?.Value ?? ct.TextImageOn?.Value;
+
         return Node("CreateTableStatement", ct, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(ct.SchemaObjectName),
             ["columns"] = columns,
@@ -1347,6 +1352,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["indexes"] = indexes,
             ["systemTimePeriod"] = systemTimePeriod,
             ["options"] = options,
+            ["onFileGroup"] = onName,
+            ["textimageOn"] = textimageOn,
         });
     }
 
