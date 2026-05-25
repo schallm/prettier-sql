@@ -180,6 +180,9 @@ public class AstBuilder : TSqlFragmentVisitor {
             fc.FunctionName?.Value,
             new Dictionary<string, object?> {
                 ["name"] = fc.FunctionName?.Value,
+                ["callTarget"] = fc.CallTarget is UserDefinedTypeCallTarget udt
+                    ? (object?)(QuotedName(udt.SchemaObjectName?.Identifiers?.LastOrDefault()) ?? RawText(fc.CallTarget).Trim())
+                    : null,
                 ["args"] = args,
                 ["over"] = overClause,
                 ["uniqueRowFilter"] = fc.UniqueRowFilter.ToString(),
