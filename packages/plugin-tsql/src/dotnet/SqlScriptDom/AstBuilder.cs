@@ -2033,9 +2033,18 @@ public class AstBuilder : TSqlFragmentVisitor {
     // Cursor operations
     // -------------------------------------------------------------------------
 
+    private static string SerializeCursorOption(CursorOptionKind kind) => kind switch {
+        CursorOptionKind.ForwardOnly  => "FORWARD_ONLY",
+        CursorOptionKind.FastForward  => "FAST_FORWARD",
+        CursorOptionKind.ScrollLocks  => "SCROLL_LOCKS",
+        CursorOptionKind.ReadOnly     => "READ_ONLY",
+        CursorOptionKind.TypeWarning  => "TYPE_WARNING",
+        _                             => kind.ToString().ToUpper(),
+    };
+
     private static SqlNode BuildDeclareCursor(DeclareCursorStatement dc) {
         var opts = dc.CursorDefinition?.Options
-            ?.Select(o => (object?)o.OptionKind.ToString().ToUpper()).ToList();
+            ?.Select(o => (object?)SerializeCursorOption(o.OptionKind)).ToList();
         var select = dc.CursorDefinition?.Select != null
             ? BuildQueryExpression(dc.CursorDefinition.Select.QueryExpression)
             : null;

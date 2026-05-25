@@ -782,7 +782,7 @@ close BookCursor;
 
 deallocate BookCursor;
 
-declare ScrollCursor SCROLL cursor
+declare ScrollCursor scroll cursor
 for
 select
   Id,

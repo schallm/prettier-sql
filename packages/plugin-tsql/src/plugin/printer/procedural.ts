@@ -358,7 +358,10 @@ export function printExecute(node: SqlNode, opts: Options): Doc {
 export function printDeclareCursor(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name') ?? 'cursor_name';
     const options = node.props?.['options'];
-    const optPart: Doc = Array.isArray(options) && options.length > 0 ? [(options as string[]).join(' '), ' '] : [];
+    const optPart: Doc =
+        Array.isArray(options) && options.length > 0
+            ? [join(' ', (options as string[]).map((o) => keyword(o, opts))), ' ']
+            : [];
     const select = prop(node, 'select');
     return group([
         keyword('DECLARE', opts),
