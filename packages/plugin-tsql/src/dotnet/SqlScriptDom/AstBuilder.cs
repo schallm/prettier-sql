@@ -1185,16 +1185,27 @@ public class AstBuilder : TSqlFragmentVisitor {
         return Node("DeclareVariableStatement", dv, new Dictionary<string, object?> { ["declarations"] = decls });
     }
 
-    private static SqlNode BuildDeclareElement(DeclareVariableElement d) =>
-        new SqlNode("DeclareVariableElement", d.StartOffset, d.StartOffset + d.FragmentLength, d.VariableName?.Value,
+    private static SqlNode BuildDeclareElement(DeclareVariableElement d) {
+        bool isUdt = d.DataType is UserDataTypeReference;
+        string? dataType;
+        if (d.DataType is UserDataTypeReference udt) {
+            var schema = QuotedName(udt.Name?.SchemaIdentifier);
+            var baseName = QuotedName(udt.Name?.BaseIdentifier);
+            dataType = schema != null ? $"{schema}.{baseName}" : baseName;
+        } else {
+            dataType = d.DataType?.Name?.BaseIdentifier?.Value;
+        }
+        return new SqlNode("DeclareVariableElement", d.StartOffset, d.StartOffset + d.FragmentLength, d.VariableName?.Value,
             new Dictionary<string, object?> {
                 ["name"] = d.VariableName?.Value,
-                ["dataType"] = d.DataType?.Name?.BaseIdentifier?.Value,
+                ["dataType"] = dataType,
+                ["isUdt"] = isUdt ? (object?)true : null,
                 ["dataTypeParams"] = d.DataType is ParameterizedDataTypeReference pdt
                     ? pdt.Parameters?.Select(p => (object?)p.Value).ToList()
                     : null,
                 ["value"] = BuildScalarExpression(d.Value),
             });
+    }
 
     private static SqlNode BuildDeclareTableVariable(DeclareTableVariableStatement dtv) {
         var body = dtv.Body;

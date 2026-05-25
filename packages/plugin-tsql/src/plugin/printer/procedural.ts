@@ -62,11 +62,13 @@ export function printDeclareVariable(node: SqlNode, opts: Options): Doc {
     const declDocs = decls.map((d) => {
         const name = propStr(d, 'name') ?? '@var';
         const dt = propStr(d, 'dataType') ?? 'INT';
+        const isUdt = propBool(d, 'isUdt');
         const params = d.props?.['dataTypeParams'];
+        const dtDoc: Doc = isUdt ? dt : keyword(dt, opts);
         const typeStr: Doc =
             Array.isArray(params) && params.length > 0
-                ? [keyword(dt, opts), `(${(params as string[]).join(', ')})`]
-                : keyword(dt, opts);
+                ? [dtDoc, `(${(params as string[]).join(', ')})`]
+                : dtDoc;
         const val = prop(d, 'value');
         return [
             keyword('DECLARE', opts),
@@ -374,22 +376,16 @@ export function printDeclareCursor(node: SqlNode, opts: Options): Doc {
     const options = node.props?.['options'];
     const optPart: Doc =
         Array.isArray(options) && options.length > 0
-            ? [
-                  join(
-                      ' ',
-                      (options as string[]).map((o) => keyword(o, opts)),
-                  ),
-                  ' ',
-              ]
-            : [];
+            ? [' ', join(' ', (options as string[]).map((o) => keyword(o, opts)))]
+            : '';
     const select = prop(node, 'select');
     return group([
         keyword('DECLARE', opts),
         ' ',
         name,
         ' ',
-        ...optPart,
         keyword('CURSOR', opts),
+        optPart,
         hardline,
         keyword('FOR', opts),
         hardline,
