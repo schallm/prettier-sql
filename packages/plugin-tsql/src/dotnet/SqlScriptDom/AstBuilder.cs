@@ -1319,7 +1319,12 @@ public class AstBuilder : TSqlFragmentVisitor {
                 new Dictionary<string, object?> {
                     ["constraintName"] = name,
                     ["isPrimaryKey"] = unique.IsPrimaryKey,
-                    ["columns"] = unique.Columns?.Select(col => (object?)col.Column?.MultiPartIdentifier?.Identifiers.LastOrDefault()?.Value).ToList(),
+                    // bool? — true = CLUSTERED, false = NONCLUSTERED, null = not specified
+                    ["clustered"] = unique.Clustered == true ? (object?)true : unique.Clustered == false ? (object?)false : null,
+                    ["columns"] = unique.Columns?.Select(col => (object?)new Dictionary<string, object?> {
+                        ["name"] = col.Column?.MultiPartIdentifier?.Identifiers.LastOrDefault()?.Value,
+                        ["order"] = col.SortOrder == SortOrder.Descending ? "Descending" : "Ascending",
+                    }).ToList(),
                 }),
             CheckConstraintDefinition check => new SqlNode(
                 "CheckConstraint",

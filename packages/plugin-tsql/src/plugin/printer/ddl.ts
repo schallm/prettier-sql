@@ -128,10 +128,24 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
     switch (node.type) {
         case 'UniqueConstraint': {
             const isPK = propBool(node, 'isPrimaryKey');
-            const cols = Array.isArray(node.props?.['columns']) ? (node.props?.['columns'] as string[]) : [];
+            const clustered = node.props?.['clustered'] as boolean | null | undefined;
+            // Only emit CLUSTERED/NONCLUSTERED when explicitly specified in DDL
+            const clusteredKw: Doc =
+                clustered === true
+                    ? [keyword('CLUSTERED', opts), ' ']
+                    : clustered === false
+                      ? [keyword('NONCLUSTERED', opts), ' ']
+                      : '';
             const kw = isPK ? keyword('PRIMARY KEY', opts) : keyword('UNIQUE', opts);
-            const colsDoc = parenList(cols);
-            return group([namePrefix, indent([softline, kw, ' ', colsDoc])]);
+            // Columns are now {name, order} objects; fall back to plain strings for compat
+            const rawCols = Array.isArray(node.props?.['columns']) ? node.props!['columns'] : [];
+            const colDocs: Doc[] = (rawCols as Array<{ name: string; order: string } | string>).map((c) => {
+                if (typeof c === 'string') return c;
+                const dir: Doc = c.order === 'Descending' ? [' ', keyword('DESC', opts)] : '';
+                return [c.name, dir] as Doc;
+            });
+            const colsDoc = parenList(colDocs);
+            return group([namePrefix, indent([softline, kw, ' ', clusteredKw, colsDoc])]);
         }
         case 'CheckConstraint': {
             const expr = prop(node, 'expression');
