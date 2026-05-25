@@ -388,7 +388,8 @@ select trim(nchar(12288) from @str);
 Inside a function body the result formats like any scalar expression:
 
 ```sql
-create function dbo.TrimCharsFrom(@str nvarchar(max)) returns nvarchar(max)
+create function dbo.TrimCharsFrom(@str nvarchar(max))
+returns nvarchar(max)
 as
 begin
     return trim(nchar(12288) from @str);
@@ -1491,7 +1492,8 @@ The parameter list wraps to indented lines only when it would exceed `printWidth
 Scalar function:
 
 ```sql
-create function GetAuthorFullName(@First nvarchar(50), @Last nvarchar(50)) returns nvarchar(101)
+create function GetAuthorFullName(@First nvarchar(50), @Last nvarchar(50))
+returns nvarchar(101)
 as
 begin
     return @First + ' ' + @Last;
@@ -1502,7 +1504,8 @@ go
 Inline table-valued function (`RETURNS TABLE`): uses `RETURN (query)` — no `BEGIN`/`END`:
 
 ```sql
-create function GetBooksByGenre(@GenreId int) returns table
+create function GetBooksByGenre(@GenreId int)
+returns table
 as
 return (
     select
@@ -1520,7 +1523,8 @@ go
 Multi-statement table-valued function: return table declaration inline after `)`, body in `BEGIN`/`END`:
 
 ```sql
-create function GetTopBooks(@MaxPrice decimal(10, 2)) returns @result table (
+create function GetTopBooks(@MaxPrice decimal(10, 2))
+returns @result table (
     Id int not null,
     Title nvarchar(200) not null,
     Price decimal(10, 2) not null
@@ -1869,7 +1873,7 @@ The table name is inline with the verb. An optional parenthesised statistic-name
 ```sql
 update statistics dbo.Orders;
 
-update statistics dbo.Orders (stat1);
+update statistics dbo.Orders stat1;
 
 update statistics dbo.Orders
 with fullscan;

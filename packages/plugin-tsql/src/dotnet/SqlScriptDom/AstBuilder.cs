@@ -1279,17 +1279,24 @@ public class AstBuilder : TSqlFragmentVisitor {
             var state = svo.OptionState == OptionState.On ? "on"
                       : svo.OptionState == OptionState.Off ? "off"
                       : "on";
-            // Optional HISTORY_TABLE and DATA_CONSISTENCY_CHECK sub-options
-            var extras = new System.Text.StringBuilder();
+            // Optional HISTORY_TABLE and DATA_CONSISTENCY_CHECK sub-options sit in
+            // a nested paren: SYSTEM_VERSIONING = ON (HISTORY_TABLE = dbo.Tbl)
+            var subOpts = new System.Text.StringBuilder();
             if (svo.HistoryTable != null) {
-                var histName = svo.HistoryTable.SchemaIdentifier?.Value != null
-                    ? $"{svo.HistoryTable.SchemaIdentifier.Value}.{svo.HistoryTable.BaseIdentifier?.Value}"
-                    : svo.HistoryTable.BaseIdentifier?.Value;
-                extras.Append($", history_table = {histName}");
+                var histSchema = QuotedName(svo.HistoryTable.SchemaIdentifier);
+                var histBase = QuotedName(svo.HistoryTable.BaseIdentifier);
+                var histName = histSchema != null ? $"{histSchema}.{histBase}" : histBase;
+                subOpts.Append($"history_table = {histName}");
             }
-            if (svo.ConsistencyCheckEnabled == OptionState.On) extras.Append(", data_consistency_check = on");
-            if (svo.ConsistencyCheckEnabled == OptionState.Off) extras.Append(", data_consistency_check = off");
-            return $"system_versioning = {state}{extras}";
+            if (svo.ConsistencyCheckEnabled == OptionState.On) {
+                if (subOpts.Length > 0) subOpts.Append(", ");
+                subOpts.Append("data_consistency_check = on");
+            } else if (svo.ConsistencyCheckEnabled == OptionState.Off) {
+                if (subOpts.Length > 0) subOpts.Append(", ");
+                subOpts.Append("data_consistency_check = off");
+            }
+            var subPart = subOpts.Length > 0 ? $" ({subOpts})" : "";
+            return $"system_versioning = {state}{subPart}";
         }
         return RawText(opt);
     }
@@ -1526,10 +1533,9 @@ public class AstBuilder : TSqlFragmentVisitor {
                 : alterCol.AlterTableAlterColumnOption == AlterTableAlterColumnOption.NotNull ? false
                 : null;
         } else if (at is AlterTableSetStatement setStmt) {
-            props["options"] = setStmt.Options?.Select(o => (object?)new Dictionary<string, object?> {
-                ["kind"] = o.OptionKind.ToString(),
-                ["value"] = o is LockEscalationTableOption le ? le.Value.ToString() : RawText(o),
-            }).ToList();
+            // Use SerializeTableOption so complex options like SYSTEM_VERSIONING are
+            // correctly serialized (OptionKind is unreliable — it defaults to 0).
+            props["options"] = setStmt.Options?.Select(o => (object?)SerializeTableOption(o)).ToList();
         } else if (at is AlterTableRebuildStatement rebuild) {
             props["partitionAll"] = rebuild.Partition?.All == true ? (object?)true : null;
             props["partitionNumber"] = (rebuild.Partition?.Number as IntegerLiteral)?.Value;

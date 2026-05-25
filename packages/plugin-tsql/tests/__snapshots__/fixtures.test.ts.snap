@@ -81,7 +81,7 @@ with sample 50 percent, norecompute;
 
 update statistics dbo.Orders;
 
-update statistics dbo.Orders (stat1);
+update statistics dbo.Orders stat1;
 
 update statistics dbo.Orders
 with fullscan;

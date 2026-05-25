@@ -450,14 +450,10 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
     }
 
     if (alterType === 'AlterTableSetStatement') {
-        // Convert camelCase enum names to SQL_KEYWORD style: LockEscalation → LOCK_ESCALATION
-        const toSqlKw = (s: string) =>
-            s
-                .replace(/([A-Z])/g, '_$1')
-                .replace(/^_/, '')
-                .toUpperCase();
-        const options = (node.props?.['options'] ?? []) as Array<{ kind: string; value: string }>;
-        const optDocs = options.map((o) => [keyword(toSqlKw(o.kind), opts), ' = ', keyword(toSqlKw(o.value), opts)]);
+        // Options come pre-serialized from SerializeTableOption (e.g. "lock_escalation = table",
+        // "system_versioning = on (history_table = dbo.Tbl)"). Render them verbatim — applying
+        // keyword() casing would uppercase embedded schema/table names.
+        const options = (node.props?.['options'] ?? []) as string[];
         return [
             keyword('ALTER TABLE', opts),
             ' ',
@@ -465,7 +461,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             hardline,
             keyword('SET', opts),
             ' (',
-            join(', ', optDocs),
+            join(', ', options),
             ')',
             ';',
         ];
@@ -1313,7 +1309,9 @@ export function printUpdateStatistics(node: SqlNode, opts: Options): Doc {
     const options = node.props?.['options'] as string[] | undefined;
 
     const parts: Doc[] = [keyword('UPDATE STATISTICS', opts), ' ', table ? schemaObjectName(table) : ''];
-    if (subElements?.length) parts.push([' ', parenList(subElements)]);
+    // Single stat name: no parens needed. Multiple: wrap in parens.
+    if (subElements?.length === 1) parts.push([' ', subElements[0]]);
+    else if (subElements?.length) parts.push([' ', parenList(subElements)]);
     if (options?.length) parts.push([hardline, withOptionsClause(options, opts)]);
     parts.push(';');
     return parts;
