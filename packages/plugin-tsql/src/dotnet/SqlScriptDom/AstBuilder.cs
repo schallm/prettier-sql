@@ -1413,6 +1413,10 @@ public class AstBuilder : TSqlFragmentVisitor {
             props["sourcePartition"] = (switchStmt.SourcePartitionNumber as IntegerLiteral)?.Value;
             props["targetTable"] = BuildSchemaObjectName(switchStmt.TargetTable);
             props["targetPartition"] = (switchStmt.TargetPartitionNumber as IntegerLiteral)?.Value;
+        } else if (at is AlterTableTriggerModificationStatement triggerMod) {
+            props["enable"] = triggerMod.TriggerEnforcement == TriggerEnforcement.Enable ? (object?)true : false;
+            props["triggerAll"] = triggerMod.All ? (object?)true : null;
+            props["triggerNames"] = MapList(triggerMod.TriggerNames, n => (object?)n.Value);
         }
 
         return Node("AlterTableStatement", at, props);

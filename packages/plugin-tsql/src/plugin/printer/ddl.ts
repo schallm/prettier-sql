@@ -370,6 +370,15 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         ];
     }
 
+    if (alterType === 'AlterTableTriggerModificationStatement') {
+        const enable = propBool(node, 'enable');
+        const triggerAll = node.props?.['triggerAll'] as boolean | null | undefined;
+        const triggerNames = node.props?.['triggerNames'] as string[] | undefined;
+        const verb: Doc = enable ? keyword('ENABLE TRIGGER', opts) : keyword('DISABLE TRIGGER', opts);
+        const targets: Doc = triggerAll ? keyword('ALL', opts) : join(', ', triggerNames ?? []);
+        return [keyword('ALTER TABLE', opts), ' ', name, hardline, verb, ' ', targets, ';'];
+    }
+
     return [keyword('ALTER TABLE', opts), ' ', name, ' /* ', alterType, ' */;'];
 }
 
