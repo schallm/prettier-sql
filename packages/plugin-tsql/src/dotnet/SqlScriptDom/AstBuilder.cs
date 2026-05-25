@@ -130,7 +130,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             return Leaf("WildcardColumn", col, "*");
 
         var parts = col.MultiPartIdentifier?.Identifiers.Select(i => QuotedName(i)).ToList();
-        return new SqlNode(
+        var colNode = new SqlNode(
             "ColumnReference",
             col.StartOffset,
             col.StartOffset + col.FragmentLength,
@@ -138,6 +138,13 @@ public class AstBuilder : TSqlFragmentVisitor {
             new Dictionary<string, object?> {
                 ["parts"] = parts,
             });
+
+        // COLLATE clause: Name COLLATE Latin1_General_CI_AS
+        var collation = col.Collation?.Value;
+        if (collation != null)
+            return new SqlNode("CollateExpression", col.StartOffset, col.StartOffset + col.FragmentLength, null,
+                new Dictionary<string, object?> { ["expression"] = colNode, ["collation"] = collation });
+        return colNode;
     }
 
     private static SqlNode BuildFunctionCall(FunctionCall fc) {

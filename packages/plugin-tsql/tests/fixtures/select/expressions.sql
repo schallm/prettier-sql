@@ -44,3 +44,16 @@ select 1 where a is not distinct from b
 select N'unicode string', 'regular string', N'unicode' + 'concat'
 from t
 where col = N'filter value'
+
+-- Binary literals (0x prefix must not be doubled)
+select 0x1A2B3C, 0xDEADBEEF
+from t
+
+-- Escaped single quotes in string literals
+select 'it''s a test', N'it''s unicode'
+from t
+
+-- COLLATE clause on column references
+select Name collate Latin1_General_CI_AS, Code collate SQL_Latin1_General_CP1_CS_AS
+from Products
+where Name collate SQL_Latin1_General_CP1_CI_AS = N'test'

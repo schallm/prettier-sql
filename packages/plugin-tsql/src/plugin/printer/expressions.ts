@@ -29,6 +29,11 @@ export function printExpression(node: SqlNode, opts: Options, printFn: (n: SqlNo
             return '*';
         case 'ColumnReference':
             return printColumnRef(node);
+        case 'CollateExpression': {
+            const colExpr = prop(node, 'expression');
+            const collation = propStr(node, 'collation') ?? '';
+            return [colExpr ? printFn(colExpr) : '', ' ', keyword('COLLATE', opts), ' ', collation];
+        }
         case 'IntegerLiteral':
             return node.text ?? '0';
         case 'NumericLiteral':
@@ -37,10 +42,14 @@ export function printExpression(node: SqlNode, opts: Options, printFn: (n: SqlNo
             return node.text ?? '0';
         case 'MoneyLiteral':
             return node.text ?? '0';
-        case 'StringLiteral':
-            return node.props?.['isNational'] ? `N'${node.text ?? ''}'` : `'${node.text ?? ''}'`;
+        case 'StringLiteral': {
+            // ScriptDom Value is unescaped content; re-escape embedded single quotes
+            const strContent = (node.text ?? '').replaceAll("'", "''");
+            return node.props?.['isNational'] ? `N'${strContent}'` : `'${strContent}'`;
+        }
         case 'BinaryLiteral':
-            return `0x${node.text ?? ''}`;
+            // ScriptDom BinaryLiteral.Value includes the '0x' prefix already
+            return node.text ?? '0x0';
         case 'NullLiteral':
             return keyword('NULL', opts);
         case 'BooleanLiteral':
