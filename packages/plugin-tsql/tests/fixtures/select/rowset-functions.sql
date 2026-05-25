@@ -11,3 +11,13 @@ select r.id, r.Name from openrowset('SQLNCLI', 'Server=(local);Trusted_Connectio
 select * from openrowset(bulk 'C:\data\file.csv', formatfile='C:\data\fmt.xml', firstrow=2) as t;
 
 select * from openrowset(bulk 'C:\data\data.json', single_blob) as j;
+
+-- Built-in TVFs (BuiltInFunctionTableReference) — must normalize case
+select [value] from STRING_SPLIT(@csv, ',')
+
+select [value] from STRING_SPLIT(@csv, ',') as s
+
+select * from GENERATE_SERIES(1, 100) as n
+
+-- OPENQUERY
+select * from OPENQUERY(RemoteServer, 'SELECT Id, Name FROM dbo.Customers')

@@ -1161,6 +1161,10 @@ export function printTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode
             return printQueryDerivedTable(node, opts, printFn);
         case 'SchemaObjectFunctionTableReference':
             return printSchemaObjectFunctionTableRef(node, opts, printFn);
+        case 'BuiltInFunctionTableReference':
+            return printBuiltInFunctionTableRef(node, opts, printFn);
+        case 'OpenQueryTableReference':
+            return printOpenQueryTableRef(node, opts);
         case 'FullTextTableReference':
             return printFullTextTableRef(node, opts, printFn);
         case 'OpenXmlTableReference':
@@ -1355,6 +1359,25 @@ function printSchemaObjectFunctionTableRef(node: SqlNode, opts: Options, printFn
     );
     const aliasPart: Doc = aliasDoc(alias, opts);
     return [schemaObjectName(prop(node, 'name')), '(', argsDoc, ')', aliasPart];
+}
+
+/** Built-in TVFs: STRING_SPLIT(@csv, ','), GENERATE_SERIES(1, 100), etc. */
+function printBuiltInFunctionTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const args = propArr(node, 'args');
+    const alias = propStr(node, 'alias');
+    const argsDoc: Doc = join(', ', args.map((a) => printExpression(a, opts, printFn)));
+    const aliasPart: Doc = aliasDoc(alias, opts);
+    return [keyword(name, opts), '(', argsDoc, ')', aliasPart];
+}
+
+/** OPENQUERY(linkedServer, 'sql') */
+function printOpenQueryTableRef(node: SqlNode, opts: Options): Doc {
+    const linkedServer = propStr(node, 'linkedServer') ?? '';
+    const query = propStr(node, 'query') ?? '';
+    const alias = propStr(node, 'alias');
+    const aliasPart: Doc = aliasDoc(alias, opts);
+    return [keyword('OPENQUERY', opts), '(', linkedServer, ', ', `'${query}'`, ')', aliasPart];
 }
 
 // ---------------------------------------------------------------------------

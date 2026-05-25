@@ -554,6 +554,16 @@ public class AstBuilder : TSqlFragmentVisitor {
             PivotedTableReference piv => BuildPivotedTableRef(piv),
             UnpivotedTableReference unpiv => BuildUnpivotedTableRef(unpiv),
             InlineDerivedTable idt => BuildInlineDerivedTable(idt),
+            // Built-in TVFs: STRING_SPLIT, GENERATE_SERIES, OPENDATASOURCE etc.
+            BuiltInFunctionTableReference bif => BuildBuiltinTableRef(bif, bif.Name?.Value, bif.Parameters, bif.Alias),
+            // ::GlobalFunctionName() CLR global functions
+            GlobalFunctionTableReference gf => BuildBuiltinTableRef(gf, gf.Name?.Value, gf.Parameters, gf.Alias),
+            // OPENQUERY(linkedServer, 'sql')
+            OpenQueryTableReference oq => Node("OpenQueryTableReference", oq, new Dictionary<string, object?> {
+                ["linkedServer"] = oq.LinkedServer?.Value,
+                ["query"] = oq.Query?.Value,
+                ["alias"] = QuotedName(oq.Alias),
+            }),
             _ => Leaf("TableReference", tableRef, RawText(tableRef)),
         };
     }
@@ -601,6 +611,20 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["name"] = BuildSchemaObjectName(tvf.SchemaObject),
             ["args"] = args,
             ["alias"] = QuotedName(tvf.Alias),
+        });
+    }
+
+    /// <summary>
+    /// Built-in TVFs (STRING_SPLIT, GENERATE_SERIES, etc.) and CLR global functions
+    /// are represented as dedicated ScriptDom types rather than SchemaObjectFunctionTableReference.
+    /// Emit them with a bare string name so the TS printer can keyword()-normalize the casing.
+    /// </summary>
+    private static SqlNode BuildBuiltinTableRef(TSqlFragment f, string? name, IList<ScalarExpression>? parameters, Identifier? alias) {
+        var args = parameters?.Select(p => (object?)BuildScalarExpression(p)).ToList();
+        return Node("BuiltInFunctionTableReference", f, new Dictionary<string, object?> {
+            ["name"] = name,
+            ["args"] = args,
+            ["alias"] = QuotedName(alias),
         });
     }
 
