@@ -1655,6 +1655,9 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["message"] = BuildScalarExpression(raise.FirstParameter),
             ["severity"] = BuildScalarExpression(raise.SecondParameter),
             ["state"] = BuildScalarExpression(raise.ThirdParameter),
+            ["params"] = raise.OptionalParameters?.Count > 0
+                ? (object?)raise.OptionalParameters.Select(p => (object?)BuildScalarExpression(p)).ToList()
+                : null,
         });
 
     private static SqlNode BuildTryCatch(TryCatchStatement tc) =>

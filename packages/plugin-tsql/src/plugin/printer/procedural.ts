@@ -191,7 +191,7 @@ export function printGoto(node: SqlNode, opts: Options): Doc {
     return [keyword('GOTO', opts), ' ', propStr(node, 'label') ?? '', ';'];
 }
 
-export function printLabel(node: SqlNode, opts: Options): Doc {
+export function printLabel(node: SqlNode, _opts: Options): Doc {
     // LabelStatement.Value already includes the trailing colon from ScriptDom
     return propStr(node, 'label') ?? '';
 }
@@ -216,6 +216,8 @@ export function printThrow(node: SqlNode, opts: Options): Doc {
 }
 
 export function printRaiseError(node: SqlNode, opts: Options): Doc {
+    const extraParams = propArr(node, 'params');
+    const extraDocs: Doc[] = extraParams.length > 0 ? extraParams.map((p) => [', ', printNode(p, opts)]) : [];
     return [
         keyword('RAISERROR', opts),
         ' (',
@@ -224,6 +226,7 @@ export function printRaiseError(node: SqlNode, opts: Options): Doc {
         printNode(prop(node, 'severity')!, opts),
         ', ',
         printNode(prop(node, 'state')!, opts),
+        ...extraDocs,
         ');',
     ];
 }
