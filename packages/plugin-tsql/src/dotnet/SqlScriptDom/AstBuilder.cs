@@ -1246,6 +1246,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         return Node("ExecuteStatement", es, new Dictionary<string, object?> {
             ["proc"] = procNode,
             ["procVar"] = procVar,
+            ["returnVar"] = spec?.Variable?.Name,
             ["parameters"] = parameters,
         });
     }
