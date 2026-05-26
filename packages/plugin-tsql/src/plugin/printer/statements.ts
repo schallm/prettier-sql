@@ -680,6 +680,29 @@ function printValuesSource(node: SqlNode, opts: Options): Doc {
 }
 
 // ---------------------------------------------------------------------------
+// Shared SET-clause renderer (UPDATE and MERGE UPDATE)
+// ---------------------------------------------------------------------------
+
+/**
+ * Render one SET clause item, handling three forms:
+ *   col = val             — plain column assignment
+ *   @var = val            — variable-only assignment (no column update)
+ *   col = @var = val      — compound: update col AND assign @var
+ */
+function printSetClauseItem(sc: SqlNode, opts: Options): Doc {
+    const col = prop(sc, 'column');
+    const val = prop(sc, 'value');
+    const variable = propStr(sc, 'variable');
+    const opStr = assignmentOp(propStr(sc, 'operator') ?? 'Equals');
+    let lhs: Doc;
+    if (col && variable) lhs = [printNode(col, opts), ' ', opStr, ' ', variable];
+    else if (col) lhs = printNode(col, opts);
+    else if (variable) lhs = variable;
+    else lhs = sc.text ?? '';
+    return [lhs, ' ', opStr, ' ', val ? printNode(val, opts) : ''] as Doc;
+}
+
+// ---------------------------------------------------------------------------
 // UPDATE
 // ---------------------------------------------------------------------------
 
@@ -693,21 +716,7 @@ function printUpdate(node: SqlNode, opts: Options): Doc {
     const output = prop(node, 'output');
     const outputInto = prop(node, 'outputInto');
 
-    const setParts = setClauses.map((sc) => {
-        const col = prop(sc, 'column');
-        const val = prop(sc, 'value');
-        const variable = propStr(sc, 'variable'); // @var in SET @var = expr or SET col = @var = expr
-        const opStr = assignmentOp(propStr(sc, 'operator') ?? 'Equals');
-        // col and variable both set: compound form  col = @var = val
-        // only variable:              variable assignment  @var = val
-        // only col:                   normal column update  col = val
-        let lhs: Doc;
-        if (col && variable) lhs = [printNode(col, opts), ' ', opStr, ' ', variable];
-        else if (col) lhs = printNode(col, opts);
-        else if (variable) lhs = variable;
-        else lhs = '';
-        return [lhs, ' ', opStr, ' ', val ? printNode(val, opts) : ''] as Doc;
-    });
+    const setParts = setClauses.map((sc) => printSetClauseItem(sc, opts));
 
     const parts: Doc[] = [
         ...ctesDocs,
@@ -920,12 +929,7 @@ function printMergeClause(node: SqlNode, opts: Options): Doc {
 function printMergeAction(node: SqlNode, opts: Options): Doc {
     switch (node.type) {
         case 'MergeUpdateAction': {
-            const setParts = propArr(node, 'set').map((sc) => {
-                const col = prop(sc, 'column');
-                const val = prop(sc, 'value');
-                const opStr = assignmentOp(propStr(sc, 'operator') ?? 'Equals');
-                return [col ? printNode(col, opts) : '', ' ', opStr, ' ', val ? printNode(val, opts) : ''] as Doc;
-            });
+            const setParts = propArr(node, 'set').map((sc) => printSetClauseItem(sc, opts));
             const density = getDensity(opts);
             const setBody: Doc =
                 density !== 'spacious' && setParts.length === 1
