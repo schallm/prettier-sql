@@ -696,8 +696,17 @@ function printUpdate(node: SqlNode, opts: Options): Doc {
     const setParts = setClauses.map((sc) => {
         const col = prop(sc, 'column');
         const val = prop(sc, 'value');
+        const variable = propStr(sc, 'variable'); // @var in SET @var = expr or SET col = @var = expr
         const opStr = assignmentOp(propStr(sc, 'operator') ?? 'Equals');
-        return [col ? printNode(col, opts) : '', ' ', opStr, ' ', val ? printNode(val, opts) : ''] as Doc;
+        // col and variable both set: compound form  col = @var = val
+        // only variable:              variable assignment  @var = val
+        // only col:                   normal column update  col = val
+        let lhs: Doc;
+        if (col && variable) lhs = [printNode(col, opts), ' ', opStr, ' ', variable];
+        else if (col) lhs = printNode(col, opts);
+        else if (variable) lhs = variable;
+        else lhs = '';
+        return [lhs, ' ', opStr, ' ', val ? printNode(val, opts) : ''] as Doc;
     });
 
     const parts: Doc[] = [

@@ -1166,7 +1166,10 @@ public class AstBuilder : TSqlFragmentVisitor {
 
     private static SqlNode BuildSetClause(SetClause sc) => sc switch {
         AssignmentSetClause asc => Node("AssignmentSetClause", asc, new Dictionary<string, object?> {
-            ["column"] = BuildColumnRef(asc.Column),
+            // Column is null when the LHS is a variable: SET @var = expr
+            ["column"] = asc.Column != null ? BuildColumnRef(asc.Column) : null,
+            // Variable is non-null for: SET @var = expr  or  SET col = @var = expr
+            ["variable"] = asc.Variable?.Name,
             ["operator"] = asc.AssignmentKind.ToString(),
             ["value"] = BuildScalarExpression(asc.NewValue),
         }),
