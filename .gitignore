@@ -5,3 +5,4 @@ bin/
 **/src/dotnet/**/bin/
 *.user
 .DS_Store
+test-*.mjs
