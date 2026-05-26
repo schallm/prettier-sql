@@ -2178,12 +2178,25 @@ public class AstBuilder : TSqlFragmentVisitor {
     // DDL: CREATE / ALTER TRIGGER
     // -------------------------------------------------------------------------
 
+    private static string TriggerActionToSql(TriggerAction action) =>
+        action.TriggerActionType switch {
+            TriggerActionType.Insert => "INSERT",
+            TriggerActionType.Update => "UPDATE",
+            TriggerActionType.Delete => "DELETE",
+            // DDL trigger events: TriggerActionType.ToString() returns "Event" for all DDL types;
+            // use RawText to get the actual keyword (e.g. CREATE_TABLE, DDL_TABLE_EVENTS).
+            _ => RawText(action).ToUpperInvariant().Trim(),
+        };
+
     private static SqlNode BuildTriggerStatement(string type, TriggerStatementBody trigger) {
-        var actions = trigger.TriggerActions?.Select(a => (object?)a.TriggerActionType.ToString()).ToList();
+        var scope = trigger.TriggerObject?.TriggerScope.ToString() ?? "Normal";
+        var targetName = scope == "Normal" ? BuildSchemaObjectName(trigger.TriggerObject?.Name) : null;
+        var actions = trigger.TriggerActions?.Select(a => (object?)TriggerActionToSql(a)).ToList();
         var stmts = trigger.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
         return Node(type, trigger, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(trigger.Name),
-            ["onName"] = BuildSchemaObjectName(trigger.TriggerObject?.Name),
+            ["triggerScope"] = scope != "Normal" ? scope : null,
+            ["onName"] = targetName,
             ["triggerType"] = trigger.TriggerType.ToString(),
             ["actions"] = actions,
             ["notForReplication"] = trigger.IsNotForReplication ? (object?)true : null,

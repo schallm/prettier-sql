@@ -979,6 +979,13 @@ export function printCreateTrigger(node: SqlNode, opts: Options): Doc {
     const notForReplicationDoc: Doc = notForReplication ? [hardline, keyword('NOT FOR REPLICATION', opts)] : '';
     const bodyDocs = propArr(node, 'body').map((s) => printStatementWithComments(s, opts));
 
+    const triggerScope = propStr(node, 'triggerScope'); // 'Database' or 'Server' for DDL triggers
+    const onTarget: Doc = triggerScope === 'Database'
+        ? keyword('DATABASE', opts)
+        : triggerScope === 'Server'
+          ? keyword('ALL SERVER', opts)
+          : schemaObjectName(prop(node, 'onName'));
+
     return [
         kw,
         ' ',
@@ -986,7 +993,7 @@ export function printCreateTrigger(node: SqlNode, opts: Options): Doc {
         hardline,
         keyword('ON', opts),
         ' ',
-        schemaObjectName(prop(node, 'onName')),
+        onTarget,
         hardline,
         typeKw,
         ' ',
