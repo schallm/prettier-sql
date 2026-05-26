@@ -588,9 +588,14 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         const sourcePartition = propStr(node, 'sourcePartition');
         const targetTable = prop(node, 'targetTable');
         const targetPartition = propStr(node, 'targetPartition');
+        const switchOptions = node.props?.['switchOptions'] as string[] | undefined;
         const sourceDoc: Doc = sourcePartition ? [' ', keyword('PARTITION', opts), ' ', sourcePartition] : '';
         const targetDoc: Doc = targetTable ? schemaObjectName(targetTable) : '';
         const targetPartDoc: Doc = targetPartition ? [' ', keyword('PARTITION', opts), ' ', targetPartition] : '';
+        const switchOptDoc: Doc =
+            switchOptions?.length
+                ? [' ', keyword('WITH', opts), ' (', join(', ', switchOptions), ')']
+                : '';
         return [
             keyword('ALTER TABLE', opts),
             ' ',
@@ -603,6 +608,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             ' ',
             targetDoc,
             targetPartDoc,
+            switchOptDoc,
             ';',
         ];
     }

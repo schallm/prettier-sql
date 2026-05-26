@@ -1739,6 +1739,10 @@ public class AstBuilder : TSqlFragmentVisitor {
             props["sourcePartition"] = (switchStmt.SourcePartitionNumber as IntegerLiteral)?.Value;
             props["targetTable"] = BuildSchemaObjectName(switchStmt.TargetTable);
             props["targetPartition"] = (switchStmt.TargetPartitionNumber as IntegerLiteral)?.Value;
+            // WITH (WAIT_AT_LOW_PRIORITY (...)) — serialize each option as raw text
+            props["switchOptions"] = switchStmt.Options?.Count > 0
+                ? switchStmt.Options.Select(o => (object?)RawText(o).Trim()).ToList()
+                : null;
         } else if (at is AlterTableTriggerModificationStatement triggerMod) {
             props["enable"] = triggerMod.TriggerEnforcement == TriggerEnforcement.Enable ? (object?)true : false;
             props["triggerAll"] = triggerMod.All ? (object?)true : null;
