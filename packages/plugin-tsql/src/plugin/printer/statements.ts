@@ -572,8 +572,14 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
 function printCtes(node: SqlNode, opts: Options): Doc[] {
     const ctes = propArr(node, 'ctes');
     const xmlNamespaces = node.props?.['xmlNamespaces'] as string[] | undefined;
+    const changeTrackingCtx = propStr(node, 'changeTrackingContext');
 
-    if (ctes.length === 0 && !xmlNamespaces?.length) return [];
+    // WITH CHANGE_TRACKING_CONTEXT emits as a separate statement prefix
+    const ctxPrefix: Doc[] = changeTrackingCtx
+        ? [[keyword('WITH CHANGE_TRACKING_CONTEXT', opts), ' (', changeTrackingCtx, ')'], hardline]
+        : [];
+
+    if (ctes.length === 0 && !xmlNamespaces?.length) return ctxPrefix;
 
     const leading = getCommaStyle(opts) === 'leading';
     const sep: Doc = leading ? [hardline, ', '] : [',', hardline];
@@ -608,7 +614,7 @@ function printCtes(node: SqlNode, opts: Options): Doc[] {
         ] as Doc);
     }
 
-    return [[keyword('WITH', opts), indent([hardline, join(sep, allItems)])], hardline];
+    return [...ctxPrefix, [keyword('WITH', opts), indent([hardline, join(sep, allItems)])], hardline];
 }
 
 function printSelect(node: SqlNode, opts: Options): Doc {

@@ -127,6 +127,14 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
     const onPart: Doc = onFileGroup ? [hardline, keyword('ON', opts), ' ', onFileGroup] : '';
     const textimagePart: Doc = textimageOn ? [hardline, keyword('TEXTIMAGE_ON', opts), ' ', textimageOn] : '';
     const fileStreamPart: Doc = fileStreamOn ? [hardline, keyword('FILESTREAM_ON', opts), ' ', fileStreamOn] : '';
+    // Graph table types (AS NODE / AS EDGE)
+    const asNode = node.props?.['asNode'] as boolean | undefined;
+    const asEdge = node.props?.['asEdge'] as boolean | undefined;
+    const graphPart: Doc = asNode
+        ? [' ', keyword('AS NODE', opts)]
+        : asEdge
+          ? [' ', keyword('AS EDGE', opts)]
+          : '';
     return group([
         keyword('CREATE TABLE', opts),
         ' ',
@@ -135,6 +143,7 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
         indent([hardline, join([',', hardline], allDefs)]),
         hardline,
         ')',
+        graphPart,
         onPart,
         fileStreamPart,
         textimagePart,

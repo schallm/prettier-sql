@@ -1153,6 +1153,7 @@ public class AstBuilder : TSqlFragmentVisitor {
 
         return Node("InsertStatement", ins, new Dictionary<string, object?> {
             ["ctes"] = ctes,
+            ["changeTrackingContext"] = RawTextOrNull(ins.WithCtesAndXmlNamespaces?.ChangeTrackingContext),
             ["target"] = target,
             ["columns"] = columns,
             ["source"] = source,
@@ -1187,6 +1188,7 @@ public class AstBuilder : TSqlFragmentVisitor {
 
         return Node("UpdateStatement", upd, new Dictionary<string, object?> {
             ["ctes"] = ctes,
+            ["changeTrackingContext"] = RawTextOrNull(upd.WithCtesAndXmlNamespaces?.ChangeTrackingContext),
             ["top"] = spec.TopRowFilter != null ? BuildTopRowFilter(spec.TopRowFilter) : null,
             ["target"] = target,
             ["set"] = setClauses,
@@ -1225,6 +1227,7 @@ public class AstBuilder : TSqlFragmentVisitor {
 
         return Node("DeleteStatement", del, new Dictionary<string, object?> {
             ["ctes"] = ctes,
+            ["changeTrackingContext"] = RawTextOrNull(del.WithCtesAndXmlNamespaces?.ChangeTrackingContext),
             ["top"] = spec.TopRowFilter != null ? BuildTopRowFilter(spec.TopRowFilter) : null,
             ["target"] = target,
             ["from"] = fromClause,
@@ -1478,6 +1481,9 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["onFileGroup"] = onName,
             ["textimageOn"] = textimageOn,
             ["fileStreamOn"] = fileStreamOn,
+            // Graph table types
+            ["asNode"] = ct.AsNode ? (object?)true : null,
+            ["asEdge"] = ct.AsEdge ? (object?)true : null,
         });
     }
 
