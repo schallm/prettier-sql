@@ -709,8 +709,8 @@ export function printAlterIndex(node: SqlNode, opts: Options): Doc {
         schemaObjectName(table),
         ' ',
         typeKw,
-        withPart,
         partitionPart,
+        withPart,
         ';',
     ];
 }

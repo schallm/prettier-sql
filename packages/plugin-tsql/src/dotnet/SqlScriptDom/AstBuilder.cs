@@ -468,6 +468,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             FullTextPredicate ftp => BuildFullTextPredicate(ftp),
             DistinctPredicate dp => BuildDistinctPredicate(dp),
             SubqueryComparisonPredicate scp => BuildSubqueryComparison(scp),
+            // GraphMatchPredicate.StartOffset starts inside MATCH(, so prepend the keyword+paren
+            GraphMatchPredicate gmp => Leaf("BooleanExpression", gmp, "MATCH(" + RawText(gmp)),
             _ => Leaf("BooleanExpression", expr, RawText(expr)),
         };
     }
@@ -2582,13 +2584,28 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["options"] = MapList(stmt.Options, o => (object?)RestoreOptionText(o)),
         });
 
+    // FileGroupDefinition.StartOffset is unreliable — reconstruct from structured properties.
+    private static string BuildFileGroupText(FileGroupDefinition fg) {
+        var name = fg.Name?.Value ?? "";
+        var suffix = new StringBuilder();
+        if (fg.IsDefault) suffix.Append(" DEFAULT");
+        if (fg.ContainsFileStream) suffix.Append(" CONTAINS FILESTREAM");
+        if (fg.ContainsMemoryOptimizedData) suffix.Append(" CONTAINS MEMORY_OPTIMIZED_DATA");
+        var fileParts = fg.FileDeclarations?
+            .Select(f => RawText(f))
+            .Where(s => !string.IsNullOrEmpty(s))
+            .ToList();
+        var fileStr = fileParts?.Count > 0 ? " " + string.Join(", ", fileParts) : "";
+        return name + suffix + fileStr;
+    }
+
     private static SqlNode BuildCreateDatabase(CreateDatabaseStatement stmt) =>
         Node("CreateDatabaseStatement", stmt, new Dictionary<string, object?> {
             ["name"] = stmt.DatabaseName?.Value,
             ["collation"] = stmt.Collation?.Value,
             ["snapshot"] = stmt.DatabaseSnapshot?.Value,
             ["copyOf"] = RawTextOrNull(stmt.CopyOf),
-            ["fileGroups"] = MapList(stmt.FileGroups, fg => (object?)RawText(fg)),
+            ["fileGroups"] = MapList(stmt.FileGroups, fg => (object?)BuildFileGroupText(fg)),
             ["logOn"] = MapList(stmt.LogOn, l => (object?)RawText(l)),
             ["options"] = MapList(stmt.Options, o => (object?)RawText(o)),
         });

@@ -57,7 +57,8 @@ drop database Bookstore, BookstoreDev;"
 exports[`fixtures > admin/create-database.sql 1`] = `
 "create database SalesDB;
 
-create database SalesDB collate Latin1_General_CI_AS;
+create database SalesDB
+collate Latin1_General_CI_AS;
 
 create database SalesSnap as snapshot of SalesDB;
 

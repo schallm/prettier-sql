@@ -178,17 +178,17 @@ export function printCreateDatabase(node: SqlNode, opts: Options): Doc {
 
     const parts: Doc[] = [keyword('CREATE DATABASE', opts), ' ', name];
 
-    if (collation) parts.push(' ', keyword('COLLATE', opts), ' ', collation);
     if (snapshot) parts.push(' ', keyword('AS SNAPSHOT OF', opts), ' ', snapshot);
     if (copyOf) parts.push(' ', keyword('AS COPY OF', opts), ' ', copyOf);
     if (fileGroups?.length) {
-        parts.push(hardline, keyword('ON', opts), ' ');
+        parts.push(hardline, keyword('ON', opts));
         parts.push(indent([hardline, join([',', hardline], fileGroups)]));
     }
     if (logOn?.length) {
-        parts.push(hardline, keyword('LOG ON', opts), ' ');
+        parts.push(hardline, keyword('LOG ON', opts));
         parts.push(indent([hardline, join([',', hardline], logOn)]));
     }
+    if (collation) parts.push(hardline, keyword('COLLATE', opts), ' ', collation);
     if (options?.length)
         parts.push(
             hardline,
