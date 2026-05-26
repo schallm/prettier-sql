@@ -584,7 +584,17 @@ public class AstBuilder : TSqlFragmentVisitor {
     }
 
     private static SqlNode BuildNamedTableRef(NamedTableReference named) {
-        var hints = MapList(named.TableHints, h => (object?)h.HintKind.ToString().ToUpper());
+        var hints = MapList(named.TableHints, h => {
+            // INDEX hints carry index names/ids — serialize as "INDEX = name" or "INDEX(n1,n2)"
+            if (h is IndexTableHint idxHint && idxHint.IndexValues?.Count > 0) {
+                var vals = idxHint.IndexValues.Select(v =>
+                    v.Identifier != null ? QuotedName(v.Identifier) : v.Value ?? "");
+                return (object?)(idxHint.IndexValues.Count == 1
+                    ? $"INDEX = {vals.First()}"
+                    : $"INDEX({string.Join(", ", vals)})");
+            }
+            return (object?)h.HintKind.ToString().ToUpper();
+        });
         return Node("NamedTableReference", named, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(named.SchemaObject),
             ["alias"] = QuotedName(named.Alias),
@@ -1441,6 +1451,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["identity"] = col.IdentityOptions != null,
                 ["identitySeed"] = (col.IdentityOptions?.IdentitySeed as Literal)?.Value,
                 ["identityIncrement"] = (col.IdentityOptions?.IdentityIncrement as Literal)?.Value,
+                ["identityNotForReplication"] = col.IdentityOptions?.IsIdentityNotForReplication == true ? (object?)true : null,
                 ["defaultValue"] = col.DefaultConstraint != null
                     ? BuildScalarExpression(col.DefaultConstraint.Expression)
                     : null,

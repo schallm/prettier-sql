@@ -1263,7 +1263,14 @@ function printNamedTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) 
               ' (',
               join(
                   ', ',
-                  hints.map((h) => keyword(h, opts)),
+                  hints.map((h) => {
+                      // INDEX hints carry an identifier/value that must not be keyword-cased
+                      if (h.startsWith('INDEX')) {
+                          const rest = h.slice('INDEX'.length); // " = name" or "(n1, n2)"
+                          return [keyword('INDEX', opts), rest];
+                      }
+                      return keyword(h, opts);
+                  }),
               ),
               ')',
           ]

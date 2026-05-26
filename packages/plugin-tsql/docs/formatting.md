@@ -2197,7 +2197,7 @@ where InStock = 1;
 Cursor options (e.g. `SCROLL`, `READ_ONLY`) appear between the cursor name and the `cursor` keyword:
 
 ```sql
-declare BookCursor scroll cursor
+declare BookCursor cursor scroll
 for
 select Id
 from Books;

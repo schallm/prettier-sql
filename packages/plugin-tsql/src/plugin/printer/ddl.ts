@@ -182,6 +182,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         const seed = identitySeed ?? '1';
         const inc = identityIncrement ?? '1';
         parts.push(' ', keyword('IDENTITY', opts), `(${seed}, ${inc})`);
+        if (node.props?.['identityNotForReplication']) parts.push(' ', keyword('NOT FOR REPLICATION', opts));
     }
     if (node.props?.['isRowGuidCol']) parts.push(' ', keyword('ROWGUIDCOL', opts));
     // SPARSE / FILESTREAM / COLUMN_SET
