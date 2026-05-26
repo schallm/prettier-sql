@@ -123,8 +123,10 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
         options && options.length > 0 ? [hardline, keyword('WITH', opts), ' ', parenList(options)] : '';
     const onFileGroup = propStr(node, 'onFileGroup');
     const textimageOn = propStr(node, 'textimageOn');
+    const fileStreamOn = propStr(node, 'fileStreamOn');
     const onPart: Doc = onFileGroup ? [hardline, keyword('ON', opts), ' ', onFileGroup] : '';
     const textimagePart: Doc = textimageOn ? [hardline, keyword('TEXTIMAGE_ON', opts), ' ', textimageOn] : '';
+    const fileStreamPart: Doc = fileStreamOn ? [hardline, keyword('FILESTREAM_ON', opts), ' ', fileStreamOn] : '';
     return group([
         keyword('CREATE TABLE', opts),
         ' ',
@@ -134,6 +136,7 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
         hardline,
         ')',
         onPart,
+        fileStreamPart,
         textimagePart,
         withPart,
         ';',
