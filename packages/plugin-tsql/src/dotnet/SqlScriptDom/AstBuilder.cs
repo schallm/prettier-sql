@@ -1496,6 +1496,9 @@ public class AstBuilder : TSqlFragmentVisitor {
                     ["name"] = QuotedName(col.ColumnIdentifier),
                     ["computedExpression"] = BuildScalarExpression(col.ComputedColumnExpression),
                     ["isPersisted"] = col.IsPersisted ? (object?)true : null,
+                    // Computed PERSISTED columns can have NOT NULL — preserve nullability
+                    ["nullable"] = col.Constraints?.OfType<NullableConstraintDefinition>()
+                        .FirstOrDefault()?.Nullable,
                 });
         }
 
@@ -1652,6 +1655,8 @@ public class AstBuilder : TSqlFragmentVisitor {
                 || colOpt.ToString() == "NoOptionDefined") ? null : colOpt.ToString();
             // ADD/DROP MASKED WITH
             props["maskingFunction"] = alterCol.MaskingFunction?.Value;
+            // COLLATE clause — stored as a separate property on the statement
+            props["collation"] = alterCol.Collation?.Value;
         } else if (at is AlterTableSetStatement setStmt) {
             // Use SerializeTableOption so complex options like SYSTEM_VERSIONING are
             // correctly serialized (OptionKind is unreliable — it defaults to 0).

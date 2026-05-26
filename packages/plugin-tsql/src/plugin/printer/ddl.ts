@@ -148,10 +148,12 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
 
     const name = propStr(node, 'name') ?? 'col';
 
-    // Computed column: Name AS expression [PERSISTED]
+    // Computed column: Name AS expression [PERSISTED] [NOT NULL|NULL]
     const computedExpr = prop(node, 'computedExpression');
     if (computedExpr) {
         const isPersisted = node.props?.['isPersisted'] as boolean | undefined;
+        // Computed PERSISTED columns may have an explicit nullability constraint
+        const computedNullPart = nullablePart(node.props?.['nullable'], opts);
         return [
             name,
             ' ',
@@ -159,6 +161,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
             ' ',
             printNode(computedExpr, opts),
             isPersisted ? [' ', keyword('PERSISTED', opts)] : '',
+            computedNullPart,
         ];
     }
 
@@ -494,8 +497,12 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             ];
         }
 
-        // Normal type-change: ALTER COLUMN col newtype [NULL|NOT NULL]
+        // Normal type-change: ALTER COLUMN col newtype [COLLATE ...] [NULL|NOT NULL]
         const dataType = propStr(node, 'dataType') ?? '';
+        const collationAC = propStr(node, 'collation');
+        const collatePart: Doc = collationAC
+            ? [' ', keyword('COLLATE', opts), ' ', collationAC]
+            : '';
         const nullPart = nullablePart(node.props?.['nullable'], opts);
         return [
             keyword('ALTER TABLE', opts),
@@ -507,6 +514,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             column,
             ' ',
             keyword(dataType, opts),
+            collatePart,
             nullPart,
             ';',
         ];
