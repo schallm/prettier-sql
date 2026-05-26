@@ -179,6 +179,8 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
 
     const dataType = propStr(node, 'dataType') ?? 'INT';
     const params = node.props?.['dataTypeParams'];
+    const xmlSchemaCollection = propStr(node, 'xmlSchemaCollection');
+    const xmlTypeOption = propStr(node, 'xmlTypeOption');
     // Read nullable as a tristate (true/false/undefined) — propBool only returns true/false.
     const isNullable = node.props?.['nullable'];
     const isIdentity = propBool(node, 'identity');
@@ -188,10 +190,18 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
     const checkConstraint = prop(node, 'checkConstraint');
     const collation = propStr(node, 'collation');
 
-    const typeStr: Doc =
-        Array.isArray(params) && params.length > 0
-            ? [keyword(dataType, opts), `(${(params as string[]).join(', ')})`]
-            : keyword(dataType, opts);
+    const typeStr: Doc = (() => {
+        const baseType = keyword(dataType, opts);
+        if (Array.isArray(params) && params.length > 0) {
+            return [baseType, `(${(params as string[]).join(', ')})`] as Doc;
+        }
+        if (xmlSchemaCollection) {
+            // xml(CONTENT|DOCUMENT schema_collection) — CONTENT/DOCUMENT are optional keywords
+            const prefix = xmlTypeOption ? `${keyword(xmlTypeOption, opts)} ` : '';
+            return [baseType, '(', prefix, xmlSchemaCollection, ')'] as Doc;
+        }
+        return baseType;
+    })();
 
     const parts: Doc[] = [name, ' ', typeStr];
 

@@ -1558,6 +1558,19 @@ public class AstBuilder : TSqlFragmentVisitor {
 
         var dt = col.DataType;
         var dataTypeName = dt?.Name?.BaseIdentifier?.Value;
+        // XML typed column: xml(dbo.MySchema) or xml(CONTENT dbo.MySchema) / xml(DOCUMENT ...)
+        string? xmlSchemaCollection = null;
+        string? xmlTypeOption = null;
+        if (dt is XmlDataTypeReference xmlDt) {
+            dataTypeName = "xml";
+            if (xmlDt.XmlSchemaCollection != null)
+                xmlSchemaCollection = RawText(xmlDt.XmlSchemaCollection).Trim();
+            xmlTypeOption = xmlDt.XmlDataTypeOption switch {
+                XmlDataTypeOption.Content => "CONTENT",
+                XmlDataTypeOption.Document => "DOCUMENT",
+                _ => null,
+            };
+        }
 
         return new SqlNode(
             "ColumnDefinition",
@@ -1567,6 +1580,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             new Dictionary<string, object?> {
                 ["name"] = QuotedName(col.ColumnIdentifier),
                 ["dataType"] = dataTypeName,
+                ["xmlSchemaCollection"] = xmlSchemaCollection,
+                ["xmlTypeOption"] = xmlTypeOption,
                 ["dataTypeParams"] = dt is ParameterizedDataTypeReference pdt
                     ? pdt.Parameters?.Select(p => (object?)p.Value).ToList()
                     : null,
