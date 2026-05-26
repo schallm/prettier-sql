@@ -277,12 +277,15 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         parts.push(' ', constraintNamePrefix, uqKw, clusteredKw);
     }
 
-    // Inline REFERENCES (column-level foreign key: col type REFERENCES Table(col))
+    // Inline REFERENCES (column-level foreign key: col type [CONSTRAINT name] REFERENCES Table(col))
     const foreignKey = node.props?.['foreignKey'] as
-        | { refTable: SqlNode | null; refColumns?: string[]; deleteAction?: string; updateAction?: string }
+        | { constraintName?: string; refTable: SqlNode | null; refColumns?: string[]; deleteAction?: string; updateAction?: string }
         | null
         | undefined;
     if (foreignKey) {
+        if (foreignKey.constraintName) {
+            parts.push(' ', keyword('CONSTRAINT', opts), ' ', foreignKey.constraintName);
+        }
         const refColsPart: Doc = foreignKey.refColumns?.length ? [' (', join(', ', foreignKey.refColumns), ')'] : '';
         parts.push(' ', keyword('REFERENCES', opts), ' ', schemaObjectName(foreignKey.refTable), refColsPart);
         if (foreignKey.deleteAction) {

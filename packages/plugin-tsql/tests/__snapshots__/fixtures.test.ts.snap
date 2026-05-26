@@ -331,6 +331,18 @@ create table dbo.Knows (
 ) as edge;"
 `;
 
+exports[`fixtures > create-table/inline-fk-constraint-name.sql 1`] = `
+"-- Inline column-level FK with constraint name and FOREIGN KEY keywords must be preserved
+create table dbo.LineItems (
+  LineId int identity(1, 1) not null constraint PK_LineItems primary key,
+  OrderId int not null constraint FK_LineItems_Order references dbo.Orders (OrderId) on delete cascade,
+  ProductId int not null constraint FK_LineItems_Product references dbo.Products (ProductId),
+  Quantity int not null constraint CHK_Qty check (Quantity > 0),
+  UnitPrice decimal(10, 2) not null,
+  constraint UQ_LineItems_OrderProduct unique (OrderId, ProductId)
+);"
+`;
+
 exports[`fixtures > create-table/temporal.sql 1`] = `
 "-- Temporal (system-versioned) table features
 -- GENERATED ALWAYS AS ROW START/END + PERIOD FOR SYSTEM_TIME + SYSTEM_VERSIONING

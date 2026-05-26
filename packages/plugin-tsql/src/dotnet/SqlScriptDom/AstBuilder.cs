@@ -1626,6 +1626,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                 // Inline REFERENCES (column-level foreign key)
                 ["foreignKey"] = col.Constraints?.OfType<ForeignKeyConstraintDefinition>().FirstOrDefault() is { } fk
                     ? (object?)new Dictionary<string, object?> {
+                        ["constraintName"] = fk.ConstraintIdentifier?.Value,
                         ["refTable"] = BuildSchemaObjectName(fk.ReferenceTableName),
                         ["refColumns"] = fk.ReferencedTableColumns?.Select(c => (object?)c.Value).ToList(),
                         ["deleteAction"] = fk.DeleteAction != DeleteUpdateAction.NotSpecified ? (object?)fk.DeleteAction.ToString() : null,
