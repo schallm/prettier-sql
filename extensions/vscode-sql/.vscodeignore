@@ -2,7 +2,11 @@
 src/
 tsconfig.json
 
-# Bundled package files (node_modules ARE included)
+# Packaging script (only needed for building, not at runtime)
+scripts/
+
+# Bundled package metadata (node_modules ARE included; .npmrc, package.json are not needed)
+bundled/.npmrc
 bundled/package.json
 bundled/package-lock.json
 

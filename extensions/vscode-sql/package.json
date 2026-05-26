@@ -108,12 +108,11 @@
         ]
     },
     "scripts": {
-        "vscode:prepublish": "npm run bundle && npm run compile",
-        "bundle": "cd bundled && npm install",
+        "vscode:prepublish": "npm run compile",
         "compile": "tsc -p tsconfig.json",
         "watch": "tsc -p tsconfig.json --watch",
-        "package": "vsce package",
-        "publish": "vsce publish"
+        "package": "node scripts/pack.mjs",
+        "publish": "node scripts/pack.mjs && vsce publish"
     },
     "devDependencies": {
         "@types/node": "^20.0.0",
