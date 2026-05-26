@@ -1053,6 +1053,9 @@ public class AstBuilder : TSqlFragmentVisitor {
     }
 
     private static string BuildOptimizerHint(OptimizerHint hint) {
+        // USE HINT ('hint1', 'hint2', ...) — UseHintList.HintKind is Unspecified (0)
+        if (hint is UseHintList uhl && uhl.Hints?.Count > 0)
+            return $"USE HINT ({string.Join(", ", uhl.Hints.Select(h => $"'{h.Value}'"))})";
         // OPTIMIZE FOR — variable list or OPTIMIZE FOR UNKNOWN
         if (hint is OptimizeForOptimizerHint ofh) {
             if (ofh.IsForUnknown) return "OPTIMIZE FOR UNKNOWN";
@@ -1474,6 +1477,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["defaultValue"] = col.DefaultConstraint != null
                     ? BuildScalarExpression(col.DefaultConstraint.Expression)
                     : null,
+                ["defaultConstraintName"] = col.DefaultConstraint?.ConstraintIdentifier?.Value,
                 ["isRowGuidCol"] = col.IsRowGuidCol ? (object?)true : null,
                 // COLLATE clause on the column
                 ["collation"] = col.Collation?.Value,

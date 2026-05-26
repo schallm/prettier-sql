@@ -221,7 +221,11 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         parts.push(' ', keyword('MASKED WITH', opts), ' (', keyword('FUNCTION', opts), ` = '${maskFn}')`);
     }
 
-    if (defaultValue) parts.push(' ', keyword('DEFAULT', opts), ' ', printNode(defaultValue, opts));
+    if (defaultValue) {
+        const defaultName = propStr(node, 'defaultConstraintName');
+        const defaultNamePrefix: Doc = defaultName ? [keyword('CONSTRAINT', opts), ' ', defaultName, ' '] : '';
+        parts.push(' ', defaultNamePrefix, keyword('DEFAULT', opts), ' ', printNode(defaultValue, opts));
+    }
     parts.push(nullablePart(isNullable, opts));
     if (checkConstraint) {
         const checkName = propStr(node, 'checkConstraintName');
