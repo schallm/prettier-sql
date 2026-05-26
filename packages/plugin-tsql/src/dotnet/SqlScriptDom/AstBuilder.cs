@@ -1261,6 +1261,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             var schema = QuotedName(udt.Name?.SchemaIdentifier);
             var baseName = QuotedName(udt.Name?.BaseIdentifier);
             dataType = schema != null ? $"{schema}.{baseName}" : baseName;
+        } else if (d.DataType is SqlDataTypeReference { SqlDataTypeOption: SqlDataTypeOption.Cursor }) {
+            dataType = "CURSOR";
         } else {
             dataType = d.DataType?.Name?.BaseIdentifier?.Value;
         }
@@ -1287,12 +1289,26 @@ public class AstBuilder : TSqlFragmentVisitor {
         });
     }
 
-    private static SqlNode BuildSetVariable(SetVariableStatement sv) =>
-        Node("SetVariableStatement", sv, new Dictionary<string, object?> {
+    private static SqlNode BuildSetVariable(SetVariableStatement sv) {
+        // When SET @cur = CURSOR FOR SELECT..., Expression is null and CursorDefinition is set.
+        SqlNode? cursorDef = null;
+        if (sv.CursorDefinition != null) {
+            var curOpts = sv.CursorDefinition.Options
+                ?.Select(o => (object?)SerializeCursorOption(o.OptionKind)).ToList();
+            var curSelect = sv.CursorDefinition.Select != null
+                ? BuildQueryExpression(sv.CursorDefinition.Select.QueryExpression)
+                : null;
+            cursorDef = Node("CursorDefinition", sv.CursorDefinition, new Dictionary<string, object?> {
+                ["options"] = curOpts,
+                ["select"] = curSelect,
+            });
+        }
+        return Node("SetVariableStatement", sv, new Dictionary<string, object?> {
             ["name"] = sv.Variable?.Name,
-            ["value"] = BuildScalarExpression(sv.Expression),
+            ["value"] = cursorDef ?? BuildScalarExpression(sv.Expression),
             ["operator"] = sv.AssignmentKind.ToString(),
         });
+    }
 
     private static SqlNode BuildSetRowCount(SetRowCountStatement src) =>
         Node("SetRowCountStatement", src, new Dictionary<string, object?> { ["rows"] = BuildScalarExpression(src.NumberRows) });

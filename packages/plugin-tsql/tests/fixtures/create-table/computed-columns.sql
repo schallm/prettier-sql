@@ -13,3 +13,11 @@ create table Products (
   PriceWithTax as Price * 1.1 persisted,
   constraint PK_Products primary key (Id)
 )
+
+-- PERSISTED NOT NULL must not drop the NOT NULL constraint
+create table dbo.Employees (
+  Id int not null primary key,
+  FirstName nvarchar(50) not null,
+  LastName nvarchar(50) not null,
+  FullName as (FirstName + ' ' + LastName) persisted not null
+)

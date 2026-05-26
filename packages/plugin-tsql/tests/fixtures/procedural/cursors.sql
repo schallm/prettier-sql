@@ -35,3 +35,31 @@ fetch prior from ScrollCursor into @bookId, @title
 
 close ScrollCursor
 deallocate ScrollCursor
+
+-- CURSOR VARIABLES: declare @var cursor, set @var = cursor for ..., open/fetch/close/deallocate
+
+declare @cur cursor
+
+set @cur = cursor for
+    select Id, Name
+    from dbo.Products
+    where IsActive = 1
+
+open @cur
+
+fetch next from @cur into @bookId, @title
+
+close @cur
+deallocate @cur
+
+-- cursor variable with options
+declare @scrollCur cursor
+
+set @scrollCur = cursor local static scroll for
+    select Id, Title from Books order by Id
+
+open @scrollCur
+fetch first from @scrollCur into @bookId, @title
+fetch last from @scrollCur into @bookId, @title
+close @scrollCur
+deallocate @scrollCur

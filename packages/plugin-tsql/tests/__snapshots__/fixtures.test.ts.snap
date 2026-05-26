@@ -67,6 +67,67 @@ drop database SalesDB;
 drop database if exists SalesDB;"
 `;
 
+exports[`fixtures > admin/create-database-filegroups.sql 1`] = `
+"-- CREATE DATABASE with ON PRIMARY file spec — file group content must not be dropped
+create database TestDb
+on
+   primary (name = 'TestDb', filename = 'C:\\data\\TestDb.mdf', size = 100mb)
+log on
+  (name = 'TestDb_log', filename = 'C:\\data\\TestDb_log.ldf', size = 10mb)
+collate Latin1_General_CI_AS;"
+`;
+
+exports[`fixtures > admin/dbcc.sql 1`] = `
+"-- DBCC statements — command names must not be garbled by enum mapping
+dbcc checkdb('MyDatabase') with no_infomsgs, all_errormsgs;
+
+-- CHECKCONSTRAINTS maps to enum Free(48) in ScriptDOM — must emit CHECKCONSTRAINTS not FREE
+dbcc checkconstraints(Orders) with all_constraints, no_infomsgs;
+
+dbcc checktable(N'dbo.Orders') with all_errormsgs;
+
+dbcc shrinkfile(N'MyDatabase_log', 1);
+
+dbcc freeproccache;
+
+dbcc dropcleanbuffers;
+
+dbcc show_statistics('dbo.Orders', IX_Orders_CustId);"
+`;
+
+exports[`fixtures > admin/service-broker.sql 1`] = `
+"-- Service Broker statements — END CONVERSATION must include the handle variable
+end conversation @handle;
+
+end conversation @handle with cleanup;
+
+end conversation @handle with error = 50001 description = 'Order processing failed';
+
+-- BEGIN DIALOG
+begin dialog conversation @handle
+    from service OrderService
+    to service 'TargetService'
+    on contract OrderContract
+    with lifetime = 3600;
+
+-- SEND ON CONVERSATION
+send on conversation @handle
+    message type OrderMessage
+    (N'<order><id>1</id></order>');
+
+-- RECEIVE
+receive top (10)
+    conversation_handle,
+    message_body
+from dbo.OrderQueue;
+
+-- GET CONVERSATION GROUP
+get conversation group @group_id from dbo.OrderQueue;
+
+-- MOVE CONVERSATION
+move conversation @handle to @group_id;"
+`;
+
 exports[`fixtures > admin/statistics.sql 1`] = `
 "create statistics stat1
 on dbo.Orders (OrderDate);
@@ -111,7 +172,14 @@ alter table Books
 alter column Price decimal(12, 2) not null;
 
 alter table Books
-alter column Code varchar(20);"
+alter column Code varchar(20);
+
+-- COLLATE clause must be preserved
+alter table dbo.T
+alter column Name nvarchar(200) collate Latin1_General_CI_AS null;
+
+alter table dbo.T
+alter column Code varchar(20) collate SQL_Latin1_General_CP1_CS_AS not null;"
 `;
 
 exports[`fixtures > alter-table/constraints.sql 1`] = `
@@ -218,7 +286,49 @@ create table Products (
   Price decimal(10, 2) not null,
   PriceWithTax as Price * 1.1 persisted,
   constraint PK_Products primary key (Id)
+);
+
+-- PERSISTED NOT NULL must not drop the NOT NULL constraint
+create table dbo.Employees (
+  Id int not null primary key,
+  FirstName nvarchar(50) not null,
+  LastName nvarchar(50) not null,
+  FullName as (FirstName + ' ' + LastName) persisted not null
 );"
+`;
+
+exports[`fixtures > create-table/filestream.sql 1`] = `
+"-- FILESTREAM_ON clause must be preserved
+create table dbo.Documents (
+  Id int not null primary key,
+  DocStream varbinary(max) filestream null,
+  RowGuid uniqueidentifier rowguidcol default newid() not null unique
+)
+on DataFileGroup
+filestream_on FileStreamGroup;"
+`;
+
+exports[`fixtures > create-table/graph-tables.sql 1`] = `
+"-- Graph table types — AS NODE and AS EDGE must be preserved
+create table dbo.Person (
+  Id int not null primary key,
+  Name nvarchar(100) not null
+) as node;
+
+create table dbo.Company (
+  Id int not null primary key,
+  Name nvarchar(200) not null,
+  Industry nvarchar(100) null
+) as node;
+
+create table dbo.WorksAt (
+  StartDate date null,
+  Title nvarchar(100) null
+) as edge;
+
+create table dbo.Knows (
+  Weight float null
+) as edge;"
 `;
 
 exports[`fixtures > create-table/temporal.sql 1`] = `
@@ -537,6 +647,14 @@ end;
 go"
 `;
 
+exports[`fixtures > index/alter-index-partition.sql 1`] = `
+"-- ALTER INDEX REBUILD with PARTITION = n — must come before WITH (...)
+alter index IX_Orders on dbo.Orders rebuild partition = 3 with (data_compression = row, online = on);
+
+-- ALTER INDEX REBUILD with PARTITION ALL
+alter index IX_Orders on dbo.Orders rebuild partition = all with (data_compression = page);"
+`;
+
 exports[`fixtures > index/basic.sql 1`] = `
 "create index IX_Books_Title
   on Books (
@@ -830,7 +948,47 @@ fetch prior from ScrollCursor into @bookId, @title;
 
 close ScrollCursor;
 
-deallocate ScrollCursor;"
+deallocate ScrollCursor;
+
+-- CURSOR VARIABLES: declare @var cursor, set @var = cursor for ..., open/fetch/close/deallocate
+declare @cur cursor;
+
+set @cur = cursor
+for
+select
+  Id,
+  Name
+from dbo.Products
+where IsActive = 1;
+
+open @cur;
+
+fetch next from @cur into @bookId, @title;
+
+close @cur;
+
+deallocate @cur;
+
+-- cursor variable with options
+declare @scrollCur cursor;
+
+set @scrollCur = cursor local static scroll
+for
+select
+  Id,
+  Title
+from Books
+order by Id asc;
+
+open @scrollCur;
+
+fetch first from @scrollCur into @bookId, @title;
+
+fetch last from @scrollCur into @bookId, @title;
+
+close @scrollCur;
+
+deallocate @scrollCur;"
 `;
 
 exports[`fixtures > procedural/operational.sql 1`] = `
@@ -1061,6 +1219,22 @@ where Books.InStock = 1
 order by Books.Title asc;"
 `;
 
+exports[`fixtures > select/change-tracking-context.sql 1`] = `
+"-- WITH CHANGE_TRACKING_CONTEXT must be preserved as prefix before DML
+with change_tracking_context (@ctx)
+update dbo.T
+set Name = 'Updated'
+where Id = 1;
+
+with change_tracking_context (@ctx)
+insert into dbo.T (Name)
+values ('New Row');
+
+with change_tracking_context (@ctx)
+delete from dbo.T
+where Id = 42;"
+`;
+
 exports[`fixtures > select/comments.sql 1`] = `
 "select Id
 from Books
@@ -1239,7 +1413,19 @@ for json path, without_array_wrapper;
 
 select *
 from Books
-for browse;"
+for browse;
+
+-- WITH XMLNAMESPACES must be preserved
+with
+  xmlnamespaces (
+    'http://schemas.example.com/orders' AS ord,
+    DEFAULT 'http://schemas.example.com/default'
+  )
+select
+  o.Id,
+  o.Amount
+from dbo.Orders as o
+for xml path('Order'), root('Orders');"
 `;
 
 exports[`fixtures > select/full-text.sql 1`] = `
@@ -1282,6 +1468,31 @@ from
   Books as b
   inner join freetexttable(Books, *, 'programming', 10) as ft on
     b.BookId = ft.[key];"
+`;
+
+exports[`fixtures > select/graph-match.sql 1`] = `
+"-- Graph queries: MATCH predicate must not drop the MATCH( prefix
+select
+  p1.Name,
+  p2.Name
+from
+  dbo.Person as p1,
+  dbo.Knows as k,
+  dbo.Person as p2
+where MATCH(p1-(k)->p2);
+
+-- Directed edge in both directions
+select
+  p1.Name,
+  p2.Name,
+  k.Weight
+from
+  dbo.Person as p1,
+  dbo.Knows as k,
+  dbo.Person as p2
+where
+  MATCH(p1-(k)->p2)
+  or MATCH(p2-(k)->p1);"
 `;
 
 exports[`fixtures > select/inline-values.sql 1`] = `
@@ -1872,6 +2083,26 @@ end;
 go"
 `;
 
+exports[`fixtures > stored-proc/natively-compiled.sql 1`] = `
+"-- Natively compiled stored procedures — BEGIN ATOMIC WITH (...) must be preserved
+create procedure dbo.usp_GetOrder
+  @Id int
+with native_compilation, schemabinding, execute as owner
+as
+begin atomic with (
+  TRANSACTION ISOLATION LEVEL = SNAPSHOT,
+  LANGUAGE = N'English'
+)
+  select
+    Id,
+    CustId,
+    Amount
+  from dbo.Orders
+  where Id = @Id;
+end;
+go"
+`;
+
 exports[`fixtures > stored-proc/tvp-parameter.sql 1`] = `
 "-- Stored proc with table-valued parameter (UDT type must not be keyword-cased)
 create procedure dbo.BulkInsertOrders
@@ -1923,6 +2154,20 @@ begin
     Id,
     getdate()
   from inserted;
+end;
+go"
+`;
+
+exports[`fixtures > trigger/database-scope.sql 1`] = `
+"-- DDL trigger: ON DATABASE scope must be preserved, DDL event names must not
+-- become generic "EVENT" (ScriptDOM TriggerActionType maps all DDL events to same enum).
+create trigger trgAuditDDL
+on database
+for create_table, alter_table, drop_table
+as
+begin
+  insert into dbo.DDLAudit (EventData, LoginName)
+  values (eventdata(), original_login());
 end;
 go"
 `;

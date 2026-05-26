@@ -108,9 +108,31 @@ export function printDeclareTableVariable(node: SqlNode, opts: Options): Doc {
 
 export function printSetVariable(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name') ?? '@var';
-    const val = prop(node, 'value');
     const opStr = assignmentOp(propStr(node, 'operator') ?? 'Equals');
-    return [keyword('SET', opts), ' ', name, ' ', opStr, ' ', val ? printNode(val, opts) : '', ';'];
+    const val = prop(node, 'value');
+
+    let valuePart: Doc;
+    if (val?.type === 'CursorDefinition') {
+        // SET @cur = CURSOR [options] FOR SELECT ...
+        const cursorOptions = val.props?.['options'] as string[] | undefined;
+        const cursorSelect = prop(val, 'select');
+        const optPart: Doc =
+            Array.isArray(cursorOptions) && cursorOptions.length > 0
+                ? [' ', join(' ', cursorOptions.map((o) => keyword(o as string, opts)))]
+                : '';
+        valuePart = group([
+            keyword('CURSOR', opts),
+            optPart,
+            hardline,
+            keyword('FOR', opts),
+            hardline,
+            cursorSelect ? qexpr(cursorSelect, opts) : '',
+        ]);
+    } else {
+        valuePart = val ? printNode(val, opts) : '';
+    }
+
+    return [keyword('SET', opts), ' ', name, ' ', opStr, ' ', valuePart, ';'];
 }
 
 export function printSetRowCount(node: SqlNode, opts: Options): Doc {

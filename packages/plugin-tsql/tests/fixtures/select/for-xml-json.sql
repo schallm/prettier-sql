@@ -23,3 +23,12 @@ from Books
 for json path, without_array_wrapper
 
 select * from Books for browse
+
+-- WITH XMLNAMESPACES must be preserved
+with xmlnamespaces (
+    'http://schemas.example.com/orders' as ord,
+    default 'http://schemas.example.com/default'
+)
+select o.Id, o.Amount
+from dbo.Orders as o
+for xml path('Order'), root('Orders')
