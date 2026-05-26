@@ -433,6 +433,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             name: string;
             elementType: string;
             ifExists: boolean;
+            dropOptions?: string[];
         }>;
         // All elements share the same IF EXISTS flag (SQL only allows one DROP per statement)
         const ifExists = elements[0]?.ifExists ?? false;
@@ -447,6 +448,12 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
                 ),
             ]),
         ]);
+        // WITH (ONLINE = ON, WAIT_AT_LOW_PRIORITY ...) on DROP CLUSTERED CONSTRAINT
+        const allDropOptions = elements.flatMap((e) => e.dropOptions ?? []);
+        const withPart: Doc =
+            allDropOptions.length
+                ? [' ', keyword('WITH', opts), ' (', join(', ', allDropOptions), ')']
+                : '';
         return [
             keyword('ALTER TABLE', opts),
             ' ',
@@ -456,6 +463,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             ifExists ? [' ', keyword('IF EXISTS', opts)] : '',
             ' ',
             nameList,
+            withPart,
             ';',
         ];
     }

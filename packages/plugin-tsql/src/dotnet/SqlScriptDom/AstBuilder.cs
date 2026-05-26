@@ -1465,6 +1465,24 @@ public class AstBuilder : TSqlFragmentVisitor {
         return RawText(opt).Trim();
     }
 
+    private static string SerializeDropConstraintOption(DropClusteredConstraintOption o) {
+        // ONLINE = ON / ONLINE = OFF
+        if (o is DropClusteredConstraintStateOption state) {
+            var kind = state.OptionKind.ToString().ToUpperInvariant();   // e.g. "Online" → "ONLINE"
+            var val  = state.OptionState == OptionState.On ? "ON" : "OFF";
+            return $"{kind} = {val}";
+        }
+        // MAXDOP = n
+        if (o is DropClusteredConstraintValueOption valOpt) {
+            var kind = valOpt.OptionKind.ToString().ToUpperInvariant();  // e.g. "MaxDop" → "MAXDOP"
+            var val  = valOpt.OptionValue is IntegerLiteral il ? il.Value
+                     : valOpt.OptionValue != null ? RawText(valOpt.OptionValue).Trim() : "0";
+            return $"{kind} = {val}";
+        }
+        // WAIT_AT_LOW_PRIORITY (...) — RawText produces the full parenthesised sub-expression correctly
+        return RawText(o).Trim();
+    }
+
     private static SqlNode BuildInlineIndex(IndexDefinition idx) {
         var kindStr = idx.IndexType?.IndexTypeKind switch {
             IndexTypeKind.Clustered => "clustered",
@@ -1707,6 +1725,10 @@ public class AstBuilder : TSqlFragmentVisitor {
                     ["name"] = e.Name?.Value,
                     ["elementType"] = e.TableElementType.ToString(),
                     ["ifExists"] = e.IsIfExists,
+                    // WITH (ONLINE = ON, WAIT_AT_LOW_PRIORITY ...) on DROP CLUSTERED CONSTRAINT
+                    ["dropOptions"] = e.DropClusteredConstraintOptions?.Count > 0
+                        ? e.DropClusteredConstraintOptions.Select(o => (object?)SerializeDropConstraintOption(o)).ToList()
+                        : null,
                 }).ToList();
         } else if (at is AlterTableConstraintModificationStatement constraintMod) {
             props["constraintEnforcement"] = constraintMod.ConstraintEnforcement.ToString();

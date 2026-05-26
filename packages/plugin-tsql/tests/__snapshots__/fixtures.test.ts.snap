@@ -218,6 +218,20 @@ exports[`fixtures > alter-table/drop-column.sql 1`] = `
 drop column Isbn, Summary;"
 `;
 
+exports[`fixtures > alter-table/drop-constraint-with.sql 1`] = `
+"-- DROP CLUSTERED CONSTRAINT WITH options (ONLINE, WAIT_AT_LOW_PRIORITY, MAXDOP) must be preserved
+alter table dbo.Orders
+drop constraint
+  PK_Orders with (ONLINE = ON, wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self));
+
+alter table dbo.Orders
+drop constraint
+  IX_Orders_Date with (ONLINE = ON, wait_at_low_priority (max_duration = 10 minutes, abort_after_wait = blockers));
+
+alter table dbo.BigTable
+drop constraint CL_BigTable with (ONLINE = ON, MAXDOP = 4);"
+`;
+
 exports[`fixtures > alter-table/set-rebuild-switch.sql 1`] = `
 "alter table Orders
 set (lock_escalation = auto);
