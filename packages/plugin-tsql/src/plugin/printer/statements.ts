@@ -571,17 +571,32 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
 
 function printCtes(node: SqlNode, opts: Options): Doc[] {
     const ctes = propArr(node, 'ctes');
-    if (ctes.length === 0) return [];
+    const xmlNamespaces = node.props?.['xmlNamespaces'] as string[] | undefined;
+
+    if (ctes.length === 0 && !xmlNamespaces?.length) return [];
 
     const leading = getCommaStyle(opts) === 'leading';
-    const cteDocs = ctes.map((cte) => {
+    const sep: Doc = leading ? [hardline, ', '] : [',', hardline];
+
+    // Collect all items for the WITH clause: XMLNAMESPACES first, then CTEs.
+    const allItems: Doc[] = [];
+
+    if (xmlNamespaces?.length) {
+        allItems.push([
+            keyword('XMLNAMESPACES', opts),
+            ' (',
+            indent([hardline, join(sep, xmlNamespaces)]),
+            hardline,
+            ')',
+        ]);
+    }
+
+    for (const cte of ctes) {
         const name = propStr(cte, 'name') ?? 'cte';
         const cols = cte.props?.['columns'] as string[] | undefined;
         const query = prop(cte, 'query');
-
         const colsPart: Doc = cols?.length ? [' ', parenList(cols)] : '';
-
-        return [
+        allItems.push([
             name,
             colsPart,
             ' ',
@@ -590,11 +605,10 @@ function printCtes(node: SqlNode, opts: Options): Doc[] {
             indent([hardline, query ? qexpr(query, opts) : '']),
             hardline,
             ')',
-        ] as Doc;
-    });
+        ] as Doc);
+    }
 
-    const sep: Doc = leading ? [hardline, ', '] : [',', hardline];
-    return [[keyword('WITH', opts), indent([hardline, join(sep, cteDocs)])], hardline];
+    return [[keyword('WITH', opts), indent([hardline, join(sep, allItems)])], hardline];
 }
 
 function printSelect(node: SqlNode, opts: Options): Doc {

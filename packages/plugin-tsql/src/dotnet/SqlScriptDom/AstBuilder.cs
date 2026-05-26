@@ -1048,6 +1048,13 @@ public class AstBuilder : TSqlFragmentVisitor {
         var ctes = sel.WithCtesAndXmlNamespaces?.CommonTableExpressions
             ?.Select(c => (object?)BuildCte(c)).ToList();
 
+        // WITH XMLNAMESPACES — serialize each namespace element from its properties
+        // so we don't rely on StartOffset (which may not point to DEFAULT/alias tokens).
+        var xmlNsElems = sel.WithCtesAndXmlNamespaces?.XmlNamespaces?.XmlNamespacesElements;
+        var xmlNamespaces = xmlNsElems?.Count > 0
+            ? xmlNsElems.Select(e => (object?)BuildXmlNamespaceElement(e)).ToList()
+            : null;
+
         var optimizerHints = MapList(sel.OptimizerHints, h => (object?)BuildOptimizerHint(h));
         var queryExpr = BuildQueryExpression(sel.QueryExpression);
 
@@ -1058,9 +1065,23 @@ public class AstBuilder : TSqlFragmentVisitor {
 
         return Node("SelectStatement", sel, new Dictionary<string, object?> {
             ["ctes"] = ctes,
+            ["xmlNamespaces"] = xmlNamespaces,
             ["queryExpression"] = queryExpr,
             ["optimizerHints"] = optimizerHints,
         });
+    }
+
+    private static string BuildXmlNamespaceElement(XmlNamespacesElement e) {
+        if (e is XmlNamespacesDefaultElement def) {
+            var uri = def.String?.Value ?? "";
+            return $"DEFAULT '{uri}'";
+        }
+        if (e is XmlNamespacesAliasElement alias) {
+            var uri = alias.String?.Value ?? "";
+            var name = alias.Identifier?.Value ?? "";
+            return $"'{uri}' AS {name}";
+        }
+        return RawText(e);
     }
 
     private static string BuildOptimizerHint(OptimizerHint hint) {
