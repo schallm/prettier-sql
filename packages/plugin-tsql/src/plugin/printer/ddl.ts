@@ -141,6 +141,11 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
 }
 
 export function printColumnDef(node: SqlNode, opts: Options): Doc {
+    // Raw leaf (e.g. ENCRYPTED WITH — property names vary across ScriptDOM versions).
+    // The C# AstBuilder emits `Leaf("ColumnDefinition", col, rawText)` which sets
+    // `node.text` to the original column fragment and leaves `node.props` undefined.
+    if (!node.props) return node.text ?? '/* column */';
+
     const name = propStr(node, 'name') ?? 'col';
 
     // Computed column: Name AS expression [PERSISTED]
@@ -308,7 +313,11 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
                 return [c.name, dir] as Doc;
             });
             const colsDoc = parenList(colDocs);
-            return group([namePrefix, indent([softline, kw, ' ', clusteredKw, colsDoc])]);
+            const indexOptions = node.props?.['indexOptions'] as string[] | undefined;
+            const withPart: Doc = indexOptions?.length
+                ? [' ', keyword('WITH', opts), ' (', join(', ', indexOptions), ')']
+                : '';
+            return group([namePrefix, indent([softline, kw, ' ', clusteredKw, colsDoc]), withPart]);
         }
         case 'CheckConstraint': {
             const expr = prop(node, 'expression');
@@ -443,6 +452,45 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
 
     if (alterType === 'AlterTableAlterColumnStatement') {
         const column = propStr(node, 'column') ?? '';
+        const alterColumnOption = propStr(node, 'alterColumnOption');
+        const maskingFunction = propStr(node, 'maskingFunction');
+
+        // ADD/DROP modifier variants (no data type change, just add/remove a column property)
+        if (alterColumnOption) {
+            let optDoc: Doc;
+            if (alterColumnOption === 'AddMaskingFunction') {
+                // ALTER COLUMN col ADD MASKED WITH (FUNCTION = 'fn()')
+                const fn = maskingFunction ?? 'default()';
+                optDoc = [keyword('ADD MASKED WITH', opts), ' (', keyword('FUNCTION', opts), ` = '${fn}')`];
+            } else {
+                const optMap: Record<string, string> = {
+                    DropMaskingFunction: 'DROP MASKED',
+                    AddSparse: 'ADD SPARSE',
+                    DropSparse: 'DROP SPARSE',
+                    AddRowGuidCol: 'ADD ROWGUIDCOL',
+                    DropRowGuidCol: 'DROP ROWGUIDCOL',
+                    AddHidden: 'ADD HIDDEN',
+                    DropHidden: 'DROP HIDDEN',
+                    AddPersisted: 'ADD PERSISTED',
+                    DropPersisted: 'DROP PERSISTED',
+                };
+                optDoc = keyword(optMap[alterColumnOption] ?? alterColumnOption.toUpperCase(), opts);
+            }
+            return [
+                keyword('ALTER TABLE', opts),
+                ' ',
+                name,
+                hardline,
+                keyword('ALTER COLUMN', opts),
+                ' ',
+                column,
+                ' ',
+                optDoc,
+                ';',
+            ];
+        }
+
+        // Normal type-change: ALTER COLUMN col newtype [NULL|NOT NULL]
         const dataType = propStr(node, 'dataType') ?? '';
         const nullPart = nullablePart(node.props?.['nullable'], opts);
         return [

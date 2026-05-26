@@ -1432,6 +1432,12 @@ public class AstBuilder : TSqlFragmentVisitor {
     }
 
     private static SqlNode BuildColumnDefinition(ColumnDefinition col) {
+        // Always Encrypted (ENCRYPTED WITH): property name varies by ScriptDOM version.
+        // Detect via raw text and emit a raw leaf so the clause is never silently dropped.
+        var rawCol = RawText(col).Trim();
+        if (rawCol.IndexOf("ENCRYPTED", StringComparison.OrdinalIgnoreCase) >= 0)
+            return Leaf("ColumnDefinition", col, rawCol);
+
         if (col.ComputedColumnExpression != null) {
             return new SqlNode(
                 "ColumnDefinition",
@@ -1490,6 +1496,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                         ["constraintName"] = uq.ConstraintIdentifier?.Value,
                         ["isPrimaryKey"] = uq.IsPrimaryKey,
                         ["clustered"] = uq.Clustered == true ? (object?)true : uq.Clustered == false ? (object?)false : null,
+                        ["indexOptions"] = MapList(uq.IndexOptions, o => (object?)SerializeIndexOption(o)),
                     }
                     : null,
                 // Inline column-level CHECK constraint name
@@ -1524,6 +1531,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                         ["name"] = col.Column?.MultiPartIdentifier?.Identifiers.LastOrDefault()?.Value,
                         ["order"] = col.SortOrder == SortOrder.Descending ? "Descending" : "Ascending",
                     }).ToList(),
+                    ["indexOptions"] = MapList(unique.IndexOptions, o => (object?)SerializeIndexOption(o)),
                 }),
             CheckConstraintDefinition check => new SqlNode(
                 "CheckConstraint",
@@ -1587,6 +1595,14 @@ public class AstBuilder : TSqlFragmentVisitor {
             props["nullable"] = alterCol.AlterTableAlterColumnOption == AlterTableAlterColumnOption.Null ? (object?)true
                 : alterCol.AlterTableAlterColumnOption == AlterTableAlterColumnOption.NotNull ? false
                 : null;
+            // NoOptionDefined (= 0), Null, and NotNull are all handled via `nullable` prop.
+            // Only emit alterColumnOption for actual property-modifier variants (AddMaskingFunction, etc.).
+            var colOpt = alterCol.AlterTableAlterColumnOption;
+            props["alterColumnOption"] = (colOpt == AlterTableAlterColumnOption.Null
+                || colOpt == AlterTableAlterColumnOption.NotNull
+                || colOpt.ToString() == "NoOptionDefined") ? null : colOpt.ToString();
+            // ADD/DROP MASKED WITH
+            props["maskingFunction"] = alterCol.MaskingFunction?.Value;
         } else if (at is AlterTableSetStatement setStmt) {
             // Use SerializeTableOption so complex options like SYSTEM_VERSIONING are
             // correctly serialized (OptionKind is unreliable — it defaults to 0).
