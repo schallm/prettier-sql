@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "vscode-sql-v*"
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install workspace dependencies
+        run: pnpm install
+
+      - name: Build all plugins (compiles .NET DLLs + TypeScript)
+        run: pnpm -r build
+
+      - name: Compile VS Code extension TypeScript
+        run: npx tsc -p tsconfig.json
+        working-directory: extensions/vscode-sql
+
+      - name: Package VSIX
+        run: npx vsce package --no-dependencies
+        working-directory: extensions/vscode-sql
+
+      - name: Find VSIX
+        id: vsix
+        run: |
+          name=$(ls *.vsix | head -1)
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+        working-directory: extensions/vscode-sql
+
+      - name: Publish to VS Code Marketplace
+        if: secrets.VSCE_PAT != ''
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx vsce publish --no-dependencies --pat "$VSCE_PAT"
+        working-directory: extensions/vscode-sql
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: extensions/vscode-sql/${{ steps.vsix.outputs.name }}
+          generate_release_notes: true

@@ -1,0 +1,10 @@
+{
+    "name": "prettier-sql-vscode-bundled",
+    "private": true,
+    "type": "module",
+    "dependencies": {
+        "prettier": "^3.0.0",
+        "prettier-plugin-tsql": "workspace:*",
+        "prettier-plugin-postgresql": "workspace:*"
+    }
+}

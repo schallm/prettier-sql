@@ -1,0 +1,17 @@
+# Source — compiled to dist/
+src/
+tsconfig.json
+
+# Bundled package files (node_modules ARE included)
+bundled/package.json
+bundled/package-lock.json
+
+# Dev artifacts
+.github/
+*.vsix
+node_modules/
+
+# Keep
+!dist/**
+!bundled/format.mjs
+!bundled/node_modules/**

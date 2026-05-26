@@ -1,0 +1,124 @@
+{
+    "name": "prettier-sql",
+    "displayName": "Prettier SQL",
+    "description": "Format T-SQL and PostgreSQL files using Prettier. Powered by prettier-plugin-tsql and prettier-plugin-postgresql.",
+    "version": "0.1.0",
+    "publisher": "PickyCode",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/schallm/prettier-sql"
+    },
+    "engines": {
+        "vscode": "^1.80.0"
+    },
+    "categories": [
+        "Formatters"
+    ],
+    "keywords": [
+        "sql",
+        "tsql",
+        "t-sql",
+        "postgresql",
+        "pgsql",
+        "prettier",
+        "formatter",
+        "sqlserver"
+    ],
+    "activationEvents": [
+        "onLanguage:sql",
+        "onLanguage:tsql",
+        "onLanguage:pgsql"
+    ],
+    "main": "./dist/extension.js",
+    "contributes": {
+        "languages": [
+            {
+                "id": "tsql",
+                "aliases": ["T-SQL", "tsql"],
+                "extensions": [".tsql"],
+                "configuration": "./language-configuration.json"
+            },
+            {
+                "id": "pgsql",
+                "aliases": ["PostgreSQL", "pgsql"],
+                "extensions": [".pgsql"],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "configuration": {
+            "title": "Prettier SQL",
+            "properties": {
+                "prettierSql.defaultDialect": {
+                    "type": "string",
+                    "enum": ["tsql", "pgsql"],
+                    "default": "tsql",
+                    "description": "Dialect to use when formatting plain .sql files that have no --tsql or --pgsql directive comment.",
+                    "enumDescriptions": [
+                        "T-SQL / SQL Server (default)",
+                        "PostgreSQL"
+                    ]
+                },
+                "prettierSql.sqlKeywordCase": {
+                    "type": "string",
+                    "enum": ["lower", "upper", "preserve"],
+                    "default": "lower",
+                    "description": "Casing to apply to SQL keywords.",
+                    "enumDescriptions": [
+                        "lowercase (select, from, where)",
+                        "UPPERCASE (SELECT, FROM, WHERE)",
+                        "Preserve existing casing"
+                    ]
+                },
+                "prettierSql.sqlDensity": {
+                    "type": "string",
+                    "enum": ["compact", "standard", "spacious"],
+                    "default": "standard",
+                    "description": "Controls how densely statements are laid out.",
+                    "enumDescriptions": [
+                        "Pack as much as possible on each line",
+                        "One clause per line (recommended)",
+                        "Extra blank lines between logical sections"
+                    ]
+                },
+                "prettierSql.sqlCommaStyle": {
+                    "type": "string",
+                    "enum": ["trailing", "leading"],
+                    "default": "trailing",
+                    "description": "Whether commas go at the end or the start of a line in column lists.",
+                    "enumDescriptions": [
+                        "Trailing comma (col1,\\n col2)",
+                        "Leading comma (col1\\n,col2)"
+                    ]
+                },
+                "prettierSql.printWidth": {
+                    "type": "integer",
+                    "default": 120,
+                    "minimum": 40,
+                    "description": "Line length at which the formatter wraps SQL to the next line."
+                }
+            }
+        },
+        "commands": [
+            {
+                "command": "prettierSql.formatDocument",
+                "title": "Format SQL Document",
+                "category": "Prettier SQL"
+            }
+        ]
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run bundle && npm run compile",
+        "bundle": "cd bundled && npm install",
+        "compile": "tsc -p tsconfig.json",
+        "watch": "tsc -p tsconfig.json --watch",
+        "package": "vsce package",
+        "publish": "vsce publish"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "@types/vscode": "^1.80.0",
+        "@vscode/vsce": "^3.0.0",
+        "typescript": "^5.0.0"
+    }
+}
