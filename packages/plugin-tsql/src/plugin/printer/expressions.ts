@@ -1283,15 +1283,22 @@ function printNamedTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) 
     return [nameDoc, temporalDoc, aliasPart, sampleDoc, hintsDoc];
 }
 
-function joinTypeKeyword(jt: string, opts: Options): Doc {
-    const map: Record<string, string> = {
+function joinTypeKeyword(jt: string, opts: Options, hint?: string | null): Doc {
+    const typeMap: Record<string, string> = {
+        Inner: 'INNER',
+        LeftOuter: 'LEFT',
+        RightOuter: 'RIGHT',
+        FullOuter: 'FULL',
+    };
+    const typeWord = typeMap[jt] ?? jt.toUpperCase();
+    if (hint) return keyword(`${typeWord} ${hint} JOIN`, opts);
+    const noHintMap: Record<string, string> = {
         Inner: 'INNER JOIN',
         LeftOuter: 'LEFT JOIN',
         RightOuter: 'RIGHT JOIN',
         FullOuter: 'FULL JOIN',
     };
-    const kw = map[jt] ?? `${jt} JOIN`;
-    return keyword(kw, opts);
+    return keyword(noHintMap[jt] ?? `${typeWord} JOIN`, opts);
 }
 
 /**
@@ -1325,6 +1332,7 @@ function printQualifiedJoin(node: SqlNode, opts: Options, printFn: (n: SqlNode) 
     const right = prop(node, 'right');
     const condition = prop(node, 'condition');
     const jt = propStr(node, 'joinType') ?? 'Inner';
+    const hint = propStr(node, 'joinHint');
 
     // compact: try to keep joins on one line (line = space when flat)
     // standard/spacious: always new line before each JOIN keyword
@@ -1358,7 +1366,7 @@ function printQualifiedJoin(node: SqlNode, opts: Options, printFn: (n: SqlNode) 
     return [
         leftDoc,
         separator,
-        joinTypeKeyword(jt, opts),
+        joinTypeKeyword(jt, opts, hint),
         ' ',
         right ? printTableRef(right, opts, printFn) : '',
         onDoc,

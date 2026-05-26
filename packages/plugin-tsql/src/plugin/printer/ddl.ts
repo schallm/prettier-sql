@@ -312,7 +312,15 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
         }
         case 'CheckConstraint': {
             const expr = prop(node, 'expression');
-            return [namePrefix, keyword('CHECK', opts), ' (', expr ? printBool(expr, opts) : '', ')'];
+            const nfr = propBool(node, 'notForReplication');
+            return [
+                namePrefix,
+                keyword('CHECK', opts),
+                nfr ? [' ', keyword('NOT FOR REPLICATION', opts)] : '',
+                ' (',
+                expr ? printBool(expr, opts) : '',
+                ')',
+            ];
         }
         case 'ForeignKeyConstraint': {
             const cols = Array.isArray(node.props?.['columns']) ? (node.props?.['columns'] as string[]) : [];
@@ -321,6 +329,7 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
             const refName = refTable ? schemaObjectName(refTable) : '';
             const deleteAction = propStr(node, 'deleteAction');
             const updateAction = propStr(node, 'updateAction');
+            const nfr = propBool(node, 'notForReplication');
             const refActionKw = (action: string): Doc =>
                 keyword(
                     action
@@ -344,6 +353,7 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
                         ]),
                         deleteAction ? [line, keyword('ON DELETE', opts), ' ', refActionKw(deleteAction)] : '',
                         updateAction ? [line, keyword('ON UPDATE', opts), ' ', refActionKw(updateAction)] : '',
+                        nfr ? [line, keyword('NOT FOR REPLICATION', opts)] : '',
                     ]),
                 ]),
             ];
@@ -577,6 +587,9 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
             ? [hardline, keyword('WITH', opts), ' (', join(', ', indexOptions), ')']
             : '';
 
+    const onFileGroup = propStr(node, 'onFileGroup');
+    const fileGroupPart: Doc = onFileGroup ? [hardline, keyword('ON', opts), ' ', onFileGroup] : '';
+
     return group([
         keyword('CREATE', opts),
         ' ',
@@ -587,6 +600,7 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
         indexName,
         indent([hardline, onClause, includePart, filterPart]),
         withPart,
+        fileGroupPart,
         ';',
     ]);
 }

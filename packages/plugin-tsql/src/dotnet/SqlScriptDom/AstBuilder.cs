@@ -593,6 +593,18 @@ public class AstBuilder : TSqlFragmentVisitor {
                     ? $"INDEX = {vals.First()}"
                     : $"INDEX({string.Join(", ", vals)})");
             }
+            // FORCESEEK with optional index and column list: FORCESEEK(index_name(col1,col2))
+            if (h is ForceSeekTableHint fsHint && fsHint.IndexValue != null) {
+                var idxName = fsHint.IndexValue.Identifier != null
+                    ? QuotedName(fsHint.IndexValue.Identifier)
+                    : fsHint.IndexValue.Value ?? "";
+                if (fsHint.ColumnValues?.Count > 0) {
+                    var cols = fsHint.ColumnValues.Select(cv =>
+                        cv.MultiPartIdentifier?.Identifiers.LastOrDefault()?.Value ?? "");
+                    return (object?)$"FORCESEEK({idxName}({string.Join(", ", cols)}))";
+                }
+                return (object?)$"FORCESEEK({idxName})";
+            }
             return (object?)h.HintKind.ToString().ToUpper();
         });
         return Node("NamedTableReference", named, new Dictionary<string, object?> {
@@ -607,6 +619,7 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildQualifiedJoin(QualifiedJoin qj) =>
         Node("QualifiedJoin", qj, new Dictionary<string, object?> {
             ["joinType"] = qj.QualifiedJoinType.ToString(),
+            ["joinHint"] = qj.JoinHint == JoinHint.None ? null : qj.JoinHint.ToString().ToUpper(),
             ["left"] = BuildTableReference(qj.FirstTableReference),
             ["right"] = BuildTableReference(qj.SecondTableReference),
             ["condition"] = BuildBooleanExpression(qj.SearchCondition),
@@ -1520,6 +1533,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                 new Dictionary<string, object?> {
                     ["constraintName"] = name,
                     ["expression"] = BuildBooleanExpression(check.CheckCondition),
+                    ["notForReplication"] = check.NotForReplication ? (object?)true : null,
                 }),
             ForeignKeyConstraintDefinition fk => new SqlNode(
                 "ForeignKeyConstraint",
@@ -1533,6 +1547,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                     ["refColumns"] = fk.ReferencedTableColumns?.Select(col => (object?)col.Value).ToList(),
                     ["deleteAction"] = fk.DeleteAction == DeleteUpdateAction.NotSpecified ? null : fk.DeleteAction.ToString(),
                     ["updateAction"] = fk.UpdateAction == DeleteUpdateAction.NotSpecified ? null : fk.UpdateAction.ToString(),
+                    ["notForReplication"] = fk.NotForReplication ? (object?)true : null,
                 }),
             _ => Leaf("TableConstraint", c, RawText(c)),
         };
@@ -1621,6 +1636,9 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["includeColumns"] = ci.IncludeColumns?.Select(c => (object?)c.MultiPartIdentifier?.Identifiers.LastOrDefault()?.Value).ToList(),
                 ["filterPredicate"] = ci.FilterPredicate != null ? RawText(ci.FilterPredicate).Trim() : null,
                 ["indexOptions"] = MapList(ci.IndexOptions, o => (object?)SerializeIndexOption(o)),
+                ["onFileGroup"] = ci.OnFileGroupOrPartitionScheme?.Name is { } fg
+                    ? (fg.Identifier != null ? QuotedName(fg.Identifier) : fg.Value)
+                    : null,
             });
     }
 
