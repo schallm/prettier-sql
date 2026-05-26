@@ -17,7 +17,7 @@ import {
     appendTrailingLines,
     parenList,
 } from '@prettier-sql/core/printer/utils';
-import { prop, propArr, propStr, assignmentOp } from './helpers.js';
+import { prop, propArr, propStr, propBool, assignmentOp } from './helpers.js';
 import {
     printExpression,
     printBoolExpr,
@@ -683,6 +683,17 @@ function printValuesSource(node: SqlNode, opts: Options): Doc {
 // Shared SET-clause renderer (UPDATE and MERGE UPDATE)
 // ---------------------------------------------------------------------------
 
+/** Render TOP (n) [PERCENT] [WITH TIES] for DELETE and UPDATE statements. */
+function renderTopFilter(topNode: SqlNode, opts: Options): Doc {
+    const expr = prop(topNode, 'expression');
+    const isPercent = propBool(topNode, 'percent');
+    const withTies = propBool(topNode, 'withTies');
+    const parts: Doc[] = [keyword('TOP', opts), ' (', expr ? printNode(expr, opts) : '', ')'];
+    if (isPercent) parts.push(' ', keyword('PERCENT', opts));
+    if (withTies) parts.push(' ', keyword('WITH TIES', opts));
+    return parts;
+}
+
 /**
  * Render one SET clause item, handling three forms:
  *   col = val             — plain column assignment
@@ -709,6 +720,7 @@ function printSetClauseItem(sc: SqlNode, opts: Options): Doc {
 function printUpdate(node: SqlNode, opts: Options): Doc {
     const ctesDocs = printCtes(node, opts);
     const density = getDensity(opts);
+    const topNode = prop(node, 'top');
     const target = prop(node, 'target');
     const setClauses = propArr(node, 'set');
     const from = prop(node, 'from');
@@ -717,10 +729,12 @@ function printUpdate(node: SqlNode, opts: Options): Doc {
     const outputInto = prop(node, 'outputInto');
 
     const setParts = setClauses.map((sc) => printSetClauseItem(sc, opts));
+    const topDoc: Doc = topNode ? [' ', renderTopFilter(topNode, opts)] : '';
 
     const parts: Doc[] = [
         ...ctesDocs,
         keyword('UPDATE', opts),
+        topDoc,
         ' ',
         target ? printTable(target, opts) : '',
         hardline,
@@ -760,16 +774,22 @@ function printUpdate(node: SqlNode, opts: Options): Doc {
 
 function printDelete(node: SqlNode, opts: Options): Doc {
     const ctesDocs = printCtes(node, opts);
+    const topNode = prop(node, 'top');
     const target = prop(node, 'target');
     const from = prop(node, 'from');
     const where = prop(node, 'where');
     const output = prop(node, 'output');
     const outputInto = prop(node, 'outputInto');
 
-    // Multi-table DELETE: DELETE alias FROM join-tree — omit the FROM before the alias.
-    // Simple DELETE: DELETE FROM table — no separate FROM clause.
-    const deleteKw: Doc = from ? keyword('DELETE', opts) : keyword('DELETE FROM', opts);
-    const parts: Doc[] = [...ctesDocs, deleteKw, ' ', target ? printTable(target, opts) : ''];
+    const topDoc: Doc = topNode ? [' ', renderTopFilter(topNode, opts)] : '';
+    // Multi-table DELETE: DELETE [TOP] alias FROM join-tree
+    // Simple DELETE: DELETE [TOP] FROM table (TOP goes between DELETE and FROM)
+    let parts: Doc[];
+    if (from) {
+        parts = [...ctesDocs, keyword('DELETE', opts), topDoc, ' ', target ? printTable(target, opts) : ''];
+    } else {
+        parts = [...ctesDocs, keyword('DELETE', opts), topDoc, ' ', keyword('FROM', opts), ' ', target ? printTable(target, opts) : ''];
+    }
 
     if (from) {
         const tableRefs = propArr(from, 'tableReferences');

@@ -356,6 +356,13 @@ export function printExecute(node: SqlNode, opts: Options): Doc {
         return parts as Doc;
     });
 
+    const withResultSets = propStr(node, 'withResultSets');
+    // withResultSets raw text is e.g. "WITH RESULT SETS ((Id int, Name nvarchar(100)))"
+    // Re-emit the keyword cased, then the raw parenthesized definition verbatim.
+    const withResultSetsPart: Doc = withResultSets
+        ? [' ', keyword('WITH RESULT SETS', opts), withResultSets.replace(/^with\s+result\s+sets\s*/i, ' ')]
+        : '';
+
     return group([
         keyword('EXECUTE', opts),
         ' ',
@@ -363,6 +370,7 @@ export function printExecute(node: SqlNode, opts: Options): Doc {
         target,
         parameters.length > 0 ? indent([hardline, join([',', hardline], paramDocs)]) : '',
         atClause,
+        withResultSetsPart,
         ';',
     ]);
 }

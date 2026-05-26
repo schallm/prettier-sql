@@ -1155,6 +1155,7 @@ public class AstBuilder : TSqlFragmentVisitor {
 
         return Node("UpdateStatement", upd, new Dictionary<string, object?> {
             ["ctes"] = ctes,
+            ["top"] = spec.TopRowFilter != null ? BuildTopRowFilter(spec.TopRowFilter) : null,
             ["target"] = target,
             ["set"] = setClauses,
             ["from"] = fromClause,
@@ -1192,6 +1193,7 @@ public class AstBuilder : TSqlFragmentVisitor {
 
         return Node("DeleteStatement", del, new Dictionary<string, object?> {
             ["ctes"] = ctes,
+            ["top"] = spec.TopRowFilter != null ? BuildTopRowFilter(spec.TopRowFilter) : null,
             ["target"] = target,
             ["from"] = fromClause,
             ["where"] = whereClause,
@@ -1304,12 +1306,20 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["output"] = p.IsOutput,
         })).ToList();
 
+        // WITH RESULT SETS — property not available in this ScriptDOM version; detect via raw text.
+        var rawEs = RawText(es).Trim();
+        var wrsIdx = rawEs.IndexOf("WITH RESULT SETS", StringComparison.OrdinalIgnoreCase);
+        var withResultSets = wrsIdx >= 0
+            ? rawEs.Substring(wrsIdx).TrimEnd(';').Trim()
+            : null;
+
         return Node("ExecuteStatement", es, new Dictionary<string, object?> {
             ["proc"] = procNode,
             ["procVar"] = procVar,
             ["returnVar"] = spec?.Variable?.Name,
             ["linkedServer"] = linkedServer,
             ["parameters"] = parameters,
+            ["withResultSets"] = withResultSets,
         });
     }
 
