@@ -536,6 +536,24 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'AlterDatabaseRebuildLogStatement':
             return printAlterDatabaseRebuildLog(node, opts);
 
+        // ── Service Broker ────────────────────────────────────────────────────
+        case 'EndConversationStatement': {
+            const handle = propStr(node, 'handle') ?? '';
+            const withCleanup = propBool(node, 'withCleanup');
+            const errorCode = propStr(node, 'errorCode');
+            const errorDesc = propStr(node, 'errorDescription');
+            let withPart: Doc = '';
+            if (withCleanup) {
+                withPart = [' ', keyword('WITH CLEANUP', opts)];
+            } else if (errorCode) {
+                withPart = [
+                    ' ', keyword('WITH ERROR =', opts), ' ', errorCode,
+                    ' ', keyword('DESCRIPTION =', opts), ' ', errorDesc ?? "''",
+                ];
+            }
+            return [[keyword('END CONVERSATION', opts), ' ', handle, withPart], ';'];
+        }
+
         default: {
             // Raw-text fallback for statement types not yet explicitly handled.
             // ScriptDOM includes the trailing ';' terminator in the fragment when the

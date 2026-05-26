@@ -1025,6 +1025,17 @@ public class AstBuilder : TSqlFragmentVisitor {
             AlterDatabaseModifyFileGroupStatement admfg => BuildAlterDatabaseModifyFileGroup(admfg),
             AlterDatabaseRebuildLogStatement adrl => BuildAlterDatabaseRebuildLog(adrl),
 
+            // Service Broker — END CONVERSATION
+            // ScriptDOM's EndConversationStatement.StartOffset points at the handle variable
+            // (not at the END keyword), so the raw-text fallback drops "END CONVERSATION".
+            // Handle it explicitly.
+            EndConversationStatement ecs => Node("EndConversationStatement", ecs, new Dictionary<string, object?> {
+                ["handle"]           = ecs.Conversation != null ? RawText(ecs.Conversation) : null,
+                ["withCleanup"]      = ecs.WithCleanup ? (object?)true : null,
+                ["errorCode"]        = ecs.ErrorCode != null ? RawText(ecs.ErrorCode) : null,
+                ["errorDescription"] = ecs.ErrorDescription != null ? RawText(ecs.ErrorDescription) : null,
+            }),
+
             _ => Leaf("Statement", stmt, RawText(stmt)),
         };
     }
@@ -2432,11 +2443,34 @@ public class AstBuilder : TSqlFragmentVisitor {
 
     private static SqlNode BuildDbcc(DbccStatement stmt) =>
         Node("DbccStatement", stmt, new Dictionary<string, object?> {
-            ["command"] = stmt.Command.ToString().ToUpperInvariant(),
+            // DbccCommand enum names don't always match the SQL keyword
+            // (e.g. CHECKCONSTRAINTS → Command = Free, not CheckConstraints).
+            // Extract the real command name from the token stream instead.
+            ["command"] = DbccCommandName(stmt),
             ["literals"] = MapList(stmt.Literals, l => (object?)RawText(l)),
             ["options"] = MapList(stmt.Options, o => (object?)RawText(o)),
             ["optionsUseJoin"] = stmt.OptionsUseJoin,
         });
+
+    /// <summary>
+    /// Returns the actual DBCC command keyword (e.g. "CHECKCONSTRAINTS") by reading
+    /// the second non-whitespace token in the statement's token range, which is always
+    /// the command name regardless of how the DbccCommand enum maps it.
+    /// </summary>
+    private static string DbccCommandName(DbccStatement stmt) {
+        var stream = stmt.ScriptTokenStream;
+        if (stream == null || stream.Count == 0) return stmt.Command.ToString().ToUpperInvariant();
+        var start = stmt.StartOffset;
+        var end = start + stmt.FragmentLength;
+        int count = 0;
+        foreach (var t in stream) {
+            if (t.Offset < start || t.Offset >= end) continue;
+            if (t.TokenType == TSqlTokenType.WhiteSpace) continue;
+            count++;
+            if (count == 2) return t.Text.ToUpperInvariant(); // skip DBCC (1st), return command name (2nd)
+        }
+        return stmt.Command.ToString().ToUpperInvariant();
+    }
 
     // DeviceInfo raw text only captures the physical path — reconstruct "DISK = 'path'" manually.
     private static string BuildDeviceInfoText(DeviceInfo d) {
