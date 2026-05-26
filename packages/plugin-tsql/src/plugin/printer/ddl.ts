@@ -772,7 +772,11 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
         return parts as Doc;
     });
 
-    const bodyDocs = body.map((s) => printStatementWithComments(s, opts));
+    // Natively compiled procs have a single BEGIN ATOMIC WITH (...) body statement.
+    const atomicBlock = body.length === 1 && body[0].type === 'BeginEndAtomicBlock' ? body[0] : null;
+    const atomicOptions = atomicBlock?.props?.['atomicOptions'] as string[] | undefined;
+    const innerBody = atomicBlock ? propArr(atomicBlock, 'statements') : body;
+    const bodyDocs = innerBody.map((s) => printStatementWithComments(s, opts));
 
     const preBody = commentsBlock(node.preBodyComments);
     const postParam = commentsBlock(node.postParamComments);
@@ -795,7 +799,19 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
         hardline,
         keyword('AS', opts),
         hardline,
-        keyword('BEGIN', opts),
+        ...(atomicOptions?.length
+            ? [
+                  keyword('BEGIN', opts),
+                  ' ',
+                  keyword('ATOMIC', opts),
+                  ' ',
+                  keyword('WITH', opts),
+                  ' (',
+                  indent([hardline, join([',', hardline], atomicOptions)]),
+                  hardline,
+                  ')',
+              ]
+            : [keyword('BEGIN', opts)]),
         indent([hardline, join([hardline, hardline], bodyDocs)]),
         hardline,
         keyword('END', opts),

@@ -18,7 +18,7 @@ const print = (path: AstPath<SqlNode>, options: object, _printChild: (path: AstP
 
     // For statement-level nodes, use the statement dispatcher.
     // This covers SELECT, INSERT, UPDATE, DELETE, CREATE TABLE, etc.
-    if (node.type.endsWith('Statement') || node.type === 'BeginEndBlock') {
+    if (node.type.endsWith('Statement') || node.type === 'BeginEndBlock' || node.type === 'BeginEndAtomicBlock') {
         return printStatement(node, opts);
     }
 

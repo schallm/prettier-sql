@@ -914,7 +914,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             AlterSchemaStatement asch => BuildAlterSchema(asch),
             DropSchemaStatement dsch => BuildDropSchema(dsch),
 
-            // BEGIN/END block
+            // BEGIN/END block — atomic variant must be listed first (it extends BeginEndBlockStatement)
+            BeginEndAtomicBlockStatement atomic => BuildBeginEndAtomic(atomic),
             BeginEndBlockStatement begin => BuildBeginEnd(begin),
 
             // Transactions
@@ -1357,6 +1358,33 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["linkedServer"] = linkedServer,
             ["parameters"] = parameters,
             ["withResultSets"] = withResultSets,
+        });
+    }
+
+    private static string AtomicOptionToSql(AtomicBlockOption opt) {
+        var kindStr = opt.OptionKind switch {
+            AtomicBlockOptionKind.IsolationLevel => "TRANSACTION ISOLATION LEVEL",
+            AtomicBlockOptionKind.Language => "LANGUAGE",
+            AtomicBlockOptionKind.DateFirst => "DATEFIRST",
+            AtomicBlockOptionKind.DateFormat => "DATEFORMAT",
+            AtomicBlockOptionKind.DelayedDurability => "DELAYED_DURABILITY",
+            _ => opt.OptionKind.ToString().ToUpperInvariant(),
+        };
+        if (opt is IdentifierAtomicBlockOption id)
+            return $"{kindStr} = {id.Value?.Value ?? RawText(opt).Trim()}";
+        if (opt is LiteralAtomicBlockOption lit)
+            return $"{kindStr} = {RawText(lit.Value)}";
+        if (opt is OnOffAtomicBlockOption oo)
+            return $"{kindStr} = {(oo.OptionState == OptionState.On ? "ON" : "OFF")}";
+        return $"{kindStr} = {RawText(opt).Trim()}";
+    }
+
+    private static SqlNode BuildBeginEndAtomic(BeginEndAtomicBlockStatement atomic) {
+        var atomicOpts = atomic.Options?.Select(o => (object?)AtomicOptionToSql(o)).ToList();
+        var stmts = atomic.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
+        return Node("BeginEndAtomicBlock", atomic, new Dictionary<string, object?> {
+            ["atomicOptions"] = atomicOpts,
+            ["statements"] = stmts,
         });
     }
 

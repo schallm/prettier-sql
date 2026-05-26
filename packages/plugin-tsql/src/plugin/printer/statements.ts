@@ -370,6 +370,26 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
             );
         }
 
+        case 'BeginEndAtomicBlock': {
+            const atomicOptions = node.props?.['atomicOptions'] as string[] | undefined;
+            const stmts = propArr(node, 'statements');
+            const bodyDocs = stmts.map((s) => printStatementWithComments(s, opts));
+            return [
+                keyword('BEGIN', opts),
+                ' ',
+                keyword('ATOMIC', opts),
+                ' ',
+                keyword('WITH', opts),
+                ' (',
+                indent([hardline, join([',', hardline], atomicOptions ?? [])]),
+                hardline,
+                ')',
+                indent([hardline, join([hardline, hardline], bodyDocs)]),
+                hardline,
+                keyword('END', opts),
+            ];
+        }
+
         // Transactions
         case 'BeginTransactionStatement':
             return printBeginTransaction(node, opts);
