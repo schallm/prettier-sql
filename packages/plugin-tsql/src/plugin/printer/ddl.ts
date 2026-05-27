@@ -815,6 +815,27 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
               ? keyword('ALTER PROCEDURE', opts)
               : keyword('CREATE PROCEDURE', opts);
 
+    // CLR stored procedure: AS EXTERNAL NAME assembly.[class].method
+    const externalName = propStr(node, 'externalName');
+    if (externalName) {
+        return group([
+            procKw,
+            ' ',
+            schemaObjectName(prop(node, 'name')),
+            preBody,
+            parameters.length > 0 ? indent([hardline, join([',', hardline], paramDocs)]) : '',
+            postParam,
+            printModuleOptions(node, opts),
+            hardline,
+            keyword('AS', opts),
+            ' ',
+            keyword('EXTERNAL NAME', opts),
+            ' ',
+            externalName,
+            ';',
+        ]);
+    }
+
     return group([
         procKw,
         ' ',
@@ -882,6 +903,26 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
         group(['(', parameters.length > 0 ? [indent([softline, join([',', line], paramDocs)]), softline] : '', ')']),
         postParam,
     ];
+
+    // CLR function: EXTERNAL NAME assembly.[class].method (no body)
+    const externalName = propStr(node, 'externalName');
+    if (externalName) {
+        return [
+            nameAndParamsNoOpts,
+            hardline,
+            keyword('RETURNS', opts),
+            ' ',
+            keyword(returnType, opts),
+            printModuleOptions(node, opts),
+            hardline,
+            keyword('AS', opts),
+            ' ',
+            keyword('EXTERNAL NAME', opts),
+            ' ',
+            externalName,
+            ';',
+        ];
+    }
 
     if (bodyType === 'table') {
         // Inline TVF: RETURNS TABLE [WITH options] AS RETURN (query) — no BEGIN/END

@@ -126,6 +126,7 @@ import {
     printAlterDatabaseModifyFile,
     printAlterDatabaseModifyFileGroup,
     printAlterDatabaseRebuildLog,
+    printAlterEventSession,
 } from './admin.js';
 
 // ---------------------------------------------------------------------------
@@ -555,6 +556,10 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
             return printAlterDatabaseModifyFileGroup(node, opts);
         case 'AlterDatabaseRebuildLogStatement':
             return printAlterDatabaseRebuildLog(node, opts);
+
+        // ── Extended Events ───────────────────────────────────────────────────
+        case 'AlterEventSessionStatement':
+            return printAlterEventSession(node, opts);
 
         // ── Service Broker ────────────────────────────────────────────────────
         case 'EndConversationStatement': {

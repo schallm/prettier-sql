@@ -95,6 +95,14 @@ dbcc dropcleanbuffers;
 dbcc show_statistics('dbo.Orders', IX_Orders_CustId);"
 `;
 
+exports[`fixtures > admin/event-session.sql 1`] = `
+"alter event session TraceDeadlocks on server state = start;
+go
+
+alter event session TraceDeadlocks on server state = stop;
+go"
+`;
+
 exports[`fixtures > admin/service-broker.sql 1`] = `
 "-- Service Broker statements — END CONVERSATION must include the handle variable
 end conversation @handle;
@@ -638,6 +646,24 @@ execute @procName
   @param2;"
 `;
 
+exports[`fixtures > function/clr-external-name.sql 1`] = `
+"create function dbo.FormatPhone(@phone nvarchar(20))
+returns nvarchar(20)
+as external name MyClrLib.[MyNamespace.MyClass].FormatPhone;
+go
+
+create function dbo.FormatPhone(@phone nvarchar(20))
+returns nvarchar(20)
+with schemabinding
+as external name MyClrLib.[MyNamespace.MyClass].FormatPhone;
+go
+
+alter function dbo.FormatPhone(@phone nvarchar(20))
+returns nvarchar(20)
+as external name MyClrLib.[MyNamespace.MyClass].FormatPhone;
+go"
+`;
+
 exports[`fixtures > function/multi-statement-tvf.sql 1`] = `
 "create function GetTopBooks(@MaxPrice decimal(10, 2))
 returns @result table (
@@ -1095,6 +1121,16 @@ set transaction isolation level read committed;
 set transaction isolation level serializable;
 
 set transaction isolation level snapshot;"
+`;
+
+exports[`fixtures > procedural/xml-method-set.sql 1`] = `
+"declare @xmlDoc xml = '<root><item id="1"><name>Widget</name></root>';
+
+set @xmlDoc.modify('insert <tag>val</tag> as last into (/root)[1]');
+
+set @xmlDoc.modify('delete (/root/item[@id=1])[1]');
+
+set @xmlDoc.modify('replace value of (/root/item/name/text())[1] with "Gadget"');"
 `;
 
 exports[`fixtures > security/alter-authorization.sql 1`] = `
@@ -2093,6 +2129,21 @@ begin
   where InStock = 1
   order by Title asc;
 end;
+go"
+`;
+
+exports[`fixtures > stored-proc/clr-external-name.sql 1`] = `
+"create procedure dbo.SendEmail
+  @to nvarchar(200),
+  @subject nvarchar(200),
+  @body nvarchar(max)
+as external name MyClrLib.[MyNamespace.Mailer].Send;
+go
+
+create procedure dbo.LogEvent
+  @message nvarchar(max)
+with execute as owner
+as external name MyClrLib.[MyNamespace.Logger].Log;
 go"
 `;
 

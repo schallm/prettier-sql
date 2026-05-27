@@ -108,6 +108,16 @@ export function printDeclareTableVariable(node: SqlNode, opts: Options): Doc {
 
 export function printSetVariable(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name') ?? '@var';
+
+    // XML method call syntax: SET @xmlDoc.modify('...')
+    // No assignment operator — the method is called directly on the variable.
+    const methodName = propStr(node, 'methodName');
+    if (methodName) {
+        const methodArgs = propArr(node, 'methodArgs');
+        const argDocs = methodArgs.map((a) => printNode(a, opts));
+        return [keyword('SET', opts), ' ', name, '.', keyword(methodName, opts), '(', join(', ', argDocs), ')', ';'];
+    }
+
     const opStr = assignmentOp(propStr(node, 'operator') ?? 'Equals');
     const val = prop(node, 'value');
 

@@ -1028,6 +1028,12 @@ public class AstBuilder : TSqlFragmentVisitor {
             AlterDatabaseModifyFileGroupStatement admfg => BuildAlterDatabaseModifyFileGroup(admfg),
             AlterDatabaseRebuildLogStatement adrl => BuildAlterDatabaseRebuildLog(adrl),
 
+            // Extended Events — ALTER EVENT SESSION
+            // ScriptDOM's AlterEventSessionStatement.FragmentLength excludes the STATE clause
+            // for the STATE=START/STOP form, causing RawText to drop "STATE = START/STOP".
+            // Handle it explicitly so we can reconstruct the full SQL.
+            AlterEventSessionStatement aes => BuildAlterEventSession(aes),
+
             // Service Broker — END CONVERSATION
             // ScriptDOM's EndConversationStatement.StartOffset points at the handle variable
             // (not at the END keyword), so the raw-text fallback drops "END CONVERSATION".
@@ -1290,6 +1296,17 @@ public class AstBuilder : TSqlFragmentVisitor {
     }
 
     private static SqlNode BuildSetVariable(SetVariableStatement sv) {
+        // XML method call syntax: SET @xmlDoc.modify('...')
+        // sv.Identifier holds the method name; sv.Parameters holds the arguments.
+        if (sv.Identifier != null) {
+            var methodArgs = sv.Parameters?.Select(p => (object?)BuildScalarExpression(p)).ToList();
+            return Node("SetVariableStatement", sv, new Dictionary<string, object?> {
+                ["name"] = sv.Variable?.Name,
+                ["methodName"] = sv.Identifier.Value,
+                ["methodArgs"] = methodArgs,
+            });
+        }
+
         // When SET @cur = CURSOR FOR SELECT..., Expression is null and CursorDefinition is set.
         SqlNode? cursorDef = null;
         if (sv.CursorDefinition != null) {
@@ -2211,17 +2228,38 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildProcedureStatement(string type, ProcedureStatementBody p) {
         var parms = p.Parameters?.Select(pr => (object?)BuildProcedureParameter(pr)).ToList();
         var stmts = p.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
+        // CLR stored procedure: AS EXTERNAL NAME assembly.[class].method
+        string? externalName = null;
+        if (p.MethodSpecifier != null) {
+            var ms = p.MethodSpecifier;
+            externalName = QuotedName(ms.AssemblyName) + "." + QuotedName(ms.ClassName) + "." + QuotedName(ms.MethodName);
+        }
         return Node(type, p, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(p.ProcedureReference?.Name),
             ["parameters"] = parms,
             ["options"] = BuildProcedureOptions(p.Options),
             ["bodyStart"] = p.StatementList?.StartOffset,
             ["body"] = stmts,
+            ["externalName"] = externalName,
         });
     }
 
     private static SqlNode BuildFunctionStatement(string type, FunctionStatementBody f) {
         var parms = f.Parameters?.Select(p => (object?)BuildProcedureParameter(p)).ToList();
+
+        // CLR function: EXTERNAL NAME assembly.[class].method (no body)
+        if (f.MethodSpecifier != null) {
+            var ms = f.MethodSpecifier;
+            var externalName = QuotedName(ms.AssemblyName) + "." + QuotedName(ms.ClassName) + "." + QuotedName(ms.MethodName);
+            return Node(type, f, new Dictionary<string, object?> {
+                ["name"] = BuildSchemaObjectName(f.Name),
+                ["parameters"] = parms,
+                ["options"] = BuildFunctionOptions(f.Options),
+                ["returnType"] = RawTextOrNull(f.ReturnType),
+                ["externalName"] = externalName,
+            });
+        }
+
         string bodyType;
         object? body;
 
@@ -2847,6 +2885,35 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["database"] = AlterDbName(stmt),
             ["file"] = RawTextOrNull(stmt.FileDeclaration),
         });
+
+    // -------------------------------------------------------------------------
+    // Extended Events: ALTER EVENT SESSION
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildAlterEventSession(AlterEventSessionStatement aes) {
+        var name = aes.Name?.Value;
+        var scope = aes.SessionScope == EventSessionScope.Server ? "SERVER" : "DATABASE";
+
+        // STATE = START / STATE = STOP — ScriptDOM's FragmentLength excludes the state clause,
+        // so we cannot rely on RawText for these forms. Reconstruct explicitly.
+        if (aes.StatementType == AlterEventSessionStatementType.AlterStateIsStart) {
+            return Node("AlterEventSessionStatement", aes, new Dictionary<string, object?> {
+                ["name"] = name,
+                ["scope"] = scope,
+                ["state"] = "START",
+            });
+        }
+        if (aes.StatementType == AlterEventSessionStatementType.AlterStateIsStop) {
+            return Node("AlterEventSessionStatement", aes, new Dictionary<string, object?> {
+                ["name"] = name,
+                ["scope"] = scope,
+                ["state"] = "STOP",
+            });
+        }
+
+        // Other forms (ADD EVENT, DROP EVENT, ADD TARGET, DROP TARGET, ALTER EVENT) — use raw text.
+        return Leaf("Statement", aes, RawText(aes));
+    }
 
     private static SqlNode? BuildOutputClause(OutputClause? output) {
         if (output == null) return null;

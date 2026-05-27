@@ -369,3 +369,27 @@ export function printAlterDatabaseRebuildLog(node: SqlNode, opts: Options): Doc 
     const onPart: Doc = file ? [' ', keyword('ON', opts), ' ', caseFileSpec(file, opts)] : '';
     return [alterDbHeader(node, opts), ' ', keyword('REBUILD LOG', opts), onPart, ';'];
 }
+
+// ---------------------------------------------------------------------------
+// ALTER EVENT SESSION
+// ---------------------------------------------------------------------------
+
+export function printAlterEventSession(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const scope = propStr(node, 'scope') ?? 'SERVER';
+    const state = propStr(node, 'state');
+    return [
+        keyword('ALTER EVENT SESSION', opts),
+        ' ',
+        name,
+        ' ',
+        keyword('ON', opts),
+        ' ',
+        keyword(scope, opts),
+        ' ',
+        keyword('STATE', opts),
+        ' = ',
+        keyword(state ?? 'START', opts),
+        ';',
+    ];
+}
