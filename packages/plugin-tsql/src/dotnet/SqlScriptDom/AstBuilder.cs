@@ -1246,8 +1246,15 @@ public class AstBuilder : TSqlFragmentVisitor {
         });
     }
 
-    private static SqlNode BuildBeginTransaction(BeginTransactionStatement bt) =>
-        Node("BeginTransactionStatement", bt, new Dictionary<string, object?> { ["name"] = bt.Name?.Identifier?.Value });
+    private static SqlNode BuildBeginTransaction(BeginTransactionStatement bt) {
+        // MarkDescription is a StringLiteral; its Value does not include the surrounding quotes.
+        string? markText = bt.MarkDefined && bt.MarkDescription is StringLiteral sl ? sl.Value : null;
+        return Node("BeginTransactionStatement", bt, new Dictionary<string, object?> {
+            ["name"] = bt.Name?.Identifier?.Value,
+            ["markDefined"] = bt.MarkDefined ? (object?)true : null,
+            ["markDescription"] = markText,
+        });
+    }
 
     private static SqlNode BuildCommitTransaction(CommitTransactionStatement ct) =>
         Node("CommitTransactionStatement", ct, new Dictionary<string, object?> { ["name"] = ct.Name?.Identifier?.Value });

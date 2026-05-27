@@ -17,8 +17,16 @@ export function schemaObjectName(nameNode: SqlNode | null): string {
 }
 
 export function assignmentOp(op: string): string {
-    if (op === 'Equals') return '=';
-    if (op === 'AddEquals') return '+=';
-    if (op === 'SubtractEquals') return '-=';
-    return op;
+    switch (op) {
+        case 'Equals':         return '=';
+        case 'AddEquals':      return '+=';
+        case 'SubtractEquals': return '-=';
+        case 'MultiplyEquals': return '*=';
+        case 'DivideEquals':   return '/=';
+        case 'ModEquals':      return '%=';
+        case 'BitwiseAndEquals': return '&=';
+        case 'BitwiseOrEquals':  return '|=';
+        case 'BitwiseXorEquals': return '^=';
+        default: return op;
+    }
 }

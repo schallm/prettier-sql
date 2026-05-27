@@ -911,6 +911,27 @@ truncate table dbo.Orders with (partitions (1 to 3));
 truncate table dbo.Orders with (partitions (1, 5 to 10, 20));"
 `;
 
+exports[`fixtures > procedural/compound-assignment.sql 1`] = `
+"-- Compound assignment operators must all be preserved
+declare @n int = 10;
+
+set @n += 5;
+
+set @n -= 3;
+
+set @n *= 2;
+
+set @n /= 4;
+
+set @n %= 3;
+
+set @n &= 0xFF;
+
+set @n |= 0x01;
+
+set @n ^= 0xAA;"
+`;
+
 exports[`fixtures > procedural/control-flow.sql 1`] = `
 "declare @price decimal(10, 2) = 29.99;
 
@@ -1121,6 +1142,30 @@ set transaction isolation level read committed;
 set transaction isolation level serializable;
 
 set transaction isolation level snapshot;"
+`;
+
+exports[`fixtures > procedural/transactions-with-mark.sql 1`] = `
+"-- BEGIN TRANSACTION WITH MARK must be preserved
+begin transaction;
+go
+
+begin transaction OrderTxn;
+go
+
+begin transaction OrderTxn with mark;
+go
+
+begin transaction OrderTxn with mark 'Creating order for customer';
+go
+
+commit transaction;
+go
+
+rollback transaction SavePoint1;
+go
+
+save transaction SavePoint1;
+go"
 `;
 
 exports[`fixtures > procedural/xml-method-set.sql 1`] = `

@@ -18,7 +18,13 @@ function printTransaction(kw: string, node: SqlNode, opts: Options): Doc {
 }
 
 export function printBeginTransaction(node: SqlNode, opts: Options): Doc {
-    return printTransaction('BEGIN TRANSACTION', node, opts);
+    const name = propStr(node, 'name');
+    const markDefined = propBool(node, 'markDefined');
+    const markDesc = propStr(node, 'markDescription');
+    const markPart: Doc = markDefined
+        ? [' ', keyword('WITH MARK', opts), ...(markDesc ? [` '${markDesc}'`] : [])]
+        : '';
+    return [keyword('BEGIN TRANSACTION', opts), ...(name ? [' ', name] : []), markPart, ';'];
 }
 
 export function printCommitTransaction(node: SqlNode, opts: Options): Doc {
