@@ -1,4 +1,5 @@
 {
+    "$schema": "https://json.schemastore.org/package.json",
     "name": "prettier-sql",
     "displayName": "Prettier SQL",
     "description": "Format T-SQL and PostgreSQL files using Prettier. Powered by prettier-plugin-tsql and prettier-plugin-postgresql.",
@@ -24,11 +25,6 @@
         "prettier",
         "formatter",
         "sqlserver"
-    ],
-    "activationEvents": [
-        "onLanguage:sql",
-        "onLanguage:tsql",
-        "onLanguage:pgsql"
     ],
     "main": "./dist/extension.js",
     "contributes": {
