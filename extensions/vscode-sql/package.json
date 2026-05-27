@@ -5,6 +5,7 @@
     "description": "Format T-SQL and PostgreSQL files using Prettier. Powered by prettier-plugin-tsql and prettier-plugin-postgresql.",
     "version": "0.1.0",
     "publisher": "PickyCode",
+    "private": true,
     "license": "MIT",
     "repository": {
         "type": "git",
