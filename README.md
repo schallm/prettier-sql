@@ -20,7 +20,7 @@ Extensions live under [extensions/](extensions/):
 | --------- | ------ | -------- |
 | [vscode-sql](extensions/vscode-sql/) | **VS Code** — T-SQL and PostgreSQL, no npm setup required | macOS · Linux · Windows |
 | [vsix-tsql](extensions/vsix-tsql/) | Visual Studio 2022/2026 and SSMS 22 — T-SQL | Windows |
-| [vsix-pgsql](extensions/vsix-pgsql/) | Visual Studio 2022/2026 and SSMS 22 — PostgreSQL | Windows |
+| [vsix-pgsql](extensions/vsix-pgsql/) | Visual Studio 2022/2026 — PostgreSQL | Windows |
 
 ## Contributing
 

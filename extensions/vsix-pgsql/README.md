@@ -2,7 +2,7 @@
 
 > **Not yet released.** The extension is under active development. Watch this repo for updates.
 
-Format PostgreSQL / SQL Server scripts using [Prettier](https://prettier.io/), powered by [prettier-plugin-postgresql](https://github.com/schallm/prettier-sql/tree/main/packages/plugin-pgsql) and Microsoft's ScriptDom parser.
+Format PostgreSQL scripts using [Prettier](https://prettier.io/), powered by [prettier-plugin-postgresql](https://github.com/schallm/prettier-sql/tree/main/packages/plugin-pgsql).
 
 ## Features
 
@@ -19,7 +19,6 @@ Format PostgreSQL / SQL Server scripts using [Prettier](https://prettier.io/), p
 | Host                                                | Version                |
 | --------------------------------------------------- | ---------------------- |
 | Visual Studio Community / Professional / Enterprise | 2022 (v17), 2026 (v18) |
-| SQL Server Management Studio                        | 22 (v22)               |
 
 ## Installation
 
