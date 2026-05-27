@@ -1251,6 +1251,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         string? markText = bt.MarkDefined && bt.MarkDescription is StringLiteral sl ? sl.Value : null;
         return Node("BeginTransactionStatement", bt, new Dictionary<string, object?> {
             ["name"] = bt.Name?.Identifier?.Value,
+            ["distributed"] = bt.Distributed ? (object?)true : null,
             ["markDefined"] = bt.MarkDefined ? (object?)true : null,
             ["markDescription"] = markText,
         });

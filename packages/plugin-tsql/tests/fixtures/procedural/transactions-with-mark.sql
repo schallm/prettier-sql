@@ -12,3 +12,7 @@ go
 rollback transaction SavePoint1
 go
 save transaction SavePoint1
+go
+begin distributed transaction
+go
+begin distributed transaction OrderTxn

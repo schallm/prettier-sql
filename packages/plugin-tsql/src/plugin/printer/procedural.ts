@@ -19,12 +19,14 @@ function printTransaction(kw: string, node: SqlNode, opts: Options): Doc {
 
 export function printBeginTransaction(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name');
+    const distributed = propBool(node, 'distributed');
     const markDefined = propBool(node, 'markDefined');
     const markDesc = propStr(node, 'markDescription');
+    const txnKw = distributed ? keyword('BEGIN DISTRIBUTED TRANSACTION', opts) : keyword('BEGIN TRANSACTION', opts);
     const markPart: Doc = markDefined
         ? [' ', keyword('WITH MARK', opts), ...(markDesc ? [` '${markDesc}'`] : [])]
         : '';
-    return [keyword('BEGIN TRANSACTION', opts), ...(name ? [' ', name] : []), markPart, ';'];
+    return [txnKw, ...(name ? [' ', name] : []), markPart, ';'];
 }
 
 export function printCommitTransaction(node: SqlNode, opts: Options): Doc {
