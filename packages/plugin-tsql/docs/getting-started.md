@@ -31,9 +31,43 @@ The plugin registers itself for `.sql` and `.tsql` files automatically.
 
 ## VS Code
 
-Install the [Prettier - Code formatter](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) extension. Once the plugin is installed and configured, formatting `.sql` files with Prettier will use this plugin automatically.
+### Option A — Prettier SQL extension (recommended, no npm required)
 
-To format on save, add to your VS Code settings:
+Install **[Prettier SQL](https://marketplace.visualstudio.com/items?itemName=PickyCode.prettier-sql)** from the VS Code Marketplace. It bundles both `prettier-plugin-tsql` and `prettier-plugin-postgresql` — no npm install or config file needed.
+
+Requires the [.NET 8 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0). The extension prompts you if it isn't found.
+
+Configure options in **Settings → search "Prettier SQL"**, or add to your workspace settings:
+
+```json
+{
+    "editor.formatOnSave": true,
+    "prettierSql.sqlKeywordCase": "lower",
+    "prettierSql.sqlDensity": "standard",
+    "prettierSql.printWidth": 120
+}
+```
+
+For plain `.sql` files, add `-- tsql` as the first line to select the T-SQL parser explicitly, or set `prettierSql.defaultDialect` to `tsql` in settings.
+
+### Option B — Prettier extension with npm plugin
+
+If you already use [Prettier - Code formatter](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) in your project, you can add `prettier-plugin-tsql` as an npm dependency instead:
+
+```bash
+npm install --save-dev prettier-plugin-tsql prettier
+```
+
+Then configure the plugin in your Prettier config:
+
+```js
+// prettier.config.js
+export default {
+    plugins: ['prettier-plugin-tsql'],
+};
+```
+
+Add to your VS Code settings:
 
 ```json
 {
@@ -44,7 +78,7 @@ To format on save, add to your VS Code settings:
 }
 ```
 
-> **After updating the plugin**, restart VS Code. The Prettier extension loads the plugin at startup and caches it for the session, so a running instance will not pick up a new version until restarted.
+> **After updating the plugin**, restart VS Code. The Prettier extension caches plugins at startup and won't pick up a new version until restarted.
 
 ## SQL Server Management Studio 22 (Visual Studio 2026)
 
