@@ -1441,6 +1441,8 @@ public class AstBuilder : TSqlFragmentVisitor {
     // -------------------------------------------------------------------------
 
     private static string SerializeTableOption(TableOption opt) {
+        if (opt is LedgerTableOption ledger)
+            return $"ledger = {ledger.OptionState.ToString().ToLower()}";
         if (opt is MemoryOptimizedTableOption mo)
             return $"memory_optimized = {mo.OptionState.ToString().ToLower()}";
         if (opt is DurabilityTableOption dur) {
