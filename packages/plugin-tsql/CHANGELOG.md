@@ -1,5 +1,20 @@
 # prettier-plugin-tsql
 
+## 0.6.1
+
+### Patch Changes
+
+- Fix several data-loss bugs where input SQL was silently dropped or corrupted:
+    - `MERGE TOP (N)`: the TOP clause was dropped from MERGE statements
+    - Standalone `BEGIN...END` blocks: delimiters were stripped, leaving only the inner statements
+    - `LEDGER = ON/OFF`: table option was corrupted to bare `ledger` (invalid SQL)
+    - `BEGIN DISTRIBUTED TRANSACTION`: normalized to non-distributed form
+    - `BEGIN TRANSACTION ... WITH MARK`: the MARK clause was dropped
+    - XML method calls (`SET @xml.modify(...)`): statement was not printed
+    - Compound assignment operators (`+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`): all collapsed to `=`
+    - CLR `EXTERNAL NAME` on procedures and functions: dropped entirely
+    - `ALTER EVENT SESSION ... STATE = START/STOP`: mangled by ScriptDOM fragment length bug
+
 ## 0.6.0
 
 ### Minor Changes
