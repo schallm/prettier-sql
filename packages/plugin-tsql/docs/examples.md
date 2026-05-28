@@ -302,6 +302,19 @@ Multiple rows always break with one row per line:
 +   delete;
 ```
 
+`TOP (N)` limits how many target rows are considered — placed between `MERGE` and `INTO`:
+
+```diff
+- MERGE TOP(500) INTO Books USING BookUpdates ON Books.Id=BookUpdates.Id WHEN MATCHED THEN UPDATE SET Books.Price=BookUpdates.Price WHEN NOT MATCHED THEN INSERT(Id,Title,Price) VALUES(BookUpdates.Id,BookUpdates.Title,BookUpdates.Price);
++ merge top (500) into Books
++ using BookUpdates on Books.Id = BookUpdates.Id
++ when matched then
++   update set Books.Price = BookUpdates.Price
++ when not matched then
++   insert (Id, Title, Price)
++   values (BookUpdates.Id, BookUpdates.Title, BookUpdates.Price);
+```
+
 ---
 
 ## DDL
@@ -443,6 +456,43 @@ Dynamic SQL — concatenation expression is preserved inside the parentheses:
 + else
 + begin
 +   print 'Prices OK';
++ end
+```
+
+### Compound assignment operators
+
+`+=`, `-=`, `*=`, `/=`, and `%=` are preserved as-is:
+
+```diff
+- DECLARE @n INT=10; SET @n+=5; SET @n-=2; SET @n*=3; SET @n/=4; SET @n%=7
++ declare @n int = 10;
++
++ set @n += 5;
++
++ set @n -= 2;
++
++ set @n *= 3;
++
++ set @n /= 4;
++
++ set @n %= 7;
+```
+
+### Standalone BEGIN / END
+
+`BEGIN...END` used as a grouping block (without `IF`, `WHILE`, etc.) is preserved as a
+top-level statement:
+
+```diff
+- BEGIN SET NOCOUNT ON; SELECT Id, Title FROM Books WHERE InStock=1 END
++ begin
++   set nocount on;
++
++   select
++     Id,
++     Title
++   from Books
++   where InStock = 1;
 + end
 ```
 
