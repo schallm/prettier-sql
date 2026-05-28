@@ -22,6 +22,19 @@ import { printStatementWithComments, printNode, printBool, qexpr } from './state
 // Shared helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * When ScriptDOM sees `AS BEGIN...END` it wraps the body in a single
+ * BeginEndBlockStatement. Unwrap that one outer block so that proc/function/
+ * trigger printers can emit their own BEGIN/END delimiters cleanly, while
+ * a *standalone* BEGIN...END statement still prints with its own delimiters.
+ */
+function unwrapBodyBlock(stmts: SqlNode[]): SqlNode[] {
+    if (stmts.length === 1 && stmts[0]?.type === 'BeginEndBlock') {
+        return propArr(stmts[0]!, 'statements');
+    }
+    return stmts;
+}
+
 /** Render ` NULL` / ` NOT NULL` from a tristate `nullable` prop value. */
 function nullablePart(nullable: unknown, opts: Options): Doc {
     if (nullable === true) return [' ', keyword('NULL', opts)];
@@ -802,7 +815,7 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
     // Natively compiled procs have a single BEGIN ATOMIC WITH (...) body statement.
     const atomicBlock = body.length === 1 && body[0].type === 'BeginEndAtomicBlock' ? body[0] : null;
     const atomicOptions = atomicBlock?.props?.['atomicOptions'] as string[] | undefined;
-    const innerBody = atomicBlock ? propArr(atomicBlock, 'statements') : body;
+    const innerBody = atomicBlock ? propArr(atomicBlock, 'statements') : unwrapBodyBlock(body);
     const bodyDocs = innerBody.map((s) => printStatementWithComments(s, opts));
 
     const preBody = commentsBlock(node.preBodyComments);
@@ -947,7 +960,7 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
     }
 
     // Scalar or multi-statement TVF — both use BEGIN...END
-    const stmts = Array.isArray(body) ? (body as SqlNode[]).map((s) => printStatementWithComments(s, opts)) : [];
+    const stmts = Array.isArray(body) ? unwrapBodyBlock(body as SqlNode[]).map((s) => printStatementWithComments(s, opts)) : [];
     const bodyDoc: Doc = join([hardline, hardline], stmts);
 
     let retTypePart: Doc;
@@ -1061,7 +1074,7 @@ export function printCreateTrigger(node: SqlNode, opts: Options): Doc {
         : '';
     const notForReplication = propBool(node, 'notForReplication');
     const notForReplicationDoc: Doc = notForReplication ? [hardline, keyword('NOT FOR REPLICATION', opts)] : '';
-    const bodyDocs = propArr(node, 'body').map((s) => printStatementWithComments(s, opts));
+    const bodyDocs = unwrapBodyBlock(propArr(node, 'body')).map((s) => printStatementWithComments(s, opts));
 
     const triggerScope = propStr(node, 'triggerScope'); // 'Database' or 'Server' for DDL triggers
     const onTarget: Doc = triggerScope === 'Database'

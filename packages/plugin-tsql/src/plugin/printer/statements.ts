@@ -365,10 +365,13 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         // BEGIN/END block (proc bodies, inline blocks)
         case 'BeginEndBlock': {
             const stmts = propArr(node, 'statements');
-            return join(
-                [hardline, hardline],
-                stmts.map((s) => printStatementWithComments(s, opts)),
-            );
+            const bodyDocs = stmts.map((s) => printStatementWithComments(s, opts));
+            return [
+                keyword('BEGIN', opts),
+                indent([hardline, join([hardline, hardline], bodyDocs)]),
+                hardline,
+                keyword('END', opts),
+            ];
         }
 
         case 'BeginEndAtomicBlock': {

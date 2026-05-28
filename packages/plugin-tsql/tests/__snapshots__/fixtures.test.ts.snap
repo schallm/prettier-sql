@@ -1120,6 +1120,24 @@ reconfigure;
 reconfigure with override;"
 `;
 
+exports[`fixtures > procedural/standalone-begin-end.sql 1`] = `
+"begin
+  print 'hello';
+end
+
+begin
+  select 1;
+
+  select 2;
+end
+
+begin
+  begin
+    print 'nested';
+  end
+end"
+`;
+
 exports[`fixtures > procedural/transactions.sql 1`] = `
 "begin transaction;
 
