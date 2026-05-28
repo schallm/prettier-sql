@@ -934,6 +934,7 @@ function printOutputIntoClause(node: SqlNode, opts: Options): Doc {
 
 function printMerge(node: SqlNode, opts: Options): Doc {
     const ctesDocs = printCtes(node, opts);
+    const topNode = prop(node, 'top');
     const target = prop(node, 'target');
     const targetAlias = propStr(node, 'targetAlias');
     const source = prop(node, 'source');
@@ -961,9 +962,14 @@ function printMerge(node: SqlNode, opts: Options): Doc {
         }
     }
 
+    const topDoc: Doc = topNode ? [renderTopFilter(topNode, opts), ' '] : '';
+
     const parts: Doc[] = [
         ...ctesDocs,
-        keyword('MERGE INTO', opts),
+        keyword('MERGE', opts),
+        ' ',
+        topDoc,
+        keyword('INTO', opts),
         ' ',
         targetDoc,
         hardline,

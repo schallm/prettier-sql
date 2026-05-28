@@ -2111,6 +2111,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ?.Select(c => (object?)BuildCte(c)).ToList();
         return Node("MergeStatement", merge, new Dictionary<string, object?> {
             ["ctes"] = ctes,
+            ["top"] = spec?.TopRowFilter != null ? BuildTopRowFilter(spec.TopRowFilter) : null,
             ["target"] = BuildTableReference(spec?.Target),
             ["targetAlias"] = spec?.TableAlias?.Value,
             ["source"] = BuildTableReference(spec?.TableReference),
