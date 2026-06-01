@@ -240,13 +240,30 @@ export function printScript(node: SqlNode, opts: Options): Doc {
     return parts;
 }
 
+const DECLARE_TYPES = new Set([
+    'DeclareVariableStatement',
+    'DeclareTableVariableStatement',
+    'DeclareCursorStatement',
+]);
+
+function isDeclare(node: SqlNode): boolean {
+    return DECLARE_TYPES.has(node.type);
+}
+
 function printBatch(node: SqlNode, opts: Options): Doc {
     const stmts = propArr(node, 'statements');
     if (stmts.length === 0) return '';
-    return join(
-        [hardline, hardline],
-        stmts.map((s) => printStatementWithComments(s, opts)),
-    );
+
+    const parts: Doc[] = [printStatementWithComments(stmts[0]!, opts)];
+    for (let i = 1; i < stmts.length; i++) {
+        const prev = stmts[i - 1]!;
+        const curr = stmts[i]!;
+        // Consecutive DECLARE statements are grouped with no blank line between
+        // them; a blank line is emitted only after the last one in the run.
+        const sep: Doc = isDeclare(prev) && isDeclare(curr) ? hardline : [hardline, hardline];
+        parts.push(sep, printStatementWithComments(curr, opts));
+    }
+    return parts;
 }
 
 // ---------------------------------------------------------------------------

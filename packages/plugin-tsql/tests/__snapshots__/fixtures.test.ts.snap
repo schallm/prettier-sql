@@ -992,9 +992,7 @@ set @n ^= 0xAA;"
 
 exports[`fixtures > procedural/control-flow.sql 1`] = `
 "declare @price decimal(10, 2) = 29.99;
-
 declare @title nvarchar(200);
-
 declare @count int;
 
 set @count = (
@@ -1055,11 +1053,8 @@ return;"
 
 exports[`fixtures > procedural/cursors.sql 1`] = `
 "declare @bookId int;
-
 declare @title nvarchar(200);
-
 declare @price decimal(10, 2);
-
 declare BookCursor cursor
 for
 select
