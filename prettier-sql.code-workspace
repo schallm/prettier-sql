@@ -1,0 +1,12 @@
+{
+    "folders": [
+        { "path": ".", "name": "prettier-sql" },
+        { "path": "packages/plugin-tsql", "name": "plugin-tsql" },
+        { "path": "packages/plugin-pgsql", "name": "plugin-pgsql" }
+    ],
+    "settings": {
+        // Workspace-wide: use prettier for all files
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true
+    }
+}
