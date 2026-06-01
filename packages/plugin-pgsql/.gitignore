@@ -5,7 +5,6 @@ src/dotnet/**/obj/
 src/dotnet/**/bin/
 *.user
 .DS_Store
-/examples/test.sql
 
 # Claude Code worktrees
 .claude/worktrees/
