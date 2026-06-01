@@ -1628,9 +1628,9 @@ export function printOrderByClause(node: SqlNode, opts: Options, printFn: (n: Sq
         const sortDoc = sort === 'Descending' ? [' ', keyword('DESC', opts)] : [' ', keyword('ASC', opts)];
         return [expr ? printExpression(expr, opts, printFn) : '', ...sortDoc] as Doc;
     });
-    // compact: inline with ORDER BY, wraps; standard + single: inline; else: each on own line
+    // compact: try to fit all on one line; if it breaks, indent each item
     if (density === 'compact') {
-        return [keyword('ORDER BY', opts), ' ', join(softSep(opts), elDocs)];
+        return group([keyword('ORDER BY', opts), indent([line, join(softSep(opts), elDocs)])]);
     }
     if (density === 'standard' && elements.length === 1) {
         return [keyword('ORDER BY', opts), ' ', elDocs[0]!];
