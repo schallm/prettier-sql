@@ -1342,8 +1342,10 @@ function printQualifiedJoin(node: SqlNode, opts: Options, printFn: (n: SqlNode) 
     if (condition) {
         const isMultiple = condition.type === 'BooleanBinary';
         if (density === 'compact') {
-            // inline with JOIN, wraps at printWidth via BoolBinary using `line`
-            onDoc = [' ', keyword('ON', opts), ' ', printBoolExpr(condition, opts, printFn)];
+            // Try to keep ON + condition on the same line as JOIN.
+            // If it overflows, the whole condition drops to an indented line as
+            // a unit — keeping all predicates together on that line.
+            onDoc = [' ', keyword('ON', opts), group([indent([line, printBoolExpr(condition, opts, printFn)])])];
         } else if (density === 'standard' && !isMultiple) {
             // single predicate: ON stays on join line, predicate wraps below if too long
             onDoc = [' ', keyword('ON', opts), group([indent([line, printBoolExpr(condition, opts, printFn)])])];
