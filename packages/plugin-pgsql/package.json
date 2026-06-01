@@ -1,6 +1,6 @@
 {
   "name": "prettier-plugin-postgresql",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Prettier plugin for PostgreSQL using the official libpg_query parser",
   "author": "Mike Schall",
   "license": "MIT",
@@ -39,12 +39,14 @@
     "prettier": ">=3.0.0"
   },
   "dependencies": {
-    "@prettier-sql/core": "workspace:*",
     "node-api-dotnet": "0.9.19"
+  },
+  "devDependencies": {
+    "@prettier-sql/core": "workspace:*"
   },
   "scripts": {
     "build:dotnet": "dotnet restore src/dotnet/PgScriptDom/PgScriptDom.csproj && dotnet msbuild src/dotnet/PgScriptDom/PgScriptDom.csproj /t:Publish /p:Configuration=Release \"/p:PublishDir=../../../bin/dotnet/\" && node scripts/copy-native.mjs",
-    "build:ts": "tsc -p tsconfig.json",
+    "build:ts": "tsc -p tsconfig.json && node scripts/bundle-core.mjs",
     "build:ts:watch": "tsc -p tsconfig.json --watch",
     "build": "pnpm run build:dotnet && pnpm run build:ts",
     "format:ts": "prettier --write \"src/plugin/**/*.ts\"",

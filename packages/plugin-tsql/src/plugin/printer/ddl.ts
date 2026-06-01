@@ -16,7 +16,7 @@ import {
 import { prop, propArr, propStr, propBool, schemaObjectName } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
-import { printStatementWithComments, printNode, printBool, qexpr } from './statements.js';
+import { printStatementWithComments, printNode, printBool, printBoolClause, qexpr } from './statements.js';
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -72,7 +72,7 @@ function printInlineIndex(node: SqlNode, opts: Options): Doc {
     const kind = propStr(node, 'kind'); // 'clustered', 'nonclustered', etc.
     const columns = propArr(node, 'columns');
     const includeColumns = node.props?.['includeColumns'] as string[] | undefined;
-    const filterPredicate = propStr(node, 'filterPredicate');
+    const filterPredicateNode = prop(node, 'filterPredicate');
     const indexOptions = node.props?.['indexOptions'] as string[] | undefined;
 
     const uniqueKw: Doc = isUnique ? [keyword('UNIQUE', opts), ' '] : '';
@@ -87,7 +87,7 @@ function printInlineIndex(node: SqlNode, opts: Options): Doc {
     const includePart: Doc = includeColumns?.length
         ? [' ', keyword('INCLUDE', opts), ' ', parenList(includeColumns)]
         : '';
-    const filterPart: Doc = filterPredicate ? [' ', keyword('WHERE', opts), ' ', filterPredicate] : '';
+    const filterPart: Doc = filterPredicateNode ? [' ', printBoolClause('WHERE', filterPredicateNode, opts)] : '';
     const withPart: Doc = indexOptions?.length ? [' ', keyword('WITH', opts), ' (', join(', ', indexOptions), ')'] : '';
 
     return [
@@ -656,7 +656,7 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
     const table = prop(node, 'table');
     const columns = propArr(node, 'columns');
     const includeColumns = node.props?.['includeColumns'];
-    const filterPredicate = propStr(node, 'filterPredicate');
+    const filterPredicateNode = prop(node, 'filterPredicate');
 
     const colDocs = columns.map((c) => {
         const colName = propStr(c, 'name') ?? c.text ?? '';
@@ -691,7 +691,9 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
             ? [hardline, keyword('INCLUDE', opts), ' ', parenList(includeColumns as string[])]
             : '';
 
-    const filterPart: Doc = filterPredicate ? [hardline, keyword('WHERE', opts), ' ', filterPredicate] : '';
+    const filterPart: Doc = filterPredicateNode
+        ? [hardline, printBoolClause('WHERE', filterPredicateNode, opts)]
+        : '';
 
     const indexOptions = node.props?.['indexOptions'] as string[] | undefined;
     const withPart: Doc =
@@ -1416,7 +1418,7 @@ export function printCreateColumnStoreIndex(node: SqlNode, opts: Options): Doc {
     const clustered = node.props?.['clustered'] as boolean | null | undefined;
     const onName = prop(node, 'onName');
     const columns = node.props?.['columns'] as string[] | undefined;
-    const filterPredicate = propStr(node, 'filterPredicate');
+    const filterPredicateNode = prop(node, 'filterPredicate');
     const options = node.props?.['options'] as string[] | undefined;
 
     const clusterKw: Doc =
@@ -1430,7 +1432,7 @@ export function printCreateColumnStoreIndex(node: SqlNode, opts: Options): Doc {
     if (columns?.length) {
         parts.push([' ', parenList(columns)]);
     }
-    if (filterPredicate) parts.push([hardline, keyword('WHERE', opts), ' ', filterPredicate]);
+    if (filterPredicateNode) parts.push([hardline, printBoolClause('WHERE', filterPredicateNode, opts)]);
     if (options?.length) {
         parts.push([
             hardline,
@@ -1488,7 +1490,7 @@ export function printCreateStatistics(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name') ?? '';
     const onName = prop(node, 'onName');
     const columns = node.props?.['columns'] as string[] | undefined;
-    const filterPredicate = propStr(node, 'filterPredicate');
+    const filterPredicateNode = prop(node, 'filterPredicate');
     const options = node.props?.['options'] as string[] | undefined;
 
     const parts: Doc[] = [keyword('CREATE STATISTICS', opts), ' ', name];
@@ -1496,7 +1498,7 @@ export function printCreateStatistics(node: SqlNode, opts: Options): Doc {
     if (columns?.length) {
         parts.push([' ', parenList(columns)]);
     }
-    if (filterPredicate) parts.push([hardline, keyword('WHERE', opts), ' ', filterPredicate]);
+    if (filterPredicateNode) parts.push([hardline, printBoolClause('WHERE', filterPredicateNode, opts)]);
     if (options?.length) parts.push([hardline, withOptionsClause(options, opts)]);
     parts.push(';');
     return parts;

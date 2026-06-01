@@ -1535,7 +1535,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["columns"] = cols,
             ["includeColumns"] = idx.IncludeColumns?.Select(c =>
                 (object?)(QuotedName(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()) ?? "")).ToList(),
-            ["filterPredicate"] = idx.FilterPredicate != null ? RawText(idx.FilterPredicate).Trim() : null,
+            ["filterPredicate"] = idx.FilterPredicate != null ? BuildBooleanExpression(idx.FilterPredicate) : null,
             ["indexOptions"] = MapList(idx.IndexOptions, o => (object?)SerializeIndexOption(o)),
         });
     }
@@ -1827,7 +1827,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["table"] = BuildSchemaObjectName(ci.OnName),
                 ["columns"] = cols,
                 ["includeColumns"] = ci.IncludeColumns?.Select(c => (object?)c.MultiPartIdentifier?.Identifiers.LastOrDefault()?.Value).ToList(),
-                ["filterPredicate"] = ci.FilterPredicate != null ? RawText(ci.FilterPredicate).Trim() : null,
+                ["filterPredicate"] = ci.FilterPredicate != null ? BuildBooleanExpression(ci.FilterPredicate) : null,
                 ["indexOptions"] = MapList(ci.IndexOptions, o => (object?)SerializeIndexOption(o)),
                 ["onFileGroup"] = ci.OnFileGroupOrPartitionScheme?.Name is { } fg
                     ? (fg.Identifier != null ? QuotedName(fg.Identifier) : fg.Value)
@@ -3218,7 +3218,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["name"] = QuotedName(cs.Name),
             ["onName"] = BuildSchemaObjectName(cs.OnName),
             ["columns"] = cols,
-            ["filterPredicate"] = cs.FilterPredicate != null ? RawText(cs.FilterPredicate).Trim() : null,
+            ["filterPredicate"] = cs.FilterPredicate != null ? BuildBooleanExpression(cs.FilterPredicate) : null,
             ["options"] = opts,
         });
     }
@@ -3255,7 +3255,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["clustered"] = csi.Clustered,
             ["onName"] = BuildSchemaObjectName(csi.OnName),
             ["columns"] = cols,
-            ["filterPredicate"] = csi.FilterPredicate != null ? RawText(csi.FilterPredicate).Trim() : null,
+            ["filterPredicate"] = csi.FilterPredicate != null ? BuildBooleanExpression(csi.FilterPredicate) : null,
             ["options"] = opts,
         });
     }

@@ -81,27 +81,29 @@ importers:
 
   packages/plugin-pgsql:
     dependencies:
-      '@prettier-sql/core':
-        specifier: workspace:*
-        version: link:../core
       node-api-dotnet:
         specifier: 0.9.19
         version: 0.9.19
       prettier:
         specifier: '>=3.0.0'
         version: 3.8.3
+    devDependencies:
+      '@prettier-sql/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/plugin-tsql:
     dependencies:
-      '@prettier-sql/core':
-        specifier: workspace:*
-        version: link:../core
       node-api-dotnet:
         specifier: 0.9.19
         version: 0.9.19
       prettier:
         specifier: '>=3.0.0'
         version: 3.8.3
+    devDependencies:
+      '@prettier-sql/core':
+        specifier: workspace:*
+        version: link:../core
 
 packages:
 

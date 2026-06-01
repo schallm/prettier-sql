@@ -198,7 +198,7 @@ function printTable(node: SqlNode, opts: Options): Doc {
  * Single-predicate stays inline (` WHERE x = 1`); multi-predicate breaks to
  * an indented block. In spacious mode all predicates are always indented.
  */
-function printBoolClause(kw: string, where: SqlNode, opts: Options): Doc {
+export function printBoolClause(kw: string, where: SqlNode, opts: Options): Doc {
     const density = getDensity(opts);
     const inline = density !== 'spacious' && where.type !== 'BooleanBinary';
     const body = printBoolDoc(where, opts);
