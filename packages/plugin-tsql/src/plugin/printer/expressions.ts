@@ -245,11 +245,17 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) =
           ? [callTarget, callTargetSep]
           : '';
     const nullClause: Doc = nullOnNullDoc ? [' ', nullOnNullDoc] : '';
+    // compact: fill-pack args — as many per line as fit, wrap only when required
+    // standard/spacious: all-or-nothing group (all inline or each on its own line)
+    const argsListDoc: Doc =
+        getDensity(opts) === 'compact' && args.length > 1
+            ? fill(args.flatMap((a, i) => (i === 0 ? [a] : [[',', line], a])))
+            : join([',', line], args);
     const argsDoc = group([
         callTargetPrefix,
         keyword(name, opts),
         '(',
-        indent([softline, ...distinctDoc, join([',', line], args), nullClause]),
+        indent([softline, ...distinctDoc, argsListDoc, nullClause]),
         softline,
         ')',
     ]);
