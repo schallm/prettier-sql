@@ -5,7 +5,10 @@
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "release": "changeset publish"
+    "changeset": "changeset",
+    "release:version": "changeset version",
+    "release:publish": "pnpm -r build && changeset publish",
+    "release": "changeset version && pnpm -r build && changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.0",
