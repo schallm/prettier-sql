@@ -589,8 +589,9 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
     const colDocs = selectElements.map((se) => printExpression(se, opts, printFn));
 
     if (density === 'compact') {
-        // Compact: try to keep everything inline; wrap at printWidth
-        const colList = group(indent(join(softSep(opts), colDocs)));
+        // Compact: fill-pack each list clause — as many items per line as fit, wrapping only when needed.
+        // indent() ensures wrapped lines are indented one level under the keyword.
+        const colList = indent(fill(colDocs.flatMap((d, i) => (i === 0 ? [d] : [[',', line], d]))));
         const parts: Doc[] = [selectKw, ...(topDoc ? [' ', topDoc] : []), ' ', colList];
 
         if (intoTarget) {
@@ -605,21 +606,30 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
         }
 
         if (where) {
-            parts.push(line, keyword('WHERE', opts), ' ', boolWithTrailing(where, printBoolExpr(where, opts, printFn)));
+            // Fill-pack predicates; each and/or predicate stays together as a unit on break.
+            parts.push(
+                line,
+                keyword('WHERE', opts),
+                group([indent([line, boolWithTrailing(where, fillBoolChain(where, opts, printFn))])]),
+            );
         }
 
         if (groupBy) {
             const elems = propArr(groupBy, 'elements');
             const elemDocs = elems.map((e) => printExpression(e, opts, printFn));
-            parts.push(line, keyword('GROUP BY', opts), ' ', group(indent(join(softSep(opts), elemDocs))));
+            parts.push(
+                line,
+                keyword('GROUP BY', opts),
+                ' ',
+                indent(fill(elemDocs.flatMap((d, i) => (i === 0 ? [d] : [[',', line], d])))),
+            );
         }
 
         if (having) {
             parts.push(
                 line,
                 keyword('HAVING', opts),
-                ' ',
-                boolWithTrailing(having, printBoolExpr(having, opts, printFn)),
+                group([indent([line, boolWithTrailing(having, fillBoolChain(having, opts, printFn))])]),
             );
         }
 
@@ -1080,6 +1090,38 @@ function boolWithTrailing(node: SqlNode, doc: Doc): Doc {
     const rp = rightmostPred(node);
     const trailing = rp ? rightmostTrailingComment(rp, rp.endOffset) : undefined;
     return appendTrailingLines(doc, trailing);
+}
+
+/**
+ * Flatten a left-recursive AND/OR tree into a flat list of predicates.
+ * Only recurses into the LEFT child so the right-side units stay intact.
+ * Mixed operators (AND/OR) are preserved via the `op` field of each item.
+ */
+function collectBoolChain(node: SqlNode): { op: string; pred: SqlNode }[] {
+    if (node.type !== 'BooleanBinary') return [{ op: 'AND', pred: node }];
+    const op = propStr(node, 'operator') === 'Or' ? 'OR' : 'AND';
+    const left = prop(node, 'left');
+    const right = prop(node, 'right');
+    const leftItems = left ? collectBoolChain(left) : [];
+    return right ? [...leftItems, { op, pred: right }] : leftItems;
+}
+
+/**
+ * Render a boolean expression (WHERE/HAVING) as a fill-packed list in compact
+ * mode. Each AND/OR predicate stays together as a unit; the operator appears at
+ * the leading edge of the wrapped line. Falls back to printBoolExpr when there
+ * is only one predicate or in non-compact density.
+ */
+function fillBoolChain(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+    const items = collectBoolChain(node);
+    if (items.length <= 1) return printBoolExpr(node, opts, printFn);
+    const fillParts: Doc[] = [printBoolExpr(items[0]!.pred, opts, printFn)];
+    for (let i = 1; i < items.length; i++) {
+        const { op, pred } = items[i]!;
+        fillParts.push(line);
+        fillParts.push([keyword(op, opts), ' ', printBoolExpr(pred, opts, printFn)]);
+    }
+    return fill(fillParts);
 }
 
 function printBoolBinary(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
@@ -1642,9 +1684,12 @@ export function printOrderByClause(node: SqlNode, opts: Options, printFn: (n: Sq
         const sortDoc = sort === 'Descending' ? [' ', keyword('DESC', opts)] : [' ', keyword('ASC', opts)];
         return [expr ? printExpression(expr, opts, printFn) : '', ...sortDoc] as Doc;
     });
-    // compact: try to fit all on one line; if it breaks, indent each item
+    // compact: fill-pack items; if they overflow, indent-wrap them
     if (density === 'compact') {
-        return group([keyword('ORDER BY', opts), indent([line, join(softSep(opts), elDocs)])]);
+        return group([
+            keyword('ORDER BY', opts),
+            indent([line, fill(elDocs.flatMap((d, i) => (i === 0 ? [d] : [[',', line], d])))]),
+        ]);
     }
     if (density === 'standard' && elements.length === 1) {
         return [keyword('ORDER BY', opts), ' ', elDocs[0]!];

@@ -2631,10 +2631,7 @@ from Books
 where InStock = 1
 group by AuthorId, GenreId
 order by
-  TotalBookCount desc,
-  AuthorId asc,
-  GenreId asc,
-  PublisherId asc,
+  TotalBookCount desc, AuthorId asc, GenreId asc, PublisherId asc,
   PublishedYear desc;"
 `;
 
@@ -2648,24 +2645,15 @@ where IsActive = 1;"
 `;
 
 exports[`options > sqlDensity: compact (group by wrapping) 1`] = `
-"select CustomerId,
-  ProductCategoryId,
-  RegionId,
-  sum(TotalAmount) as Revenue,
+"select CustomerId, ProductCategoryId, RegionId, sum(TotalAmount) as Revenue,
   count(*) as OrderCount
 from Orders
 group by CustomerId, ProductCategoryId, RegionId;"
 `;
 
 exports[`options > sqlDensity: compact (wrapping columns) 1`] = `
-"select OrderId,
-  CustomerId,
-  ProductId,
-  Quantity,
-  UnitPrice,
-  TotalAmount,
-  OrderDate,
-  ShipDate
+"select OrderId, CustomerId, ProductId, Quantity, UnitPrice, TotalAmount,
+  OrderDate, ShipDate
 from Orders
 where IsActive = 1;"
 `;
