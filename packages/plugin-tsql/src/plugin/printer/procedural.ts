@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
-import { keyword, hardline, join, indent, group, onOffKw } from '@prettier-sql/core/printer/utils';
+import { keyword, hardline, softline, join, indent, group, onOffKw, fill, line, getDensity } from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, schemaObjectName, assignmentOp } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
@@ -97,6 +97,14 @@ export function printDeclareTableVariable(node: SqlNode, opts: Options): Doc {
         ...propArr(node, 'columns').map((c) => printColumnDef(c, opts)),
         ...propArr(node, 'constraints').map((c) => printConstraintDef(c, opts)),
     ];
+    // compact: try to keep everything on one line; fill-pack when it wraps
+    // standard/spacious: always one definition per line with hard breaks
+    const isCompact = getDensity(opts) === 'compact';
+    const defsDoc: Doc = isCompact
+        ? fill(allDefs.flatMap((d, i) => (i === 0 ? [d] : [[',', line], d])))
+        : join([',', hardline], allDefs);
+    const open: Doc = isCompact ? softline : hardline;
+    const close: Doc = isCompact ? softline : hardline;
     return group([
         keyword('DECLARE', opts),
         ' ',
@@ -104,8 +112,8 @@ export function printDeclareTableVariable(node: SqlNode, opts: Options): Doc {
         ' ',
         keyword('TABLE', opts),
         ' (',
-        indent([hardline, join([',', hardline], allDefs)]),
-        hardline,
+        indent([open, defsDoc]),
+        close,
         ');',
     ]);
 }
