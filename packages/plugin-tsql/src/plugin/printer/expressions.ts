@@ -1417,11 +1417,17 @@ function printInlineDerivedTable(node: SqlNode, opts: Options, printFn: (n: SqlN
     });
     const colsDef: Doc = columns?.length ? ['(', columns.join(', '), ')'] : '';
     const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias, colsDef] : '';
+    // compact: fill-pack rows — as many per line as fit, wrapping only when needed
+    // standard/spacious: all-or-nothing group (all inline or each on own line)
+    const rowsDoc: Doc =
+        getDensity(opts) === 'compact' && rows.length > 1
+            ? fill(rowDocs.flatMap((r, i) => (i === 0 ? [r] : [[',', line], r])))
+            : join([',', line], rowDocs);
     return group([
         '(',
         keyword('VALUES', opts),
         ' ',
-        indent([softline, join([',', line], rowDocs)]),
+        indent([softline, rowsDoc]),
         softline,
         ')',
         aliasPart,
