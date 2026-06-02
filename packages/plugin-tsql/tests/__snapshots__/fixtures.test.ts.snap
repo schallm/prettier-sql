@@ -2617,6 +2617,36 @@ from Books
 where InStock = 1;"
 `;
 
+exports[`options > sqlDensity: compact (JOIN ON wraps to indented line) 1`] = `
+"select b.Title, author.FirstName, author.LastName
+from Books as b
+  inner join Authors as author on
+    author.AuthorId = b.AuthorId and author.IsActive = 1
+  inner join Genres as g on g.GenreId = b.GenreId;"
+`;
+
+exports[`options > sqlDensity: compact (ORDER BY wraps with indent) 1`] = `
+"select AuthorId, GenreId, count(*) as TotalBookCount
+from Books
+where InStock = 1
+group by AuthorId, GenreId
+order by
+  TotalBookCount desc,
+  AuthorId asc,
+  GenreId asc,
+  PublisherId asc,
+  PublishedYear desc;"
+`;
+
+exports[`options > sqlDensity: compact (function args fill by width) 1`] = `
+"select concat(
+    FirstName, ' ', MiddleName, ' ', LastName, ' (', Email, ')', ' / ',
+    PhoneNumber, ' / ', City, ', ', Country
+  ) as ContactInfo
+from Authors
+where IsActive = 1;"
+`;
+
 exports[`options > sqlDensity: compact (group by wrapping) 1`] = `
 "select CustomerId,
   ProductCategoryId,

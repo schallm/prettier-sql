@@ -86,4 +86,25 @@ describe('options', () => {
         const sql = `select CustomerId, ProductCategoryId, RegionId, sum(TotalAmount) as Revenue, count(*) as OrderCount from Orders group by CustomerId, ProductCategoryId, RegionId`;
         expect(await fmt(sql, { sqlDensity: 'compact' })).toMatchSnapshot();
     });
+
+    it('sqlDensity: compact (ORDER BY wraps with indent)', async () => {
+        // When ORDER BY items exceed printWidth they must indent under the keyword,
+        // not continue at the same level as surrounding statements.
+        const sql = `select AuthorId, GenreId, count(*) as TotalBookCount from Books where InStock = 1 group by AuthorId, GenreId order by TotalBookCount desc, AuthorId asc, GenreId asc, PublisherId asc, PublishedYear desc`;
+        expect(await fmt(sql, { sqlDensity: 'compact' })).toMatchSnapshot();
+    });
+
+    it('sqlDensity: compact (JOIN ON wraps to indented line)', async () => {
+        // When the ON clause is too long to stay on the JOIN line, the whole
+        // condition must drop to a new indented line as a unit — not split at AND.
+        const sql = `select b.Title, author.FirstName, author.LastName from Books as b inner join Authors as author on author.AuthorId = b.AuthorId and author.IsActive = 1 inner join Genres as g on g.GenreId = b.GenreId`;
+        expect(await fmt(sql, { sqlDensity: 'compact' })).toMatchSnapshot();
+    });
+
+    it('sqlDensity: compact (function args fill by width)', async () => {
+        // Function call arguments should pack as many per line as fit within
+        // printWidth, not one-per-line when they overflow.
+        const sql = `select concat(FirstName, ' ', MiddleName, ' ', LastName, ' (', Email, ')', ' / ', PhoneNumber, ' / ', City, ', ', Country) as ContactInfo from Authors where IsActive = 1`;
+        expect(await fmt(sql, { sqlDensity: 'compact' })).toMatchSnapshot();
+    });
 });
