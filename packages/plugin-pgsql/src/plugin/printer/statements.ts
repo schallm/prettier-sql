@@ -11,6 +11,8 @@ import {
     softSep,
     hardSep,
     getDensity,
+    fill,
+    line,
 } from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, rangeVarName, qualifiedName } from './helpers.js';
 import { printExpression, printWindowDef } from './expressions.js';
@@ -152,25 +154,50 @@ function printWith(opts: Options): PrintFn {
 /**
  * Density-aware boolean clause (WHERE / HAVING / ON CONFLICT WHERE).
  * Single predicate: inline in compact/standard; indented in spacious.
- * Multi-predicate (BoolExpr AND/OR): always indented.
+ * Multi-predicate (BoolExpr AND/OR):
+ *   compact  — fill-pack predicates by width; each stays together on break
+ *   standard/spacious — each predicate on its own indented line
  */
 function printBoolClause(kw: string, where: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (k: string) => keyword(k, opts);
     const density = getDensity(opts);
     const isMulti = where.type === 'BoolExpr' && (propStr(where, 'op') ?? 'AND') !== 'NOT';
     const inline = density !== 'spacious' && !isMulti;
-    const body = printNode(where);
-    return [makeKeyword(kw), inline ? [' ', body] : indent([hardline, body])];
+
+    if (inline) return [makeKeyword(kw), ' ', printNode(where)];
+
+    if (density === 'compact' && isMulti) {
+        const op = propStr(where, 'op') ?? 'AND';
+        const args = propArr(where, 'args');
+        const fillParts: Doc[] = [printNode(args[0]!)];
+        for (let i = 1; i < args.length; i++) {
+            fillParts.push(line);
+            fillParts.push([makeKeyword(op), ' ', printNode(args[i]!)]);
+        }
+        return [makeKeyword(kw), group([indent([line, fill(fillParts)])])];
+    }
+
+    return [makeKeyword(kw), indent([hardline, printNode(where)])];
 }
 
 /**
- * Single-item keyword clause (GROUP BY, ORDER BY) — stays inline in standard/compact.
+ * Single-item keyword clause (GROUP BY, ORDER BY).
+ * compact  — fill-pack items by width
+ * standard/spacious — each item on its own indented line
  */
 function printListClause(kw: string, items: SqlNode[], opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (k: string) => keyword(k, opts);
-    const inline = getDensity(opts) !== 'spacious' && items.length === 1;
-    const body = join(hardSep(opts), items.map(printNode));
-    return [makeKeyword(kw), inline ? [' ', body] : indent([hardline, body])];
+    const density = getDensity(opts);
+    const inline = density !== 'spacious' && items.length === 1;
+    if (inline) return [makeKeyword(kw), ' ', printNode(items[0]!)];
+    if (density === 'compact') {
+        const docs = items.map(printNode);
+        return [
+            makeKeyword(kw),
+            group([indent([line, fill(docs.flatMap((d, i) => (i === 0 ? [d] : [[',', line], d])))])]),
+        ];
+    }
+    return [makeKeyword(kw), indent([hardline, join(hardSep(opts), items.map(printNode))])];
 }
 
 /**
@@ -243,9 +270,15 @@ function printSelectBody(node: SqlNode, opts: Options): Doc {
         : distinct
           ? [makeKeyword('SELECT'), ' ', makeKeyword('DISTINCT')]
           : makeKeyword('SELECT');
-    const selectInline = getDensity(opts) !== 'spacious' && targets.length === 1;
-    const targetDoc = join(hardSep(opts), targets.map(printNode));
-    parts.push([selectKw, selectInline ? [' ', targetDoc] : indent([hardline, targetDoc])]);
+    const density = getDensity(opts);
+    const selectInline = density !== 'spacious' && targets.length === 1;
+    const targetDocs = targets.map(printNode);
+    const targetDoc: Doc = selectInline
+        ? targetDocs[0]!
+        : density === 'compact'
+          ? indent(fill(targetDocs.flatMap((d, i) => (i === 0 ? [d] : [[',', line], d]))))
+          : indent([hardline, join(hardSep(opts), targetDocs)]);
+    parts.push([selectKw, selectInline ? [' ', targetDoc] : [' ', targetDoc]]);
 
     if (from.length > 0) {
         parts.push(printFromClause(from, opts, printNode));
