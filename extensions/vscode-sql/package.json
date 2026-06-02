@@ -3,7 +3,7 @@
     "name": "prettier-sql",
     "displayName": "Prettier SQL",
     "description": "Format T-SQL and PostgreSQL files using Prettier. Powered by prettier-plugin-tsql and prettier-plugin-postgresql.",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "publisher": "PickyCode",
     "private": true,
     "license": "MIT",
@@ -32,14 +32,24 @@
         "languages": [
             {
                 "id": "tsql",
-                "aliases": ["T-SQL", "tsql"],
-                "extensions": [".tsql"],
+                "aliases": [
+                    "T-SQL",
+                    "tsql"
+                ],
+                "extensions": [
+                    ".tsql"
+                ],
                 "configuration": "./language-configuration.json"
             },
             {
                 "id": "pgsql",
-                "aliases": ["PostgreSQL", "pgsql"],
-                "extensions": [".pgsql"],
+                "aliases": [
+                    "PostgreSQL",
+                    "pgsql"
+                ],
+                "extensions": [
+                    ".pgsql"
+                ],
                 "configuration": "./language-configuration.json"
             }
         ],
@@ -48,7 +58,10 @@
             "properties": {
                 "prettierSql.defaultDialect": {
                     "type": "string",
-                    "enum": ["tsql", "pgsql"],
+                    "enum": [
+                        "tsql",
+                        "pgsql"
+                    ],
                     "default": "tsql",
                     "description": "Dialect used when formatting plain .sql files. Add a --tsql or --pgsql comment at the top of a file to override this on a per-file basis.",
                     "enumDescriptions": [
@@ -58,7 +71,11 @@
                 },
                 "prettierSql.sqlKeywordCase": {
                     "type": "string",
-                    "enum": ["lower", "upper", "preserve"],
+                    "enum": [
+                        "lower",
+                        "upper",
+                        "preserve"
+                    ],
                     "default": "lower",
                     "description": "Casing applied to SQL keywords (SELECT, FROM, WHERE, etc.).",
                     "enumDescriptions": [
@@ -69,7 +86,11 @@
                 },
                 "prettierSql.sqlDensity": {
                     "type": "string",
-                    "enum": ["compact", "standard", "spacious"],
+                    "enum": [
+                        "compact",
+                        "standard",
+                        "spacious"
+                    ],
                     "default": "standard",
                     "description": "Controls how much vertical space the formatter uses when laying out statements.",
                     "enumDescriptions": [
@@ -80,7 +101,10 @@
                 },
                 "prettierSql.sqlCommaStyle": {
                     "type": "string",
-                    "enum": ["trailing", "leading"],
+                    "enum": [
+                        "trailing",
+                        "leading"
+                    ],
                     "default": "trailing",
                     "description": "Position of commas in multi-line column lists and VALUES clauses.",
                     "enumDescriptions": [
