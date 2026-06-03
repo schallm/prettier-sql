@@ -107,4 +107,41 @@ describe('options', () => {
         const sql = `select concat(FirstName, ' ', MiddleName, ' ', LastName, ' (', Email, ')', ' / ', PhoneNumber, ' / ', City, ', ', Country) as ContactInfo from Authors where IsActive = 1`;
         expect(await fmt(sql, { sqlDensity: 'compact' })).toMatchSnapshot();
     });
+
+    it('raiserror: long args wrap one-per-line in standard', async () => {
+        // When raiserror args exceed printWidth, standard density puts each on its own line.
+        const sql = `if @rowsAdded <> @expected begin raiserror ('Expected to add %d rows but actually added %d rows. Rolling back.', 16, 1, @expected, @rowsAdded); return; end`;
+        expect(await fmt(sql, { sqlDensity: 'standard' })).toMatchSnapshot();
+    });
+
+    it('raiserror: long args fill-pack in compact', async () => {
+        // In compact density raiserror args fill multiple per line rather than one-per-line.
+        const sql = `if @rowsAdded <> @expected begin raiserror ('Expected to add %d rows but actually added %d rows. Rolling back.', 16, 1, @expected, @rowsAdded); return; end`;
+        expect(await fmt(sql, { sqlDensity: 'compact' })).toMatchSnapshot();
+    });
+
+    it('UPDATE SET: fill-packs items in standard', async () => {
+        // SET items pack as many per line as fit; spacious remains one-per-line.
+        const sql = `update Orders set StartDt = @NewStartDt, EndDt = @NewEndDt, EnteredBy = @EnteredBy, EnteredDt = @EnteredDt where Id = @Id`;
+        expect(await fmt(sql, { sqlDensity: 'standard' })).toMatchSnapshot();
+    });
+
+    it('UPDATE SET: one-per-line in spacious', async () => {
+        const sql = `update Orders set StartDt = @NewStartDt, EndDt = @NewEndDt, EnteredBy = @EnteredBy where Id = @Id`;
+        expect(await fmt(sql, { sqlDensity: 'spacious' })).toMatchSnapshot();
+    });
+
+    it('IF condition: multi-predicate continuation indented', async () => {
+        // The OR/AND continuation of an IF condition must indent one level under IF,
+        // not align with the base indent.
+        const sql = `if @NewStartDt <= @today or @NewStartDt > @oneMonthFromNow begin raiserror ('bad date', 16, 1); return; end`;
+        expect(await fmt(sql, { sqlDensity: 'standard' })).toMatchSnapshot();
+    });
+
+    it('procedure body: minor statements grouped without blank lines', async () => {
+        // Consecutive SET/DECLARE (minor) statements have no blank line between them;
+        // blank lines appear before major statements like IF and UPDATE.
+        const sql = `create procedure test_proc as begin set nocount on; set xact_abort on; declare @x int = 0; declare @y int = 0; if @x > 0 begin set @x = 1; return; end update T set Col = @x where Id = 1; end`;
+        expect(await fmt(sql, { sqlDensity: 'standard' })).toMatchSnapshot();
+    });
 });

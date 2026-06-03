@@ -77,6 +77,19 @@ export function parenList(items: Doc[]): Doc {
 }
 
 /**
+ * Like parenList but uses fill-packing — multiple items per line when they fit,
+ * wrapping to the next line only when needed. Use in compact density.
+ */
+export function parenListFill(items: Doc[]): Doc {
+    return group([
+        '(',
+        indent([softline, fill(items.flatMap((d, i) => (i === 0 ? [d] : [[',', line], d])))]),
+        softline,
+        ')',
+    ]);
+}
+
+/**
  * Render ` AS alias` when alias is set, or an empty string.
  */
 export function aliasDoc(alias: string | null | undefined, opts: Options): Doc {

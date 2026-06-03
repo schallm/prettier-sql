@@ -16,7 +16,7 @@ import {
 import { prop, propArr, propStr, propBool, schemaObjectName } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
-import { printStatementWithComments, printNode, printBool, printBoolClause, qexpr } from './statements.js';
+import { joinBodyStatements, printNode, printBool, printBoolClause, qexpr } from './statements.js';
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -818,7 +818,6 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
     const atomicBlock = body.length === 1 && body[0].type === 'BeginEndAtomicBlock' ? body[0] : null;
     const atomicOptions = atomicBlock?.props?.['atomicOptions'] as string[] | undefined;
     const innerBody = atomicBlock ? propArr(atomicBlock, 'statements') : unwrapBodyBlock(body);
-    const bodyDocs = innerBody.map((s) => printStatementWithComments(s, opts));
 
     const preBody = commentsBlock(node.preBodyComments);
     const postParam = commentsBlock(node.postParamComments);
@@ -875,7 +874,7 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
                   ')',
               ]
             : [keyword('BEGIN', opts)]),
-        indent([hardline, join([hardline, hardline], bodyDocs)]),
+        indent([hardline, joinBodyStatements(innerBody, opts)]),
         hardline,
         keyword('END', opts),
         ';',
@@ -962,8 +961,8 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
     }
 
     // Scalar or multi-statement TVF — both use BEGIN...END
-    const stmts = Array.isArray(body) ? unwrapBodyBlock(body as SqlNode[]).map((s) => printStatementWithComments(s, opts)) : [];
-    const bodyDoc: Doc = join([hardline, hardline], stmts);
+    const stmts = Array.isArray(body) ? unwrapBodyBlock(body as SqlNode[]) : [];
+    const bodyDoc: Doc = joinBodyStatements(stmts, opts);
 
     let retTypePart: Doc;
     if (bodyType === 'inline-table') {
@@ -1076,7 +1075,7 @@ export function printCreateTrigger(node: SqlNode, opts: Options): Doc {
         : '';
     const notForReplication = propBool(node, 'notForReplication');
     const notForReplicationDoc: Doc = notForReplication ? [hardline, keyword('NOT FOR REPLICATION', opts)] : '';
-    const bodyDocs = unwrapBodyBlock(propArr(node, 'body')).map((s) => printStatementWithComments(s, opts));
+    const triggerBody = unwrapBodyBlock(propArr(node, 'body'));
 
     const triggerScope = propStr(node, 'triggerScope'); // 'Database' or 'Server' for DDL triggers
     const onTarget: Doc = triggerScope === 'Database'
@@ -1102,7 +1101,7 @@ export function printCreateTrigger(node: SqlNode, opts: Options): Doc {
         keyword('AS', opts),
         hardline,
         keyword('BEGIN', opts),
-        indent([hardline, join([hardline, hardline], bodyDocs)]),
+        indent([hardline, joinBodyStatements(triggerBody, opts)]),
         hardline,
         keyword('END', opts),
         ';',

@@ -1,11 +1,11 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
-import { keyword, hardline, softline, join, indent, group, onOffKw, fill, line, getDensity } from '@prettier-sql/core/printer/utils';
+import { keyword, hardline, softline, join, indent, group, onOffKw, fill, line, getDensity, parenList, parenListFill } from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, schemaObjectName, assignmentOp } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
-import { printStatementWithComments, printNode, printBool, qexpr } from './statements.js';
+import { printStatementWithComments, joinBodyStatements, printNode, printBool, qexpr } from './statements.js';
 import { printColumnDef, printConstraintDef } from './ddl.js';
 
 // ---------------------------------------------------------------------------
@@ -277,26 +277,19 @@ export function printThrow(node: SqlNode, opts: Options): Doc {
 }
 
 export function printRaiseError(node: SqlNode, opts: Options): Doc {
-    const extraParams = propArr(node, 'params');
-    const extraDocs: Doc[] = extraParams.length > 0 ? extraParams.map((p) => [', ', printNode(p, opts)]) : [];
+    const allArgs: Doc[] = [
+        printNode(prop(node, 'message')!, opts),
+        printNode(prop(node, 'severity')!, opts),
+        printNode(prop(node, 'state')!, opts),
+        ...propArr(node, 'params').map((p) => printNode(p, opts)),
+    ];
     const withOpts = node.props?.['withOptions'] as string[] | undefined;
     const withPart: Doc =
         withOpts && withOpts.length > 0
             ? [' ', keyword('WITH', opts), ' ', join(', ', withOpts.map((o) => keyword(o, opts)))]
             : '';
-    return [
-        keyword('RAISERROR', opts),
-        ' (',
-        printNode(prop(node, 'message')!, opts),
-        ', ',
-        printNode(prop(node, 'severity')!, opts),
-        ', ',
-        printNode(prop(node, 'state')!, opts),
-        ...extraDocs,
-        ')',
-        withPart,
-        ';',
-    ];
+    const argList = getDensity(opts) === 'compact' ? parenListFill(allArgs) : parenList(allArgs);
+    return [keyword('RAISERROR', opts), ' ', argList, withPart, ';'];
 }
 
 // ---------------------------------------------------------------------------
@@ -304,16 +297,16 @@ export function printRaiseError(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printTryCatch(node: SqlNode, opts: Options): Doc {
-    const tryStmts = propArr(node, 'tryBody').map((s) => printStatementWithComments(s, opts));
-    const catchStmts = propArr(node, 'catchBody').map((s) => printStatementWithComments(s, opts));
+    const tryStmts = propArr(node, 'tryBody');
+    const catchStmts = propArr(node, 'catchBody');
     return [
         keyword('BEGIN TRY', opts),
-        indent([hardline, join([hardline, hardline], tryStmts)]),
+        indent([hardline, joinBodyStatements(tryStmts, opts)]),
         hardline,
         keyword('END TRY', opts),
         hardline,
         keyword('BEGIN CATCH', opts),
-        indent([hardline, join([hardline, hardline], catchStmts)]),
+        indent([hardline, joinBodyStatements(catchStmts, opts)]),
         hardline,
         keyword('END CATCH', opts),
     ];
@@ -330,13 +323,7 @@ export function printStatementBlock(node: SqlNode, opts: Options): Doc {
         return [
             hardline,
             keyword('BEGIN', opts),
-            indent([
-                hardline,
-                join(
-                    [hardline, hardline],
-                    stmts.map((s) => printStatementWithComments(s, opts)),
-                ),
-            ]),
+            indent([hardline, joinBodyStatements(stmts, opts)]),
             hardline,
             keyword('END', opts),
         ];
@@ -348,7 +335,7 @@ export function printIf(node: SqlNode, opts: Options): Doc {
     const condition = prop(node, 'condition');
     const then = prop(node, 'then');
     const els = prop(node, 'else');
-    const condDoc = condition ? printBool(condition, opts) : '';
+    const condDoc = condition ? indent(printBool(condition, opts)) : '';
     const thenDoc = then ? printStatementBlock(then, opts) : ';';
     const parts: Doc[] = [keyword('IF', opts), ' ', condDoc, thenDoc];
     if (els) {
@@ -365,7 +352,7 @@ export function printIf(node: SqlNode, opts: Options): Doc {
 export function printWhile(node: SqlNode, opts: Options): Doc {
     const condition = prop(node, 'condition');
     const body = prop(node, 'body');
-    const condDoc = condition ? printBool(condition, opts) : '';
+    const condDoc = condition ? indent(printBool(condition, opts)) : '';
     return group([keyword('WHILE', opts), ' ', condDoc, body ? printStatementBlock(body, opts) : ';']);
 }
 

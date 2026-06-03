@@ -972,21 +972,13 @@ truncate table dbo.Orders with (partitions (1, 5 to 10, 20));"
 exports[`fixtures > procedural/compound-assignment.sql 1`] = `
 "-- Compound assignment operators must all be preserved
 declare @n int = 10;
-
 set @n += 5;
-
 set @n -= 3;
-
 set @n *= 2;
-
 set @n /= 4;
-
 set @n %= 3;
-
 set @n &= 0xFF;
-
 set @n |= 0x01;
-
 set @n ^= 0xAA;"
 `;
 
@@ -994,7 +986,6 @@ exports[`fixtures > procedural/control-flow.sql 1`] = `
 "declare @price decimal(10, 2) = 29.99;
 declare @title nvarchar(200);
 declare @count int;
-
 set @count = (
   select count(*)
   from Books
@@ -1034,20 +1025,14 @@ begin try
 end try
 begin catch
   declare @msg nvarchar(4000) = error_message();
-
   declare @sev int = error_severity();
-
   declare @state int = error_state();
-
   raiserror (@msg, @sev, @state);
 end catch
 
 goto Cleanup;
-
 Cleanup:
-
 print 'done';
-
 return;"
 `;
 
@@ -1106,7 +1091,6 @@ deallocate ScrollCursor;
 
 -- CURSOR VARIABLES: declare @var cursor, set @var = cursor for ..., open/fetch/close/deallocate
 declare @cur cursor;
-
 set @cur = cursor
 for
 select
@@ -1125,7 +1109,6 @@ deallocate @cur;
 
 -- cursor variable with options
 declare @scrollCur cursor;
-
 set @scrollCur = cursor local static scroll
 for
 select
@@ -1209,9 +1192,7 @@ begin catch
 end catch
 
 set transaction isolation level read committed;
-
 set transaction isolation level serializable;
-
 set transaction isolation level snapshot;"
 `;
 
@@ -1247,11 +1228,8 @@ go"
 
 exports[`fixtures > procedural/xml-method-set.sql 1`] = `
 "declare @xmlDoc xml = '<root><item id="1"><name>Widget</name></root>';
-
 set @xmlDoc.modify('insert <tag>val</tag> as last into (/root)[1]');
-
 set @xmlDoc.modify('delete (/root/item[@id=1])[1]');
-
 set @xmlDoc.modify('replace value of (/root/item/name/text())[1] with "Gadget"');"
 `;
 
@@ -2427,8 +2405,7 @@ as
 begin
   update Books
   set
-    IsDeleted = 1,
-    DeletedAt = getdate()
+    IsDeleted = 1, DeletedAt = getdate()
   where Id in (
     select Id
     from deleted
@@ -2482,8 +2459,7 @@ drop type if exists dbo.NameValuePair;"
 exports[`fixtures > update/basic.sql 1`] = `
 "update Books
 set
-  Title = 'Updated Title',
-  Price = 29.99
+  Title = 'Updated Title', Price = 29.99
 where Id = 42;"
 `;
 
@@ -2593,6 +2569,80 @@ select
   b.Price
 from dbo.Books as b;
 go"
+`;
+
+exports[`options > IF condition: multi-predicate continuation indented 1`] = `
+"if @NewStartDt <= @today
+  or @NewStartDt > @oneMonthFromNow
+begin
+  raiserror ('bad date', 16, 1);
+  return;
+end"
+`;
+
+exports[`options > UPDATE SET: fill-packs items in standard 1`] = `
+"update Orders
+set
+  StartDt = @NewStartDt, EndDt = @NewEndDt, EnteredBy = @EnteredBy,
+  EnteredDt = @EnteredDt
+where Id = @Id;"
+`;
+
+exports[`options > UPDATE SET: one-per-line in spacious 1`] = `
+"update Orders
+set
+  StartDt = @NewStartDt,
+  EndDt = @NewEndDt,
+  EnteredBy = @EnteredBy
+where
+  Id = @Id;"
+`;
+
+exports[`options > procedure body: minor statements grouped without blank lines 1`] = `
+"create procedure test_proc
+as
+begin
+  set nocount on;
+  set xact_abort on;
+  declare @x int = 0;
+  declare @y int = 0;
+
+  if @x > 0
+  begin
+    set @x = 1;
+    return;
+  end
+
+  update T
+  set Col = @x
+  where Id = 1;
+end;
+go"
+`;
+
+exports[`options > raiserror: long args fill-pack in compact 1`] = `
+"if @rowsAdded <> @expected
+begin
+  raiserror (
+    'Expected to add %d rows but actually added %d rows. Rolling back.', 16, 1,
+    @expected, @rowsAdded
+  );
+  return;
+end"
+`;
+
+exports[`options > raiserror: long args wrap one-per-line in standard 1`] = `
+"if @rowsAdded <> @expected
+begin
+  raiserror (
+    'Expected to add %d rows but actually added %d rows. Rolling back.',
+    16,
+    1,
+    @expected,
+    @rowsAdded
+  );
+  return;
+end"
 `;
 
 exports[`options > sqlCommaStyle: leading 1`] = `
@@ -2855,8 +2905,7 @@ exports[`shared fixtures > dml/truncate.sql 1`] = `"truncate table sessions;"`;
 exports[`shared fixtures > dml/update.sql 1`] = `
 "update books
 set
-  price = price * 0.9,
-  in_stock = 1
+  price = price * 0.9, in_stock = 1
 where
   author_id = 1
   and price > 20;

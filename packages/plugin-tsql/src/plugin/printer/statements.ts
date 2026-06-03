@@ -16,6 +16,7 @@ import {
     lineSuffix,
     appendTrailingLines,
     parenList,
+    fill,
 } from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, assignmentOp } from './helpers.js';
 import {
@@ -194,6 +195,26 @@ function printTable(node: SqlNode, opts: Options): Doc {
 }
 
 /**
+ * Fill-pack a list of docs using commas — wraps at printWidth, keeping each
+ * item together with its associated comma. Used for UPDATE SET, INSERT columns,
+ * etc. in standard/compact density.
+ *
+ * Trailing commas: `item1, item2,\n    item3`
+ * Leading commas:  `item1\n, item2\n, item3`
+ */
+function fillList(docs: Doc[], opts: Options): Doc {
+    const leading = getCommaStyle(opts) === 'leading';
+    return fill(
+        docs.flatMap((d, i) => {
+            if (i === 0) return [d] as Doc[];
+            // leading: break point before ', item' so comma leads the new line
+            // trailing: 'item,' then break point so comma trails the old line
+            return leading ? ([line, [', ', d]] as Doc[]) : ([[',', line], d] as Doc[]);
+        }),
+    );
+}
+
+/**
  * Print a clause keyword followed by a boolean expression.
  * Single-predicate stays inline (` WHERE x = 1`); multi-predicate breaks to
  * an indented block. In spacious mode all predicates are always indented.
@@ -240,30 +261,62 @@ export function printScript(node: SqlNode, opts: Options): Doc {
     return parts;
 }
 
-const DECLARE_TYPES = new Set([
+/**
+ * "Minor" statements are short bookkeeping lines — DECLARE, SET, RETURN,
+ * RAISERROR, etc. — that shouldn't force a blank line between them.
+ * "Major" statements (SELECT/INSERT/UPDATE/DELETE/MERGE, IF/WHILE/TRY blocks,
+ * EXEC, transactions, DDL, …) do get a blank line before them.
+ *
+ * Rule: blank line between two statements unless BOTH are minor.
+ */
+const MINOR_STATEMENT_TYPES = new Set([
+    // declarations
     'DeclareVariableStatement',
     'DeclareTableVariableStatement',
     'DeclareCursorStatement',
+    // SET variants
+    'SetVariableStatement',
+    'PredicateSetStatement',
+    'SetRowCountStatement',
+    'SetIdentityInsertStatement',
+    'SetTransactionIsolationLevelStatement',
+    'SetStatisticsStatement',
+    // flow helpers
+    'ReturnStatement',
+    'RaiseErrorStatement',
+    'ThrowStatement',
+    'PrintStatement',
+    'BreakStatement',
+    'ContinueStatement',
+    'GotoStatement',
+    'LabelStatement',
 ]);
 
-function isDeclare(node: SqlNode): boolean {
-    return DECLARE_TYPES.has(node.type);
+export function isMinor(node: SqlNode): boolean {
+    return MINOR_STATEMENT_TYPES.has(node.type);
 }
 
-function printBatch(node: SqlNode, opts: Options): Doc {
-    const stmts = propArr(node, 'statements');
+/**
+ * Join a list of statement nodes with blank lines between them, except that
+ * consecutive "minor" statements (DECLARE, SET, RETURN, …) are grouped
+ * without a blank line. Used for procedure/function/trigger bodies and
+ * top-level batches.
+ */
+export function joinBodyStatements(stmts: SqlNode[], opts: Options): Doc {
     if (stmts.length === 0) return '';
-
     const parts: Doc[] = [printStatementWithComments(stmts[0]!, opts)];
     for (let i = 1; i < stmts.length; i++) {
         const prev = stmts[i - 1]!;
         const curr = stmts[i]!;
-        // Consecutive DECLARE statements are grouped with no blank line between
-        // them; a blank line is emitted only after the last one in the run.
-        const sep: Doc = isDeclare(prev) && isDeclare(curr) ? hardline : [hardline, hardline];
+        const sep: Doc = isMinor(prev) && isMinor(curr) ? hardline : [hardline, hardline];
         parts.push(sep, printStatementWithComments(curr, opts));
     }
     return parts;
+}
+
+function printBatch(node: SqlNode, opts: Options): Doc {
+    const stmts = propArr(node, 'statements');
+    return joinBodyStatements(stmts, opts);
 }
 
 // ---------------------------------------------------------------------------
@@ -382,10 +435,9 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         // BEGIN/END block (proc bodies, inline blocks)
         case 'BeginEndBlock': {
             const stmts = propArr(node, 'statements');
-            const bodyDocs = stmts.map((s) => printStatementWithComments(s, opts));
             return [
                 keyword('BEGIN', opts),
-                indent([hardline, join([hardline, hardline], bodyDocs)]),
+                indent([hardline, joinBodyStatements(stmts, opts)]),
                 hardline,
                 keyword('END', opts),
             ];
@@ -824,7 +876,9 @@ function printUpdate(node: SqlNode, opts: Options): Doc {
         keyword('SET', opts),
         density !== 'spacious' && setParts.length === 1
             ? [' ', setParts[0]!]
-            : indent([hardline, join(hardSep(opts), setParts)]),
+            : density === 'spacious'
+              ? indent([hardline, join(hardSep(opts), setParts)])
+              : indent([hardline, fillList(setParts, opts)]),
     ];
 
     if (from) {
