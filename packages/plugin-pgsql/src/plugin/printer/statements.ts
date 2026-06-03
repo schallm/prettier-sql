@@ -11,6 +11,7 @@ import {
     softSep,
     hardSep,
     getDensity,
+    getCommaStyle,
     fill,
     line,
 } from '@prettier-sql/core/printer/utils';
@@ -379,6 +380,16 @@ function printInsert(node: SqlNode, opts: Options): Doc {
 // UPDATE
 // ---------------------------------------------------------------------------
 
+function fillList(docs: Doc[], opts: Options): Doc {
+    const leading = getCommaStyle(opts) === 'leading';
+    return fill(
+        docs.flatMap((d, i) => {
+            if (i === 0) return [d] as Doc[];
+            return leading ? ([line, [', ', d]] as Doc[]) : ([[',', line], d] as Doc[]);
+        }),
+    );
+}
+
 function printUpdateBody(node: SqlNode, opts: Options): Doc {
     const makeKeyword = (k: string) => keyword(k, opts);
     const printNode = printWith(opts);
@@ -404,7 +415,9 @@ function printUpdateBody(node: SqlNode, opts: Options): Doc {
             makeKeyword('SET'),
             density !== 'spacious' && setDocs.length === 1
                 ? [' ', setDocs[0]!]
-                : indent([hardline, join(hardSep(opts), setDocs)]),
+                : density === 'spacious'
+                  ? indent([hardline, join(hardSep(opts), setDocs)])
+                  : indent([hardline, fillList(setDocs, opts)]),
         ],
     );
 
@@ -546,7 +559,9 @@ function printOnConflict(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
             makeKeyword('SET'),
             density !== 'spacious' && setDocs.length === 1
                 ? [' ', setDocs[0]!]
-                : indent([hardline, join(hardSep(opts), setDocs)]),
+                : density === 'spacious'
+                  ? indent([hardline, join(hardSep(opts), setDocs)])
+                  : indent([hardline, fillList(setDocs, opts)]),
         ],
     ];
 

@@ -986,8 +986,7 @@ insert into users (id, email, updated_at)
 values (1, 'alice@example.com', now())
 on conflict (id) do update
 set
-  email = excluded.email,
-  updated_at = excluded.updated_at;
+  email = excluded.email, updated_at = excluded.updated_at;
 
 -- ON CONFLICT on constraint name
 insert into users (id, email)
@@ -999,8 +998,7 @@ insert into products (id, name, price)
 values (1, 'Widget', 9.99)
 on conflict (id) do update
 set
-  name = excluded.name,
-  price = excluded.price;
+  name = excluded.name, price = excluded.price;
 
 -- ON CONFLICT DO UPDATE with WHERE on SET (filter which rows update)
 insert into inventory (product_id, quantity)
@@ -2086,8 +2084,7 @@ exports[`shared fixtures > dml/truncate.sql 1`] = `
 exports[`shared fixtures > dml/update.sql 1`] = `
 "update books
 set
-  price = price * 0.9,
-  in_stock = 1
+  price = price * 0.9, in_stock = 1
 where
   author_id = 1
   and price > 20;
