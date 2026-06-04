@@ -1,5 +1,11 @@
 # prettier-plugin-postgresql
 
+## 0.2.4
+
+### Patch Changes
+
+- Remove extra line returns for minor statements
+
 ## 0.2.3
 
 ### Patch Changes

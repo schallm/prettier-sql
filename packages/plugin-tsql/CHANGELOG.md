@@ -1,5 +1,11 @@
 # prettier-plugin-tsql
 
+## 0.6.5
+
+### Patch Changes
+
+- Remove extra line returns for minor statements
+
 ## 0.6.4
 
 ### Patch Changes
