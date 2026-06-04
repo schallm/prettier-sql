@@ -290,6 +290,11 @@ const MINOR_STATEMENT_TYPES = new Set([
     'ContinueStatement',
     'GotoStatement',
     'LabelStatement',
+    // transactions
+    'BeginTransactionStatement',
+    'CommitTransactionStatement',
+    'RollbackTransactionStatement',
+    'SaveTransactionStatement',
 ]);
 
 export function isMinor(node: SqlNode): boolean {

@@ -1130,7 +1130,6 @@ deallocate @scrollCur;"
 
 exports[`fixtures > procedural/operational.sql 1`] = `
 "save transaction SavePoint1;
-
 save transaction @sp;
 
 checkpoint;
@@ -1166,17 +1165,11 @@ end"
 
 exports[`fixtures > procedural/transactions.sql 1`] = `
 "begin transaction;
-
 begin transaction SaveOrder;
-
 save transaction BeforeSave;
-
 rollback transaction;
-
 rollback transaction BeforeSave;
-
 commit transaction;
-
 commit transaction SaveOrder;
 
 begin try
