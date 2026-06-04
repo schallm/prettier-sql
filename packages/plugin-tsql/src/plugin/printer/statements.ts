@@ -295,6 +295,18 @@ const MINOR_STATEMENT_TYPES = new Set([
     'CommitTransactionStatement',
     'RollbackTransactionStatement',
     'SaveTransactionStatement',
+    // context / admin
+    'UseStatement',
+    'CheckpointStatement',
+    // security
+    'GrantStatement',
+    'DenyStatement',
+    'RevokeStatement',
+    // cursor lifecycle
+    'OpenCursorStatement',
+    'CloseCursorStatement',
+    'FetchCursorStatement',
+    'DeallocateCursorStatement',
 ]);
 
 export function isMinor(node: SqlNode): boolean {

@@ -1049,22 +1049,17 @@ select
 from Books
 where InStock = 1
 order by Title asc;
-
 open BookCursor;
-
 fetch next from BookCursor into @bookId, @title, @price;
 
 while @@fetch_status = 0
 begin
   print @title;
-
   fetch next from BookCursor into @bookId, @title, @price;
 end
 
 close BookCursor;
-
 deallocate BookCursor;
-
 declare ScrollCursor cursor scroll
 for
 select
@@ -1072,23 +1067,14 @@ select
   Title
 from Books
 order by Id asc;
-
 open ScrollCursor;
-
 fetch first from ScrollCursor into @bookId, @title;
-
 fetch last from ScrollCursor into @bookId, @title;
-
 fetch absolute 5 from ScrollCursor into @bookId, @title;
-
 fetch relative -2 from ScrollCursor into @bookId, @title;
-
 fetch prior from ScrollCursor into @bookId, @title;
-
 close ScrollCursor;
-
 deallocate ScrollCursor;
-
 -- CURSOR VARIABLES: declare @var cursor, set @var = cursor for ..., open/fetch/close/deallocate
 declare @cur cursor;
 set @cur = cursor
@@ -1098,15 +1084,10 @@ select
   Name
 from dbo.Products
 where IsActive = 1;
-
 open @cur;
-
 fetch next from @cur into @bookId, @title;
-
 close @cur;
-
 deallocate @cur;
-
 -- cursor variable with options
 declare @scrollCur cursor;
 set @scrollCur = cursor local static scroll
@@ -1116,24 +1097,17 @@ select
   Title
 from Books
 order by Id asc;
-
 open @scrollCur;
-
 fetch first from @scrollCur into @bookId, @title;
-
 fetch last from @scrollCur into @bookId, @title;
-
 close @scrollCur;
-
 deallocate @scrollCur;"
 `;
 
 exports[`fixtures > procedural/operational.sql 1`] = `
 "save transaction SavePoint1;
 save transaction @sp;
-
 checkpoint;
-
 checkpoint 5;
 
 kill 52;
@@ -1287,37 +1261,29 @@ drop role db_reader;
 grant select
 on dbo.Books
 to AppUser;
-
 grant select, insert, update
 on dbo.Books
 to AppUser, ReportUser;
-
 grant select
 on dbo.Books (Title, Price)
 to ReportUser;
-
 grant execute
 on dbo.GetAvailableBooks
 to AppUser
 with grant option;
-
 deny delete
 on dbo.Books
 to AppUser;
-
 revoke select
 on dbo.Books
 from AppUser;
-
 revoke select
 on dbo.Books
 from AppUser
 cascade;
-
 grant select, insert, update, delete
 on schema::dbo
 to AppUser;
-
 grant control
 on database::AdventureWorks
 to AppUser;"
@@ -1362,28 +1328,22 @@ drop role if exists db_readonly;
 grant select, insert, update
 on schema::dbo
 to AppUser;
-
 grant control
 on database::AdventureWorks
 to AppUser;
-
 grant impersonate
 on login::ServiceLogin
 to AppUser;
-
 deny delete
 on object::dbo.AuditLog
 to AppUser;
-
 revoke select
 on schema::dbo
 from AppUser
 cascade;
-
 grant select
 on dbo.Books (Title, Price)
 to ReportUser;
-
 grant execute
 on dbo.GetAvailableBooks
 to AppUser
