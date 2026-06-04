@@ -24,11 +24,56 @@ type PrintFn = (node: SqlNode) => Doc;
 // Script root
 // ---------------------------------------------------------------------------
 
+/**
+ * "Minor" statements are short bookkeeping lines that shouldn't force a blank
+ * line between them. "Major" statements (DML, DDL, maintenance) do get one.
+ *
+ * Rule: blank line between two statements unless BOTH are minor.
+ */
+const MINOR_STATEMENT_TYPES = new Set([
+    // transactions
+    'TransactionStatement',
+    // SET / SHOW
+    'VariableSetStatement',
+    'VariableShowStatement',
+    // security
+    'GrantStatement',
+    'RevokeStatement',
+    // metadata
+    'CommentStatement',
+    'SecurityLabelStatement',
+    'AlterOwnerStatement',
+    'AlterObjectSchemaStatement',
+    // notifications
+    'ListenStatement',
+    'UnlistenStatement',
+    'NotifyStatement',
+    // session bookkeeping
+    'CheckpointStatement',
+    'DiscardStatement',
+    // cursor lifecycle
+    'DeclareCursorStatement',
+    'FetchStatement',
+    'ClosePortalStatement',
+]);
+
 export function printScript(node: SqlNode, opts: Options): Doc {
     const statements = propArr(node, 'statements');
     if (statements.length === 0) return '';
     const docs = statements.map((s) => printStatementWithComments(s, opts));
-    return [...join([hardline, hardline], docs), hardline];
+    const parts: Doc[] = [];
+    for (let i = 0; i < docs.length; i++) {
+        if (i > 0) {
+            const prev = statements[i - 1]!;
+            const curr = statements[i]!;
+            const sep = MINOR_STATEMENT_TYPES.has(prev.type) && MINOR_STATEMENT_TYPES.has(curr.type)
+                ? hardline
+                : [hardline, hardline];
+            parts.push(sep);
+        }
+        parts.push(docs[i]!);
+    }
+    return [...parts, hardline];
 }
 
 function printStatementWithComments(node: SqlNode, opts: Options): Doc {

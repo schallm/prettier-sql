@@ -23,7 +23,6 @@ alter function get_count(integer) rename to count_items;
 
 -- OWNER TO
 alter function get_count owner to admin;
-
 -- SET SCHEMA
 alter function get_count set schema reporting;
 "
@@ -170,31 +169,22 @@ create table products (
 exports[`fixtures > ddl/comments.sql 1`] = `
 "-- COMMENT ON TABLE
 comment on table books is 'Book catalog';
-
 -- COMMENT ON COLUMN
 comment on column books.title is 'The book''s title';
-
 -- COMMENT ON SCHEMA
 comment on schema public is 'Public schema';
-
 -- COMMENT ON FUNCTION
 comment on function get_count is 'Returns count for given id';
-
 -- Remove a comment (IS NULL)
 comment on table temp_data is null;
-
 -- COMMENT ON VIEW
 comment on view active_users is 'Users with active accounts';
-
 -- COMMENT ON INDEX
 comment on index idx_books_author is 'Author lookup index';
-
 -- COMMENT ON SEQUENCE
 comment on sequence order_seq is 'Order ID sequence';
-
 -- COMMENT ON TYPE
 comment on type order_status is 'Possible order states';
-
 -- COMMENT ON DATABASE
 comment on database mydb is 'Main application database';
 "
@@ -322,30 +312,23 @@ exports[`fixtures > ddl/grant-revoke.sql 1`] = `
 "-- GRANT on specific tables
 grant select, insert on table books
 to alice;
-
 grant all privileges on table orders
 to bob;
-
 -- GRANT on schema
 grant usage on schema myschema
 to alice;
-
 -- GRANT on all tables in schema
 grant select on all tables in schema public
 to alice;
-
 -- GRANT to public
 grant execute on function get_count
 to PUBLIC;
-
 -- REVOKE
 revoke select on table books
 from alice;
-
 revoke all privileges on table orders
 from bob
 cascade;
-
 -- WITH GRANT OPTION
 grant select on table books
 to alice
@@ -728,19 +711,13 @@ select
   id,
   name
 from users;
-
 declare scroll_cursor scroll cursor for
 select id
 from orders;
-
 fetch next from my_cursor;
-
 fetch forward 10 from my_cursor;
-
 fetch all from my_cursor;
-
 move prior from scroll_cursor;
-
 close my_cursor;
 "
 `;
@@ -748,13 +725,9 @@ close my_cursor;
 exports[`fixtures > dml/dba-utility.sql 1`] = `
 "-- DISCARD
 discard all;
-
 discard plans;
-
 discard sequences;
-
 discard temp;
-
 -- CHECKPOINT
 checkpoint;
 
@@ -825,13 +798,9 @@ from users;
 
 exports[`fixtures > dml/listen-notify.sql 1`] = `
 "listen my_channel;
-
 unlisten my_channel;
-
 unlisten *;
-
 notify my_channel;
-
 notify my_channel, 'payload text';
 "
 `;
@@ -903,22 +872,15 @@ deallocate all;
 exports[`fixtures > dml/set-show.sql 1`] = `
 "-- SET
 set search_path = public, myschema;
-
 set work_mem = '64MB';
-
 set local client_encoding = utf8;
-
 -- SET TO DEFAULT
 set work_mem to default;
-
 -- RESET
 reset search_path;
-
 reset all;
-
 -- SHOW
 show work_mem;
-
 show all;
 "
 `;
@@ -926,35 +888,22 @@ show all;
 exports[`fixtures > dml/transaction.sql 1`] = `
 "-- Basic transaction control
 begin;
-
 commit;
-
 rollback;
-
 -- Named savepoints
 savepoint sp1;
-
 release savepoint sp1;
-
 rollback to savepoint sp1;
-
 -- SET TRANSACTION options
 set transaction isolation level serializable;
-
 set transaction read only;
-
 set transaction read write, deferrable;
-
 -- BEGIN with options
 begin isolation level read committed;
-
 begin read only;
-
 -- Two-phase commit
 prepare transaction 'txn-1234';
-
 commit prepared 'txn-1234';
-
 rollback prepared 'txn-1234';
 "
 `;
@@ -1167,7 +1116,6 @@ from t;
 
 exports[`fixtures > p4/security-label.sql 1`] = `
 "security label for my_provider on table orders is 'sensitive';
-
 security label for my_provider on column orders.amount is 'pii';
 "
 `;
