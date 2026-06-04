@@ -1,5 +1,11 @@
 # prettier-plugin-postgresql
 
+## 0.2.3
+
+### Patch Changes
+
+- Minor format changes
+
 ## 0.2.2
 
 ### Patch Changes

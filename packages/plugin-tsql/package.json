@@ -1,6 +1,6 @@
 {
   "name": "prettier-plugin-tsql",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "Prettier plugin for T-SQL (Microsoft SQL Server) using the official ScriptDom parser",
   "author": "Mike Schall",
   "license": "MIT",
