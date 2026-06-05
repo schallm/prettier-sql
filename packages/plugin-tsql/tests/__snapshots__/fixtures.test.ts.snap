@@ -610,6 +610,26 @@ with (
 );"
 `;
 
+exports[`fixtures > dml/insert-values.sql 1`] = `
+"-- Single-column rows: fill-pack at printWidth in standard density
+insert into @moviesToAdd (Id)
+values
+  (310000267), (310000488), (310000577), (310000552), (310000399), (310000576),
+  (310001689), (310000376), (310000623), (310000017);
+
+-- Multi-column rows: one per line in standard density
+insert into Books (Title, AuthorId, Price)
+values
+  ('The Great Gatsby', 1, 9.99),
+  ('To Kill a Mockingbird', 2, 12.99),
+  ('Of Mice and Men', 3, 7.99),
+  ('The Catcher in the Rye', 4, 11.99);
+
+-- Single row: always inline regardless of density
+insert into Books (Title, AuthorId, Price)
+values ('Clean Code', 1, 39.99);"
+`;
+
 exports[`fixtures > dml/linked-database-names.sql 1`] = `
 "select
   mc.BookId,
@@ -1001,22 +1021,16 @@ begin
   set @title = 'No books available';
 end
 
-if @price < 10
-  set @title = 'cheap';
-else if @price < 50
-  set @title = 'mid-range';
+if @price < 10 set @title = 'cheap';
+else if @price < 50 set @title = 'mid-range';
 else
   set @title = 'expensive';
 
 while @count > 0
 begin
   set @count = @count - 1;
-
-  if @count = 5
-    continue;
-
-  if @count = 0
-    break;
+  if @count = 5 continue;
+  if @count = 0 break;
 end
 
 begin try
@@ -1156,6 +1170,21 @@ begin try
 end try
 begin catch
   rollback transaction throw;
+end catch
+
+-- TRANCOUNT guard: bare-body IF is minor, so no blank line before throw
+begin try
+  begin transaction;
+
+  update Books
+  set Price = Price * 0.9
+  where AuthorId = 1;
+
+  commit transaction;
+end try
+begin catch
+  if @@TRANCOUNT > 0 rollback transaction;
+  throw;
 end catch
 
 set transaction isolation level read committed;
@@ -2531,6 +2560,28 @@ begin
   raiserror ('bad date', 16, 1);
   return;
 end"
+`;
+
+exports[`options > INSERT VALUES: multi-column rows fill-pack in compact 1`] = `
+"insert into Books (Title, AuthorId, Price)
+values
+  ('The Great Gatsby', 1, 9.99), ('To Kill a Mockingbird', 2, 12.99),
+  ('Of Mice and Men', 3, 7.99), ('The Catcher in the Rye', 4, 11.99);"
+`;
+
+exports[`options > INSERT VALUES: multi-column rows one-per-line in spacious 1`] = `
+"insert into Books (Title, AuthorId, Price)
+values
+  ('The Great Gatsby', 1, 9.99),
+  ('To Kill a Mockingbird', 2, 12.99),
+  ('Of Mice and Men', 3, 7.99);"
+`;
+
+exports[`options > INSERT VALUES: single-column rows fill-pack in compact 1`] = `
+"insert into @moviesToAdd (Id)
+values
+  (310000267), (310000488), (310000577), (310000552), (310000399), (310000576),
+  (310001689), (310000376), (310000623), (310000017);"
 `;
 
 exports[`options > UPDATE SET: fill-packs items in standard 1`] = `

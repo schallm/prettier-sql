@@ -310,7 +310,15 @@ const MINOR_STATEMENT_TYPES = new Set([
 ]);
 
 export function isMinor(node: SqlNode): boolean {
-    return MINOR_STATEMENT_TYPES.has(node.type);
+    if (MINOR_STATEMENT_TYPES.has(node.type)) return true;
+    // A bare-body IF (no ELSE, no BEGIN/END body) inherits minor/major from its body.
+    // e.g. `IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;` is minor because ROLLBACK is minor.
+    if (node.type === 'IfStatement') {
+        const then = node.props?.['then'] as SqlNode | undefined;
+        const els  = node.props?.['else'];
+        if (!els && then && then.type !== 'BeginEndBlock') return isMinor(then);
+    }
+    return false;
 }
 
 /**
@@ -828,7 +836,18 @@ function printValuesSource(node: SqlNode, opts: Options): Doc {
         return [hardline, keyword('VALUES', opts), ' ', rowDocs[0]];
     }
 
-    return [hardline, keyword('VALUES', opts), indent([hardline, join(hardSep(opts), rowDocs)])];
+    const density  = getDensity(opts);
+    const colCount = propArr((rows[0] as SqlNode), 'values').length;
+    // compact: fill-pack all multi-row inserts
+    // standard + 1-column rows: fill-pack (rows are short)
+    // standard + multi-column rows: one per line
+    // spacious: always one per line
+    const useFill = density === 'compact' || (density === 'standard' && colCount === 1);
+    return [
+        hardline,
+        keyword('VALUES', opts),
+        indent([hardline, useFill ? fillList(rowDocs, opts) : join(hardSep(opts), rowDocs)]),
+    ];
 }
 
 // ---------------------------------------------------------------------------
