@@ -2877,11 +2877,7 @@ where order_id in (
 
 delete from sessions
 where exists (
-  select 1
-  from users
-  where
-    users.id = sessions.user_id
-    and users.active = 0
+  select 1 from users where users.id = sessions.user_id and users.active = 0
 );"
 `;
 
@@ -3358,20 +3354,14 @@ select
   id,
   title
 from books
-where exists (
-  select 1
-  from order_items
-  where order_items.book_id = books.id
-);
+where exists (select 1 from order_items where order_items.book_id = books.id);
 
 select
   id,
   title
 from books
 where not exists (
-  select 1
-  from order_items
-  where order_items.book_id = books.id
+  select 1 from order_items where order_items.book_id = books.id
 );
 
 select

@@ -1225,12 +1225,26 @@ function printLikePredicate(node: SqlNode, opts: Options, printFn: (n: SqlNode) 
 function printExistsPredicate(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
     const subquery = prop(node, 'subquery');
     if (!subquery) return keyword('EXISTS', opts) + '()';
-    const sep = getDensity(opts) === 'compact' ? softline : hardline;
+    const density = getDensity(opts);
+    if (density === 'spacious') {
+        // Spacious: always expand
+        return group([
+            keyword('EXISTS', opts),
+            ' (',
+            indent([hardline, printQueryExpression(subquery, opts, printFn)]),
+            hardline,
+            ')',
+        ]);
+    }
+    // compact + standard: render the inner query in compact mode so the group's
+    // softline can keep simple subqueries inline. Complex ones still wrap because
+    // their content exceeds printWidth and the group breaks.
+    const compactOpts = { ...opts, sqlDensity: 'compact' } as Options;
     return group([
         keyword('EXISTS', opts),
         ' (',
-        indent([sep, printQueryExpression(subquery, opts, printFn)]),
-        sep,
+        indent([softline, printQueryExpression(subquery, compactOpts, printFn)]),
+        softline,
         ')',
     ]);
 }
