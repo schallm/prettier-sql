@@ -364,7 +364,10 @@ function printSelectBody(node: SqlNode, opts: Options): Doc {
         parts.push([makeKeyword('WINDOW'), indent([hardline, join(hardSep(opts), wDocs)])]);
     }
 
-    return group(join(hardline, parts));
+    // compact: use line so clauses can collapse to one line when they fit (e.g. inside EXISTS)
+    // standard/spacious: hardline always breaks between clauses
+    const clauseSep: Doc = getDensity(opts) === 'compact' ? line : hardline;
+    return group(join(clauseSep, parts));
 }
 
 function printSelect(node: SqlNode, opts: Options): Doc {

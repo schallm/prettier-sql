@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
-import { keyword, join, indent, hardline, fill, line, aliasDoc } from '@prettier-sql/core/printer/utils';
+import { keyword, join, indent, hardline, softline, group, fill, line, getDensity, aliasDoc } from '@prettier-sql/core/printer/utils';
 import { printStatement, printQueryExpr } from './statements.js';
 import { prop, propArr, propStr, propBool, rangeVarName } from './helpers.js';
 
@@ -280,7 +280,27 @@ function printSubLink(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const inner    = subquery ? printNode(subquery) : '';
     const subDoc: Doc = ['(', indent([hardline, inner]), hardline, ')'];
 
-    if (type === 'EXISTS') return [makeKeyword('EXISTS'), ' ', subDoc];
+    if (type === 'EXISTS') {
+        const density = getDensity(opts);
+        if (density === 'spacious') {
+            return [makeKeyword('EXISTS'), ' ', subDoc];
+        }
+        // compact + standard: render inner query in compact mode so simple
+        // subqueries stay inline; complex ones wrap when they exceed printWidth.
+        const compactOpts = { ...opts, sqlDensity: 'compact' } as Options;
+        const compactPrintFn: PrintFn = (n) =>
+            n.type.endsWith('Statement')
+                ? printQueryExpr(n, compactOpts)
+                : printExpression(n, compactOpts, compactPrintFn);
+        const compactInner = subquery ? compactPrintFn(subquery) : '';
+        return group([
+            makeKeyword('EXISTS'),
+            ' (',
+            indent([softline, compactInner]),
+            softline,
+            ')',
+        ]);
+    }
 
     const lhs: Doc = testexpr ? [printNode(testexpr), ' '] : '';
     if (type === 'ANY') {
