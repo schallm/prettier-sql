@@ -336,7 +336,13 @@ export function printIf(node: SqlNode, opts: Options): Doc {
     const then = prop(node, 'then');
     const els = prop(node, 'else');
     const condDoc = condition ? indent(printBool(condition, opts)) : '';
-    const thenDoc = then ? printStatementBlock(then, opts) : ';';
+    // Single-statement body (no BEGIN/END): try inline, wrap to next line if too long.
+    // BeginEndBlock always goes on a new line.
+    const thenDoc = then
+        ? then.type === 'BeginEndBlock'
+            ? printStatementBlock(then, opts)
+            : group(indent([line, printStatementWithComments(then, opts)]))
+        : ';';
     const parts: Doc[] = [keyword('IF', opts), ' ', condDoc, thenDoc];
     if (els) {
         // ELSE IF chain: keep on the same line to avoid extra nesting
