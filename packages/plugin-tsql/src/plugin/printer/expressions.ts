@@ -315,9 +315,12 @@ function printBinaryExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode) => 
     if (op === 'Add' || op === 'Concatenate') {
         const terms = collectConcatChain(node);
         const termDocs = terms.map((t) => printExpression(t, opts, printFn));
+        // Flat: "a + b + c". Wrapping: "a + b\n    + c + d".
+        // Using fill (not group) so outer flat-mode contexts don't suppress breaks.
+        // The indent is on the separator so continuation lines are indented one level.
         const parts: Doc[] = [termDocs[0]!];
         for (let i = 1; i < termDocs.length; i++) {
-            parts.push([line, '+ ']);
+            parts.push(indent([line, '+ ']));
             parts.push(termDocs[i]!);
         }
         return fill(parts);
