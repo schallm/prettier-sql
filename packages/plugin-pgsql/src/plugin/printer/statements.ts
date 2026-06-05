@@ -557,7 +557,15 @@ function printValuesRows(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
     if (rowDocs.length === 1) {
         return [hardline, makeKeyword('VALUES'), ' ', rowDocs[0]!];
     }
-    return [hardline, makeKeyword('VALUES'), indent([hardline, join(hardSep(opts), rowDocs)])];
+
+    const density  = getDensity(opts);
+    const colCount = propArr(rows[0]!, 'items').length;
+    // compact: fill-pack all multi-row inserts
+    // standard + 1-column rows: fill-pack (rows are short)
+    // standard + multi-column rows: one per line
+    // spacious: always one per line
+    const useFill = density === 'compact' || (density === 'standard' && colCount === 1);
+    return [hardline, makeKeyword('VALUES'), indent([hardline, useFill ? fillList(rowDocs, opts) : join(hardSep(opts), rowDocs)])];
 }
 
 function printValues(node: SqlNode, opts: Options): Doc {
