@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
-import { keyword, join, indent, hardline, aliasDoc } from '@prettier-sql/core/printer/utils';
+import { keyword, join, indent, hardline, fill, line, aliasDoc } from '@prettier-sql/core/printer/utils';
 import { printStatement, printQueryExpr } from './statements.js';
 import { prop, propArr, propStr, propBool, rangeVarName } from './helpers.js';
 
@@ -69,10 +69,37 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
 // Expressions
 // ---------------------------------------------------------------------------
 
-function printBinaryExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const left = prop(node, 'left');
+const CONCAT_OPS = new Set(['+', '||']);
+
+// Flatten a left-recursive string-concatenation chain into leaf terms.
+function collectConcatChain(node: SqlNode, printNode: PrintFn): Doc[] {
+    const op = propStr(node, 'op');
+    if (node.type !== 'BinaryExpr' || !CONCAT_OPS.has(op ?? '')) {
+        return [printNode(node)];
+    }
+    const left  = prop(node, 'left');
     const right = prop(node, 'right');
-    const op = propStr(node, 'op') ?? '?';
+    return [...(left ? collectConcatChain(left, printNode) : []), ...(right ? [printNode(right)] : [])];
+}
+
+function printBinaryExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const left  = prop(node, 'left');
+    const right = prop(node, 'right');
+    const op    = propStr(node, 'op') ?? '?';
+
+    // For + / || chains: flatten and fill with indented continuation lines.
+    // Flat: "a || b || c". Wrapping: "a || b\n    || c || d".
+    if (CONCAT_OPS.has(op)) {
+        const opStr = op === '||' ? '|| ' : '+ ';
+        const terms = collectConcatChain(node, printNode);
+        const parts: Doc[] = [terms[0]!];
+        for (let i = 1; i < terms.length; i++) {
+            parts.push(indent([line, opStr]));
+            parts.push(terms[i]!);
+        }
+        return fill(parts);
+    }
+
     const opDoc: Doc = /^[A-Z]/.test(op) ? keyword(op, opts) : op;
     return [left ? printNode(left) : '', ' ', opDoc, ' ', right ? printNode(right) : ''];
 }

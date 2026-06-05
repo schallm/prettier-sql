@@ -1331,6 +1331,17 @@ from accounts; /* trailing block comment */
 "
 `;
 
+exports[`fixtures > select/concat.sql 1`] = `
+"-- Long || chain: continuation lines indent one level under the expression start
+select
+  author_id,
+  first_name || ' ' || last_name || ' (' || email || ')' || ' — ' || city
+    || ', ' || country as contact_info
+from authors
+where is_active = true;
+"
+`;
+
 exports[`fixtures > select/cte.sql 1`] = `
 "-- WITH RECURSIVE
 with recursive
@@ -2192,6 +2203,14 @@ select
   current_timestamp,
   current_user
 from books;
+
+-- Long arithmetic chain: continuation lines indent one level under the expression start
+select
+  id,
+  price + shipping_cost + tax_amount + handling_fee + insurance_cost
+    + discount_amount as total_cost
+from orders
+where status = 1;
 "
 `;
 

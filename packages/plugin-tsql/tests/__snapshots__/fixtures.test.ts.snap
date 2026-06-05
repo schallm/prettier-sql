@@ -3059,7 +3059,15 @@ from books;
 select
   current_timestamp,
   current_user
-from books;"
+from books;
+
+-- Long arithmetic chain: continuation lines indent one level under the expression start
+select
+  id,
+  price + shipping_cost + tax_amount + handling_fee + insurance_cost
+    + discount_amount as total_cost
+from orders
+where status = 1;"
 `;
 
 exports[`shared fixtures > select/group-by-advanced.sql 1`] = `
