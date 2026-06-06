@@ -1,5 +1,11 @@
 # prettier-plugin-tsql
 
+## 0.6.6
+
+### Patch Changes
+
+- Minor layout fixes for compact and standard modes
+
 ## 0.6.5
 
 ### Patch Changes

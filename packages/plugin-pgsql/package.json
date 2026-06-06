@@ -1,6 +1,6 @@
 {
   "name": "prettier-plugin-postgresql",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Prettier plugin for PostgreSQL using the official libpg_query parser",
   "author": "Mike Schall",
   "license": "MIT",

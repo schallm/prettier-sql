@@ -1,5 +1,11 @@
 # prettier-plugin-postgresql
 
+## 0.2.5
+
+### Patch Changes
+
+- Minor layout fixes for compact and standard modes
+
 ## 0.2.4
 
 ### Patch Changes
