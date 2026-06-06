@@ -13,7 +13,7 @@ import {
     commentsBlock,
     parenList,
 } from '@prettier-sql/core/printer/utils';
-import { prop, propArr, propStr, propBool, schemaObjectName } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
 import { joinBodyStatements, printNode, printBool, printBoolClause, qexpr } from './statements.js';
@@ -71,9 +71,9 @@ function printInlineIndex(node: SqlNode, opts: Options): Doc {
     const isUnique = node.props?.['unique'];
     const kind = propStr(node, 'kind'); // 'clustered', 'nonclustered', etc.
     const columns = propArr(node, 'columns');
-    const includeColumns = node.props?.['includeColumns'] as string[] | undefined;
+    const includeColumns = propStrArr(node, 'includeColumns');
     const filterPredicateNode = prop(node, 'filterPredicate');
-    const indexOptions = node.props?.['indexOptions'] as string[] | undefined;
+    const indexOptions = propStrArr(node, 'indexOptions');
 
     const uniqueKw: Doc = isUnique ? [keyword('UNIQUE', opts), ' '] : '';
     const kindKw: Doc = kind ? [keyword(kind.toUpperCase(), opts), ' '] : '';
@@ -84,11 +84,11 @@ function printInlineIndex(node: SqlNode, opts: Options): Doc {
         return sort === 'Descending' ? [colName, ' ', keyword('DESC', opts)] : [colName, ' ', keyword('ASC', opts)];
     });
 
-    const includePart: Doc = includeColumns?.length
+    const includePart: Doc = includeColumns.length
         ? [' ', keyword('INCLUDE', opts), ' ', parenList(includeColumns)]
         : '';
     const filterPart: Doc = filterPredicateNode ? [' ', printBoolClause('WHERE', filterPredicateNode, opts)] : '';
-    const withPart: Doc = indexOptions?.length ? [' ', keyword('WITH', opts), ' (', join(', ', indexOptions), ')'] : '';
+    const withPart: Doc = indexOptions.length ? [' ', keyword('WITH', opts), ' (', join(', ', indexOptions), ')'] : '';
 
     return [
         keyword('INDEX', opts),
@@ -107,7 +107,7 @@ function printInlineIndex(node: SqlNode, opts: Options): Doc {
 export function printCreateTable(node: SqlNode, opts: Options): Doc {
     const columns = propArr(node, 'columns');
     const constraints = propArr(node, 'constraints');
-    const options = node.props?.['options'] as string[] | undefined;
+    const options = propStrArr(node, 'options');
     const systemTimePeriod = node.props?.['systemTimePeriod'] as
         | { startColumn: string; endColumn: string }
         | null
@@ -358,8 +358,8 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
                 return [c.name, dir] as Doc;
             });
             const colsDoc = parenList(colDocs);
-            const indexOptions = node.props?.['indexOptions'] as string[] | undefined;
-            const withPart: Doc = indexOptions?.length
+            const indexOptions = propStrArr(node, 'indexOptions');
+            const withPart: Doc = indexOptions.length
                 ? [' ', keyword('WITH', opts), ' (', join(', ', indexOptions), ')']
                 : '';
             return group([namePrefix, indent([softline, kw, ' ', clusteredKw, colsDoc]), withPart]);
@@ -377,8 +377,8 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
             ];
         }
         case 'ForeignKeyConstraint': {
-            const cols = Array.isArray(node.props?.['columns']) ? (node.props?.['columns'] as string[]) : [];
-            const refCols = Array.isArray(node.props?.['refColumns']) ? (node.props?.['refColumns'] as string[]) : [];
+            const cols = propStrArr(node, 'columns');
+            const refCols = propStrArr(node, 'refColumns');
             const refTable = prop(node, 'refTable');
             const refName = refTable ? schemaObjectName(refTable) : '';
             const deleteAction = propStr(node, 'deleteAction');
@@ -483,10 +483,10 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
 
     if (alterType === 'AlterTableConstraintModificationStatement') {
         const enforcement = propStr(node, 'constraintEnforcement');
-        const constraintNames = node.props?.['constraintNames'] as string[] | null | undefined;
+        const constraintNames = propStrArr(node, 'constraintNames');
         const enforcementKw = enforcement === 'Check' ? keyword('CHECK', opts) : keyword('NOCHECK', opts);
         const nameList: Doc =
-            constraintNames && constraintNames.length > 0
+            constraintNames.length > 0
                 ? group([indent([softline, join([',', line], constraintNames)])])
                 : keyword('ALL', opts);
         return [
@@ -570,7 +570,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         // Options come pre-serialized from SerializeTableOption (e.g. "lock_escalation = table",
         // "system_versioning = on (history_table = dbo.Tbl)"). Render them verbatim — applying
         // keyword() casing would uppercase embedded schema/table names.
-        const options = (node.props?.['options'] ?? []) as string[];
+        const options = propStrArr(node, 'options');
         return [
             keyword('ALTER TABLE', opts),
             ' ',
@@ -587,9 +587,9 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
     if (alterType === 'AlterTableRebuildStatement') {
         const partitionAll = node.props?.['partitionAll'] as boolean | undefined;
         const partitionNumber = propStr(node, 'partitionNumber');
-        const indexOptions = node.props?.['indexOptions'] as string[] | undefined;
+        const indexOptions = propStrArr(node, 'indexOptions');
         const partDoc: Doc = partitionAll ? keyword('ALL', opts) : (partitionNumber ?? '');
-        const withDoc: Doc = indexOptions?.length
+        const withDoc: Doc = indexOptions.length
             ? [' ', keyword('WITH', opts), ' (', join(', ', indexOptions), ')']
             : '';
         return [
@@ -609,12 +609,12 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         const sourcePartition = propStr(node, 'sourcePartition');
         const targetTable = prop(node, 'targetTable');
         const targetPartition = propStr(node, 'targetPartition');
-        const switchOptions = node.props?.['switchOptions'] as string[] | undefined;
+        const switchOptions = propStrArr(node, 'switchOptions');
         const sourceDoc: Doc = sourcePartition ? [' ', keyword('PARTITION', opts), ' ', sourcePartition] : '';
         const targetDoc: Doc = targetTable ? schemaObjectName(targetTable) : '';
         const targetPartDoc: Doc = targetPartition ? [' ', keyword('PARTITION', opts), ' ', targetPartition] : '';
         const switchOptDoc: Doc =
-            switchOptions?.length
+            switchOptions.length
                 ? [' ', keyword('WITH', opts), ' (', join(', ', switchOptions), ')']
                 : '';
         return [
@@ -637,9 +637,9 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
     if (alterType === 'AlterTableTriggerModificationStatement') {
         const enable = propBool(node, 'enable');
         const triggerAll = node.props?.['triggerAll'] as boolean | null | undefined;
-        const triggerNames = node.props?.['triggerNames'] as string[] | undefined;
+        const triggerNames = propStrArr(node, 'triggerNames');
         const verb: Doc = enable ? keyword('ENABLE TRIGGER', opts) : keyword('DISABLE TRIGGER', opts);
-        const targets: Doc = triggerAll ? keyword('ALL', opts) : join(', ', triggerNames ?? []);
+        const targets: Doc = triggerAll ? keyword('ALL', opts) : join(', ', triggerNames);
         return [keyword('ALTER TABLE', opts), ' ', name, hardline, verb, ' ', targets, ';'];
     }
 
@@ -655,7 +655,7 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
     const isUnique = propBool(node, 'unique');
     const table = prop(node, 'table');
     const columns = propArr(node, 'columns');
-    const includeColumns = node.props?.['includeColumns'];
+    const includeColumns = propStrArr(node, 'includeColumns');
     const filterPredicateNode = prop(node, 'filterPredicate');
 
     const colDocs = columns.map((c) => {
@@ -687,17 +687,17 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
     ];
 
     const includePart: Doc =
-        Array.isArray(includeColumns) && includeColumns.length > 0
-            ? [hardline, keyword('INCLUDE', opts), ' ', parenList(includeColumns as string[])]
+        includeColumns.length > 0
+            ? [hardline, keyword('INCLUDE', opts), ' ', parenList(includeColumns)]
             : '';
 
     const filterPart: Doc = filterPredicateNode
         ? [hardline, printBoolClause('WHERE', filterPredicateNode, opts)]
         : '';
 
-    const indexOptions = node.props?.['indexOptions'] as string[] | undefined;
+    const indexOptions = propStrArr(node, 'indexOptions');
     const withPart: Doc =
-        indexOptions && indexOptions.length > 0
+        indexOptions.length > 0
             ? [hardline, keyword('WITH', opts), ' (', join(', ', indexOptions), ')']
             : '';
 
@@ -734,10 +734,10 @@ export function printAlterIndex(node: SqlNode, opts: Options): Doc {
         Set: 'SET',
     };
     const typeKw = keyword(typeKwMap[alterType] ?? alterType.toUpperCase(), opts);
-    const indexOptions = node.props?.['indexOptions'] as string[] | undefined;
+    const indexOptions = propStrArr(node, 'indexOptions');
     const partition = propStr(node, 'partition');
     const withPart: Doc =
-        indexOptions && indexOptions.length > 0
+        indexOptions.length > 0
             ? [' ', keyword('WITH', opts), ' (', join(', ', indexOptions), ')']
             : '';
     const partitionPart: Doc = partition ? [' ', keyword('PARTITION', opts), ' = ', partition] : '';
@@ -815,8 +815,8 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
     });
 
     // Natively compiled procs have a single BEGIN ATOMIC WITH (...) body statement.
-    const atomicBlock = body.length === 1 && body[0].type === 'BeginEndAtomicBlock' ? body[0] : null;
-    const atomicOptions = atomicBlock?.props?.['atomicOptions'] as string[] | undefined;
+    const atomicBlock = body.length === 1 && body[0]?.type === 'BeginEndAtomicBlock' ? body[0] : null;
+    const atomicOptions = atomicBlock ? propStrArr(atomicBlock, 'atomicOptions') : [];
     const innerBody = atomicBlock ? propArr(atomicBlock, 'statements') : unwrapBodyBlock(body);
 
     const preBody = commentsBlock(node.preBodyComments);
@@ -861,7 +861,7 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
         hardline,
         keyword('AS', opts),
         hardline,
-        ...(atomicOptions?.length
+        ...(atomicOptions.length
             ? [
                   keyword('BEGIN', opts),
                   ' ',
@@ -1007,8 +1007,8 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printCreateView(node: SqlNode, opts: Options): Doc {
-    const columns = node.props?.['columns'] as string[] | undefined;
-    const withOptions = node.props?.['withOptions'] as string[] | undefined;
+    const columns = propStrArr(node, 'columns');
+    const withOptions = propStrArr(node, 'withOptions');
     const body = prop(node, 'body');
 
     const kw =
@@ -1018,9 +1018,9 @@ export function printCreateView(node: SqlNode, opts: Options): Doc {
               ? keyword('ALTER VIEW', opts)
               : keyword('CREATE VIEW', opts);
 
-    const colsPart: Doc = columns?.length ? [' ', parenList(columns)] : '';
+    const colsPart: Doc = columns.length ? [' ', parenList(columns)] : '';
 
-    const withPart: Doc = withOptions?.length
+    const withPart: Doc = withOptions.length
         ? [
               hardline,
               keyword('WITH', opts),
@@ -1066,12 +1066,9 @@ export function printCreateTrigger(node: SqlNode, opts: Options): Doc {
         InsteadOf: 'INSTEAD OF',
     };
     const typeKw = keyword(typeMap[triggerType] ?? triggerType.toUpperCase(), opts);
-    const actions = node.props?.['actions'];
-    const actionList: Doc = Array.isArray(actions)
-        ? join(
-              ', ',
-              (actions as string[]).map((a) => keyword(a.toUpperCase(), opts)),
-          )
+    const actions = propStrArr(node, 'actions');
+    const actionList: Doc = actions.length
+        ? join(', ', actions.map((a) => keyword(a.toUpperCase(), opts)))
         : '';
     const notForReplication = propBool(node, 'notForReplication');
     const notForReplicationDoc: Doc = notForReplication ? [hardline, keyword('NOT FOR REPLICATION', opts)] : '';
@@ -1167,14 +1164,14 @@ export function printAlterSequence(node: SqlNode, opts: Options): Doc {
 export function printBulkInsert(node: SqlNode, opts: Options): Doc {
     const table = prop(node, 'table');
     const from = propStr(node, 'from');
-    const options = node.props?.['options'];
+    const options = propStrArr(node, 'options');
     const optDocs: Doc =
-        Array.isArray(options) && options.length > 0
+        options.length > 0
             ? [
                   hardline,
                   keyword('WITH', opts),
                   ' (',
-                  indent([hardline, join([',', hardline], options as string[])]),
+                  indent([hardline, join([',', hardline], options)]),
                   hardline,
                   ')',
               ]
@@ -1416,9 +1413,9 @@ export function printCreateColumnStoreIndex(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name') ?? '';
     const clustered = node.props?.['clustered'] as boolean | null | undefined;
     const onName = prop(node, 'onName');
-    const columns = node.props?.['columns'] as string[] | undefined;
+    const columns = propStrArr(node, 'columns');
     const filterPredicateNode = prop(node, 'filterPredicate');
-    const options = node.props?.['options'] as string[] | undefined;
+    const options = propStrArr(node, 'options');
 
     const clusterKw: Doc =
         clustered === true
@@ -1428,11 +1425,11 @@ export function printCreateColumnStoreIndex(node: SqlNode, opts: Options): Doc {
               : '';
     const parts: Doc[] = [keyword('CREATE', opts), ' ', clusterKw, keyword('COLUMNSTORE INDEX', opts), ' ', name];
     parts.push([hardline, keyword('ON', opts), ' ', onName ? schemaObjectName(onName) : '']);
-    if (columns?.length) {
+    if (columns.length) {
         parts.push([' ', parenList(columns)]);
     }
     if (filterPredicateNode) parts.push([hardline, printBoolClause('WHERE', filterPredicateNode, opts)]);
-    if (options?.length) {
+    if (options.length) {
         parts.push([
             hardline,
             group([
@@ -1461,17 +1458,12 @@ export function printCreateColumnStoreIndex(node: SqlNode, opts: Options): Doc {
 export function printEnableDisableTrigger(node: SqlNode, opts: Options): Doc {
     const enforcement = propStr(node, 'enforcement') ?? 'Enable';
     const all = propBool(node, 'all');
-    const triggerNames = node.props?.['triggerNames'] as string[] | undefined;
+    const triggerNames = propStrArr(node, 'triggerNames');
     const targetScope = propStr(node, 'targetScope') ?? 'Normal';
     const targetName = prop(node, 'targetName');
 
     const verb = enforcement === 'Disable' ? 'DISABLE TRIGGER' : 'ENABLE TRIGGER';
-    const triggersDoc: Doc = all
-        ? keyword('ALL', opts)
-        : join(
-              ', ',
-              (triggerNames ?? []).map((n) => n),
-          );
+    const triggersDoc: Doc = all ? keyword('ALL', opts) : join(', ', triggerNames);
 
     let onTarget: Doc;
     if (targetScope === 'Database') onTarget = keyword('DATABASE', opts);
@@ -1488,44 +1480,36 @@ export function printEnableDisableTrigger(node: SqlNode, opts: Options): Doc {
 export function printCreateStatistics(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name') ?? '';
     const onName = prop(node, 'onName');
-    const columns = node.props?.['columns'] as string[] | undefined;
+    const columns = propStrArr(node, 'columns');
     const filterPredicateNode = prop(node, 'filterPredicate');
-    const options = node.props?.['options'] as string[] | undefined;
+    const options = propStrArr(node, 'options');
 
     const parts: Doc[] = [keyword('CREATE STATISTICS', opts), ' ', name];
     parts.push([hardline, keyword('ON', opts), ' ', onName ? schemaObjectName(onName) : '']);
-    if (columns?.length) {
+    if (columns.length) {
         parts.push([' ', parenList(columns)]);
     }
     if (filterPredicateNode) parts.push([hardline, printBoolClause('WHERE', filterPredicateNode, opts)]);
-    if (options?.length) parts.push([hardline, withOptionsClause(options, opts)]);
+    if (options.length) parts.push([hardline, withOptionsClause(options, opts)]);
     parts.push(';');
     return parts;
 }
 
 export function printUpdateStatistics(node: SqlNode, opts: Options): Doc {
     const table = prop(node, 'table');
-    const subElements = node.props?.['subElements'] as string[] | undefined;
-    const options = node.props?.['options'] as string[] | undefined;
+    const subElements = propStrArr(node, 'subElements');
+    const options = propStrArr(node, 'options');
 
     const parts: Doc[] = [keyword('UPDATE STATISTICS', opts), ' ', table ? schemaObjectName(table) : ''];
     // Single stat name: no parens needed. Multiple: wrap in parens.
-    if (subElements?.length === 1) parts.push([' ', subElements[0]]);
-    else if (subElements?.length) parts.push([' ', parenList(subElements)]);
-    if (options?.length) parts.push([hardline, withOptionsClause(options, opts)]);
+    if (subElements.length === 1) parts.push([' ', subElements[0]!]);
+    else if (subElements.length) parts.push([' ', parenList(subElements)]);
+    if (options.length) parts.push([hardline, withOptionsClause(options, opts)]);
     parts.push(';');
     return parts;
 }
 
 export function printDropStatistics(node: SqlNode, opts: Options): Doc {
-    const objects = node.props?.['objects'] as string[] | undefined;
-    return [
-        keyword('DROP STATISTICS', opts),
-        ' ',
-        join(
-            [',', hardline],
-            (objects ?? []).map((o) => o),
-        ),
-        ';',
-    ];
+    const objects = propStrArr(node, 'objects');
+    return [keyword('DROP STATISTICS', opts), ' ', join([',', hardline], objects), ';'];
 }

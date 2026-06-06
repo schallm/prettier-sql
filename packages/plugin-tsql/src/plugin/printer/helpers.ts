@@ -1,6 +1,6 @@
 import type { SqlNode } from '@prettier-sql/core/types';
-import { prop, propArr, propStr, propBool } from '@prettier-sql/core/printer/helpers';
-export { prop, propArr, propStr, propBool };
+import { prop, propArr, propStr, propBool, propStrArr } from '@prettier-sql/core/printer/helpers';
+export { prop, propArr, propStr, propBool, propStrArr };
 
 export function schemaObjectName(nameNode: SqlNode | null): string {
     if (!nameNode) return '';
@@ -19,17 +19,18 @@ export function schemaObjectName(nameNode: SqlNode | null): string {
     return nm;
 }
 
+const ASSIGNMENT_OPS: Record<string, string> = {
+    Equals:           '=',
+    AddEquals:        '+=',
+    SubtractEquals:   '-=',
+    MultiplyEquals:   '*=',
+    DivideEquals:     '/=',
+    ModEquals:        '%=',
+    BitwiseAndEquals: '&=',
+    BitwiseOrEquals:  '|=',
+    BitwiseXorEquals: '^=',
+};
+
 export function assignmentOp(op: string): string {
-    switch (op) {
-        case 'Equals':         return '=';
-        case 'AddEquals':      return '+=';
-        case 'SubtractEquals': return '-=';
-        case 'MultiplyEquals': return '*=';
-        case 'DivideEquals':   return '/=';
-        case 'ModEquals':      return '%=';
-        case 'BitwiseAndEquals': return '&=';
-        case 'BitwiseOrEquals':  return '|=';
-        case 'BitwiseXorEquals': return '^=';
-        default: return op;
-    }
+    return ASSIGNMENT_OPS[op] ?? op;
 }

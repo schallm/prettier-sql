@@ -61,7 +61,7 @@ function kwOpt(opt: string, opts: Options): Doc {
     // MOVE N'logical' TO N'physical' — keyword MOVE and TO, literals verbatim
     const moveMatch = opt.match(MOVE_OPT_RE);
     if (moveMatch) {
-        return [keyword(moveMatch[1], opts), ' ', moveMatch[2], ' ', keyword(moveMatch[3], opts), ' ', moveMatch[4]];
+        return [keyword(moveMatch[1]!, opts), ' ', moveMatch[2]!, ' ', keyword(moveMatch[3]!, opts), ' ', moveMatch[4]!];
     }
     // Guard: if the string starts with a literal, don't try to keyword-case it
     if (opt.startsWith("N'") || opt.startsWith("'")) return opt;

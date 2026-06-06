@@ -1,11 +1,9 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
-import type { Options } from '@prettier-sql/core/printer/utils';
+import type { Options, PrintFn } from '@prettier-sql/core/printer/utils';
 import { keyword, join, indent, hardline, softline, group, fill, line, getDensity, aliasDoc } from '@prettier-sql/core/printer/utils';
 import { printStatement, printQueryExpr } from './statements.js';
-import { prop, propArr, propStr, propBool, rangeVarName } from './helpers.js';
-
-type PrintFn = (node: SqlNode) => Doc;
+import { prop, propArr, propStr, propBool, propStrArr, rangeVarName } from './helpers.js';
 
 export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     switch (node.type) {
@@ -174,9 +172,9 @@ function printSubstringForm(args: SqlNode[], opts: Options, printNode: PrintFn):
     const [str, fromExpr, forExpr] = args;
     if (!str) return makeKeyword('SUBSTRING') + '()';
     if (forExpr) {
-        return [makeKeyword('SUBSTRING'), '(', printNode(str), ' ', makeKeyword('FROM'), ' ', printNode(fromExpr), ' ', makeKeyword('FOR'), ' ', printNode(forExpr), ')'];
+        return [makeKeyword('SUBSTRING'), '(', printNode(str), ' ', makeKeyword('FROM'), ' ', printNode(fromExpr!), ' ', makeKeyword('FOR'), ' ', printNode(forExpr), ')'];
     }
-    return [makeKeyword('SUBSTRING'), '(', printNode(str), ' ', makeKeyword('FROM'), ' ', printNode(fromExpr ?? args[1]), ')'];
+    return [makeKeyword('SUBSTRING'), '(', printNode(str), ' ', makeKeyword('FROM'), ' ', printNode(fromExpr ?? args[1]!), ')'];
 }
 
 // EXTRACT(YEAR FROM expr)
@@ -198,7 +196,7 @@ function printTrimForm(args: SqlNode[], direction: string, opts: Options, printN
         const fnName = direction === 'LEADING' ? 'LTRIM' : direction === 'TRAILING' ? 'RTRIM' : 'TRIM';
         return [makeKeyword(fnName), '(', str ? printNode(str) : '', ')'];
     }
-    return [makeKeyword('TRIM'), '(', makeKeyword(direction), ' ', printNode(chars), ' ', makeKeyword('FROM'), ' ', printNode(str), ')'];
+    return [makeKeyword('TRIM'), '(', makeKeyword(direction), ' ', printNode(chars), ' ', makeKeyword('FROM'), ' ', printNode(str!), ')'];
 }
 
 // POSITION(substr IN str)  — note: pg_catalog.position(str, substr) has reversed args
@@ -367,7 +365,7 @@ function printJoinExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const lhs     = prop(node, 'lhs');
     const rhs     = prop(node, 'rhs');
     const on      = prop(node, 'on');
-    const using   = (node.props?.['using'] as string[] | undefined) ?? [];
+    const using   = propStrArr(node, 'using');
 
     const joinKw: Doc =
         joinType === 'CROSS'   ? makeKeyword('CROSS JOIN')
@@ -428,9 +426,9 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
     const name = propStr(node, 'name');
     const expr = prop(node, 'expr');
     const pktable = prop(node, 'pktable');
-    const fkAttrs = (node.props?.['fkAttrs'] as string[] | undefined) ?? [];
-    const pkAttrs = (node.props?.['pkAttrs'] as string[] | undefined) ?? [];
-    const keys = (node.props?.['keys'] as string[] | undefined) ?? [];
+    const fkAttrs = propStrArr(node, 'fkAttrs');
+    const pkAttrs = propStrArr(node, 'pkAttrs');
+    const keys    = propStrArr(node, 'keys');
     const fkUpdAction = propStr(node, 'fkUpdAction');
     const fkDelAction = propStr(node, 'fkDelAction');
     const generatedWhen = propStr(node, 'generatedWhen');
@@ -629,7 +627,7 @@ function printRangeTableSample(node: SqlNode, opts: Options, printNode: PrintFn)
 function printTableLikeClause(node: SqlNode, opts: Options): Doc {
     const makeKeyword        = (kw: string) => keyword(kw, opts);
     const relation  = prop(node, 'relation');
-    const including = (node.props?.['including'] as string[] | undefined) ?? [];
+    const including = propStrArr(node, 'including');
     return [
         makeKeyword('LIKE'), ' ', rangeVarName(relation),
         ...including.map((opt) => [' ', makeKeyword('INCLUDING'), ' ', makeKeyword(opt)] as Doc),

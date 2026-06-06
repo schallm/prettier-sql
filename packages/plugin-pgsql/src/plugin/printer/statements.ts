@@ -1,6 +1,6 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
-import type { Options } from '@prettier-sql/core/printer/utils';
+import type { Options, PrintFn } from '@prettier-sql/core/printer/utils';
 import {
     keyword,
     hardline,
@@ -15,10 +15,8 @@ import {
     fill,
     line,
 } from '@prettier-sql/core/printer/utils';
-import { prop, propArr, propStr, propBool, rangeVarName, qualifiedName } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName } from './helpers.js';
 import { printExpression, printWindowDef } from './expressions.js';
-
-type PrintFn = (node: SqlNode) => Doc;
 
 // ---------------------------------------------------------------------------
 // Script root
@@ -251,7 +249,7 @@ function printListClause(kw: string, items: SqlNode[], opts: Options, printNode:
  */
 function printFromClause(items: SqlNode[], opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (k: string) => keyword(k, opts);
-    const inline = items.length === 1 && items[0].type !== 'JoinExpr';
+    const inline = items.length === 1 && items[0]!.type !== 'JoinExpr';
     const body = join([',', hardline], items.map(printNode));
     return [makeKeyword('FROM'), inline ? [' ', body] : indent([hardline, body])];
 }
@@ -273,13 +271,13 @@ function printCtes(ctes: SqlNode, opts: Options, printNode: PrintFn): Doc[] {
         const parts: Doc[] = [name, ' ', makeKeyword('AS'), ' (', indent([hardline, query ? printNode(query) : '']), hardline, ')'];
         if (search) {
             const breadthFirst = propBool(search, 'breadthFirst');
-            const cols = (search.props?.['columns'] as string[] | undefined) ?? [];
+            const cols = propStrArr(search, 'columns');
             const seqCol = propStr(search, 'seqColumn') ?? '';
             const firstLast = breadthFirst ? makeKeyword('BREADTH FIRST') : makeKeyword('DEPTH FIRST');
             parts.push(hardline, makeKeyword('SEARCH'), ' ', firstLast, ' ', makeKeyword('BY'), ' ', join(', ', cols), ' ', makeKeyword('SET'), ' ', seqCol);
         }
         if (cycle) {
-            const cols = (cycle.props?.['columns'] as string[] | undefined) ?? [];
+            const cols = propStrArr(cycle, 'columns');
             const markCol = propStr(cycle, 'markColumn') ?? '';
             const pathCol = propStr(cycle, 'pathColumn') ?? '';
             parts.push(hardline, makeKeyword('CYCLE'), ' ', join(', ', cols), ' ', makeKeyword('SET'), ' ', markCol, ' ', makeKeyword('USING'), ' ', pathCol);
@@ -639,7 +637,7 @@ function printCreateTable(node: SqlNode, opts: Options): Doc {
 
     const partitionDoc: Doc = partitionBy
         ? [hardline, makeKeyword('PARTITION BY'), ' ', makeKeyword(propStr(partitionBy, 'strategy') ?? 'RANGE'),
-           ' (', join(', ', (partitionBy.props?.['columns'] as string[] | undefined) ?? []), ')']
+           ' (', join(', ', propStrArr(partitionBy, 'columns')), ')']
         : '';
 
     return [
@@ -748,7 +746,7 @@ function printTruncate(node: SqlNode, opts: Options): Doc {
 function printDrop(node: SqlNode, opts: Options): Doc {
     const makeKeyword         = (k: string) => keyword(k, opts);
     const objectType = propStr(node, 'objectType') ?? '';
-    const names      = (node.props?.['names'] as string[] | undefined) ?? [];
+    const names      = propStrArr(node, 'names');
     const ifExists   = propBool(node, 'ifExists');
     const cascade    = propBool(node, 'cascade');
 
@@ -769,7 +767,7 @@ function printVariableSet(node: SqlNode, opts: Options): Doc {
     const makeKeyword     = (k: string) => keyword(k, opts);
     const kind   = propStr(node, 'kind') ?? 'SET';
     const name   = propStr(node, 'name') ?? '';
-    const values = (node.props?.['values'] as string[] | undefined) ?? [];
+    const values = propStrArr(node, 'values');
     const local  = propBool(node, 'local');
 
     if (kind === 'RESET ALL') return [makeKeyword('RESET ALL'), ';'];
@@ -1900,7 +1898,7 @@ function printAlterSystem(node: SqlNode, opts: Options): Doc {
     const makeKeyword = (k: string) => keyword(k, opts);
     const kind   = propStr(node, 'kind') ?? 'SET';
     const name   = propStr(node, 'name') ?? '';
-    const values = (node.props?.['values'] as string[] | undefined) ?? [];
+    const values = propStrArr(node, 'values');
 
     if (kind === 'RESET ALL') return [[makeKeyword('ALTER SYSTEM RESET ALL')], ';'];
     if (kind === 'RESET')     return [[makeKeyword('ALTER SYSTEM RESET'), ' ', name], ';'];

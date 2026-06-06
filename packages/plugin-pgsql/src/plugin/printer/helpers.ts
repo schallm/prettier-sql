@@ -1,6 +1,6 @@
 import type { SqlNode } from '@prettier-sql/core/types';
-import { prop, propArr, propStr, propBool } from '@prettier-sql/core/printer/helpers';
-export { prop, propArr, propStr, propBool };
+import { prop, propArr, propStr, propBool, propStrArr } from '@prettier-sql/core/printer/helpers';
+export { prop, propArr, propStr, propBool, propStrArr };
 
 export function rangeVarName(node: SqlNode | null): string {
     if (!node) return '';

@@ -1,6 +1,6 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
-import type { Options } from '@prettier-sql/core/printer/utils';
+import type { Options, PrintFn } from '@prettier-sql/core/printer/utils';
 import {
     keyword,
     getDensity,
@@ -20,10 +20,54 @@ import {
 import { prop, propArr, propStr, propBool, schemaObjectName, assignmentOp } from './helpers.js';
 
 // ---------------------------------------------------------------------------
+// Module-level lookup tables (created once, not per call)
+// ---------------------------------------------------------------------------
+
+const BINARY_OP_MAP: Record<string, string> = {
+    Add:        '+',
+    Subtract:   '-',
+    Multiply:   '*',
+    Divide:     '/',
+    Modulo:     '%',
+    BitwiseAnd: '&',
+    BitwiseOr:  '|',
+    BitwiseXor: '^',
+    Concatenate: '+',
+};
+
+const CMP_OP_MAP: Record<string, string> = {
+    Equals:                 '=',
+    NotEqualToBrackets:     '<>',
+    NotEqualToExclamation:  '!=',
+    GreaterThan:            '>',
+    LessThan:               '<',
+    GreaterThanOrEqualTo:   '>=',
+    LessThanOrEqualTo:      '<=',
+    LeftOuterJoin:          '*=',
+    RightOuterJoin:         '=*',
+    NotLessThan:            '!<',
+    NotGreaterThan:         '!>',
+};
+
+const JOIN_TYPE_MAP: Record<string, string> = {
+    Inner:      'INNER JOIN',
+    LeftOuter:  'LEFT JOIN',
+    RightOuter: 'RIGHT JOIN',
+    FullOuter:  'FULL JOIN',
+};
+
+const JOIN_TYPE_WORD: Record<string, string> = {
+    Inner:      'INNER',
+    LeftOuter:  'LEFT',
+    RightOuter: 'RIGHT',
+    FullOuter:  'FULL',
+};
+
+// ---------------------------------------------------------------------------
 // Scalar expressions
 // ---------------------------------------------------------------------------
 
-export function printExpression(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+export function printExpression(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     switch (node.type) {
         case 'WildcardColumn':
             return '*';
@@ -133,7 +177,7 @@ function printColumnRef(node: SqlNode): Doc {
     return node.text ?? propArr(node, 'parts').join('.');
 }
 
-function printSelectScalar(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printSelectScalar(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expression');
     const alias = propStr(node, 'alias');
     const exprDoc = expr ? printExpression(expr, opts, printFn) : '';
@@ -143,7 +187,7 @@ function printSelectScalar(node: SqlNode, opts: Options, printFn: (n: SqlNode) =
     return exprDoc;
 }
 
-function printSelectSetVariable(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printSelectSetVariable(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const varName = propStr(node, 'variable') ?? '@var';
     const op = assignmentOp(propStr(node, 'operator') ?? 'Equals');
     const val = prop(node, 'value');
@@ -157,7 +201,7 @@ function printNullOnNullClause(node: SqlNode, opts: Options): Doc {
     return raw.toLowerCase() === 'absent' ? keyword('ABSENT ON NULL', opts) : keyword('NULL ON NULL', opts);
 }
 
-function printJsonKeyValue(kv: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printJsonKeyValue(kv: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const keyNode = prop(kv, 'key');
     const valNode = prop(kv, 'value');
     const keyDoc = keyNode ? printExpression(keyNode, opts, printFn) : '';
@@ -165,7 +209,7 @@ function printJsonKeyValue(kv: SqlNode, opts: Options, printFn: (n: SqlNode) => 
     return [keyDoc, ': ', valDoc];
 }
 
-function printFunctionCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const name = propStr(node, 'name') ?? 'FUNC';
     const args = propArr(node, 'args').map((a) => printExpression(a, opts, printFn));
     const over = prop(node, 'over');
@@ -305,7 +349,7 @@ function collectConcatChain(node: SqlNode): SqlNode[] {
     return [...(left ? collectConcatChain(left) : []), ...(right ? [right] : [])];
 }
 
-function printBinaryExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printBinaryExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const op = propStr(node, 'operator') ?? '+';
 
     // For + chains: flatten the whole tree and use fill so that terms pack
@@ -339,33 +383,22 @@ function printBinaryExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode) => 
 }
 
 function mapBinaryOp(op: string): string {
-    const map: Record<string, string> = {
-        Add: '+',
-        Subtract: '-',
-        Multiply: '*',
-        Divide: '/',
-        Modulo: '%',
-        BitwiseAnd: '&',
-        BitwiseOr: '|',
-        BitwiseXor: '^',
-        Concatenate: '+',
-    };
-    return map[op] ?? op;
+    return BINARY_OP_MAP[op] ?? op;
 }
 
-function printUnaryExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printUnaryExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     const op = propStr(node, 'operator') ?? '-';
     const opStr = op === 'Positive' ? '+' : op === 'Negative' ? '-' : op === 'BitwiseNot' ? '~' : op;
     return [opStr, expr ? printExpression(expr, opts, printFn) : ''];
 }
 
-function printParenExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printParenExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     return ['(', expr ? printExpression(expr, opts, printFn) : '', ')'];
 }
 
-function printCaseExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printCaseExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const caseType = propStr(node, 'caseType');
     const whens = propArr(node, 'whens');
     const elseExpr = prop(node, 'else');
@@ -413,7 +446,7 @@ function printCaseExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Do
     ]);
 }
 
-function printCastCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printCastCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     const dataType = propStr(node, 'dataType') ?? 'INT';
     return [
@@ -428,7 +461,7 @@ function printCastCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Do
     ];
 }
 
-function printConvertCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printConvertCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     const dataType = propStr(node, 'dataType') ?? 'INT';
     const style = prop(node, 'style');
@@ -446,7 +479,7 @@ function printConvertCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) =>
     return parts;
 }
 
-function printIIfCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printIIfCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const condition = prop(node, 'condition');
     const trueVal = prop(node, 'trueVal');
     const falseVal = prop(node, 'falseVal');
@@ -462,7 +495,7 @@ function printIIfCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc
     ];
 }
 
-function printCoalesceExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printCoalesceExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const args = propArr(node, 'args');
     return [
         keyword('COALESCE', opts),
@@ -475,7 +508,7 @@ function printCoalesceExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode) =
     ];
 }
 
-function printNullIfExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printNullIfExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const first = prop(node, 'first');
     const second = prop(node, 'second');
     return [
@@ -488,7 +521,7 @@ function printNullIfExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode) => 
     ];
 }
 
-function printTryCastCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printTryCastCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     const dataType = propStr(node, 'dataType') ?? 'INT';
     return [
@@ -503,7 +536,7 @@ function printTryCastCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) =>
     ];
 }
 
-function printTryConvertCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printTryConvertCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     const dataType = propStr(node, 'dataType') ?? 'INT';
     const style = prop(node, 'style');
@@ -519,7 +552,7 @@ function printTryConvertCall(node: SqlNode, opts: Options, printFn: (n: SqlNode)
     return parts;
 }
 
-function printAtTimeZone(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printAtTimeZone(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const source = prop(node, 'source');
     const timeZone = prop(node, 'timeZone');
     return [
@@ -531,7 +564,7 @@ function printAtTimeZone(node: SqlNode, opts: Options, printFn: (n: SqlNode) => 
     ];
 }
 
-function printScalarSubquery(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printScalarSubquery(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const query = prop(node, 'query');
     if (!query) return '(/* subquery */)';
     const sep = getDensity(opts) === 'compact' ? softline : hardline;
@@ -543,7 +576,7 @@ function printScalarSubquery(node: SqlNode, opts: Options, printFn: (n: SqlNode)
 // with statements.ts which handles top-level statement formatting.
 // ---------------------------------------------------------------------------
 
-export function printQueryExpression(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+export function printQueryExpression(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     switch (node.type) {
         case 'QuerySpecification':
             return printQuerySpec(node, opts, printFn);
@@ -569,7 +602,7 @@ export function printQueryExpression(node: SqlNode, opts: Options, printFn: (n: 
     }
 }
 
-function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const density = getDensity(opts);
     const uniqueRowFilter = propStr(node, 'uniqueRowFilter');
     const top = prop(node, 'top');
@@ -674,7 +707,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
 
     // Standard / Spacious: single column stays inline; multiple each on own line.
     // A CASE expression always expands to multiple lines, so force it onto its own indented line.
-    const singleExprType = (prop(selectElements[0], 'expression') ?? selectElements[0])?.type;
+    const singleExprType = (prop(selectElements[0]!, 'expression') ?? selectElements[0]!)?.type;
     const colList: Doc =
         density === 'standard' && colDocs.length === 1 && singleExprType !== 'CaseExpression'
             ? [' ', colDocs[0]!]
@@ -792,7 +825,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
     return group(parts);
 }
 
-function printTop(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printTop(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expression');
     const isPercent = propBool(node, 'percent');
     const withTies = propBool(node, 'withTies');
@@ -802,22 +835,22 @@ function printTop(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): D
     return parts;
 }
 
-function printGroupingSet(kw: string, node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printGroupingSet(kw: string, node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const exprs = propArr(node, 'expressions').map((e) => printExpression(e, opts, printFn));
     return group([keyword(kw, opts), '(', indent([softline, join([',', line], exprs)]), softline, ')']);
 }
 
-function printGroupingSets(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printGroupingSets(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const sets = propArr(node, 'sets').map((s) => printExpression(s, opts, printFn));
     return group([keyword('GROUPING SETS', opts), '(', indent([softline, join([',', line], sets)]), softline, ')']);
 }
 
-function printCompositeGroup(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printCompositeGroup(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const items = propArr(node, 'items').map((e) => printExpression(e, opts, printFn));
     return parenList(items);
 }
 
-function printBinaryQuery(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printBinaryQuery(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const left = prop(node, 'left');
     const right = prop(node, 'right');
     const op = propStr(node, 'operator') ?? 'Union';
@@ -868,7 +901,7 @@ function printBinaryQuery(node: SqlNode, opts: Options, printFn: (n: SqlNode) =>
     return parts;
 }
 
-export function printOverClause(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+export function printOverClause(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     // Named window reference: OVER w — SQL Server 2022+ (no parens around the name)
     const windowName = propStr(node, 'windowName');
     if (windowName) return windowName;
@@ -903,7 +936,7 @@ export function printOverClause(node: SqlNode, opts: Options, printFn: (n: SqlNo
     return group(['(', indent([softline, ...parts]), softline, ')']);
 }
 
-function printWindowFrame(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printWindowFrame(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const frameType = keyword(propStr(node, 'frameType') ?? 'ROWS', opts); // 'Rows' | 'Range'
     const top = prop(node, 'top');
     const bottom = prop(node, 'bottom');
@@ -923,7 +956,7 @@ function printWindowFrame(node: SqlNode, opts: Options, printFn: (n: SqlNode) =>
     return [frameType, ' ', printWindowDelimiter(top!, opts, printFn)];
 }
 
-function printWindowDelimiter(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printWindowDelimiter(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const delimType = propStr(node, 'delimType') ?? '';
     const offset = prop(node, 'offset');
     switch (delimType) {
@@ -942,7 +975,7 @@ function printWindowDelimiter(node: SqlNode, opts: Options, printFn: (n: SqlNode
     }
 }
 
-function printWindowDefinition(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printWindowDefinition(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const name = propStr(node, 'name') ?? '';
     const refWindowName = propStr(node, 'refWindowName');
     const partitions = propArr(node, 'partitionBy');
@@ -975,7 +1008,7 @@ function printWindowDefinition(node: SqlNode, opts: Options, printFn: (n: SqlNod
     return [name, ' ', keyword('AS', opts), ' ', body];
 }
 
-export function printWindowClause(defs: SqlNode[], opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+export function printWindowClause(defs: SqlNode[], opts: Options, printFn: PrintFn): Doc {
     if (defs.length === 0) return '';
     const defDocs = defs.map((d) => printWindowDefinition(d, opts, printFn));
     if (defs.length === 1) {
@@ -988,7 +1021,7 @@ export function printWindowClause(defs: SqlNode[], opts: Options, printFn: (n: S
 // Boolean expressions
 // ---------------------------------------------------------------------------
 
-export function printBoolExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+export function printBoolExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     switch (node.type) {
         case 'BooleanComparison':
             return printBoolComparison(node, opts, printFn);
@@ -1020,23 +1053,10 @@ export function printBoolExpr(node: SqlNode, opts: Options, printFn: (n: SqlNode
 }
 
 function cmpOp(op: string): string {
-    const map: Record<string, string> = {
-        Equals: '=',
-        NotEqualToBrackets: '<>',
-        NotEqualToExclamation: '!=',
-        GreaterThan: '>',
-        LessThan: '<',
-        GreaterThanOrEqualTo: '>=',
-        LessThanOrEqualTo: '<=',
-        LeftOuterJoin: '*=',
-        RightOuterJoin: '=*',
-        NotLessThan: '!<',
-        NotGreaterThan: '!>',
-    };
-    return map[op] ?? op;
+    return CMP_OP_MAP[op] ?? op;
 }
 
-function printBoolComparison(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printBoolComparison(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const left = prop(node, 'left');
     const right = prop(node, 'right');
     const op = cmpOp(propStr(node, 'operator') ?? '=');
@@ -1049,7 +1069,7 @@ function printBoolComparison(node: SqlNode, opts: Options, printFn: (n: SqlNode)
     ]);
 }
 
-function printDistinctPredicate(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printDistinctPredicate(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const left = prop(node, 'left');
     const right = prop(node, 'right');
     const isNot = propBool(node, 'isNot');
@@ -1063,7 +1083,7 @@ function printDistinctPredicate(node: SqlNode, opts: Options, printFn: (n: SqlNo
     ]);
 }
 
-function printSubqueryComparison(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printSubqueryComparison(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     const op = cmpOp(propStr(node, 'operator') ?? '');
     const quantifier = propStr(node, 'quantifier'); // ALL, ANY, or null
@@ -1115,7 +1135,7 @@ function collectBoolChain(node: SqlNode): { op: string; pred: SqlNode }[] {
  * the leading edge of the wrapped line. Falls back to printBoolExpr when there
  * is only one predicate or in non-compact density.
  */
-function fillBoolChain(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function fillBoolChain(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const items = collectBoolChain(node);
     if (items.length <= 1) return printBoolExpr(node, opts, printFn);
     const fillParts: Doc[] = [printBoolExpr(items[0]!.pred, opts, printFn)];
@@ -1127,7 +1147,7 @@ function fillBoolChain(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Do
     return fill(fillParts);
 }
 
-function printBoolBinary(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printBoolBinary(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const left = prop(node, 'left');
     const right = prop(node, 'right');
     const op = propStr(node, 'operator') === 'Or' ? keyword('OR', opts) : keyword('AND', opts);
@@ -1154,18 +1174,18 @@ function printBoolBinary(node: SqlNode, opts: Options, printFn: (n: SqlNode) => 
     return group([leftDoc, sep, op, ' ', rightDoc]);
 }
 
-function printBoolNot(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printBoolNot(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     return [keyword('NOT', opts), ' ', expr ? printBoolExpr(expr, opts, printFn) : ''];
 }
 
-function printBoolParen(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printBoolParen(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     if (!expr) return '()';
     return group(['(', indent([softline, printBoolExpr(expr, opts, printFn)]), softline, ')']);
 }
 
-function printIsNull(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printIsNull(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     const isNot = propBool(node, 'isNot');
     return [
@@ -1178,7 +1198,7 @@ function printIsNull(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc)
     ];
 }
 
-function printInPredicate(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printInPredicate(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     const isNot = propBool(node, 'negated');
     const values = propArr(node, 'values');
@@ -1202,7 +1222,7 @@ function printInPredicate(node: SqlNode, opts: Options, printFn: (n: SqlNode) =>
     return [...lhs, group([' (', indent([softline, join([',', line], valueDocs)]), softline, ')'])];
 }
 
-function printLikePredicate(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printLikePredicate(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     const pattern = prop(node, 'pattern');
     const isNot = propBool(node, 'negated');
@@ -1222,7 +1242,7 @@ function printLikePredicate(node: SqlNode, opts: Options, printFn: (n: SqlNode) 
     return parts;
 }
 
-function printExistsPredicate(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printExistsPredicate(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const subquery = prop(node, 'subquery');
     if (!subquery) return keyword('EXISTS', opts) + '()';
     const density = getDensity(opts);
@@ -1249,7 +1269,7 @@ function printExistsPredicate(node: SqlNode, opts: Options, printFn: (n: SqlNode
     ]);
 }
 
-function printBetween(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printBetween(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     const from = prop(node, 'from');
     const to = prop(node, 'to');
@@ -1272,7 +1292,7 @@ function printBetween(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc
 // FROM / JOIN
 // ---------------------------------------------------------------------------
 
-export function printTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+export function printTableRef(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     switch (node.type) {
         case 'NamedTableReference':
             return printNamedTableRef(node, opts, printFn);
@@ -1316,7 +1336,7 @@ export function printTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode
     }
 }
 
-function printNamedTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printNamedTableRef(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const alias = propStr(node, 'alias');
     const hints = node.props?.['hints'] as string[] | undefined;
     const nameDoc: Doc = schemaObjectName(prop(node, 'name'));
@@ -1349,21 +1369,11 @@ function printNamedTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) 
 }
 
 function joinTypeKeyword(jt: string, opts: Options, hint?: string | null): Doc {
-    const typeMap: Record<string, string> = {
-        Inner: 'INNER',
-        LeftOuter: 'LEFT',
-        RightOuter: 'RIGHT',
-        FullOuter: 'FULL',
-    };
-    const typeWord = typeMap[jt] ?? jt.toUpperCase();
-    if (hint) return keyword(`${typeWord} ${hint} JOIN`, opts);
-    const noHintMap: Record<string, string> = {
-        Inner: 'INNER JOIN',
-        LeftOuter: 'LEFT JOIN',
-        RightOuter: 'RIGHT JOIN',
-        FullOuter: 'FULL JOIN',
-    };
-    return keyword(noHintMap[jt] ?? `${typeWord} JOIN`, opts);
+    if (hint) {
+        const typeWord = JOIN_TYPE_WORD[jt] ?? jt.toUpperCase();
+        return keyword(`${typeWord} ${hint} JOIN`, opts);
+    }
+    return keyword(JOIN_TYPE_MAP[jt] ?? `${(JOIN_TYPE_WORD[jt] ?? jt.toUpperCase())} JOIN`, opts);
 }
 
 /**
@@ -1391,7 +1401,7 @@ function rightmostTrailingComment(node: SqlNode | null, targetEndOffset: number)
     return undefined;
 }
 
-function printQualifiedJoin(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printQualifiedJoin(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const density = getDensity(opts);
     const left = prop(node, 'left');
     const right = prop(node, 'right');
@@ -1440,7 +1450,7 @@ function printQualifiedJoin(node: SqlNode, opts: Options, printFn: (n: SqlNode) 
     ];
 }
 
-function printUnqualifiedJoin(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printUnqualifiedJoin(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const left = prop(node, 'left');
     const right = prop(node, 'right');
     const jt = propStr(node, 'joinType') ?? 'Cross';
@@ -1460,13 +1470,13 @@ function printUnqualifiedJoin(node: SqlNode, opts: Options, printFn: (n: SqlNode
     return [leftDoc, separator, kw, ' ', right ? printTableRef(right, opts, printFn) : ''];
 }
 
-function printJoinParenthesis(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printJoinParenthesis(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const join = prop(node, 'join');
     const joinDoc = join ? printTableRef(join, opts, printFn) : '';
     return ['(', indent([hardline, joinDoc]), hardline, ')'];
 }
 
-function printInlineDerivedTable(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printInlineDerivedTable(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const rows = propArr(node, 'rows');
     const alias = propStr(node, 'alias');
     const columns = node.props?.['columns'] as string[] | undefined;
@@ -1493,7 +1503,7 @@ function printInlineDerivedTable(node: SqlNode, opts: Options, printFn: (n: SqlN
     ]);
 }
 
-function printQueryDerivedTable(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printQueryDerivedTable(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const query = prop(node, 'query');
     const alias = propStr(node, 'alias');
     const queryDoc = query ? printQueryExpression(query, opts, printFn) : '/* query */';
@@ -1503,7 +1513,7 @@ function printQueryDerivedTable(node: SqlNode, opts: Options, printFn: (n: SqlNo
     return ['(', indent([hardline, queryDoc]), hardline, ')'];
 }
 
-function printSchemaObjectFunctionTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printSchemaObjectFunctionTableRef(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const args = propArr(node, 'args');
     const alias = propStr(node, 'alias');
     const argsDoc: Doc = join(
@@ -1515,7 +1525,7 @@ function printSchemaObjectFunctionTableRef(node: SqlNode, opts: Options, printFn
 }
 
 /** Built-in TVFs: STRING_SPLIT(@csv, ','), GENERATE_SERIES(1, 100), etc. */
-function printBuiltInFunctionTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printBuiltInFunctionTableRef(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const name = propStr(node, 'name') ?? '';
     const args = propArr(node, 'args');
     const alias = propStr(node, 'alias');
@@ -1541,14 +1551,14 @@ function printOpenQueryTableRef(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 /** Render the column-list argument: single column → bare name, multiple → (a, b), wildcard → * */
-function fullTextColumnsPart(columns: SqlNode[], printFn: (n: SqlNode) => Doc): Doc {
+function fullTextColumnsPart(columns: SqlNode[], printFn: PrintFn): Doc {
     if (columns.length === 0) return '*';
     if (columns.length === 1 && columns[0]!.type === 'WildcardColumn') return '*';
     if (columns.length === 1) return printFn(columns[0]!);
     return ['(', join(', ', columns.map(printFn)), ')'];
 }
 
-function printFullTextPredicate(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printFullTextPredicate(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const fnType = propStr(node, 'functionType') ?? 'Contains';
     const fnKw = fnType === 'FreeText' ? keyword('FREETEXT', opts) : keyword('CONTAINS', opts);
     const columns = propArr(node, 'columns');
@@ -1565,7 +1575,7 @@ function printFullTextPredicate(node: SqlNode, opts: Options, printFn: (n: SqlNo
     return [fnKw, '(', ...args, ')'];
 }
 
-function printFullTextTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printFullTextTableRef(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const fnType = propStr(node, 'functionType') ?? 'Contains';
     const fnKw = fnType === 'FreeText' ? keyword('FREETEXTTABLE', opts) : keyword('CONTAINSTABLE', opts);
     const tableName = prop(node, 'tableName');
@@ -1692,7 +1702,7 @@ function printBulkOpenRowset(node: SqlNode, opts: Options): Doc {
 // ORDER BY
 // ---------------------------------------------------------------------------
 
-export function printOrderByClause(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+export function printOrderByClause(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const density = getDensity(opts);
     const elements = propArr(node, 'elements');
     const elDocs = elements.map((e) => {
@@ -1718,7 +1728,7 @@ export function printOrderByClause(node: SqlNode, opts: Options, printFn: (n: Sq
 // NEXT VALUE FOR, PARSE / TRY_PARSE
 // ---------------------------------------------------------------------------
 
-function printNextValueFor(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printNextValueFor(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const nameDoc = schemaObjectName(prop(node, 'name'));
     const over = prop(node, 'over');
     const parts: Doc[] = [keyword('NEXT VALUE FOR', opts), ' ', nameDoc];
@@ -1726,7 +1736,7 @@ function printNextValueFor(node: SqlNode, opts: Options, printFn: (n: SqlNode) =
     return parts;
 }
 
-function printPartitionFunctionCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printPartitionFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const db = propStr(node, 'database');
     const name = propStr(node, 'name') ?? '';
     const args = propArr(node, 'args').map((a) => printExpression(a, opts, printFn));
@@ -1734,7 +1744,7 @@ function printPartitionFunctionCall(node: SqlNode, opts: Options, printFn: (n: S
     return group([prefix, name, '(', indent([softline, join([',', line], args)]), softline, ')']);
 }
 
-function printIdentityFunctionCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printIdentityFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const dataType = propStr(node, 'dataType') ?? '';
     const seed = prop(node, 'seed');
     const inc = prop(node, 'increment');
@@ -1744,7 +1754,7 @@ function printIdentityFunctionCall(node: SqlNode, opts: Options, printFn: (n: Sq
     return [keyword('IDENTITY', opts), '(', ...parts, ')'];
 }
 
-function printExtractFrom(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printExtractFrom(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const element = propStr(node, 'element') ?? '';
     const expr = prop(node, 'expression');
     return [
@@ -1759,7 +1769,7 @@ function printExtractFrom(node: SqlNode, opts: Options, printFn: (n: SqlNode) =>
     ];
 }
 
-function printParseCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printParseCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const isTry = node.type === 'TryParseCall';
     const fnKw = isTry ? keyword('TRY_PARSE', opts) : keyword('PARSE', opts);
     const valueDoc = printExpression(prop(node, 'value')!, opts, printFn);
@@ -1774,7 +1784,7 @@ function printParseCall(node: SqlNode, opts: Options, printFn: (n: SqlNode) => D
 // TABLESAMPLE
 // ---------------------------------------------------------------------------
 
-function printTableSample(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printTableSample(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const isSystem = node.props?.['system'] as boolean | undefined;
     const sampleNumber = prop(node, 'sampleNumber');
     const option = propStr(node, 'option');
@@ -1793,7 +1803,7 @@ function printTableSample(node: SqlNode, opts: Options, printFn: (n: SqlNode) =>
 // FOR SYSTEM_TIME (temporal tables)
 // ---------------------------------------------------------------------------
 
-function printTemporalClause(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printTemporalClause(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const clauseType = propStr(node, 'clauseType');
     const startTime = prop(node, 'startTime');
     const endTime = prop(node, 'endTime');
@@ -1871,7 +1881,7 @@ function printForClause(node: SqlNode, opts: Options): Doc {
 // PIVOT / UNPIVOT
 // ---------------------------------------------------------------------------
 
-function printPivotedTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printPivotedTableRef(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const tableRef = prop(node, 'tableRef');
     const aggregateFn = propStr(node, 'aggregateFn') ?? 'agg';
     const valueColumns = node.props?.['valueColumns'] as string[] | undefined;
@@ -1911,7 +1921,7 @@ function printPivotedTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode
     ]);
 }
 
-function printUnpivotedTableRef(node: SqlNode, opts: Options, printFn: (n: SqlNode) => Doc): Doc {
+function printUnpivotedTableRef(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const tableRef = prop(node, 'tableRef');
     const valueColumn = propStr(node, 'valueColumn') ?? '';
     const pivotColumn = propStr(node, 'pivotColumn') ?? '';

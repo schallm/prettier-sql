@@ -1,5 +1,6 @@
 import type { SqlNode, CommentToken } from '@prettier-sql/core/types';
 import { loadDotnetDll, type DotnetHandle } from '@prettier-sql/core/parser';
+import { propArr } from '@prettier-sql/core/printer/helpers';
 
 // ---------------------------------------------------------------------------
 // DLL loading
@@ -73,8 +74,8 @@ export function parse(text: string): SqlNode {
 
 function attachComments(ast: SqlNode, comments: CommentToken[], text: string): void {
     const used = new Set<CommentToken>();
-    const batches = (ast.props?.['batches'] ?? []) as SqlNode[];
-    const allStatements = batches.flatMap((b) => (b.props?.['statements'] ?? []) as SqlNode[]);
+    const batches = propArr(ast, 'batches');
+    const allStatements = batches.flatMap((b) => propArr(b, 'statements'));
 
     attachSameLineTrailing(batches, comments, text, used);
     attachLeadingAndPreBody(allStatements, comments, used);
@@ -89,13 +90,13 @@ function attachSameLineTrailing(
     used: Set<CommentToken>,
 ): void {
     for (const batch of batches) {
-        const statements = (batch.props?.['statements'] ?? []) as SqlNode[];
+        const statements = propArr(batch, 'statements');
         for (const stmt of statements) {
             // For INSERT … VALUES, also check each row for its own trailing comment.
             if (stmt.type === 'InsertStatement') {
                 const source = stmt.props?.['source'] as SqlNode | null;
                 if (source?.type === 'ValuesSource') {
-                    for (const row of (source.props?.['rows'] ?? []) as SqlNode[]) {
+                    for (const row of propArr(source, 'rows')) {
                         const c = findTrailingLineComment(row, comments, text, used);
                         if (c) {
                             row.trailingComment = c.text;
@@ -143,8 +144,7 @@ function attachLeadingAndPreBody(allStatements: SqlNode[], comments: CommentToke
 
             if (beforePoint !== undefined && c.endOffset <= beforePoint) {
                 // Distinguish "before parameter list" from "after last parameter".
-                const paramsProp = container.props?.['parameters'];
-                const params = Array.isArray(paramsProp) ? (paramsProp as SqlNode[]) : [];
+                const params = propArr(container, 'parameters');
                 const lastParam = params.at(-1);
                 if (lastParam && c.startOffset > lastParam.endOffset) {
                     // e.g. /*WITH ENCRYPTION*/ after params but before AS
@@ -183,7 +183,7 @@ function attachLeadingAndPreBody(allStatements: SqlNode[], comments: CommentToke
 // Pass 3: intra-statement comments (e.g. commented-out WHERE predicates).
 function attachIntraStatement(batches: SqlNode[], comments: CommentToken[], used: Set<CommentToken>): void {
     for (const batch of batches) {
-        const statements = (batch.props?.['statements'] ?? []) as SqlNode[];
+        const statements = propArr(batch, 'statements');
         for (const stmt of statements) {
             const internal = comments
                 .filter((c) => !used.has(c) && c.startOffset >= stmt.startOffset && c.endOffset <= stmt.endOffset)

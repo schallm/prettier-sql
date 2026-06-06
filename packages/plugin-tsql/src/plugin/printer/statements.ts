@@ -833,7 +833,7 @@ function printValuesSource(node: SqlNode, opts: Options): Doc {
     });
 
     if (rows.length === 1) {
-        return [hardline, keyword('VALUES', opts), ' ', rowDocs[0]];
+        return [hardline, keyword('VALUES', opts), ' ', rowDocs[0]!];
     }
 
     const density  = getDensity(opts);
