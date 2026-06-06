@@ -37,6 +37,8 @@ Install **[Prettier SQL](https://marketplace.visualstudio.com/items?itemName=Pic
 
 Requires the [.NET 8 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0). The extension prompts you if it isn't found.
 
+When the extension is updated, VS Code shows a **"Reload Required"** notification automatically — click **Reload Now** to activate the new version. Because the extension runs formatting in a short-lived child process, the DLL is never held open between operations and there is no file-lock issue on update.
+
 Configure options in **Settings → search "Prettier SQL"**, or add to your workspace settings:
 
 ```json
@@ -78,7 +80,11 @@ Add to your VS Code settings:
 }
 ```
 
-> **After updating the plugin**, restart VS Code. The Prettier extension caches plugins at startup and won't pick up a new version until restarted.
+> **Updating the plugin:** The .NET DLL is loaded into VS Code's extension host process while VS Code is running.
+> On Windows this creates a hard file lock — `npm install` will fail to overwrite the DLL if VS Code is open.
+> On macOS and Linux the lock is softer but VS Code will keep running the old version anyway.
+>
+> **Close VS Code first**, then run `npm install`, then reopen VS Code.
 
 ## SQL Server Management Studio 22 (Visual Studio 2026)
 

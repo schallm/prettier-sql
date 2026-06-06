@@ -51,6 +51,12 @@ export default {
 }
 ```
 
+> **Updating the plugin:** The .NET DLL is loaded into VS Code's extension host process while VS Code is running.
+> On Windows this creates a hard file lock — `npm install` will fail to overwrite the DLL if VS Code is open.
+> On macOS and Linux the lock is softer but VS Code will keep running the old version anyway.
+>
+> **Close VS Code first**, then run `npm install`, then reopen VS Code.
+
 ---
 
 ## Verification
