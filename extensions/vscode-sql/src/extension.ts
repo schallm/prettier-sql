@@ -3,15 +3,25 @@ import { spawn } from 'child_process';
 import * as path from 'path';
 
 export function activate(context: vscode.ExtensionContext): void {
-    const provider: vscode.DocumentFormattingEditProvider = {
+    const wholeDocProvider: vscode.DocumentFormattingEditProvider = {
         async provideDocumentFormattingEdits(document: vscode.TextDocument): Promise<vscode.TextEdit[]> {
-            return format(document, context.extensionPath);
+            return formatDocument(document, context.extensionPath);
+        },
+    };
+
+    const rangeProvider: vscode.DocumentRangeFormattingEditProvider = {
+        async provideDocumentRangeFormattingEdits(
+            document: vscode.TextDocument,
+            range: vscode.Range,
+        ): Promise<vscode.TextEdit[]> {
+            return formatRange(document, range, context.extensionPath);
         },
     };
 
     for (const langId of ['sql', 'tsql', 'pgsql']) {
         context.subscriptions.push(
-            vscode.languages.registerDocumentFormattingEditProvider(langId, provider),
+            vscode.languages.registerDocumentFormattingEditProvider(langId, wholeDocProvider),
+            vscode.languages.registerDocumentRangeFormattingEditProvider(langId, rangeProvider),
         );
     }
 
@@ -43,33 +53,32 @@ function resolveDialect(document: vscode.TextDocument): 'tsql' | 'pgsql' {
     return cfg.get<string>('defaultDialect') === 'pgsql' ? 'pgsql' : 'tsql';
 }
 
-async function format(
-    document: vscode.TextDocument,
-    extensionPath: string,
-): Promise<vscode.TextEdit[]> {
-    const dialect = resolveDialect(document);
-    const script = path.join(extensionPath, 'bundled', 'format.mjs');
+function getOpts(document: vscode.TextDocument): Record<string, unknown> {
     const cfg = vscode.workspace.getConfiguration('prettierSql', document.uri);
-
-    const opts: Record<string, unknown> = {
+    return {
         sqlKeywordCase: cfg.get<string>('sqlKeywordCase'),
         sqlDensity: cfg.get<string>('sqlDensity'),
         sqlCommaStyle: cfg.get<string>('sqlCommaStyle'),
         printWidth: cfg.get<number>('printWidth'),
     };
+}
 
-    const sql = document.getText();
-
-    return new Promise<vscode.TextEdit[]>((resolve) => {
+/** Spawn the formatter child process, pipe sql in, resolve with formatted output. */
+function runFormatter(
+    sql: string,
+    dialect: string,
+    script: string,
+    opts: Record<string, unknown>,
+    filePath: string,
+): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
         let out = '';
         let err = '';
 
         // argv[2] = JSON options   argv[3] = file path (.prettierrc resolution)   argv[4] = dialect
-        const proc = spawn(
-            process.execPath,
-            [script, JSON.stringify(opts), document.uri.fsPath, dialect],
-            { stdio: ['pipe', 'pipe', 'pipe'] },
-        );
+        const proc = spawn(process.execPath, [script, JSON.stringify(opts), filePath, dialect], {
+            stdio: ['pipe', 'pipe', 'pipe'],
+        });
 
         proc.stdout.on('data', (d: Buffer) => (out += d.toString('utf-8')));
         proc.stderr.on('data', (d: Buffer) => (err += d.toString('utf-8')));
@@ -78,23 +87,65 @@ async function format(
 
         proc.on('close', (code: number | null) => {
             if (code === 0) {
-                const fullRange = new vscode.Range(
-                    document.positionAt(0),
-                    document.positionAt(sql.length),
-                );
-                resolve([vscode.TextEdit.replace(fullRange, out)]);
+                resolve(out);
             } else {
-                const msg = err.trim() || `formatter exited with code ${code}`;
-                void vscode.window.showErrorMessage(`Prettier SQL (${dialect}): ${msg}`);
-                resolve([]); // leave document unchanged
+                reject(new Error(err.trim() || `formatter exited with code ${code}`));
             }
         });
 
         proc.on('error', (e: Error) => {
-            void vscode.window.showErrorMessage(`Prettier SQL: failed to start formatter — ${e.message}`);
-            resolve([]);
+            reject(new Error(`failed to start formatter — ${e.message}`));
         });
     });
+}
+
+async function formatDocument(
+    document: vscode.TextDocument,
+    extensionPath: string,
+): Promise<vscode.TextEdit[]> {
+    const dialect = resolveDialect(document);
+    const script = path.join(extensionPath, 'bundled', 'format.mjs');
+    const sql = document.getText();
+
+    try {
+        const formatted = await runFormatter(sql, dialect, script, getOpts(document), document.uri.fsPath);
+        const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(sql.length));
+        return [vscode.TextEdit.replace(fullRange, formatted)];
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        void vscode.window.showErrorMessage(`Prettier SQL (${dialect}): ${msg}`);
+        return [];
+    }
+}
+
+async function formatRange(
+    document: vscode.TextDocument,
+    range: vscode.Range,
+    extensionPath: string,
+): Promise<vscode.TextEdit[]> {
+    const dialect = resolveDialect(document);
+    const script = path.join(extensionPath, 'bundled', 'format.mjs');
+    const sql = document.getText();
+
+    // Pass the full document with rangeStart/rangeEnd so Prettier can expand the
+    // selection to complete statement boundaries using our locStart/locEnd offsets.
+    // Prettier returns the full document with only the in-range statements reformatted
+    // and all out-of-range content preserved verbatim.
+    const opts = {
+        ...getOpts(document),
+        rangeStart: document.offsetAt(range.start),
+        rangeEnd: document.offsetAt(range.end),
+    };
+
+    try {
+        const formatted = await runFormatter(sql, dialect, script, opts, document.uri.fsPath);
+        const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(sql.length));
+        return [vscode.TextEdit.replace(fullRange, formatted)];
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        void vscode.window.showErrorMessage(`Prettier SQL (${dialect}): ${msg}`);
+        return [];
+    }
 }
 
 /** Warn the user if no .NET 8+ runtime is available (required for the parser DLL). */
