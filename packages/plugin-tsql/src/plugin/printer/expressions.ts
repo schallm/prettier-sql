@@ -604,6 +604,9 @@ export function printQueryExpression(node: SqlNode, opts: Options, printFn: Prin
 
 function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const density = getDensity(opts);
+    const compact = density === 'compact';
+    const sep: Doc = compact ? line : hardline;
+
     const uniqueRowFilter = propStr(node, 'uniqueRowFilter');
     const top = prop(node, 'top');
     const selectElements = propArr(node, 'selectElements');
@@ -620,23 +623,21 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const intoTarget = prop(node, 'into');
 
     const selectKw = uniqueRowFilter === 'Distinct' ? keyword('SELECT DISTINCT', opts) : keyword('SELECT', opts);
-
     const topDoc = top ? printTop(top, opts, printFn) : null;
     const colDocs = selectElements.map((se) => printExpression(se, opts, printFn));
 
-    if (density === 'compact') {
+    const parts: Doc[] = [selectKw, ...(topDoc ? [' ', topDoc] : [])];
+
+    if (compact) {
         // Compact: fill-pack each list clause — as many items per line as fit, wrapping only when needed.
         // indent() ensures wrapped lines are indented one level under the keyword.
         const colList = indent(fill(colDocs.flatMap((d, i) => (i === 0 ? [d] : [[',', line], d]))));
-        const parts: Doc[] = [selectKw, ...(topDoc ? [' ', topDoc] : []), ' ', colList];
+        parts.push(' ', colList);
 
-        if (intoTarget) {
-            parts.push(line, keyword('INTO', opts), ' ', schemaObjectName(intoTarget));
-        }
+        if (intoTarget) parts.push(line, keyword('INTO', opts), ' ', schemaObjectName(intoTarget));
 
         if (from) {
-            const tableRefs = propArr(from, 'tableReferences');
-            const fromDocs = tableRefs.map((tr) => printTableRef(tr, opts, printFn));
+            const fromDocs = propArr(from, 'tableReferences').map((tr) => printTableRef(tr, opts, printFn));
             // Try to keep FROM on one line; if too long, each join on its own line
             parts.push(line, keyword('FROM', opts), ' ', group(indent(join(softSep(opts), fromDocs))));
         }
@@ -651,8 +652,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
         }
 
         if (groupBy) {
-            const elems = propArr(groupBy, 'elements');
-            const elemDocs = elems.map((e) => printExpression(e, opts, printFn));
+            const elemDocs = propArr(groupBy, 'elements').map((e) => printExpression(e, opts, printFn));
             parts.push(
                 line,
                 keyword('GROUP BY', opts),
@@ -668,159 +668,84 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
                 group([indent([line, boolWithTrailing(having, fillBoolChain(having, opts, printFn))])]),
             );
         }
+    } else {
+        // Standard / Spacious: single column stays inline; multiple each on own line.
+        // A CASE expression always expands to multiple lines, so force it onto its own indented line.
+        const singleExprType = (prop(selectElements[0]!, 'expression') ?? selectElements[0]!)?.type;
+        const colList: Doc =
+            density === 'standard' && colDocs.length === 1 && singleExprType !== 'CaseExpression'
+                ? [' ', colDocs[0]!]
+                : indent([hardline, join(hardSep(opts), colDocs)]);
+        parts.push(colList);
 
-        if (orderBy) {
-            parts.push(line, printOrderByClause(orderBy, opts, printFn));
-        }
+        // SELECT INTO target appears after the column list and before the FROM clause
+        if (intoTarget) parts.push(hardline, keyword('INTO', opts), ' ', schemaObjectName(intoTarget));
 
-        if (offsetNode) {
-            parts.push(
-                line,
-                keyword('OFFSET', opts),
-                ' ',
-                printExpression(offsetNode, opts, printFn),
-                ' ',
-                keyword('ROWS', opts),
-            );
-            if (fetchNode) {
-                parts.push(
-                    line,
-                    keyword('FETCH NEXT', opts),
-                    ' ',
-                    printExpression(fetchNode, opts, printFn),
-                    ' ',
-                    keyword('ROWS ONLY', opts),
-                );
+        if (from) {
+            const tableRefs = propArr(from, 'tableReferences');
+            const fromDocs = tableRefs.map((tr) => printTableRef(tr, opts, printFn));
+            // standard: single table (no joins) stays inline; multiple/joins each on own line
+            // InlineDerivedTable uses a softline so it stays inline when it fits but breaks
+            // FROM onto its own line (with the values block indented) when it doesn't
+            const singleTable =
+                density === 'standard' &&
+                tableRefs.length === 1 &&
+                tableRefs[0]!.type !== 'QualifiedJoin' &&
+                tableRefs[0]!.type !== 'UnqualifiedJoin' &&
+                tableRefs[0]!.type !== 'InlineDerivedTable';
+            if (tableRefs.length === 1 && tableRefs[0]!.type === 'InlineDerivedTable') {
+                parts.push(hardline, group([keyword('FROM', opts), indent([line, fromDocs[0]!])]));
+            } else if (singleTable) {
+                parts.push(hardline, keyword('FROM', opts), ' ', fromDocs[0]!);
+            } else {
+                parts.push(hardline, keyword('FROM', opts), indent([hardline, join(hardSep(opts), fromDocs)]));
             }
         }
 
-        if (windowDefs.length > 0) {
-            parts.push(line, printWindowClause(windowDefs, opts, printFn));
+        if (where) {
+            // standard: single predicate inline; multiple each on own line
+            // spacious: always indented
+            const inline = density === 'standard' && where.type !== 'BooleanBinary';
+            if (inline) {
+                parts.push(hardline, keyword('WHERE', opts), ' ', boolWithTrailing(where, printBoolExpr(where, opts, printFn)));
+            } else {
+                parts.push(hardline, keyword('WHERE', opts), indent([hardline, boolWithTrailing(where, printBoolExpr(where, opts, printFn))]));
+            }
         }
 
-        if (forClause) {
-            parts.push(line, printForClause(forClause, opts));
+        if (groupBy) {
+            const elems = propArr(groupBy, 'elements');
+            const elemDocs = elems.map((e) => printExpression(e, opts, printFn));
+            if (density === 'standard' && elems.length === 1) {
+                parts.push(hardline, keyword('GROUP BY', opts), ' ', elemDocs[0]!);
+            } else {
+                parts.push(hardline, keyword('GROUP BY', opts), indent([hardline, join(hardSep(opts), elemDocs)]));
+            }
         }
 
-        return group(parts);
-    }
-
-    // Standard / Spacious: single column stays inline; multiple each on own line.
-    // A CASE expression always expands to multiple lines, so force it onto its own indented line.
-    const singleExprType = (prop(selectElements[0]!, 'expression') ?? selectElements[0]!)?.type;
-    const colList: Doc =
-        density === 'standard' && colDocs.length === 1 && singleExprType !== 'CaseExpression'
-            ? [' ', colDocs[0]!]
-            : indent([hardline, join(hardSep(opts), colDocs)]);
-    const parts: Doc[] = [selectKw, ...(topDoc ? [' ', topDoc] : []), colList];
-
-    // SELECT INTO target appears after the column list and before the FROM clause
-    if (intoTarget) {
-        parts.push(hardline, keyword('INTO', opts), ' ', schemaObjectName(intoTarget));
-    }
-
-    if (from) {
-        const tableRefs = propArr(from, 'tableReferences');
-        const fromDocs = tableRefs.map((tr) => printTableRef(tr, opts, printFn));
-        // standard: single table (no joins) stays inline; multiple/joins each on own line
-        // InlineDerivedTable uses a softline so it stays inline when it fits but breaks
-        // FROM onto its own line (with the values block indented) when it doesn't
-        const singleTable =
-            density === 'standard' &&
-            tableRefs.length === 1 &&
-            tableRefs[0]!.type !== 'QualifiedJoin' &&
-            tableRefs[0]!.type !== 'UnqualifiedJoin' &&
-            tableRefs[0]!.type !== 'InlineDerivedTable';
-        if (tableRefs.length === 1 && tableRefs[0]!.type === 'InlineDerivedTable') {
-            parts.push(hardline, group([keyword('FROM', opts), indent([line, fromDocs[0]!])]));
-        } else if (singleTable) {
-            parts.push(hardline, keyword('FROM', opts), ' ', fromDocs[0]!);
-        } else {
-            parts.push(hardline, keyword('FROM', opts), indent([hardline, join(hardSep(opts), fromDocs)]));
+        if (having) {
+            const inline = density === 'standard' && having.type !== 'BooleanBinary';
+            if (inline) {
+                parts.push(hardline, keyword('HAVING', opts), ' ', boolWithTrailing(having, printBoolExpr(having, opts, printFn)));
+            } else {
+                parts.push(hardline, keyword('HAVING', opts), indent([hardline, boolWithTrailing(having, printBoolExpr(having, opts, printFn))]));
+            }
         }
     }
 
-    if (where) {
-        // standard: single predicate inline; multiple each on own line
-        // spacious: always indented
-        const inline = density === 'standard' && where.type !== 'BooleanBinary';
-        if (inline) {
-            parts.push(
-                hardline,
-                keyword('WHERE', opts),
-                ' ',
-                boolWithTrailing(where, printBoolExpr(where, opts, printFn)),
-            );
-        } else {
-            parts.push(
-                hardline,
-                keyword('WHERE', opts),
-                indent([hardline, boolWithTrailing(where, printBoolExpr(where, opts, printFn))]),
-            );
-        }
-    }
-
-    if (groupBy) {
-        const elems = propArr(groupBy, 'elements');
-        const elemDocs = elems.map((e) => printExpression(e, opts, printFn));
-        const inline = density === 'standard' && elems.length === 1;
-        if (inline) {
-            parts.push(hardline, keyword('GROUP BY', opts), ' ', elemDocs[0]!);
-        } else {
-            parts.push(hardline, keyword('GROUP BY', opts), indent([hardline, join(hardSep(opts), elemDocs)]));
-        }
-    }
-
-    if (having) {
-        const inline = density === 'standard' && having.type !== 'BooleanBinary';
-        if (inline) {
-            parts.push(
-                hardline,
-                keyword('HAVING', opts),
-                ' ',
-                boolWithTrailing(having, printBoolExpr(having, opts, printFn)),
-            );
-        } else {
-            parts.push(
-                hardline,
-                keyword('HAVING', opts),
-                indent([hardline, boolWithTrailing(having, printBoolExpr(having, opts, printFn))]),
-            );
-        }
-    }
-
-    if (orderBy) {
-        parts.push(hardline, printOrderByClause(orderBy, opts, printFn));
-    }
+    // Tail clauses — same layout intent for all densities, sep varies
+    if (orderBy) parts.push(sep, printOrderByClause(orderBy, opts, printFn));
 
     if (offsetNode) {
-        parts.push(
-            hardline,
-            keyword('OFFSET', opts),
-            ' ',
-            printExpression(offsetNode, opts, printFn),
-            ' ',
-            keyword('ROWS', opts),
-        );
+        parts.push(sep, keyword('OFFSET', opts), ' ', printExpression(offsetNode, opts, printFn), ' ', keyword('ROWS', opts));
         if (fetchNode) {
-            parts.push(
-                hardline,
-                keyword('FETCH NEXT', opts),
-                ' ',
-                printExpression(fetchNode, opts, printFn),
-                ' ',
-                keyword('ROWS ONLY', opts),
-            );
+            parts.push(sep, keyword('FETCH NEXT', opts), ' ', printExpression(fetchNode, opts, printFn), ' ', keyword('ROWS ONLY', opts));
         }
     }
 
-    if (windowDefs.length > 0) {
-        parts.push(hardline, printWindowClause(windowDefs, opts, printFn));
-    }
+    if (windowDefs.length > 0) parts.push(sep, printWindowClause(windowDefs, opts, printFn));
 
-    if (forClause) {
-        parts.push(hardline, printForClause(forClause, opts));
-    }
+    if (forClause) parts.push(sep, printForClause(forClause, opts));
 
     return group(parts);
 }
