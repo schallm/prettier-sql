@@ -18,3 +18,9 @@ export function propStr(node: SqlNode, key: string): string | null {
 export function propBool(node: SqlNode, key: string): boolean {
     return node.props?.[key] === true;
 }
+
+export function propStrArr(node: SqlNode, key: string): string[] {
+    const v = node.props?.[key];
+    if (!Array.isArray(v)) return [];
+    return v as string[];
+}

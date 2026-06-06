@@ -11,7 +11,7 @@ export const options: Record<string, SupportOption> = {
             { value: 'lower', description: 'lowercase keywords' },
             { value: 'preserve', description: 'Preserve original casing' },
         ],
-    } as SupportOption,
+    } satisfies SupportOption,
     sqlDensity: {
         type: 'choice',
         category: 'SQL',
@@ -22,7 +22,7 @@ export const options: Record<string, SupportOption> = {
             { value: 'standard', description: 'One clause per line; single predicates stay inline' },
             { value: 'spacious', description: 'Every predicate on its own line, even single ones' },
         ],
-    } as SupportOption,
+    } satisfies SupportOption,
     sqlCommaStyle: {
         type: 'choice',
         category: 'SQL',
@@ -32,5 +32,5 @@ export const options: Record<string, SupportOption> = {
             { value: 'trailing', description: 'Trailing comma: col1,' },
             { value: 'leading', description: 'Leading comma: , col1 (not yet implemented — behaves as trailing)' },
         ],
-    } as SupportOption,
+    } satisfies SupportOption,
 };

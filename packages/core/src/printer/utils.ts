@@ -7,16 +7,19 @@ const { hardline, join, indent, group, line, softline, lineSuffix, ifBreak, fill
 export type Options = ParserOptions<SqlNode>;
 
 /** SQL-specific options that Prettier passes through but doesn't know about. */
-interface SqlOptions {
+type SqlOptions = {
     sqlKeywordCase?: 'upper' | 'lower' | 'preserve';
     sqlDensity?: 'compact' | 'standard' | 'spacious';
     sqlCommaStyle?: 'trailing' | 'leading';
-}
+};
 
 /** Cast opts once to access SQL-specific keys without repeated double-casts. */
 function sqlOpts(opts: Options): SqlOptions {
-    return opts as Options & SqlOptions;
+    return opts as SqlOptions;
 }
+
+/** Function type for recursively printing a SqlNode to a Doc. */
+export type PrintFn = (node: SqlNode) => Doc;
 
 /**
  * Apply the sqlKeywordCase option to a keyword string.
