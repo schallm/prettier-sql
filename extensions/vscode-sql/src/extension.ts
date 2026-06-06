@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import * as path from 'path';
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -150,11 +150,11 @@ async function formatRange(
 
 /** Warn the user if no .NET 8+ runtime is available (required for the parser DLL). */
 function checkDotnetRuntime(): void {
-    const { execSync } = require('child_process') as typeof import('child_process');
     try {
         const output = execSync('dotnet --list-runtimes', { encoding: 'utf-8', timeout: 5000 });
-        const hasNet8 = /Microsoft\.NETCore\.App 8\.|Microsoft\.NETCore\.App 9\./.test(output);
-        if (!hasNet8) {
+        const match = /Microsoft\.NETCore\.App (\d+)\./.exec(output);
+        const hasNet8Plus = match !== null && parseInt(match[1]!, 10) >= 8;
+        if (!hasNet8Plus) {
             promptDotnetDownload();
         }
     } catch {
