@@ -3,8 +3,8 @@
     "private": true,
     "type": "module",
     "dependencies": {
-        "prettier": "^3.0.0",
-        "prettier-plugin-tsql": "workspace:*",
-        "prettier-plugin-postgresql": "workspace:*"
+        "prettier": "^3.8.4",
+        "prettier-plugin-postgresql": "workspace:*",
+        "prettier-plugin-tsql": "workspace:*"
     }
 }
