@@ -27,3 +27,13 @@ cross apply regexp_matches(Products.Description, '\b\w{5,}\b') as m
 select s.value
 from Products
 cross apply regexp_split_to_table(Products.Tags, ',\s*') as s
+
+-- REGEXP_LIKE as a WHERE predicate (RegexpLikePredicate node — SQL Server 2025)
+select Email, Name
+from Customers
+where regexp_like(Email, '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+
+-- REGEXP_LIKE combined with AND
+select Email
+from Customers
+where regexp_like(Email, '^[a-z]') and IsActive = 1

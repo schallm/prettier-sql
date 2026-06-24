@@ -980,6 +980,8 @@ export function printBoolExpr(node: SqlNode, opts: Options, printFn: PrintFn): D
             return printDistinctPredicate(node, opts, printFn);
         case 'SubqueryComparisonPredicate':
             return printSubqueryComparison(node, opts, printFn);
+        case 'RegexpLikePredicate':
+            return printRegexpLikePredicate(node, opts, printFn);
         default:
             return node.text ?? `/* ${node.type} */`;
     }
@@ -1153,6 +1155,16 @@ function printInPredicate(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     // own indented line with ) dropping back to the indentation of the IN line.
     const valueDocs = values.map((v) => printExpression(v, opts, printFn));
     return [...lhs, group([' (', indent([softline, join([',', line], valueDocs)]), softline, ')'])];
+}
+
+function printRegexpLikePredicate(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
+    const args: Doc[] = [
+        prop(node, 'value') ? printExpression(prop(node, 'value')!, opts, printFn) : '',
+        prop(node, 'pattern') ? printExpression(prop(node, 'pattern')!, opts, printFn) : '',
+    ];
+    const flags = prop(node, 'flags');
+    if (flags) args.push(printExpression(flags, opts, printFn));
+    return [keyword('regexp_like', opts), parenList(args)];
 }
 
 function printLikePredicate(node: SqlNode, opts: Options, printFn: PrintFn): Doc {

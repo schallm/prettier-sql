@@ -30,6 +30,7 @@ import {
     printCreateTable,
     printAlterTable,
     printCreateIndex,
+    printCreateVectorIndex,
     printCreateProcedure,
     printCreateFunction,
     printCreateView,
@@ -369,6 +370,8 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
             return printAlterTable(node, opts);
         case 'CreateIndexStatement':
             return printCreateIndex(node, opts);
+        case 'CreateVectorIndexStatement':
+            return printCreateVectorIndex(node, opts);
         case 'AlterIndexStatement':
             return printAlterIndex(node, opts);
         case 'DropIndexStatement':

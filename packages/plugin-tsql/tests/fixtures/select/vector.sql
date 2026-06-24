@@ -21,3 +21,7 @@ from Embeddings
 -- VECTORPROPERTY — query metadata about a vector column
 select vectorproperty(Vec, 'Dimensions') as Dims
 from Embeddings
+
+-- DECLARE with vector type
+declare @v vector(3)
+set @v = '[1.0, 2.0, 3.0]'

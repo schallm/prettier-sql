@@ -720,6 +720,44 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
 }
 
 // ---------------------------------------------------------------------------
+// CREATE VECTOR INDEX — SQL Server 2025
+// ---------------------------------------------------------------------------
+
+export function printCreateVectorIndex(node: SqlNode, opts: Options): Doc {
+    const indexName = propStr(node, 'indexName') ?? 'idx';
+    const table = prop(node, 'table');
+    const vectorCol = propStr(node, 'vectorColumn') ?? '';
+    const indexOptions = propStrArr(node, 'indexOptions');
+    const withPart: Doc =
+        indexOptions.length > 0
+            ? [hardline, keyword('WITH', opts), ' (', join(', ', indexOptions), ')']
+            : '';
+    const onFileGroup = propStr(node, 'onFileGroup');
+    const fileGroupPart: Doc = onFileGroup ? [hardline, keyword('ON', opts), ' ', onFileGroup] : '';
+    return group([
+        keyword('CREATE', opts),
+        ' ',
+        keyword('VECTOR', opts),
+        ' ',
+        keyword('INDEX', opts),
+        ' ',
+        indexName,
+        indent([
+            hardline,
+            keyword('ON', opts),
+            ' ',
+            schemaObjectName(table),
+            '(',
+            vectorCol,
+            ')',
+        ]),
+        withPart,
+        fileGroupPart,
+        ';',
+    ]);
+}
+
+// ---------------------------------------------------------------------------
 // ALTER INDEX
 // ---------------------------------------------------------------------------
 
