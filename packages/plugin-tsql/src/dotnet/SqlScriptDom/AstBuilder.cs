@@ -43,6 +43,27 @@ public class AstBuilder : TSqlFragmentVisitor {
     /// <summary>Convenience: RawText(x) when not null, else null.</summary>
     private static string? RawTextOrNull(TSqlFragment? f) => f == null ? null : RawText(f);
 
+    /// <summary>
+    /// Extracts data-type size/precision/scale parameters as strings.
+    /// Prefers ParameterizedDataTypeReference.Parameters; falls back to parsing the raw
+    /// token text for types that ScriptDom represents as UserDataTypeReference with no
+    /// Parameters collection (e.g. VECTOR(1536) in SQL Server 2025).
+    /// XmlDataTypeReference is excluded — its schema-collection argument is handled separately.
+    /// </summary>
+    private static List<object?>? DataTypeParams(DataTypeReference? dt) {
+        if (dt == null || dt is XmlDataTypeReference) return null;
+        if (dt is ParameterizedDataTypeReference pdt && pdt.Parameters?.Count > 0)
+            return pdt.Parameters.Select(p => (object?)p.Value).ToList();
+        var raw = RawText(dt);
+        var lparen = raw.IndexOf('(');
+        var rparen = raw.LastIndexOf(')');
+        if (lparen < 0 || rparen <= lparen) return null;
+        var inner = raw[(lparen + 1)..rparen].Trim();
+        return string.IsNullOrEmpty(inner)
+            ? null
+            : inner.Split(',').Select(s => (object?)s.Trim()).ToList();
+    }
+
     private static SqlNode? BuildIdentifier(Identifier? id) =>
         id == null ? null : Leaf("Identifier", id, QuotedName(id));
 
@@ -468,6 +489,12 @@ public class AstBuilder : TSqlFragmentVisitor {
             FullTextPredicate ftp => BuildFullTextPredicate(ftp),
             DistinctPredicate dp => BuildDistinctPredicate(dp),
             SubqueryComparisonPredicate scp => BuildSubqueryComparison(scp),
+            // REGEXP_LIKE predicate — SQL Server 2025
+            RegexpLikePredicate rp => Node("RegexpLikePredicate", rp, new Dictionary<string, object?> {
+                ["value"] = BuildScalarExpression(rp.Text),
+                ["pattern"] = BuildScalarExpression(rp.Pattern),
+                ["flags"] = rp.Flags != null ? BuildScalarExpression(rp.Flags) : null,
+            }),
             // GraphMatchPredicate.StartOffset starts inside MATCH(, so prepend the keyword+paren
             GraphMatchPredicate gmp => Leaf("BooleanExpression", gmp, "MATCH(" + RawText(gmp)),
             _ => Leaf("BooleanExpression", expr, RawText(expr)),
@@ -860,6 +887,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             CreateTableStatement ct => BuildCreateTableStatement(ct),
             AlterTableStatement at => BuildAlterTableStatement(at),
             CreateIndexStatement ci => BuildCreateIndexStatement(ci),
+            CreateVectorIndexStatement cvi => BuildCreateVectorIndexStatement(cvi),
             AlterIndexStatement ai => BuildAlterIndex(ai),
             DropIndexStatement di => BuildDropIndex(di),
 
@@ -1285,9 +1313,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["name"] = d.VariableName?.Value,
                 ["dataType"] = dataType,
                 ["isUdt"] = isUdt ? (object?)true : null,
-                ["dataTypeParams"] = d.DataType is ParameterizedDataTypeReference pdt
-                    ? pdt.Parameters?.Select(p => (object?)p.Value).ToList()
-                    : null,
+                ["dataTypeParams"] = DataTypeParams(d.DataType),
                 ["value"] = BuildScalarExpression(d.Value),
             });
     }
@@ -1492,6 +1518,14 @@ public class AstBuilder : TSqlFragmentVisitor {
         return RawText(opt).Trim();
     }
 
+    private static string SerializeVectorIndexOption(IndexOption opt) {
+        if (opt is VectorMetricIndexOption metric)
+            return $"metric = '{metric.MetricType.ToString().ToLowerInvariant()}'";
+        if (opt is VectorTypeIndexOption vtype)
+            return $"type = '{vtype.VectorType}'";
+        return RawText(opt).Trim();
+    }
+
     private static string SerializeDropConstraintOption(DropClusteredConstraintOption o) {
         // ONLINE = ON / ONLINE = OFF
         if (o is DropClusteredConstraintStateOption state) {
@@ -1627,9 +1661,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["dataType"] = dataTypeName,
                 ["xmlSchemaCollection"] = xmlSchemaCollection,
                 ["xmlTypeOption"] = xmlTypeOption,
-                ["dataTypeParams"] = dt is ParameterizedDataTypeReference pdt
-                    ? pdt.Parameters?.Select(p => (object?)p.Value).ToList()
-                    : null,
+                ["dataTypeParams"] = DataTypeParams(dt),
                 ["nullable"] = col.Constraints?.OfType<NullableConstraintDefinition>()
                     .FirstOrDefault()?.Nullable,
                 ["identity"] = col.IdentityOptions != null,
@@ -1834,6 +1866,17 @@ public class AstBuilder : TSqlFragmentVisitor {
                     : null,
             });
     }
+
+    private static SqlNode BuildCreateVectorIndexStatement(CreateVectorIndexStatement cvi) =>
+        Node("CreateVectorIndexStatement", cvi, new Dictionary<string, object?> {
+            ["indexName"] = cvi.Name?.Value,
+            ["table"] = BuildSchemaObjectName(cvi.OnName),
+            ["vectorColumn"] = QuotedName(cvi.VectorColumn),
+            ["indexOptions"] = MapList(cvi.IndexOptions, o => (object?)SerializeVectorIndexOption(o)),
+            ["onFileGroup"] = cvi.OnFileGroupOrPartitionScheme?.Name is { } fg
+                ? (fg.Identifier != null ? QuotedName(fg.Identifier) : fg.Value)
+                : null,
+        });
 
     // -------------------------------------------------------------------------
     // DDL: CREATE PROCEDURE

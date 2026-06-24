@@ -868,6 +868,23 @@ where Status = 'Closed'
 with (drop_existing = on);"
 `;
 
+exports[`fixtures > index/vector-index.sql 1`] = `
+"-- CREATE VECTOR INDEX — SQL Server 2025
+create vector index IX_Embeddings_Vec
+  on Embeddings(Vec)
+with (metric = 'cosine');
+
+-- METRIC options: cosine, dot, euclidean
+create vector index IX_Embeddings_Dot
+  on Embeddings(Vec)
+with (metric = 'dot');
+
+-- TYPE option: DiskANN (default)
+create vector index IX_Embeddings_Full
+  on Embeddings(Vec)
+with (metric = 'cosine', type = 'DiskANN');"
+`;
+
 exports[`fixtures > insert/cte.sql 1`] = `
 "with
   src as (
@@ -2037,7 +2054,21 @@ from
 select s.[value]
 from
   Products
-  cross apply regexp_split_to_table(Products.Tags, ',\\s*') as s;"
+  cross apply regexp_split_to_table(Products.Tags, ',\\s*') as s;
+
+-- REGEXP_LIKE as a WHERE predicate (RegexpLikePredicate node — SQL Server 2025)
+select
+  Email,
+  Name
+from Customers
+where regexp_like(Email, '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+
+-- REGEXP_LIKE combined with AND
+select Email
+from Customers
+where
+  regexp_like(Email, '^[a-z]')
+  and IsActive = 1;"
 `;
 
 exports[`fixtures > select/rowset-functions.sql 1`] = `
@@ -2193,7 +2224,7 @@ exports[`fixtures > select/vector.sql 1`] = `
 "-- VECTOR data type — SQL Server 2025
 create table Embeddings (
   Id int not null,
-  Vec vector not null
+  Vec vector(1536) not null
 );
 
 -- VECTOR_DISTANCE — compute distance between two vectors
@@ -2217,7 +2248,11 @@ from Embeddings;
 
 -- VECTORPROPERTY — query metadata about a vector column
 select vectorproperty(Vec, 'Dimensions') as Dims
-from Embeddings;"
+from Embeddings;
+
+-- DECLARE with vector type
+declare @v vector(3);
+set @v = '[1.0, 2.0, 3.0]';"
 `;
 
 exports[`fixtures > select/window.sql 1`] = `
