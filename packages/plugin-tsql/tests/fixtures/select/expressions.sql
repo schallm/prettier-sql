@@ -61,3 +61,29 @@ where Name collate SQL_Latin1_General_CP1_CI_AS = N'test'
 -- LEFT/RIGHT are special ScriptDom subtypes — must normalize case like any function
 select LEFT(Email, 10), RIGHT(Name, 5), LEFT(a, 1) + RIGHT(b, 2)
 from Users
+
+-- CURRENT_DATE — SQL Server 2025 parameterless function (like CURRENT_TIMESTAMP)
+select current_date
+
+-- UNISTR — SQL Server 2025
+select unistr('\0041\0042\0043')
+
+-- PRODUCT aggregate — SQL Server 2025
+select product(Quantity)
+from OrderItems
+
+-- BASE64_ENCODE / BASE64_DECODE — SQL Server 2025
+select base64_encode(FileContent) as encoded, base64_decode(EncodedCol) as decoded
+from Documents
+
+-- EDIT_DISTANCE / fuzzy string matching — SQL Server 2025
+select edit_distance('kitten', 'sitting') as dist, edit_distance_similarity('kitten', 'sitting') as sim
+
+-- || pipe concatenation operator — SQL Server 2025
+select 'foo' || 'bar'
+
+select FirstName || ' ' || LastName as FullName
+from Employees
+
+select a || b || c || d
+from t

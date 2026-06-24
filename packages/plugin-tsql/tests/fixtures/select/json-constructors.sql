@@ -13,3 +13,12 @@ select json_arrayagg(Title) from Books
 select json_arrayagg(Title order by Title) from Books
 
 select json_arrayagg(Title order by Title absent on null) from Books
+
+-- JSON_OBJECTAGG — SQL Server 2025
+select json_objectagg(Name: Value)
+from Config
+group by Name
+
+select json_objectagg(Name: Value null on null)
+from Config
+group by Name

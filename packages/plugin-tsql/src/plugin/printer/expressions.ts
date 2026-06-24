@@ -33,6 +33,7 @@ const BINARY_OP_MAP: Record<string, string> = {
     BitwiseOr:  '|',
     BitwiseXor: '^',
     Concatenate: '+',
+    Concat:     '||',
 };
 
 const CMP_OP_MAP: Record<string, string> = {
@@ -337,16 +338,26 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
     return argsDoc;
 }
 
-// Flatten a left-recursive + (Add/Concatenate) chain into its leaf terms.
+// Flatten a left-recursive chain of the given operators into leaf terms.
 // Stops at any other operator so e.g. the `a * b` in `a * b + c` stays grouped.
-function collectConcatChain(node: SqlNode): SqlNode[] {
+// Keeping ops separate (Add/Concatenate vs Concat) prevents mixing + and || chains.
+function collectBinaryChain(node: SqlNode, ...ops: string[]): SqlNode[] {
     const op = propStr(node, 'operator');
-    if (node.type !== 'BinaryExpression' || (op !== 'Add' && op !== 'Concatenate')) {
+    if (node.type !== 'BinaryExpression' || !ops.includes(op ?? '')) {
         return [node];
     }
     const left = prop(node, 'left');
     const right = prop(node, 'right');
-    return [...(left ? collectConcatChain(left) : []), ...(right ? [right] : [])];
+    return [...(left ? collectBinaryChain(left, ...ops) : []), ...(right ? [right] : [])];
+}
+
+function buildFillChain(termDocs: Doc[], sep: string): Doc {
+    const parts: Doc[] = [termDocs[0]!];
+    for (let i = 1; i < termDocs.length; i++) {
+        parts.push(indent([line, sep]));
+        parts.push(termDocs[i]!);
+    }
+    return fill(parts);
 }
 
 function printBinaryExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
@@ -357,17 +368,14 @@ function printBinaryExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     // term would overflow. Flat: "a + b + c". Filling: "a + b\n+ c + d".
     // This prevents Prettier from descending into function args to break there.
     if (op === 'Add' || op === 'Concatenate') {
-        const terms = collectConcatChain(node);
-        const termDocs = terms.map((t) => printExpression(t, opts, printFn));
-        // Flat: "a + b + c". Wrapping: "a + b\n    + c + d".
-        // Using fill (not group) so outer flat-mode contexts don't suppress breaks.
-        // The indent is on the separator so continuation lines are indented one level.
-        const parts: Doc[] = [termDocs[0]!];
-        for (let i = 1; i < termDocs.length; i++) {
-            parts.push(indent([line, '+ ']));
-            parts.push(termDocs[i]!);
-        }
-        return fill(parts);
+        const terms = collectBinaryChain(node, 'Add', 'Concatenate');
+        return buildFillChain(terms.map((t) => printExpression(t, opts, printFn)), '+ ');
+    }
+
+    // || chains work the same way but keep their own operator symbol.
+    if (op === 'Concat') {
+        const terms = collectBinaryChain(node, 'Concat');
+        return buildFillChain(terms.map((t) => printExpression(t, opts, printFn)), '|| ');
     }
 
     const left = prop(node, 'left');

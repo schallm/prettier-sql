@@ -1538,7 +1538,37 @@ select
   left(Email, 10),
   right(Name, 5),
   left(a, 1) + right(b, 2)
-from Users;"
+from Users;
+
+-- CURRENT_DATE — SQL Server 2025 parameterless function (like CURRENT_TIMESTAMP)
+select current_date;
+
+-- UNISTR — SQL Server 2025
+select unistr('\\0041\\0042\\0043');
+
+-- PRODUCT aggregate — SQL Server 2025
+select product(Quantity)
+from OrderItems;
+
+-- BASE64_ENCODE / BASE64_DECODE — SQL Server 2025
+select
+  base64_encode(FileContent) as encoded,
+  base64_decode(EncodedCol) as decoded
+from Documents;
+
+-- EDIT_DISTANCE / fuzzy string matching — SQL Server 2025
+select
+  edit_distance('kitten', 'sitting') as dist,
+  edit_distance_similarity('kitten', 'sitting') as sim;
+
+-- || pipe concatenation operator — SQL Server 2025
+select 'foo' || 'bar';
+
+select FirstName || ' ' || LastName as FullName
+from Employees;
+
+select a || b || c || d
+from t;"
 `;
 
 exports[`fixtures > select/for-xml-json.sql 1`] = `
@@ -1824,7 +1854,16 @@ select json_arrayagg(Title order by Title asc)
 from Books;
 
 select json_arrayagg(Title order by Title asc absent on null)
-from Books;"
+from Books;
+
+-- JSON_OBJECTAGG — SQL Server 2025
+select json_objectagg(Name: [Value])
+from Config
+group by Name;
+
+select json_objectagg(Name: [Value] null on null)
+from Config
+group by Name;"
 `;
 
 exports[`fixtures > select/option-clause.sql 1`] = `
@@ -1962,6 +2001,43 @@ select
 from
   Books
   inner join [My Table] on Books.Id = [My Table].[Book Id];"
+`;
+
+exports[`fixtures > select/regexp.sql 1`] = `
+"-- REGEXP_LIKE — returns 1 if pattern matches
+select regexp_like(
+  Email,
+  '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$'
+) as IsValid
+from Customers;
+
+-- REGEXP_COUNT — count occurrences of pattern
+select regexp_count(Description, '\\w+') as WordCount
+from Products;
+
+-- REGEXP_REPLACE — replace pattern with string
+select regexp_replace(Phone, '[^0-9]', '') as DigitsOnly
+from Contacts;
+
+-- REGEXP_SUBSTR — return first matching substring
+select regexp_substr(Email, '^[^@]+') as Username
+from Customers;
+
+-- REGEXP_INSTR — return position of match
+select regexp_instr(Email, '@') as AtPosition
+from Customers;
+
+-- REGEXP_MATCHES — table-valued, returns matched substrings
+select m.[value]
+from
+  Products
+  cross apply regexp_matches(Products.Description, '\\b\\w{5,}\\b') as m;
+
+-- REGEXP_SPLIT_TO_TABLE — split string by regex delimiter
+select s.[value]
+from
+  Products
+  cross apply regexp_split_to_table(Products.Tags, ',\\s*') as s;"
 `;
 
 exports[`fixtures > select/rowset-functions.sql 1`] = `
@@ -2111,6 +2187,37 @@ select
   Id,
   Name
 from dbo.Employee for system_time all;"
+`;
+
+exports[`fixtures > select/vector.sql 1`] = `
+"-- VECTOR data type — SQL Server 2025
+create table Embeddings (
+  Id int not null,
+  Vec vector not null
+);
+
+-- VECTOR_DISTANCE — compute distance between two vectors
+select vector_distance('cosine', e1.Vec, e2.Vec) as Distance
+from
+  Embeddings as e1
+  cross join Embeddings as e2
+where e1.Id <> e2.Id;
+
+-- VECTOR_NORM — magnitude of a vector
+select
+  Id,
+  vector_norm(Vec) as Magnitude
+from Embeddings;
+
+-- VECTOR_NORMALIZE — return unit vector
+select
+  Id,
+  vector_normalize(Vec) as Normalized
+from Embeddings;
+
+-- VECTORPROPERTY — query metadata about a vector column
+select vectorproperty(Vec, 'Dimensions') as Dims
+from Embeddings;"
 `;
 
 exports[`fixtures > select/window.sql 1`] = `
