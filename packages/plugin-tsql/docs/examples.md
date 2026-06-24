@@ -542,3 +542,176 @@ Names that require brackets are left bracketed:
 + to GuestUser
 + cascade;
 ```
+
+---
+
+## SQL Server 2025
+
+These examples require ScriptDom 180.37+ (`Microsoft.SqlServer.TransactSql.ScriptDom` ≥ 180.37.3).
+
+### `||` pipe concatenation
+
+Simple chain stays inline:
+
+```diff
+- SELECT FirstName || ' ' || LastName AS FullName FROM Authors
++ select FirstName || ' ' || LastName as FullName
++ from Authors;
+```
+
+Long chain wraps with `||` at the continuation-line indent:
+
+```diff
+- SELECT AuthorId, FirstName || ' ' || LastName || ' <' || Email || '>' AS Contact FROM Authors WHERE IsActive = 1
++ select
++   AuthorId,
++   FirstName || ' ' || LastName || ' <' || Email || '>' as Contact
++ from Authors
++ where IsActive = 1;
+```
+
+### `CURRENT_DATE`
+
+```diff
+- SELECT Id, Title FROM Books WHERE PublishedDate <= CURRENT_DATE
++ select
++   Id,
++   Title
++ from Books
++ where PublishedDate <= current_date;
+```
+
+### REGEXP_LIKE (scalar — in SELECT)
+
+Short pattern stays inline:
+
+```diff
+- SELECT Id, Title, REGEXP_COUNT(Title, '[aeiouAEIOU]') AS VowelCount FROM Books
++ select
++   Id,
++   Title,
++   regexp_count(Title, '[aeiouAEIOU]') as VowelCount
++ from Books;
+```
+
+Long pattern breaks to the next line:
+
+```diff
+- SELECT Id, Title, Email FROM Authors WHERE REGEXP_LIKE(Email, '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
++ select
++   Id,
++   Title,
++   Email
++ from Authors
++ where regexp_like(Email, '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+```
+
+### REGEXP_LIKE (predicate — in WHERE)
+
+`REGEXP_LIKE` in `WHERE` is a boolean predicate — keyword case and arg wrapping apply the same way:
+
+```diff
+- SELECT Id, Title FROM Books WHERE REGEXP_LIKE(Title, '^The') AND Price < 30
++ select
++   Id,
++   Title
++ from Books
++ where
++   regexp_like(Title, '^The')
++   and Price < 30;
+```
+
+### REGEXP_REPLACE / REGEXP_SUBSTR
+
+```diff
+- SELECT Id, REGEXP_REPLACE(Title, '\s+', ' ') AS CleanTitle, REGEXP_REPLACE(Notes, '[<>]', '') AS SafeNotes FROM Books
++ select
++   Id,
++   regexp_replace(Title, '\s+', ' ') as CleanTitle,
++   regexp_replace(Notes, '[<>]', '') as SafeNotes
++ from Books;
+```
+
+### REGEXP_MATCHES with CROSS APPLY
+
+The function name and alias stay on the same line as `cross apply`:
+
+```diff
+- SELECT B.Title, M.[value] AS Keyword FROM Books AS B CROSS APPLY REGEXP_MATCHES(B.Description, '\b[A-Z][a-z]{4,}\b') AS M
++ select
++   B.Title,
++   M.[value] as Keyword
++ from
++   Books as B
++   cross apply regexp_matches(B.Description, '\b[A-Z][a-z]{4,}\b') as M;
+```
+
+### `VECTOR(n)` data type
+
+The dimension is preserved in `CREATE TABLE` and `DECLARE`:
+
+```diff
+- CREATE TABLE BookEmbeddings (Id INT NOT NULL, BookId INT NOT NULL, Embedding vector(1536) NOT NULL, CONSTRAINT PK_BookEmbeddings PRIMARY KEY (Id), CONSTRAINT FK_BookEmbeddings_Books FOREIGN KEY (BookId) REFERENCES Books(Id))
++ create table BookEmbeddings (
++   Id int not null,
++   BookId int not null,
++   Embedding vector(1536) not null,
++   constraint PK_BookEmbeddings primary key (Id),
++   constraint FK_BookEmbeddings_Books foreign key (BookId) references Books (Id)
++ );
+```
+
+```diff
+- DECLARE @QueryEmbedding vector(1536); SET @QueryEmbedding = '[0.1, 0.2, 0.3]'
++ declare @QueryEmbedding vector(1536);
++ set @QueryEmbedding = '[0.1, 0.2, 0.3]';
+```
+
+### VECTOR_DISTANCE — semantic book search
+
+```diff
+- SELECT TOP(10) B.Id, B.Title, VECTOR_DISTANCE('cosine', E.Embedding, @QueryEmbedding) AS Distance FROM Books AS B INNER JOIN BookEmbeddings AS E ON B.Id = E.BookId ORDER BY Distance ASC
++ select top (10)
++   B.Id,
++   B.Title,
++   vector_distance('cosine', E.Embedding, @QueryEmbedding) as Distance
++ from
++   Books as B
++   inner join BookEmbeddings as E on B.Id = E.BookId
++ order by Distance asc;
+```
+
+### CREATE VECTOR INDEX
+
+Index name on the first line; `ON table(column)` indented one level; `WITH` options at the outer level:
+
+```diff
+- CREATE VECTOR INDEX IX_BookEmbeddings_Vec ON BookEmbeddings(Embedding) WITH (METRIC = 'cosine', TYPE = 'DiskANN')
++ create vector index IX_BookEmbeddings_Vec
++   on BookEmbeddings(Embedding)
++ with (metric = 'cosine', type = 'DiskANN');
+```
+
+### JSON_OBJECTAGG
+
+```diff
+- SELECT GenreId, json_objectagg(Title: Price null on null) AS PriceMap FROM Books GROUP BY GenreId
++ select
++   GenreId,
++   json_objectagg(Title: Price null on null) as PriceMap
++ from Books
++ group by GenreId;
+```
+
+### EDIT_DISTANCE — fuzzy title search
+
+```diff
+- SELECT Id, Title, EDIT_DISTANCE(Title, @SearchTerm) AS Distance FROM Books WHERE EDIT_DISTANCE(Title, @SearchTerm) <= 3 ORDER BY Distance ASC
++ select
++   Id,
++   Title,
++   edit_distance(Title, @SearchTerm) as Distance
++ from Books
++ where edit_distance(Title, @SearchTerm) <= 3
++ order by Distance asc;
+```

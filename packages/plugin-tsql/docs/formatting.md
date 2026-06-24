@@ -2767,3 +2767,268 @@ File spec parenthesised content is emitted as raw text.
 ### Semicolons
 
 All statements are terminated with a semicolon. The plugin normalises statements that are missing them.
+
+---
+
+## SQL Server 2025
+
+The following features were introduced in SQL Server 2025 and require ScriptDom 180.37 or later
+(NuGet package `Microsoft.SqlServer.TransactSql.ScriptDom` ≥ 180.37.3).
+
+---
+
+### `||` pipe concatenation
+
+ISO SQL `||` string concatenation formats as a fill chain, identical to arithmetic `+` and
+T-SQL string `+` chains. The operator appears at the beginning of each continuation line,
+indented one level under the opening expression:
+
+```sql
+select FirstName || ' ' || LastName as FullName
+from Authors;
+
+select
+  AuthorId,
+  FirstName || ' ' || LastName || ' <' || Email || '>' as Contact
+from Authors
+where IsActive = 1;
+```
+
+`||` chains and `+` chains are kept separate — they never merge into a single fill group.
+
+---
+
+### `CURRENT_DATE`
+
+`CURRENT_DATE` is a zero-argument, no-parentheses standard function. It formats exactly like
+`CURRENT_TIMESTAMP` and `CURRENT_USER`:
+
+```sql
+select
+  Id,
+  Title,
+  PublishedDate,
+  current_date as Today
+from Books
+where InStock = 1;
+
+select
+  Id,
+  Title
+from Books
+where PublishedDate <= current_date;
+```
+
+---
+
+### REGEXP_* scalar functions
+
+The regex scalar family — `REGEXP_LIKE`, `REGEXP_COUNT`, `REGEXP_REPLACE`, `REGEXP_SUBSTR`,
+`REGEXP_INSTR` — follows standard function-call formatting: arguments stay inline when short,
+and break one-per-line when the call exceeds `printWidth`:
+
+```sql
+-- short arguments: inline
+select regexp_count(Title, '[aeiouAEIOU]') as VowelCount
+from Books;
+
+-- long pattern argument: breaks to next line
+select regexp_like(
+  Email,
+  '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+) as IsValid
+from Authors;
+
+select
+  Id,
+  regexp_replace(Title, '\s+', ' ') as CleanTitle,
+  regexp_replace(Notes, '[<>]', '') as SafeNotes
+from Books;
+
+select Id, regexp_instr(Title, '[0-9]+') as NumberPos
+from Books
+where regexp_instr(Title, '[0-9]+') > 0;
+```
+
+#### `REGEXP_LIKE` as a WHERE predicate
+
+ScriptDom represents `REGEXP_LIKE` in a `WHERE` or `HAVING` clause as a `RegexpLikePredicate`
+node (a boolean expression, not a scalar function). The formatter treats it identically to
+the scalar form — keyword case is applied and long patterns break to the next line:
+
+```sql
+select
+  Id,
+  Title
+from Books
+where
+  regexp_like(Title, '^The')
+  and Price < 30;
+
+-- long pattern: breaks just like a scalar call
+select
+  Id,
+  Title,
+  Email
+from Authors
+where regexp_like(Email, '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+```
+
+#### `REGEXP_MATCHES` and `REGEXP_SPLIT_TO_TABLE`
+
+These table-valued functions are used with `CROSS APPLY`. They follow the same formatting
+rules as all other TVF references — the function call stays inline with the alias:
+
+```sql
+select
+  B.Title,
+  M.[value] as Keyword
+from
+  Books as B
+  cross apply regexp_matches(B.Description, '\b[A-Z][a-z]{4,}\b') as M;
+
+select
+  B.Title,
+  T.[value] as Tag
+from
+  Books as B
+  cross apply regexp_split_to_table(B.Tags, ',\s*') as T
+order by
+  B.Title asc,
+  T.[value] asc;
+```
+
+---
+
+### `VECTOR` data type
+
+The `VECTOR(n)` data type carries a required dimension count. It formats with the dimension in
+parentheses wherever a type appears: `CREATE TABLE` columns, `DECLARE` variables, and
+procedure parameters:
+
+```sql
+create table BookEmbeddings (
+  Id int not null,
+  BookId int not null,
+  Embedding vector(1536) not null,
+  constraint PK_BookEmbeddings primary key (Id),
+  constraint FK_BookEmbeddings_Books foreign key (BookId) references Books (Id)
+);
+
+declare @QueryEmbedding vector(1536);
+set @QueryEmbedding = '[0.1, 0.2, 0.3]';
+```
+
+#### VECTOR_* scalar functions
+
+`VECTOR_DISTANCE`, `VECTOR_NORM`, `VECTOR_NORMALIZE`, and `VECTORPROPERTY` format as standard
+scalar function calls:
+
+```sql
+select top (10)
+  B.Id,
+  B.Title,
+  vector_distance('cosine', E.Embedding, @QueryEmbedding) as Distance
+from
+  Books as B
+  inner join BookEmbeddings as E on B.Id = E.BookId
+order by Distance asc;
+
+update BookEmbeddings
+set Embedding = vector_normalize(Embedding)
+where vector_norm(Embedding) <> 1.0;
+```
+
+---
+
+### CREATE VECTOR INDEX
+
+`CREATE VECTOR INDEX` follows the same header layout as `CREATE INDEX`. The index name appears
+on the first line; `ON table(column)` is indented one level. The `WITH (...)` options block
+goes on its own line at the outer indent level:
+
+```sql
+create vector index IX_BookEmbeddings_Vec
+  on BookEmbeddings(Embedding)
+with (metric = 'cosine');
+
+create vector index IX_BookEmbeddings_Vec
+  on BookEmbeddings(Embedding)
+with (metric = 'cosine', type = 'DiskANN');
+```
+
+Supported `METRIC` values: `cosine`, `dot`, `euclidean`.  
+Supported `TYPE` values: `DiskANN`.
+
+---
+
+### `JSON_OBJECTAGG`
+
+`JSON_OBJECTAGG(key: value)` aggregates rows into a JSON object. The `key:` syntax and the
+optional `NULL ON NULL` / `ABSENT ON NULL` modifier stay inline with the value expression:
+
+```sql
+select json_objectagg(Title: Price)
+from Books
+where InStock = 1;
+
+select
+  GenreId,
+  json_objectagg(Title: Price null on null) as PriceMap
+from Books
+group by GenreId;
+```
+
+---
+
+### Other SQL Server 2025 functions
+
+The following functions introduced in SQL Server 2025 format as standard scalar function calls
+(keyword-cased, arguments inline or broken at `printWidth`):
+
+**`UNISTR(string)`** — Unicode escape sequences in string literals:
+
+```sql
+select
+  Id,
+  Title,
+  unistr('\00AB') + Title + unistr('\00BB') as Quoted
+from Books;
+```
+
+**`BASE64_ENCODE(expr)` / `BASE64_DECODE(expr)`** — binary encoding/decoding:
+
+```sql
+select
+  Id,
+  Title,
+  base64_encode(CoverImage) as CoverBase64
+from Books
+where CoverImage is not null;
+
+update Books
+set CoverImage = base64_decode(@EncodedImage)
+where Id = @BookId;
+```
+
+**`EDIT_DISTANCE(str1, str2)` / `EDIT_DISTANCE_SIMILARITY(str1, str2)`** — fuzzy string matching:
+
+```sql
+select
+  Id,
+  Title,
+  edit_distance(Title, @SearchTerm) as Distance
+from Books
+where edit_distance(Title, @SearchTerm) <= 3
+order by Distance asc;
+```
+
+**`PRODUCT(expr)`** — aggregate function returning the product of all non-null values:
+
+```sql
+select
+  GenreId,
+  product(PriceMultiplier) as CumulativeMultiplier
+from BookPriceAdjustments
+group by GenreId;
+```
