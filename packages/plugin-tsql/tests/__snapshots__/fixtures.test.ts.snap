@@ -3174,7 +3174,22 @@ select
   price + shipping_cost + tax_amount + handling_fee + insurance_cost
     + discount_amount as total_cost
 from orders
-where status = 1;"
+where status = 1;
+
+-- CURRENT_DATE — ANSI SQL standard (SQL Server 2025, PostgreSQL)
+select current_date;
+
+-- || pipe concatenation — ANSI SQL standard (SQL Server 2025, PostgreSQL)
+select first_name || ' ' || last_name as full_name
+from authors;
+
+-- Long || chain: continuation lines indent one level under the expression start
+select
+  author_id,
+  first_name || ' ' || last_name || ' (' || email || ')' || ' — ' || city
+    || ', ' || country as contact_info
+from authors
+where is_active = 1;"
 `;
 
 exports[`shared fixtures > select/group-by-advanced.sql 1`] = `
@@ -3376,6 +3391,27 @@ where deleted_at is distinct from current_timestamp;
 select id
 from books
 where deleted_at is not distinct from current_timestamp;"
+`;
+
+exports[`shared fixtures > select/regexp.sql 1`] = `
+"-- REGEXP_LIKE — ANSI-aligned regex predicate (SQL Server 2025, PostgreSQL)
+select regexp_like(
+  email,
+  '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$'
+) as is_valid
+from customers;
+
+-- REGEXP_COUNT — count pattern occurrences (SQL Server 2025, PostgreSQL)
+select regexp_count(description, '\\w+') as word_count
+from products;
+
+-- REGEXP_SUBSTR — first matching substring (SQL Server 2025, PostgreSQL)
+select regexp_substr(email, '^[^@]+') as username
+from customers;
+
+-- REGEXP_REPLACE — replace matched text (3-arg form, SQL Server 2025, PostgreSQL)
+select regexp_replace(phone, '[^0-9]', '') as digits_only
+from contacts;"
 `;
 
 exports[`shared fixtures > select/set-ops.sql 1`] = `

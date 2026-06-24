@@ -12,3 +12,12 @@ select current_timestamp, current_user from books;
 
 -- Long arithmetic chain: continuation lines indent one level under the expression start
 select id, price + shipping_cost + tax_amount + handling_fee + insurance_cost + discount_amount as total_cost from orders where status = 1;
+
+-- CURRENT_DATE — ANSI SQL standard (SQL Server 2025, PostgreSQL)
+select current_date;
+
+-- || pipe concatenation — ANSI SQL standard (SQL Server 2025, PostgreSQL)
+select first_name || ' ' || last_name as full_name from authors;
+
+-- Long || chain: continuation lines indent one level under the expression start
+select author_id, first_name || ' ' || last_name || ' (' || email || ')' || ' — ' || city || ', ' || country as contact_info from authors where is_active = 1;
