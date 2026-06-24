@@ -13,7 +13,7 @@
     <DebugType>embedded</DebugType>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.SqlServer.TransactSql.ScriptDom" Version="180.18.1" />
+    <PackageReference Include="Microsoft.SqlServer.TransactSql.ScriptDom" Version="180.37.3" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../../../core/src/dotnet/Core/PrettierSql.Core.csproj" />
