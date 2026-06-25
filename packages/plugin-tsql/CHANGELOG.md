@@ -1,5 +1,11 @@
 # prettier-plugin-tsql
 
+## 0.6.7
+
+### Patch Changes
+
+- Update to version 180.37.3 of Microsoft.SqlServer.TransactSql.ScriptDom
+
 ## 0.6.6
 
 ### Patch Changes
