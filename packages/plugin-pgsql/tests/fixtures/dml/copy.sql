@@ -11,3 +11,12 @@ copy orders (id, customer_id, amount) to '/tmp/orders_partial.csv' with (format 
 
 -- COPY with QUOTE and ESCAPE
 copy products from '/tmp/products.csv' with (format csv, quote '"', escape '\\');
+
+-- COPY FROM STDIN (no filename)
+copy books from stdin;
+
+-- COPY TO STDOUT (no filename)
+copy books to stdout;
+
+-- COPY with WHERE clause
+copy books from stdin where id > 100;

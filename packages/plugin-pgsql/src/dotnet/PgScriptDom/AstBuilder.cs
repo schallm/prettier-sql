@@ -465,9 +465,16 @@ public class AstBuilder {
             Node.NodeOneofCase.GroupingFunc => BuildGroupingFunc(node.GroupingFunc),
             Node.NodeOneofCase.Constraint   => BuildConstraint(node.Constraint),
             Node.NodeOneofCase.MergeWhenClause => BuildMergeWhen(node.MergeWhenClause),
-            Node.NodeOneofCase.XmlExpr      => BuildXmlExpr(node.XmlExpr),
-            Node.NodeOneofCase.JsonFuncExpr => BuildJsonFuncExpr(node.JsonFuncExpr),
-            _ => new SqlNode("RawExpr", 0, 0, node.NodeCase.ToString(), null),
+            Node.NodeOneofCase.XmlExpr              => BuildXmlExpr(node.XmlExpr),
+            Node.NodeOneofCase.JsonFuncExpr         => BuildJsonFuncExpr(node.JsonFuncExpr),
+            // JSON constructors — SQL/JSON (PostgreSQL 16+)
+            Node.NodeOneofCase.JsonObjectConstructor => BuildJsonObjectConstructor(node.JsonObjectConstructor),
+            Node.NodeOneofCase.JsonArrayConstructor  => BuildJsonArrayConstructor(node.JsonArrayConstructor),
+            Node.NodeOneofCase.JsonObjectAgg         => BuildJsonObjectAgg(node.JsonObjectAgg),
+            Node.NodeOneofCase.JsonArrayAgg          => BuildJsonArrayAgg(node.JsonArrayAgg),
+            // Unknown expression: emit a visible comment rather than the protobuf enum name
+            // so users see an error marker instead of corrupt SQL.
+            _ => new SqlNode("RawExpr", 0, 0, null, null),
         };
     }
 
@@ -830,7 +837,8 @@ public class AstBuilder {
         Node.NodeOneofCase.RangeTableSample => BuildRangeTableSample(n.RangeTableSample),
         Node.NodeOneofCase.RangeTableFunc   => BuildRangeTableFunc(n.RangeTableFunc),
         Node.NodeOneofCase.JsonTable        => BuildJsonTable(n.JsonTable),
-        _ => new SqlNode("RawFrom", 0, 0, n.NodeCase.ToString(), null),
+        // Unknown FROM item: emit a visible comment rather than the protobuf enum name.
+        _ => new SqlNode("RawFrom", 0, 0, null, null),
     };
 
     private SqlNode BuildRangeTableSample(RangeTableSample r) {
@@ -1977,7 +1985,8 @@ public class AstBuilder {
             ("isFrom",    s.IsFrom  ? true : null),
             ("isProgram", s.IsProgram ? true : null),
             ("filename",  string.IsNullOrEmpty(s.Filename) ? null : s.Filename),
-            ("options",   options)
+            ("options",   options),
+            ("where",     s.WhereClause != null ? BuildExpr(s.WhereClause) : null)
         ));
     }
 
@@ -2124,6 +2133,68 @@ public class AstBuilder {
             ("context",   context),
             ("path",      path),
             ("returning", returning)
+        ));
+    }
+
+    // -------------------------------------------------------------------------
+    // SQL/JSON constructors — PostgreSQL 16+
+    // -------------------------------------------------------------------------
+
+    // JSON_OBJECT('key': value, ...) constructor
+    private SqlNode BuildJsonObjectConstructor(JsonObjectConstructor c) {
+        var pairs = c.Exprs
+            .Select(n => {
+                var kv = n.JsonKeyValue;
+                return (object?)new SqlNode("JsonKeyValuePair", 0, 0, null, BuildProps(
+                    ("key",   BuildExpr(kv.Key)),
+                    ("value", BuildExpr(kv.Value.RawExpr))
+                ));
+            })
+            .ToList();
+        var returning = c.Output?.TypeName != null ? BuildPgTypeName(c.Output.TypeName) : null;
+        return new SqlNode("JsonObjectConstructor", 0, 0, null, BuildProps(
+            ("pairs",       pairs),
+            ("absentOnNull", c.AbsentOnNull ? true : null),
+            ("unique",      c.Unique ? true : null),
+            ("returning",   returning)
+        ));
+    }
+
+    // JSON_ARRAY(val, ...) constructor
+    private SqlNode BuildJsonArrayConstructor(JsonArrayConstructor c) {
+        var items = c.Exprs
+            .Select(n => BuildExpr(n.JsonValueExpr.RawExpr))
+            .ToList();
+        var returning = c.Output?.TypeName != null ? BuildPgTypeName(c.Output.TypeName) : null;
+        return new SqlNode("JsonArrayConstructor", 0, 0, null, BuildProps(
+            ("items",       items),
+            ("absentOnNull", c.AbsentOnNull ? true : null),
+            ("returning",   returning)
+        ));
+    }
+
+    // JSON_OBJECTAGG(key: value) aggregate
+    private SqlNode BuildJsonObjectAgg(JsonObjectAgg a) {
+        var kv = a.Arg;
+        var returning = a.Constructor?.Output?.TypeName != null
+            ? BuildPgTypeName(a.Constructor.Output.TypeName) : null;
+        return new SqlNode("JsonObjectAgg", 0, 0, null, BuildProps(
+            ("key",         BuildExpr(kv.Key)),
+            ("value",       BuildExpr(kv.Value.RawExpr)),
+            ("absentOnNull", a.AbsentOnNull ? true : null),
+            ("unique",      a.Unique ? true : null),
+            ("returning",   returning)
+        ));
+    }
+
+    // JSON_ARRAYAGG(expr) aggregate
+    private SqlNode BuildJsonArrayAgg(JsonArrayAgg a) {
+        var returning = a.Constructor?.Output?.TypeName != null
+            ? BuildPgTypeName(a.Constructor.Output.TypeName) : null;
+        return new SqlNode("JsonArrayAgg", 0, 0, null, BuildProps(
+            ("arg",         BuildExpr(a.Arg.RawExpr)),
+            ("absentOnNull", a.AbsentOnNull ? true : null),
+            ("returning",   returning)
         ));
     }
 
@@ -2600,8 +2671,13 @@ public class AstBuilder {
             ("ifExists", s.MissingOk ? true : null)
         ));
 
-    private static SqlNode Fallback(int start, int end) =>
-        new("UnknownStatement", start, end, null, null);
+    private SqlNode Fallback(int start, int end) {
+        // Preserve the original SQL text verbatim so the user's code is never silently dropped.
+        var text = (start >= 0 && end > start && end <= _sql.Length)
+            ? _sql[start..end].TrimEnd(';').Trim()
+            : null;
+        return new("UnknownStatement", start, end, text, null);
+    }
 
     // -------------------------------------------------------------------------
     // Helpers

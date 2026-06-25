@@ -56,9 +56,14 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'RangeTableSample': return printRangeTableSample(node, opts, printNode);
         case 'TableLikeClause':  return printTableLikeClause(node, opts);
         case 'XmlExpr':          return printXmlExpr(node, opts, printNode);
-        case 'JsonFuncExpr':     return printJsonFuncExpr(node, opts, printNode);
-        case 'XmlTable':         return printXmlTable(node, opts, printNode);
-        case 'JsonTable':        return printJsonTable(node, opts, printNode);
+        case 'JsonFuncExpr':          return printJsonFuncExpr(node, opts, printNode);
+        case 'XmlTable':              return printXmlTable(node, opts, printNode);
+        case 'JsonTable':             return printJsonTable(node, opts, printNode);
+        // SQL/JSON constructors — PostgreSQL 16+
+        case 'JsonObjectConstructor': return printJsonObjectConstructor(node, opts, printNode);
+        case 'JsonArrayConstructor':  return printJsonArrayConstructor(node, opts, printNode);
+        case 'JsonObjectAgg':         return printJsonObjectAgg(node, opts, printNode);
+        case 'JsonArrayAgg':          return printJsonArrayAgg(node, opts, printNode);
         default: return node.text ?? `/* unknown: ${node.type} */`;
     }
 }
@@ -744,6 +749,79 @@ function printJsonFuncExpr(node: SqlNode, opts: Options, printNode: PrintFn): Do
     ];
     if (returning) parts.push(' ', makeKeyword('RETURNING'), ' ', returning);
     return [makeKeyword(op), '(', ...parts, ')'];
+}
+
+// ---------------------------------------------------------------------------
+// SQL/JSON constructors — PostgreSQL 16+
+// ---------------------------------------------------------------------------
+
+function printJsonReturning(returning: string | null | undefined, opts: Options): Doc {
+    return returning ? [' ', keyword('RETURNING', opts), ' ', keyword(returning, opts)] : '';
+}
+
+function printJsonObjectConstructor(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const pairs = propArr(node, 'pairs');
+    const absentOnNull = propBool(node, 'absentOnNull');
+    const unique = propBool(node, 'unique');
+    const returning = propStr(node, 'returning');
+
+    const pairDocs = pairs.map((p): Doc => {
+        const keyDoc = prop(p, 'key') ? printNode(prop(p, 'key')!) : '';
+        const valDoc = prop(p, 'value') ? printNode(prop(p, 'value')!) : '';
+        return [keyDoc, ': ', valDoc];
+    });
+
+    // ABSENT ON NULL / WITH UNIQUE KEYS / RETURNING are trailing clauses — no comma before them
+    const trailing: Doc[] = [];
+    if (absentOnNull) trailing.push([' ', keyword('ABSENT ON NULL', opts)]);
+    if (unique) trailing.push([' ', keyword('WITH UNIQUE KEYS', opts)]);
+    const returningDoc = printJsonReturning(returning, opts);
+    if (returningDoc) trailing.push(returningDoc);
+
+    return [keyword('json_object', opts), '(', join(', ', pairDocs), ...trailing, ')'];
+}
+
+function printJsonArrayConstructor(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const items = propArr(node, 'items');
+    const absentOnNull = propBool(node, 'absentOnNull');
+    const returning = propStr(node, 'returning');
+
+    const itemDocs = items.map((n) => printNode(n));
+    const trailing: Doc[] = [];
+    if (absentOnNull) trailing.push([' ', keyword('ABSENT ON NULL', opts)]);
+    const returningDoc = printJsonReturning(returning, opts);
+    if (returningDoc) trailing.push(returningDoc);
+
+    return [keyword('json_array', opts), '(', join(', ', itemDocs), ...trailing, ')'];
+}
+
+function printJsonObjectAgg(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const keyNode = prop(node, 'key');
+    const valNode = prop(node, 'value');
+    const absentOnNull = propBool(node, 'absentOnNull');
+    const unique = propBool(node, 'unique');
+    const returning = propStr(node, 'returning');
+
+    const trailing: Doc[] = [];
+    if (absentOnNull) trailing.push([' ', keyword('ABSENT ON NULL', opts)]);
+    if (unique) trailing.push([' ', keyword('WITH UNIQUE KEYS', opts)]);
+    const returningDoc = printJsonReturning(returning, opts);
+    if (returningDoc) trailing.push(returningDoc);
+
+    return [keyword('json_objectagg', opts), '(', keyNode ? printNode(keyNode) : '', ': ', valNode ? printNode(valNode) : '', ...trailing, ')'];
+}
+
+function printJsonArrayAgg(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const argNode = prop(node, 'arg');
+    const absentOnNull = propBool(node, 'absentOnNull');
+    const returning = propStr(node, 'returning');
+
+    const trailing: Doc[] = [];
+    if (absentOnNull) trailing.push([' ', keyword('ABSENT ON NULL', opts)]);
+    const returningDoc = printJsonReturning(returning, opts);
+    if (returningDoc) trailing.push(returningDoc);
+
+    return [keyword('json_arrayagg', opts), '(', argNode ? printNode(argNode) : '', ...trailing, ')'];
 }
 
 // ---------------------------------------------------------------------------

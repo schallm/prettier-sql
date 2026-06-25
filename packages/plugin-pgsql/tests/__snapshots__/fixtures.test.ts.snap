@@ -641,6 +641,16 @@ copy orders (id, customer_id, amount) to '/tmp/orders_partial.csv' (format csv, 
 
 -- COPY with QUOTE and ESCAPE
 copy products from '/tmp/products.csv' (format csv, quote '"', escape '\\\\');
+
+-- COPY FROM STDIN (no filename)
+copy books from stdin;
+
+-- COPY TO STDOUT (no filename)
+copy books to stdout;
+
+-- COPY with WHERE clause
+copy books from stdin
+where id > 100;
 "
 `;
 
@@ -1143,6 +1153,13 @@ from orders tablesample system(5) repeatable (42);
 "
 `;
 
+exports[`fixtures > p4/unknown-passthrough.sql 1`] = `
+"create event trigger log_ddl on ddl_command_start execute procedure log_ddl_func();
+
+create cast (text as integer) with function int4(text) as implicit;
+"
+`;
+
 exports[`fixtures > p4/vacuum-analyze.sql 1`] = `
 "vacuum orders;
 
@@ -1540,6 +1557,46 @@ select
   email
 from users
 where email not similar to '%@(gmail|yahoo)\\.com';
+"
+`;
+
+exports[`fixtures > select/json-constructors.sql 1`] = `
+"-- JSON_OBJECT constructor (SQL/JSON standard, PostgreSQL 16+)
+select json_object('title': b.title, 'author': a.name)
+from
+  books as b
+  join authors as a on a.id = b.author_id;
+
+-- JSON_OBJECT with ABSENT ON NULL
+select json_object('title': b.title, 'subtitle': b.subtitle absent on null)
+from books as b;
+
+-- JSON_OBJECT aggregate
+select
+  a.name,
+  json_objectagg(b.isbn: b.title)
+from
+  authors as a
+  join books as b on b.author_id = a.id
+group by a.name;
+
+-- JSON_ARRAY aggregate
+select
+  a.name,
+  json_arrayagg(b.title absent on null)
+from
+  authors as a
+  join books as b on b.author_id = a.id
+group by a.name;
+
+-- JSON_ARRAY aggregate with ABSENT ON NULL
+select
+  a.name,
+  json_arrayagg(b.subtitle absent on null)
+from
+  authors as a
+  join books as b on b.author_id = a.id
+group by a.name;
 "
 `;
 

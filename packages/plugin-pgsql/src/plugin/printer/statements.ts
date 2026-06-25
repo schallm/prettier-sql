@@ -165,7 +165,9 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'DropOwnedStatement':             return printDropOwned(node, opts);
         case 'CreateTableSpaceStatement':      return printCreateTableSpace(node, opts);
         case 'DropTableSpaceStatement':        return printDropTableSpace(node, opts);
-        default: return node.text ?? node.type;
+        // Passthrough: AstBuilder extracted the original SQL text verbatim so it is not lost.
+        case 'UnknownStatement': return [node.text ?? `/* unknown statement: ${node.type} */`, ';'];
+        default: return [node.text ?? `/* unknown: ${node.type} */`, ';'];
     }
 }
 
@@ -1429,6 +1431,7 @@ function printClosePortal(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 function printCopy(node: SqlNode, opts: Options): Doc {
+    const printNode = printWith(opts);
     const makeKeyword       = (k: string) => keyword(k, opts);
     const relation = prop(node, 'relation');
     const query    = prop(node, 'query');
@@ -1456,7 +1459,7 @@ function printCopy(node: SqlNode, opts: Options): Doc {
     } else if (filename) {
         dest = `'${filename}'`;
     } else {
-        dest = makeKeyword('STDOUT');
+        dest = isFrom ? makeKeyword('STDIN') : makeKeyword('STDOUT');
     }
 
     let optionPart: Doc = '';
@@ -1472,7 +1475,12 @@ function printCopy(node: SqlNode, opts: Options): Doc {
         optionPart = [' (', join(', ', optDocs), ')'];
     }
 
-    return [[makeKeyword('COPY'), ' ', sourceDest, ' ', dirKw, ' ', dest, optionPart], ';'];
+    const whereNode = prop(node, 'where');
+    const wherePart: Doc = whereNode
+        ? [hardline, makeKeyword('WHERE'), ' ', printExpression(whereNode, opts, printNode)]
+        : '';
+
+    return [group([makeKeyword('COPY'), ' ', sourceDest, ' ', dirKw, ' ', dest, optionPart, wherePart]), ';'];
 }
 
 // ---------------------------------------------------------------------------
