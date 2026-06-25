@@ -1,5 +1,11 @@
 # prettier-plugin-postgresql
 
+## 0.2.6
+
+### Patch Changes
+
+- fixes to COPY WHERE and JSON_OBJECTAGG / JSON_ARRAYAGG
+
 ## 0.2.5
 
 ### Patch Changes
