@@ -3,7 +3,7 @@
     "private": true,
     "type": "module",
     "dependencies": {
-        "prettier": "^3.8.4",
+        "prettier": "^3.9.5",
         "prettier-plugin-tsql": "workspace:*"
     }
 }
