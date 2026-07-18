@@ -62,4 +62,8 @@ describe('unsupported constructs', () => {
     it('throws a clear error for an unhandled constant kind (bit-string literal)', async () => {
         await expect(fmt(`select b'101' from t;`)).rejects.toThrow(/Unsupported constant \(Bsval\)/);
     });
+
+    it('throws a clear error for an unhandled DROP object name shape (DROP CAST)', async () => {
+        await expect(fmt(`drop cast (text as integer);`)).rejects.toThrow(/Unsupported DROP CAST name part/);
+    });
 });

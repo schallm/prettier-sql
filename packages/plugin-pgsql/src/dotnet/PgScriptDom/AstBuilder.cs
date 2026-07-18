@@ -44,6 +44,24 @@ public class AstBuilder {
         return new UnsupportedSqlException($"Unsupported {what}");
     }
 
+    /// <summary>
+    /// Dispatches the DML statement kinds PostgreSQL accepts wherever it takes a
+    /// plain "query" — WITH cte AS (query), COPY (query) TO ..., PREPARE ... AS query:
+    /// SELECT, INSERT, UPDATE, DELETE, and (writable CTEs / RETURNING) MERGE.
+    /// Returns null for anything else so callers with additional legal kinds of
+    /// their own (e.g. EXPLAIN, which also allows CREATE TABLE AS / DECLARE CURSOR /
+    /// REFRESH MATERIALIZED VIEW / EXECUTE) can layer their own cases on top rather
+    /// than duplicating this dispatch.
+    /// </summary>
+    private SqlNode? TryBuildDmlQuery(Node query) => query.NodeCase switch {
+        Node.NodeOneofCase.SelectStmt => BuildSelect(query.SelectStmt, 0, _sql.Length),
+        Node.NodeOneofCase.InsertStmt => BuildInsert(query.InsertStmt, 0, _sql.Length),
+        Node.NodeOneofCase.UpdateStmt => BuildUpdate(query.UpdateStmt, 0, _sql.Length),
+        Node.NodeOneofCase.DeleteStmt => BuildDelete(query.DeleteStmt, 0, _sql.Length),
+        Node.NodeOneofCase.MergeStmt  => BuildMerge(query.MergeStmt, 0, _sql.Length),
+        _ => null,
+    };
+
     public SqlNode Build(ParseResult parseResult) {
         var stmts = MapList(parseResult.Stmts, BuildRawStmt);
         return new SqlNode("PgScript", 0, _sql.Length, null, new() {
@@ -432,20 +450,24 @@ public class AstBuilder {
             ("where",        BuildExpr(s.WhereClause))
         ));
 
-    private static SqlNode BuildDrop(DropStmt s, int start, int end) {
+    private SqlNode BuildDrop(DropStmt s, int start, int end) {
         var objectType = ObjectTypeKw(s.RemoveType);
         var names = s.Objects.Select(o => o.NodeCase switch {
-            Node.NodeOneofCase.List => string.Join(".", o.List.Items
-                .Where(n => n.NodeCase == Node.NodeOneofCase.String)
-                .Select(n => n.String.Sval)),
+            // Usually a dotted-identifier list (schema.name), but DROP CAST / DROP
+            // OPERATOR CLASS/FAMILY wrap TypeName items here instead of String items —
+            // fail loudly rather than silently filtering them out to an empty name.
+            Node.NodeOneofCase.List => string.Join(".", o.List.Items.Select(n => n.NodeCase switch {
+                Node.NodeOneofCase.String => n.String.Sval,
+                _ => throw NotSupported($"DROP {objectType} name part ({n.NodeCase})", TryGetLocation(GetOneofValue(n))),
+            })),
             Node.NodeOneofCase.ObjectWithArgs => OwaName(o.ObjectWithArgs.Objname),
             Node.NodeOneofCase.TypeName => string.Join(".", o.TypeName.Names
                 .Where(n => n.NodeCase == Node.NodeOneofCase.String)
                 .Select(n => n.String.Sval)
                 .Where(v => v != "pg_catalog")),
             Node.NodeOneofCase.String => o.String.Sval,
-            _ => null,
-        }).OfType<string>().Where(n => !string.IsNullOrEmpty(n)).ToList();
+            _ => throw NotSupported($"DROP {objectType} object ({o.NodeCase})", TryGetLocation(GetOneofValue(o))),
+        }).Where(n => !string.IsNullOrEmpty(n)).ToList();
         return new SqlNode("DropStatement", start, end, null, BuildProps(
             ("objectType", objectType),
             ("names",      MaybeList(names)),
@@ -952,13 +974,9 @@ public class AstBuilder {
         var ctes = MapList(w.Ctes, n => {
             if (n.NodeCase != Node.NodeOneofCase.CommonTableExpr) return null;
             var cte = n.CommonTableExpr;
-            SqlNode? query = cte.Ctequery?.NodeCase switch {
-                Node.NodeOneofCase.SelectStmt => BuildSelect(cte.Ctequery.SelectStmt, 0, _sql.Length),
-                Node.NodeOneofCase.InsertStmt => BuildInsert(cte.Ctequery.InsertStmt, 0, _sql.Length),
-                Node.NodeOneofCase.UpdateStmt => BuildUpdate(cte.Ctequery.UpdateStmt, 0, _sql.Length),
-                Node.NodeOneofCase.DeleteStmt => BuildDelete(cte.Ctequery.DeleteStmt, 0, _sql.Length),
-                _ => null,
-            };
+            SqlNode? query = cte.Ctequery != null ? TryBuildDmlQuery(cte.Ctequery) : null;
+            if (cte.Ctequery != null && query == null)
+                throw NotSupported($"CTE query ({cte.Ctequery.NodeCase})", TryGetLocation(GetOneofValue(cte.Ctequery)));
 
             SqlNode? search = null;
             if (cte.SearchClause != null) {
@@ -2002,16 +2020,9 @@ public class AstBuilder {
                 .ToList<object?>()
             : null;
 
-        SqlNode? query = null;
-        if (s.Query != null) {
-            query = s.Query.NodeCase switch {
-                Node.NodeOneofCase.SelectStmt => BuildSelect(s.Query.SelectStmt, 0, _sql.Length),
-                Node.NodeOneofCase.InsertStmt => BuildInsert(s.Query.InsertStmt, 0, _sql.Length),
-                Node.NodeOneofCase.UpdateStmt => BuildUpdate(s.Query.UpdateStmt, 0, _sql.Length),
-                Node.NodeOneofCase.DeleteStmt => BuildDelete(s.Query.DeleteStmt, 0, _sql.Length),
-                _ => null,
-            };
-        }
+        SqlNode? query = s.Query != null ? TryBuildDmlQuery(s.Query) : null;
+        if (s.Query != null && query == null)
+            throw NotSupported($"COPY query ({s.Query.NodeCase})", TryGetLocation(GetOneofValue(s.Query)));
 
         return new SqlNode("CopyStatement", start, end, null, BuildProps(
             ("relation",  s.Relation != null ? BuildRangeVar(s.Relation) : null),
@@ -2026,13 +2037,19 @@ public class AstBuilder {
     }
 
     private SqlNode BuildExplain(ExplainStmt s, int start, int end) {
-        var query = s.Query?.NodeCase switch {
-            Node.NodeOneofCase.SelectStmt => BuildSelect(s.Query.SelectStmt, 0, _sql.Length),
-            Node.NodeOneofCase.InsertStmt => BuildInsert(s.Query.InsertStmt, 0, _sql.Length),
-            Node.NodeOneofCase.UpdateStmt => BuildUpdate(s.Query.UpdateStmt, 0, _sql.Length),
-            Node.NodeOneofCase.DeleteStmt => BuildDelete(s.Query.DeleteStmt, 0, _sql.Length),
-            _ => null,
-        };
+        // EXPLAIN accepts everything TryBuildDmlQuery covers, plus a few kinds unique
+        // to EXPLAIN: CREATE TABLE AS / CREATE MATERIALIZED VIEW, DECLARE CURSOR,
+        // REFRESH MATERIALIZED VIEW, and EXECUTE.
+        SqlNode? query = s.Query != null ? TryBuildDmlQuery(s.Query) : null;
+        if (query == null && s.Query != null) {
+            query = s.Query.NodeCase switch {
+                Node.NodeOneofCase.CreateTableAsStmt => BuildCreateTableAs(s.Query.CreateTableAsStmt, 0, _sql.Length),
+                Node.NodeOneofCase.DeclareCursorStmt => BuildDeclareCursor(s.Query.DeclareCursorStmt, 0, _sql.Length),
+                Node.NodeOneofCase.RefreshMatViewStmt => BuildRefreshMatView(s.Query.RefreshMatViewStmt, 0, _sql.Length),
+                Node.NodeOneofCase.ExecuteStmt => BuildExecute(s.Query.ExecuteStmt, 0, _sql.Length),
+                _ => throw NotSupported($"EXPLAIN target ({s.Query.NodeCase})", TryGetLocation(GetOneofValue(s.Query))),
+            };
+        }
 
         var options = s.Options.Count > 0
             ? (object?)s.Options
@@ -2051,13 +2068,9 @@ public class AstBuilder {
     }
 
     private SqlNode BuildPrepare(PrepareStmt s, int start, int end) {
-        var query = s.Query?.NodeCase switch {
-            Node.NodeOneofCase.SelectStmt => BuildSelect(s.Query.SelectStmt, 0, _sql.Length),
-            Node.NodeOneofCase.InsertStmt => BuildInsert(s.Query.InsertStmt, 0, _sql.Length),
-            Node.NodeOneofCase.UpdateStmt => BuildUpdate(s.Query.UpdateStmt, 0, _sql.Length),
-            Node.NodeOneofCase.DeleteStmt => BuildDelete(s.Query.DeleteStmt, 0, _sql.Length),
-            _ => null,
-        };
+        var query = s.Query != null ? TryBuildDmlQuery(s.Query) : null;
+        if (s.Query != null && query == null)
+            throw NotSupported($"PREPARE query ({s.Query.NodeCase})", TryGetLocation(GetOneofValue(s.Query)));
 
         var argTypes = s.Argtypes.Count > 0
             ? (object?)s.Argtypes

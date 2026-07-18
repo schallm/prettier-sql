@@ -181,8 +181,25 @@ export function printQueryExpr(node: SqlNode, opts: Options): Doc {
         case 'InsertStatement': return printInsertBody(node, opts);
         case 'UpdateStatement': return printUpdateBody(node, opts);
         case 'DeleteStatement': return printDeleteBody(node, opts);
+        // These statement kinds only ever appear nested (WITH cte AS (...), COPY
+        // (...) TO ..., PREPARE ... AS ..., EXPLAIN ...) via their full top-level
+        // printer, which always ends with a trailing ';' meant for the standalone
+        // form — strip it here rather than duplicating each printer as a *Body
+        // variant.
+        case 'MergeStatement':          return stripTrailingSemicolon(printMerge(node, opts));
+        case 'CreateTableAsStatement':  return stripTrailingSemicolon(printCreateTableAs(node, opts));
+        case 'CreateMatViewStatement':  return stripTrailingSemicolon(printCreateMatView(node, opts));
+        case 'RefreshMatViewStatement': return stripTrailingSemicolon(printRefreshMatView(node, opts));
+        case 'DeclareCursorStatement':  return stripTrailingSemicolon(printDeclareCursor(node, opts));
+        case 'ExecuteStatement':        return stripTrailingSemicolon(printExecute(node, opts));
         default:                return printSelectBody(node, opts);
     }
+}
+
+/** Drops the trailing ';' a top-level statement printer always appends, for reuse
+ *  in a nested "query" position (WITH/COPY/PREPARE/EXPLAIN) where no semicolon belongs. */
+function stripTrailingSemicolon(doc: Doc): Doc {
+    return Array.isArray(doc) && doc.length > 0 && doc[doc.length - 1] === ';' ? doc.slice(0, -1) : doc;
 }
 
 // ---------------------------------------------------------------------------
