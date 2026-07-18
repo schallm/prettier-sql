@@ -58,6 +58,11 @@ import {
     printCreateStatistics,
     printUpdateStatistics,
     printDropStatistics,
+    printCreateColumnMasterKey,
+    printCreateColumnEncryptionKey,
+    printAlterColumnEncryptionKey,
+    printDropColumnMasterKey,
+    printDropColumnEncryptionKey,
 } from './ddl.js';
 import {
     printBeginTransaction,
@@ -445,6 +450,18 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
             return printAlterSchema(node, opts);
         case 'DropSchemaStatement':
             return printDropSchema(node, opts);
+
+        // Always Encrypted — column master keys & column encryption keys
+        case 'CreateColumnMasterKeyStatement':
+            return printCreateColumnMasterKey(node, opts);
+        case 'CreateColumnEncryptionKeyStatement':
+            return printCreateColumnEncryptionKey(node, opts);
+        case 'AlterColumnEncryptionKeyStatement':
+            return printAlterColumnEncryptionKey(node, opts);
+        case 'DropColumnMasterKeyStatement':
+            return printDropColumnMasterKey(node, opts);
+        case 'DropColumnEncryptionKeyStatement':
+            return printDropColumnEncryptionKey(node, opts);
 
         // DDL — partition functions & schemes
         case 'CreatePartitionFunctionStatement':

@@ -1062,6 +1062,15 @@ public class AstBuilder : TSqlFragmentVisitor {
             // Handle it explicitly so we can reconstruct the full SQL.
             AlterEventSessionStatement aes => BuildAlterEventSession(aes),
 
+            // Always Encrypted — CREATE/DROP COLUMN MASTER KEY, CREATE/ALTER/DROP COLUMN ENCRYPTION KEY
+            CreateColumnMasterKeyStatement ccmk => BuildCreateColumnMasterKey(ccmk),
+            CreateColumnEncryptionKeyStatement ccek =>
+                BuildColumnEncryptionKeyStatement("CreateColumnEncryptionKeyStatement", ccek, null),
+            AlterColumnEncryptionKeyStatement acek =>
+                BuildColumnEncryptionKeyStatement("AlterColumnEncryptionKeyStatement", acek, acek.AlterType),
+            DropColumnMasterKeyStatement dcmk => BuildDropUnownedObject("DropColumnMasterKeyStatement", dcmk),
+            DropColumnEncryptionKeyStatement dcek => BuildDropUnownedObject("DropColumnEncryptionKeyStatement", dcek),
+
             // Service Broker — END CONVERSATION
             // ScriptDOM's EndConversationStatement.StartOffset points at the handle variable
             // (not at the END keyword), so the raw-text fallback drops "END CONVERSATION".
@@ -1613,11 +1622,14 @@ public class AstBuilder : TSqlFragmentVisitor {
     }
 
     private static SqlNode BuildColumnDefinition(ColumnDefinition col) {
-        // Always Encrypted (ENCRYPTED WITH): property name varies by ScriptDOM version.
-        // Detect via raw text and emit a raw leaf so the clause is never silently dropped.
-        var rawCol = RawText(col).Trim();
-        if (rawCol.IndexOf("ENCRYPTED", StringComparison.OrdinalIgnoreCase) >= 0)
-            return Leaf("ColumnDefinition", col, rawCol);
+        // Always Encrypted (ENCRYPTED WITH ...): structured handling below via col.Encryption.
+        // Fallback for older ScriptDOM versions where the property may not surface the same
+        // way — never silently drop the clause even if col.Encryption comes back null.
+        if (col.Encryption == null) {
+            var rawCol = RawText(col).Trim();
+            if (rawCol.IndexOf("ENCRYPTED", StringComparison.OrdinalIgnoreCase) >= 0)
+                return Leaf("ColumnDefinition", col, rawCol);
+        }
 
         if (col.ComputedColumnExpression != null) {
             return new SqlNode(
@@ -1685,6 +1697,8 @@ public class AstBuilder : TSqlFragmentVisitor {
                 // Dynamic data masking
                 ["isMasked"] = col.IsMasked ? (object?)true : null,
                 ["maskingFunction"] = col.MaskingFunction?.Value,
+                // Always Encrypted
+                ["encryption"] = BuildColumnEncryptionDefinition(col.Encryption),
                 ["checkConstraint"] = col.Constraints?.OfType<CheckConstraintDefinition>().FirstOrDefault() is { } chk
                     ? BuildBooleanExpression(chk.CheckCondition)
                     : null,
@@ -2145,6 +2159,85 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["name"] = BuildSchemaObjectName(stmt.Schema),
             ["ifExists"] = stmt.IsIfExists,
         });
+
+    // -------------------------------------------------------------------------
+    // Always Encrypted — CREATE/DROP COLUMN MASTER KEY, CREATE/ALTER/DROP COLUMN ENCRYPTION KEY
+    // -------------------------------------------------------------------------
+
+    private static SqlNode BuildCreateColumnMasterKey(CreateColumnMasterKeyStatement stmt) {
+        string? keyStoreProviderName = null;
+        string? keyPath = null;
+        string? enclaveSignature = null;
+        foreach (var p in stmt.Parameters ?? Enumerable.Empty<ColumnMasterKeyParameter>()) {
+            switch (p) {
+                case ColumnMasterKeyStoreProviderNameParameter n: keyStoreProviderName = RawTextOrNull(n.Name); break;
+                case ColumnMasterKeyPathParameter path: keyPath = RawTextOrNull(path.Path); break;
+                case ColumnMasterKeyEnclaveComputationsParameter enclave: enclaveSignature = RawTextOrNull(enclave.Signature); break;
+            }
+        }
+        return Node("CreateColumnMasterKeyStatement", stmt, new Dictionary<string, object?> {
+            ["name"] = QuotedName(stmt.Name),
+            ["keyStoreProviderName"] = keyStoreProviderName,
+            ["keyPath"] = keyPath,
+            ["enclaveComputationsSignature"] = enclaveSignature,
+        });
+    }
+
+    private static SqlNode BuildColumnEncryptionKeyStatement(
+        string type, ColumnEncryptionKeyStatement stmt, ColumnEncryptionKeyAlterType? alterType
+    ) =>
+        Node(type, stmt, new Dictionary<string, object?> {
+            ["name"] = QuotedName(stmt.Name),
+            ["alterType"] = alterType?.ToString().ToUpperInvariant(),
+            ["values"] = MapList(stmt.ColumnEncryptionKeyValues, BuildColumnEncryptionKeyValue),
+        });
+
+    private static SqlNode BuildColumnEncryptionKeyValue(ColumnEncryptionKeyValue v) {
+        string? columnMasterKey = null;
+        string? algorithm = null;
+        string? encryptedValue = null;
+        foreach (var p in v.Parameters ?? Enumerable.Empty<ColumnEncryptionKeyValueParameter>()) {
+            switch (p) {
+                case ColumnMasterKeyNameParameter n: columnMasterKey = QuotedName(n.Name); break;
+                case ColumnEncryptionAlgorithmNameParameter a: algorithm = RawTextOrNull(a.Algorithm); break;
+                case EncryptedValueParameter ev: encryptedValue = RawTextOrNull(ev.Value); break;
+            }
+        }
+        return Node("ColumnEncryptionKeyValue", v, new Dictionary<string, object?> {
+            ["columnMasterKey"] = columnMasterKey,
+            ["algorithm"] = algorithm,
+            ["encryptedValue"] = encryptedValue,
+        });
+    }
+
+    private static SqlNode BuildDropUnownedObject(string type, DropUnownedObjectStatement stmt) =>
+        Node(type, stmt, new Dictionary<string, object?> {
+            ["name"] = QuotedName(stmt.Name),
+            ["ifExists"] = stmt.IsIfExists ? (object?)true : null,
+        });
+
+    // Column-level ENCRYPTED WITH (COLUMN_ENCRYPTION_KEY = ..., ENCRYPTION_TYPE = ..., ALGORITHM = '...').
+    // Returns a flat dictionary (not a Node-wrapped SqlNode) to match the sibling
+    // uniqueConstraint/foreignKey props on ColumnDefinition, which the TS printer
+    // destructures directly off node.props without unwrapping a nested SqlNode.
+    private static Dictionary<string, object?>? BuildColumnEncryptionDefinition(ColumnEncryptionDefinition? def) {
+        if (def == null) return null;
+        string? columnEncryptionKey = null;
+        string? encryptionType = null;
+        string? algorithm = null;
+        foreach (var p in def.Parameters ?? Enumerable.Empty<ColumnEncryptionDefinitionParameter>()) {
+            switch (p) {
+                case ColumnEncryptionKeyNameParameter n: columnEncryptionKey = QuotedName(n.Name); break;
+                case ColumnEncryptionTypeParameter t: encryptionType = t.EncryptionType.ToString().ToUpperInvariant(); break;
+                case ColumnEncryptionAlgorithmParameter a: algorithm = RawTextOrNull(a.EncryptionAlgorithm); break;
+            }
+        }
+        return new Dictionary<string, object?> {
+            ["columnEncryptionKey"] = columnEncryptionKey,
+            ["encryptionType"] = encryptionType,
+            ["algorithm"] = algorithm,
+        };
+    }
 
     // -------------------------------------------------------------------------
     // DML: MERGE

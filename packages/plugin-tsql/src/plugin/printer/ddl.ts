@@ -221,6 +221,21 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
     // COLLATE clause comes right after the data type
     if (collation) parts.push(' ', keyword('COLLATE', opts), ' ', collation);
 
+    // Always Encrypted: ENCRYPTED WITH (COLUMN_ENCRYPTION_KEY = ..., ENCRYPTION_TYPE = ..., ALGORITHM = '...')
+    const encryption = node.props?.['encryption'] as
+        | { columnEncryptionKey?: string; encryptionType?: string; algorithm?: string }
+        | null
+        | undefined;
+    if (encryption) {
+        const encParts: Doc[] = [];
+        if (encryption.columnEncryptionKey)
+            encParts.push([keyword('COLUMN_ENCRYPTION_KEY', opts), ' = ', encryption.columnEncryptionKey]);
+        if (encryption.encryptionType)
+            encParts.push([keyword('ENCRYPTION_TYPE', opts), ' = ', keyword(encryption.encryptionType, opts)]);
+        if (encryption.algorithm) encParts.push([keyword('ALGORITHM', opts), ' = ', encryption.algorithm]);
+        parts.push(' ', keyword('ENCRYPTED WITH', opts), ' (', join(', ', encParts), ')');
+    }
+
     if (isIdentity) {
         const seed = identitySeed ?? '1';
         const inc = identityIncrement ?? '1';
@@ -1340,6 +1355,100 @@ export function printDropSchema(node: SqlNode, opts: Options): Doc {
     const name = schemaObjectName(prop(node, 'name'));
     const ifExists = propBool(node, 'ifExists');
     return [keyword('DROP SCHEMA', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
+}
+
+// ---------------------------------------------------------------------------
+// Always Encrypted — CREATE/DROP COLUMN MASTER KEY, CREATE/ALTER/DROP COLUMN ENCRYPTION KEY
+// ---------------------------------------------------------------------------
+
+export function printCreateColumnMasterKey(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const keyStoreProviderName = propStr(node, 'keyStoreProviderName');
+    const keyPath = propStr(node, 'keyPath');
+    const enclaveSignature = propStr(node, 'enclaveComputationsSignature');
+
+    const withParts: Doc[] = [];
+    if (keyStoreProviderName) withParts.push([keyword('KEY_STORE_PROVIDER_NAME', opts), ' = ', keyStoreProviderName]);
+    if (keyPath) withParts.push([keyword('KEY_PATH', opts), ' = ', keyPath]);
+    if (enclaveSignature)
+        withParts.push([
+            keyword('ENCLAVE_COMPUTATIONS', opts),
+            ' (',
+            keyword('SIGNATURE', opts),
+            ' = ',
+            enclaveSignature,
+            ')',
+        ]);
+
+    return [
+        keyword('CREATE COLUMN MASTER KEY', opts),
+        ' ',
+        name,
+        ' ',
+        keyword('WITH', opts),
+        ' (',
+        join(', ', withParts),
+        ')',
+        ';',
+    ];
+}
+
+function printColumnEncryptionKeyValue(v: SqlNode, opts: Options): Doc {
+    const columnMasterKey = propStr(v, 'columnMasterKey');
+    const algorithm = propStr(v, 'algorithm');
+    const encryptedValue = propStr(v, 'encryptedValue');
+    const parts: Doc[] = [];
+    if (columnMasterKey) parts.push([keyword('COLUMN_MASTER_KEY', opts), ' = ', columnMasterKey]);
+    if (algorithm) parts.push([keyword('ALGORITHM', opts), ' = ', algorithm]);
+    if (encryptedValue) parts.push([keyword('ENCRYPTED_VALUE', opts), ' = ', encryptedValue]);
+    return ['(', join(', ', parts), ')'];
+}
+
+export function printCreateColumnEncryptionKey(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const values = (propArr(node, 'values') ?? []) as SqlNode[];
+    const valuesDoc = join(
+        [',', hardline],
+        values.map((v) => printColumnEncryptionKeyValue(v, opts))
+    );
+    return [
+        keyword('CREATE COLUMN ENCRYPTION KEY', opts),
+        ' ',
+        name,
+        ' ',
+        keyword('WITH VALUES', opts),
+        indent([hardline, valuesDoc]),
+        ';',
+    ];
+}
+
+export function printAlterColumnEncryptionKey(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const alterType = propStr(node, 'alterType') ?? 'ADD';
+    const values = (propArr(node, 'values') ?? []) as SqlNode[];
+    const value = values[0];
+    return [
+        keyword('ALTER COLUMN ENCRYPTION KEY', opts),
+        ' ',
+        name,
+        ' ',
+        keyword(`${alterType} VALUE`, opts),
+        ' ',
+        value ? printColumnEncryptionKeyValue(value, opts) : '()',
+        ';',
+    ];
+}
+
+export function printDropColumnMasterKey(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const ifExists = propBool(node, 'ifExists');
+    return [keyword('DROP COLUMN MASTER KEY', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
+}
+
+export function printDropColumnEncryptionKey(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const ifExists = propBool(node, 'ifExists');
+    return [keyword('DROP COLUMN ENCRYPTION KEY', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
 }
 
 // ---------------------------------------------------------------------------
