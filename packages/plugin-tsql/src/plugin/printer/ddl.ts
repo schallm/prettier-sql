@@ -13,7 +13,7 @@ import {
     commentsBlock,
     parenList,
 } from '@prettier-sql/core/printer/utils';
-import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, printDropSingleObject } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
 import { joinBodyStatements, printNode, printBool, printBoolClause, qexpr } from './statements.js';
@@ -1352,9 +1352,7 @@ export function printAlterSchema(node: SqlNode, opts: Options): Doc {
 }
 
 export function printDropSchema(node: SqlNode, opts: Options): Doc {
-    const name = schemaObjectName(prop(node, 'name'));
-    const ifExists = propBool(node, 'ifExists');
-    return [keyword('DROP SCHEMA', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
+    return printDropSingleObject('DROP SCHEMA', node, opts, schemaObjectName(prop(node, 'name')));
 }
 
 // ---------------------------------------------------------------------------
@@ -1440,15 +1438,11 @@ export function printAlterColumnEncryptionKey(node: SqlNode, opts: Options): Doc
 }
 
 export function printDropColumnMasterKey(node: SqlNode, opts: Options): Doc {
-    const name = propStr(node, 'name') ?? '';
-    const ifExists = propBool(node, 'ifExists');
-    return [keyword('DROP COLUMN MASTER KEY', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
+    return printDropSingleObject('DROP COLUMN MASTER KEY', node, opts, propStr(node, 'name') ?? '');
 }
 
 export function printDropColumnEncryptionKey(node: SqlNode, opts: Options): Doc {
-    const name = propStr(node, 'name') ?? '';
-    const ifExists = propBool(node, 'ifExists');
-    return [keyword('DROP COLUMN ENCRYPTION KEY', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
+    return printDropSingleObject('DROP COLUMN ENCRYPTION KEY', node, opts, propStr(node, 'name') ?? '');
 }
 
 // ---------------------------------------------------------------------------
@@ -1511,9 +1505,7 @@ export function printAlterPartitionFunction(node: SqlNode, opts: Options): Doc {
 }
 
 export function printDropPartitionFunction(node: SqlNode, opts: Options): Doc {
-    const name = propStr(node, 'name') ?? '';
-    const ifExists = propBool(node, 'ifExists');
-    return [keyword('DROP PARTITION FUNCTION', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
+    return printDropSingleObject('DROP PARTITION FUNCTION', node, opts, propStr(node, 'name') ?? '');
 }
 
 // ---------------------------------------------------------------------------
@@ -1547,9 +1539,7 @@ export function printAlterPartitionScheme(node: SqlNode, opts: Options): Doc {
 }
 
 export function printDropPartitionScheme(node: SqlNode, opts: Options): Doc {
-    const name = propStr(node, 'name') ?? '';
-    const ifExists = propBool(node, 'ifExists');
-    return [keyword('DROP PARTITION SCHEME', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
+    return printDropSingleObject('DROP PARTITION SCHEME', node, opts, propStr(node, 'name') ?? '');
 }
 
 // ---------------------------------------------------------------------------

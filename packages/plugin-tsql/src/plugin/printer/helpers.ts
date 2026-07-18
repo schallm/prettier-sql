@@ -1,4 +1,7 @@
+import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
+import type { Options } from '@prettier-sql/core/printer/utils';
+import { keyword, ifExistsDoc } from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, propStrArr } from '@prettier-sql/core/printer/helpers';
 export { prop, propArr, propStr, propBool, propStrArr };
 
@@ -33,4 +36,14 @@ const ASSIGNMENT_OPS: Record<string, string> = {
 
 export function assignmentOp(op: string): string {
     return ASSIGNMENT_OPS[op] ?? op;
+}
+
+/** `DROP <keyword> [IF EXISTS] <name>;` — shared by every simple single-object DROP
+ *  statement that only carries a name and an `ifExists` flag (schema, user, login,
+ *  role, partition function/scheme, Always Encrypted keys, etc.). `name` is a Doc
+ *  rather than a plain string so callers needing a multi-part name can pass the
+ *  result of `schemaObjectName()` or similar. */
+export function printDropSingleObject(kw: string, node: SqlNode, opts: Options, name: Doc): Doc {
+    const ifExists = propBool(node, 'ifExists');
+    return [keyword(kw, opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
 }

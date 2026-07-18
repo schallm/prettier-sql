@@ -9,10 +9,9 @@ import {
     group,
     line,
     softline,
-    ifExistsDoc,
     parenList,
 } from '@prettier-sql/core/printer/utils';
-import { propStr, propBool } from './helpers.js';
+import { propStr, propBool, printDropSingleObject } from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // GRANT / DENY / REVOKE
@@ -215,9 +214,7 @@ export function printAlterUser(node: SqlNode, opts: Options): Doc {
 }
 
 export function printDropUser(node: SqlNode, opts: Options): Doc {
-    const name = propStr(node, 'name') ?? '';
-    const ifExists = propBool(node, 'ifExists');
-    return [keyword('DROP USER', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
+    return printDropSingleObject('DROP USER', node, opts, propStr(node, 'name') ?? '');
 }
 
 // ---------------------------------------------------------------------------
@@ -281,9 +278,7 @@ export function printAlterLogin(node: SqlNode, opts: Options): Doc {
 }
 
 export function printDropLogin(node: SqlNode, opts: Options): Doc {
-    const name = propStr(node, 'name') ?? '';
-    const ifExists = propBool(node, 'ifExists');
-    return [keyword('DROP LOGIN', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
+    return printDropSingleObject('DROP LOGIN', node, opts, propStr(node, 'name') ?? '');
 }
 
 // ---------------------------------------------------------------------------
@@ -321,9 +316,7 @@ export function printAlterRole(node: SqlNode, opts: Options): Doc {
 }
 
 export function printDropRole(node: SqlNode, opts: Options): Doc {
-    const name = propStr(node, 'name') ?? '';
-    const ifExists = propBool(node, 'ifExists');
-    return [keyword('DROP ROLE', opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
+    return printDropSingleObject('DROP ROLE', node, opts, propStr(node, 'name') ?? '');
 }
 
 // ---------------------------------------------------------------------------
