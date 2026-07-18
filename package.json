@@ -3,12 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "pnpm -r build",
+    "build": "pnpm -r --sequential build",
     "test": "pnpm -r test",
     "changeset": "changeset",
     "release:version": "changeset version",
-    "release:publish": "pnpm -r build && changeset publish",
-    "release": "npm whoami --registry https://registry.npmjs.org 2>/dev/null || npm login && changeset version && pnpm -r build && changeset publish"
+    "release:publish": "pnpm -r --sequential build && changeset publish",
+    "release": "npm whoami --registry https://registry.npmjs.org 2>/dev/null || npm login && changeset version && pnpm -r --sequential build && changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
