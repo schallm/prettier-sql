@@ -26,12 +26,16 @@ export function parse(text: string): SqlNode {
     const result = JSON.parse(SqlParser.Parse(text)) as {
         ast?: SqlNode;
         comments?: CommentToken[];
-        errors?: Array<{ message: string; line: number; column: number }>;
+        errors?: Array<{ kind?: 'parse' | 'unsupported'; message: string; line: number; column: number }>;
     };
 
     if (result.errors?.length) {
         const e = result.errors[0]!;
-        throw new SyntaxError(`PostgreSQL parse error at ${e.line}:${e.column}: ${e.message}`);
+        throw new SyntaxError(
+            e.kind === 'unsupported'
+                ? `PostgreSQL formatting error: ${e.message}`
+                : `PostgreSQL parse error at ${e.line}:${e.column}: ${e.message}`
+        );
     }
 
     if (!result.ast) {

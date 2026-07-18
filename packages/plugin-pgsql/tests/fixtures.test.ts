@@ -47,3 +47,19 @@ describe('options', () => {
         expect(await fmt(`select id from books where price < 50;`, { sqlDensity: 'compact' })).toMatchSnapshot();
     });
 });
+
+// ---------------------------------------------------------------------------
+// Unsupported constructs must fail loudly, never silently drop or mislabel SQL
+// ---------------------------------------------------------------------------
+
+describe('unsupported constructs', () => {
+    it('throws a clear error for an unhandled expression (COLLATE clause)', async () => {
+        await expect(fmt(`select name collate "C" from t;`)).rejects.toThrow(
+            /Unsupported expression \(CollateClause\)/
+        );
+    });
+
+    it('throws a clear error for an unhandled constant kind (bit-string literal)', async () => {
+        await expect(fmt(`select b'101' from t;`)).rejects.toThrow(/Unsupported constant \(Bsval\)/);
+    });
+});

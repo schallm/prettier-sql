@@ -18,6 +18,7 @@ public static class SqlParser {
         if (!parseResult.IsSuccess || parseResult.Value == null) {
             var err = parseResult.Error;
             var errList = new[] { new {
+                kind = "parse",
                 message = err?.Message ?? "Unknown parse error",
                 line = 0,
                 column = err?.CursorPos ?? 0,
@@ -26,8 +27,20 @@ public static class SqlParser {
             return JsonSerializer.Serialize(new { errors = errList }, JsonOptions);
         }
 
-        var builder = new AstBuilder(sql);
-        var root = builder.Build(parseResult.Value);
+        SqlNode root;
+        try {
+            var builder = new AstBuilder(sql);
+            root = builder.Build(parseResult.Value);
+        } catch (UnsupportedSqlException ex) {
+            var errList = new[] { new {
+                kind = "unsupported",
+                message = ex.Message,
+                line = 0,
+                column = 0,
+                offset = 0,
+            }};
+            return JsonSerializer.Serialize(new { errors = errList }, JsonOptions);
+        }
 
         var comments = ExtractComments(sql);
 

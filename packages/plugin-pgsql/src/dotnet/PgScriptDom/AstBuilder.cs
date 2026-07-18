@@ -1,7 +1,19 @@
+using System.Reflection;
 using PgSqlParser;
 using PrettierSql.Core;
 
 namespace PrettierPgsql;
+
+/// <summary>
+/// Thrown when the parse tree contains a construct AstBuilder has no mapping for.
+/// Formatting must fail loudly here rather than silently drop or mislabel the user's SQL —
+/// see the "Unknown expression" / "Unknown FROM item" sites in AstBuilder for the alternative
+/// this replaces (emitting null/placeholder text, which either vanished silently or produced
+/// an unhelpful `/* unknown: RawExpr */` marker with no indication of the actual construct).
+/// </summary>
+public class UnsupportedSqlException : Exception {
+    public UnsupportedSqlException(string message) : base(message) { }
+}
 
 /// <summary>
 /// Walks the libpg_query protobuf parse tree and builds a simplified SqlNode tree.
@@ -13,6 +25,23 @@ public class AstBuilder {
 
     public AstBuilder(string sql) {
         _sql = sql;
+    }
+
+    // Most raw-parser node messages expose an int32 "Location" (byte offset into the source).
+    // There's no shared interface for it across the ~180 protobuf message types, so we read it
+    // via reflection off whichever submessage the oneof is currently holding.
+    private static int? TryGetLocation(object? boxedMessage) {
+        var prop = boxedMessage?.GetType().GetProperty("Location", BindingFlags.Public | BindingFlags.Instance);
+        return prop?.GetValue(boxedMessage) as int?;
+    }
+
+    private UnsupportedSqlException NotSupported(string what, int? location) {
+        if (location is int loc && loc >= 0 && loc < _sql.Length) {
+            var snippetEnd = Math.Min(_sql.Length, loc + 40);
+            var snippet = _sql[loc..snippetEnd].ReplaceLineEndings(" ").Trim();
+            return new UnsupportedSqlException($"Unsupported {what} near position {loc}: \"{snippet}\"");
+        }
+        return new UnsupportedSqlException($"Unsupported {what}");
     }
 
     public SqlNode Build(ParseResult parseResult) {
@@ -325,7 +354,7 @@ public class AstBuilder {
         ));
     }
 
-    private static string? BuildPartitionDatum(Node n) {
+    private string? BuildPartitionDatum(Node n) {
         if (n.NodeCase == Node.NodeOneofCase.AConst) {
             var v = BuildAConst(n.AConst);
             return v.Text;
@@ -472,11 +501,15 @@ public class AstBuilder {
             Node.NodeOneofCase.JsonArrayConstructor  => BuildJsonArrayConstructor(node.JsonArrayConstructor),
             Node.NodeOneofCase.JsonObjectAgg         => BuildJsonObjectAgg(node.JsonObjectAgg),
             Node.NodeOneofCase.JsonArrayAgg          => BuildJsonArrayAgg(node.JsonArrayAgg),
-            // Unknown expression: emit a visible comment rather than the protobuf enum name
-            // so users see an error marker instead of corrupt SQL.
-            _ => new SqlNode("RawExpr", 0, 0, null, null),
+            // Unknown expression: fail loudly rather than silently drop or mislabel it.
+            _ => throw NotSupported($"expression ({node.NodeCase})", TryGetLocation(GetOneofValue(node))),
         };
     }
+
+    // Returns whichever submessage a Node oneof is currently holding, e.g. node.FuncCall
+    // when node.NodeCase == FuncCall. The property name always matches the case name.
+    private static object? GetOneofValue(Node node) =>
+        typeof(Node).GetProperty(node.NodeCase.ToString())?.GetValue(node);
 
     // libpg_query wraps the SIMILAR TO pattern in similar_to_escape(pattern, NULL);
     // extract the first argument so the formatter emits the bare literal.
@@ -490,14 +523,16 @@ public class AstBuilder {
         return BuildExpr(node);
     }
 
-    private static SqlNode BuildAConst(A_Const c) {
+    private SqlNode BuildAConst(A_Const c) {
         if (c.Isnull) return new SqlNode("Literal", 0, 0, "null", null);
         string? text = c.ValCase switch {
             A_Const.ValOneofCase.Ival => c.Ival.Ival.ToString(),
             A_Const.ValOneofCase.Fval => c.Fval.Fval,
             A_Const.ValOneofCase.Sval => $"'{c.Sval.Sval.Replace("'", "''")}'",
             A_Const.ValOneofCase.Boolval => c.Boolval.Boolval ? "true" : "false",
-            _ => null,
+            // Unknown constant kind (e.g. bit-string BsVal): fail loudly rather than
+            // silently drop the literal — this previously vanished with no trace at all.
+            _ => throw NotSupported($"constant ({c.ValCase})", c.Location),
         };
         return new SqlNode("Literal", 0, 0, text, null);
     }
@@ -837,8 +872,8 @@ public class AstBuilder {
         Node.NodeOneofCase.RangeTableSample => BuildRangeTableSample(n.RangeTableSample),
         Node.NodeOneofCase.RangeTableFunc   => BuildRangeTableFunc(n.RangeTableFunc),
         Node.NodeOneofCase.JsonTable        => BuildJsonTable(n.JsonTable),
-        // Unknown FROM item: emit a visible comment rather than the protobuf enum name.
-        _ => new SqlNode("RawFrom", 0, 0, null, null),
+        // Unknown FROM item: fail loudly rather than silently drop or mislabel it.
+        _ => throw NotSupported($"FROM item ({n.NodeCase})", TryGetLocation(GetOneofValue(n))),
     };
 
     private SqlNode BuildRangeTableSample(RangeTableSample r) {
