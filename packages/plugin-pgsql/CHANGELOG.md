@@ -1,5 +1,24 @@
 # prettier-plugin-postgresql
 
+## 0.2.7
+
+### Patch Changes
+
+- aeb9c93: Fail loudly with a clear error instead of silently dropping SQL when the formatter hits an
+  unsupported expression, FROM item, or constant kind (e.g. `COLLATE`, `IS JSON`, bit-string
+  literals). Previously these cases either emitted an unhelpful `/* unknown: RawExpr */` marker
+  or, for unrecognized constant kinds, vanished from the output entirely with no indication
+  anything was wrong. The error message now names the specific unsupported construct and shows
+  the surrounding source text.
+- cfe27f7: Fix several remaining silent-data-loss fallbacks left over from the earlier
+  "fail loudly" fix: `WITH cte AS (...)`, `COPY (...) TO ...`, `PREPARE ... AS ...`, and
+  `EXPLAIN ...` all silently dropped their inner query when it was a writable `MERGE` (and
+  `EXPLAIN` additionally for `CREATE TABLE AS`/`CREATE MATERIALIZED VIEW`, `DECLARE CURSOR`,
+  `REFRESH MATERIALIZED VIEW`, and `EXECUTE`, despite formatters for all of these already
+  existing). `DROP CAST`/`DROP OPERATOR CLASS`/`DROP OPERATOR FAMILY` similarly lost their
+  object name. All of these now format correctly when a builder exists, or throw a clear
+  "Unsupported ..." error instead of silently producing wrong SQL.
+
 ## 0.2.6
 
 ### Patch Changes
