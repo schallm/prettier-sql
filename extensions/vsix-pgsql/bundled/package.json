@@ -3,7 +3,7 @@
     "private": true,
     "type": "module",
     "dependencies": {
-        "prettier": "^3.9.5",
+        "prettier": "^3.9.6",
         "prettier-plugin-postgresql": "workspace:*"
     }
 }
