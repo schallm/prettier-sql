@@ -63,6 +63,9 @@ import {
     printAlterColumnEncryptionKey,
     printDropColumnMasterKey,
     printDropColumnEncryptionKey,
+    printCreateExternalModel,
+    printAlterExternalModel,
+    printDropExternalModel,
 } from './ddl.js';
 import {
     printBeginTransaction,
@@ -462,6 +465,14 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
             return printDropColumnMasterKey(node, opts);
         case 'DropColumnEncryptionKeyStatement':
             return printDropColumnEncryptionKey(node, opts);
+
+        // CREATE/ALTER/DROP EXTERNAL MODEL (SQL Server 2025 AI functions)
+        case 'CreateExternalModelStatement':
+            return printCreateExternalModel(node, opts);
+        case 'AlterExternalModelStatement':
+            return printAlterExternalModel(node, opts);
+        case 'DropExternalModelStatement':
+            return printDropExternalModel(node, opts);
 
         // DDL — partition functions & schemes
         case 'CreatePartitionFunctionStatement':

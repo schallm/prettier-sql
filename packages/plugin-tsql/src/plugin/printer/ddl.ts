@@ -1446,6 +1446,65 @@ export function printDropColumnEncryptionKey(node: SqlNode, opts: Options): Doc 
 }
 
 // ---------------------------------------------------------------------------
+// CREATE / ALTER / DROP EXTERNAL MODEL (SQL Server 2025 AI functions)
+// ---------------------------------------------------------------------------
+
+function printExternalModelOptions(node: SqlNode, opts: Options): Doc {
+    const location = propStr(node, 'location');
+    const apiFormat = propStr(node, 'apiFormat');
+    const modelType = propStr(node, 'modelType');
+    const modelName = propStr(node, 'modelName');
+    const credential = propStr(node, 'credential');
+    const parameters = propStr(node, 'parameters');
+    const localRuntimePath = propStr(node, 'localRuntimePath');
+
+    const parts: Doc[] = [];
+    if (location) parts.push([keyword('LOCATION', opts), ' = ', location]);
+    if (apiFormat) parts.push([keyword('API_FORMAT', opts), ' = ', apiFormat]);
+    if (modelType) parts.push([keyword('MODEL_TYPE', opts), ' = ', keyword(modelType, opts)]);
+    if (modelName) parts.push([keyword('MODEL', opts), ' = ', modelName]);
+    if (credential) parts.push([keyword('CREDENTIAL', opts), ' = ', credential]);
+    if (parameters) parts.push([keyword('PARAMETERS', opts), ' = ', parameters]);
+    if (localRuntimePath) parts.push([keyword('LOCAL_RUNTIME_PATH', opts), ' = ', localRuntimePath]);
+    return parenList(parts);
+}
+
+export function printCreateExternalModel(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    const owner = propStr(node, 'owner');
+    const ownerPart: Doc = owner ? [' ', keyword('AUTHORIZATION', opts), ' ', owner] : '';
+    return [
+        keyword('CREATE EXTERNAL MODEL', opts),
+        ' ',
+        name,
+        ownerPart,
+        ' ',
+        keyword('WITH', opts),
+        ' ',
+        printExternalModelOptions(node, opts),
+        ';',
+    ];
+}
+
+export function printAlterExternalModel(node: SqlNode, opts: Options): Doc {
+    const name = propStr(node, 'name') ?? '';
+    return [
+        keyword('ALTER EXTERNAL MODEL', opts),
+        ' ',
+        name,
+        ' ',
+        keyword('SET', opts),
+        ' ',
+        printExternalModelOptions(node, opts),
+        ';',
+    ];
+}
+
+export function printDropExternalModel(node: SqlNode, opts: Options): Doc {
+    return printDropSingleObject('DROP EXTERNAL MODEL', node, opts, propStr(node, 'name') ?? '');
+}
+
+// ---------------------------------------------------------------------------
 // CREATE / ALTER / DROP PARTITION FUNCTION
 // ---------------------------------------------------------------------------
 

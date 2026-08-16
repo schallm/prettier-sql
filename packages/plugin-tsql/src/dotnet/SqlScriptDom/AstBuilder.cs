@@ -1071,6 +1071,11 @@ public class AstBuilder : TSqlFragmentVisitor {
             DropColumnMasterKeyStatement dcmk => BuildDropUnownedObject("DropColumnMasterKeyStatement", dcmk),
             DropColumnEncryptionKeyStatement dcek => BuildDropUnownedObject("DropColumnEncryptionKeyStatement", dcek),
 
+            // CREATE/ALTER/DROP EXTERNAL MODEL (SQL Server 2025 AI functions)
+            CreateExternalModelStatement cem => BuildExternalModel("CreateExternalModelStatement", cem, cem.Owner?.Value),
+            AlterExternalModelStatement aem  => BuildExternalModel("AlterExternalModelStatement", aem, null),
+            DropExternalModelStatement dem   => BuildDropUnownedObject("DropExternalModelStatement", dem),
+
             // Service Broker — END CONVERSATION
             // ScriptDOM's EndConversationStatement.StartOffset points at the handle variable
             // (not at the END keyword), so the raw-text fallback drops "END CONVERSATION".
@@ -2214,6 +2219,23 @@ public class AstBuilder : TSqlFragmentVisitor {
         Node(type, stmt, new Dictionary<string, object?> {
             ["name"] = QuotedName(stmt.Name),
             ["ifExists"] = stmt.IsIfExists ? (object?)true : null,
+        });
+
+    // CREATE/ALTER EXTERNAL MODEL name [AUTHORIZATION owner] WITH|SET (LOCATION = '...',
+    // API_FORMAT = '...', MODEL_TYPE = EMBEDDINGS, MODEL = '...', CREDENTIAL = ...,
+    // PARAMETERS = '...', LOCAL_RUNTIME_PATH = '...'). CREATE uses WITH, ALTER uses SET —
+    // both keywords wrap the identical option list, and the option list is what we build here.
+    private static SqlNode BuildExternalModel(string type, ExternalModelStatement s, string? owner) =>
+        Node(type, s, new Dictionary<string, object?> {
+            ["name"]             = QuotedName(s.Name),
+            ["owner"]            = owner,
+            ["location"]         = RawTextOrNull(s.Location),
+            ["apiFormat"]        = RawTextOrNull(s.ApiFormat),
+            ["modelType"]        = s.ModelType?.ToString().ToUpperInvariant(),
+            ["modelName"]        = RawTextOrNull(s.ModelName),
+            ["credential"]       = s.Credential != null ? QuotedName(s.Credential) : null,
+            ["parameters"]       = RawTextOrNull(s.Parameters),
+            ["localRuntimePath"] = RawTextOrNull(s.LocalRuntimePath),
         });
 
     // Column-level ENCRYPTED WITH (COLUMN_ENCRYPTION_KEY = ..., ENCRYPTION_TYPE = ..., ALGORITHM = '...').
