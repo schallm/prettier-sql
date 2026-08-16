@@ -141,8 +141,7 @@ values
 
 update Books
 set
-  Title = @title,
-  Price = @price
+  Title = @title, Price = @price
 where BookId = @id;
 ```
 
@@ -163,8 +162,7 @@ values
 
 update Books
 set
-  Title = @title,
-  Price = @price
+  Title = @title, Price = @price
 where BookId = @id;
 ```
 

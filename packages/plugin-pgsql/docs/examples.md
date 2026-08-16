@@ -106,11 +106,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   id,
 +   name
 + from customers
-+ where exists (
-+   select 1
-+   from orders
-+   where orders.customer_id = customers.id
-+ );
++ where exists (select 1 from orders where orders.customer_id = customers.id);
 ```
 
 ### CTE

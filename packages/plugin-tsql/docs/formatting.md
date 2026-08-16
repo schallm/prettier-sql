@@ -959,8 +959,7 @@ values ('New Book', 9.99);
 ```sql
 update Books
 set
-  Title = 'Updated Title',
-  Price = 29.99
+  Title = 'Updated Title', Price = 29.99
 where Id = 42;
 ```
 
@@ -1945,10 +1944,8 @@ end
 T-SQL treats `ELSE IF` as an `ELSE` clause containing a single `IF` statement, so the formatter places the nested `IF` on the next line indented one level under `ELSE`:
 
 ```sql
-if @price < 10
-  set @title = 'cheap';
-else if @price < 50
-  set @title = 'mid-range';
+if @price < 10 set @title = 'cheap';
+else if @price < 50 set @title = 'mid-range';
 else
   set @title = 'expensive';
 ```
@@ -2695,7 +2692,8 @@ The `WITH` option list follows the same inline/wrap behaviour as `BACKUP`.
 ```sql
 create database NewDb;
 
-create database NewDb2 collate Latin1_General_CI_AS;
+create database NewDb2
+collate Latin1_General_CI_AS;
 
 create database SalesSnap as snapshot of SalesDB;
 ```
@@ -2845,7 +2843,9 @@ select
   regexp_replace(Notes, '[<>]', '') as SafeNotes
 from Books;
 
-select Id, regexp_instr(Title, '[0-9]+') as NumberPos
+select
+  Id,
+  regexp_instr(Title, '[0-9]+') as NumberPos
 from Books
 where regexp_instr(Title, '[0-9]+') > 0;
 ```

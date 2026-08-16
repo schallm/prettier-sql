@@ -39,24 +39,33 @@ Uses `using PrettierSql.Core;` for the shared `SqlNode` record.
 
 ### `AstBuilder.cs`
 
-Extends `TSqlFragmentVisitor`. Override pattern:
+Extends `TSqlFragmentVisitor` (for its `StartOffset`/`FragmentLength` helpers), but
+dispatch is a single pattern-match `switch` over `TSqlStatement` subtypes in
+`BuildStatement`, not `ExplicitVisit` overrides — ScriptDOM's visitor pattern isn't used
+for the actual tree walk:
 
 ```csharp
-public override void ExplicitVisit(SelectStatement node) {
-    // build the SqlNode and push onto a stack or store in Root
-}
+private static SqlNode? BuildStatement(TSqlStatement stmt) => stmt switch {
+    SelectStatement sel => BuildSelectStatement(sel),
+    InsertStatement ins => BuildInsertStatement(ins),
+    ...
+    _ => Leaf("Statement", stmt, RawText(stmt)), // unhandled kinds preserve original text
+};
 ```
-
-ScriptDOM handles tree traversal — you only override the node types you care about.
 
 Key helpers:
 
 ```csharp
-private static List<SqlNode>? MapList<T>(IEnumerable<T>? items, Func<T, SqlNode?> map)
-private static Dictionary<string, object?> BuildProps(params (string key, object? value)[] entries)
+private static SqlNode Leaf(string type, TSqlFragment f, string? text = null)
+private static SqlNode Node(string type, TSqlFragment f, Dictionary<string, object?> props)
+private static List<object?>? MapList<T>(IList<T>? items, Func<T, object?> map)
+private static string RawText(TSqlFragment f) // reconstructs SQL text via ScriptTokenStream
 ```
 
-`BuildProps` drops null values so the JSON stays clean.
+There is no `BuildProps` helper in this file (that's pgsql's `AstBuilder.cs`) — build the
+`Dictionary<string, object?>` literal directly and pass it to `Node(...)`; the JSON
+serializer drops null values on its own (`DefaultIgnoreCondition = WhenWritingNull` in
+`SqlParser.cs`), so there's nothing to filter manually.
 
 ## TypeScript project — `src/plugin/`
 
@@ -118,7 +127,7 @@ pnpm run test:watch   # vitest watch
 
 ## Adding a new node type
 
-1. Add `ExplicitVisit(XxxNode node)` override in `AstBuilder.cs`
+1. Add a `BuildXxx(...)` method in `AstBuilder.cs` and a `case XxxStatement x => BuildXxx(x),` arm in the `BuildStatement` switch (or wherever the relevant sub-dispatch lives)
 2. Add a `case 'XxxNode': return printXxx(...)` in the appropriate printer file
 3. Add a fixture `.sql` file in `tests/fixtures/<category>/`
 4. Run `pnpm run test` — first run writes the snapshot, subsequent runs assert it

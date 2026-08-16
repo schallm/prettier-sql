@@ -1,6 +1,6 @@
 # prettier-plugin-postgresql
 
-> **Beta** — covers the core PostgreSQL DML and DDL statement set. A small number of advanced or uncommon constructs fall back to a `/* unknown */` comment placeholder while support is being added.
+> **Beta** — covers the core PostgreSQL DML and DDL statement set. A small number of advanced or uncommon top-level statements (e.g. `CREATE CAST`, `CREATE DOMAIN`, `CREATE EVENT TRIGGER`) aren't reformatted yet and are preserved verbatim instead. Any other construct the formatter doesn't recognize raises a clear error rather than silently producing wrong output.
 
 A [Prettier](https://prettier.io) plugin for PostgreSQL SQL. Parses SQL with [libpg_query](https://github.com/pganalyze/libpg_query) (the actual PostgreSQL parser) and formats it using Prettier's document IR for consistent, readable output.
 

@@ -100,9 +100,9 @@ can load it.
 
 ## Pending tasks
 
-- [ ] **Add `NPM_TOKEN` secret** — generate a Granular Access Token at npmjs.com (Account → Access Tokens, read+write for `prettier-plugin-tsql` and `prettier-plugin-postgresql`) and add it to GitHub repo settings (Settings → Secrets and variables → Actions → `NPM_TOKEN`).
-- [ ] **Update npmjs.org** — update the package pages for `prettier-plugin-tsql` and `prettier-plugin-postgresql` to reflect the new monorepo home. Run `pnpm changeset` (patch bump on both plugins), merge the resulting "Version Packages" PR, and the release workflow will publish automatically.
-- [ ] **Publish to npm** — after testing is complete, trigger a release by running `pnpm changeset`, committing the changeset file, and merging the "Version Packages" PR that the release workflow opens.
+- [x] **Publish to npm** — `prettier-plugin-postgresql` and `prettier-plugin-tsql` are live on npm (published manually via `pnpm release`; see `RELEASING.md`).
+- [x] **npmjs.org package pages** — already correct, since `package.json`'s `repository`/`homepage` fields point at the monorepo and npm derives the package page links from those at publish time (verified via `npm view <pkg> repository homepage`).
+- [ ] **Add `NPM_TOKEN` secret** — CI's release workflow (`.github/workflows/release.yml`) doesn't set `NODE_AUTH_TOKEN` for its publish step, and no `NPM_TOKEN` secret exists in the repo, so CI cannot currently publish — every release so far has gone out via the manual `pnpm release` path. Generate a Granular Access Token at npmjs.com (Account → Access Tokens, read+write for `prettier-plugin-tsql` and `prettier-plugin-postgresql`), add it as a repo secret (Settings → Secrets and variables → Actions → `NPM_TOKEN`), and wire `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` into the `changesets/action` step. See `RELEASING.md` for the full writeup.
 
 ## Adding a new SQL dialect
 
