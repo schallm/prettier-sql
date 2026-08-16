@@ -1,5 +1,21 @@
 # prettier-plugin-tsql
 
+## 0.8.0
+
+### Minor Changes
+
+- 6063535: Add support for `CREATE/ALTER/DROP EXTERNAL MODEL` (SQL Server 2025's AI functions
+  feature for registering external AI models like Azure OpenAI embeddings endpoints) —
+  previously entirely unhandled (raw-text passthrough), now parsed and reformatted
+  structurally.
+
+### Patch Changes
+
+- d7d420a: Bump `node-api-dotnet` to 0.9.25 (was 0.9.21).
+- ebc0d35: Bump `Microsoft.SqlServer.TransactSql.ScriptDom` to 180.78.1 (was 180.37.3). Purely
+  additive on the API surface used by this plugin — no behavior change, all fixtures pass
+  unchanged.
+
 ## 0.7.0
 
 ### Minor Changes
