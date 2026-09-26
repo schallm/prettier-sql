@@ -2275,11 +2275,24 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildDropIndex(DropIndexStatement di) =>
         Node("DropIndexStatement", di, new Dictionary<string, object?> {
             ["ifExists"] = di.IsIfExists ? (object?)true : null,
-            ["indices"] = di.DropIndexClauses?.OfType<DropIndexClause>()
-                .Select(c => (object?)Node("IndexRef", c, new Dictionary<string, object?> {
-                    ["name"] = QuotedName(c.Index),
-                    ["table"] = BuildSchemaObjectName(c.Object),
-                })).ToList(),
+            ["indices"] = di.DropIndexClauses?.Select(c => (object?)(c switch {
+                DropIndexClause dic => Node("IndexRef", dic, new Dictionary<string, object?> {
+                    ["name"] = QuotedName(dic.Index),
+                    ["table"] = BuildSchemaObjectName(dic.Object),
+                    // WITH (ONLINE = ON, MAXDOP = 2, MOVE TO fg, FILESTREAM_ON fs)
+                    ["options"] = MapList(dic.Options, o => (object?)(o switch {
+                        MoveToDropIndexOption move => $"MOVE TO {StorageTarget(move.MoveTo)}",
+                        FileStreamOnDropIndexOption fs => $"FILESTREAM_ON {QuotedName(fs.FileStreamOn)}",
+                        _ => SerializeIndexOption(o),
+                    })),
+                }),
+                // The old form: DROP INDEX table.index
+                BackwardsCompatibleDropIndexClause old => Node("IndexRef", old, new Dictionary<string, object?> {
+                    ["qualifiedName"] = string.Join(".", new[] { old.Index.SchemaIdentifier, old.Index.BaseIdentifier, old.Index.ChildIdentifier }
+                        .Where(i => i != null).Select(i => QuotedName(i))),
+                }),
+                _ => Leaf("IndexRef", c, RawText(c)),
+            })).ToList(),
         });
 
     // -------------------------------------------------------------------------

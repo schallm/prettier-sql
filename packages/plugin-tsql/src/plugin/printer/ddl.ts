@@ -1343,10 +1343,16 @@ export function printDropObjects(objType: string, node: SqlNode, opts: Options):
 export function printDropIndex(node: SqlNode, opts: Options): Doc {
     const ifExists = propBool(node, 'ifExists');
     const indices = propArr(node, 'indices');
-    const indexDocs = indices.map(
-        (idx) =>
-            [propStr(idx, 'name') ?? '', ' ', keyword('ON', opts), ' ', schemaObjectName(prop(idx, 'table'))] as Doc,
-    );
+    const indexDocs = indices.map((idx): Doc => {
+        const qualifiedName = propStr(idx, 'qualifiedName');
+        if (qualifiedName) return qualifiedName;
+        if (!idx.props) return idx.text ?? '';
+        const options = propStrArr(idx, 'options');
+        return [
+            propStr(idx, 'name') ?? '', ' ', keyword('ON', opts), ' ', schemaObjectName(prop(idx, 'table')),
+            options.length > 0 ? [' ', keyword('WITH', opts), ' (', join(', ', options.map((o) => keyword(o, opts))), ')'] : '',
+        ];
+    });
     const ifExistsPart: Doc = ifExists ? [' ', keyword('IF EXISTS', opts)] : '';
     if (indexDocs.length === 1) {
         return [keyword('DROP INDEX', opts), ifExistsPart, ' ', indexDocs[0]!, ';'];

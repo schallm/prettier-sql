@@ -1235,6 +1235,22 @@ with (drop_existing = on);
 "
 `;
 
+exports[`fixtures > index/drop-forms.sql 1`] = `
+"-- DROP INDEX: WITH options, and the old table.index form
+drop index ix on t with (online = on);
+
+drop index if exists ix on dbo.t with (maxdop = 2, online = off, move to fg2);
+
+drop index
+  t.ix1,
+  dbo.t.ix2;
+
+drop index
+  ix1 on t1,
+  ix2 on t2;
+"
+`;
+
 exports[`fixtures > index/vector-index.sql 1`] = `
 "-- CREATE VECTOR INDEX — SQL Server 2025
 create vector index IX_Embeddings_Vec
