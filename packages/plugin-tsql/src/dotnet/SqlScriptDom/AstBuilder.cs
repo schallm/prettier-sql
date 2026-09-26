@@ -745,6 +745,8 @@ public class AstBuilder : TSqlFragmentVisitor {
         Node("QueryDerivedTable", sub, new Dictionary<string, object?> {
             ["query"] = BuildQueryExpression(sub.QueryExpression),
             ["alias"] = QuotedName(sub.Alias),
+            // (SELECT ...) AS s (a, b): names for the derived table's columns
+            ["columns"] = MapList(sub.Columns, c => (object?)QuotedName(c)),
         });
 
     private static SqlNode BuildSchemaObjectFunctionTableRef(SchemaObjectFunctionTableReference tvf) {
@@ -1286,6 +1288,8 @@ public class AstBuilder : TSqlFragmentVisitor {
         };
 
         return Node("InsertStatement", ins, new Dictionary<string, object?> {
+            // OPTION (RECOMPILE, MAXDOP 1, ...)
+            ["optimizerHints"] = MapList(ins.OptimizerHints, h => (object?)BuildOptimizerHint(h)),
             ["ctes"] = ctes,
             ["changeTrackingContext"] = RawTextOrNull(ins.WithCtesAndXmlNamespaces?.ChangeTrackingContext),
             ["target"] = target,
@@ -1322,6 +1326,8 @@ public class AstBuilder : TSqlFragmentVisitor {
         var whereClause = BuildDmlWhere(spec.WhereClause);
 
         return Node("UpdateStatement", upd, new Dictionary<string, object?> {
+            // OPTION (RECOMPILE, MAXDOP 1, ...)
+            ["optimizerHints"] = MapList(upd.OptimizerHints, h => (object?)BuildOptimizerHint(h)),
             ["ctes"] = ctes,
             ["changeTrackingContext"] = RawTextOrNull(upd.WithCtesAndXmlNamespaces?.ChangeTrackingContext),
             ["top"] = spec.TopRowFilter != null ? BuildTopRowFilter(spec.TopRowFilter) : null,
@@ -1376,6 +1382,8 @@ public class AstBuilder : TSqlFragmentVisitor {
         var whereClause = BuildDmlWhere(spec.WhereClause);
 
         return Node("DeleteStatement", del, new Dictionary<string, object?> {
+            // OPTION (RECOMPILE, MAXDOP 1, ...)
+            ["optimizerHints"] = MapList(del.OptimizerHints, h => (object?)BuildOptimizerHint(h)),
             ["ctes"] = ctes,
             ["changeTrackingContext"] = RawTextOrNull(del.WithCtesAndXmlNamespaces?.ChangeTrackingContext),
             ["top"] = spec.TopRowFilter != null ? BuildTopRowFilter(spec.TopRowFilter) : null,
@@ -2388,6 +2396,8 @@ public class AstBuilder : TSqlFragmentVisitor {
         var ctes = merge.WithCtesAndXmlNamespaces?.CommonTableExpressions
             ?.Select(c => (object?)BuildCte(c)).ToList();
         return Node("MergeStatement", merge, new Dictionary<string, object?> {
+            // OPTION (RECOMPILE, MAXDOP 1, ...)
+            ["optimizerHints"] = MapList(merge.OptimizerHints, h => (object?)BuildOptimizerHint(h)),
             ["ctes"] = ctes,
             ["top"] = spec?.TopRowFilter != null ? BuildTopRowFilter(spec.TopRowFilter) : null,
             ["target"] = BuildTableReference(spec?.Target),
@@ -2411,7 +2421,9 @@ public class AstBuilder : TSqlFragmentVisitor {
         action switch {
             InsertMergeAction ins => Node("MergeInsertAction", ins, new Dictionary<string, object?> {
                 ["columns"] = ins.Columns?.Select(c => (object?)BuildColumnRef(c)).ToList(),
-                ["source"] = ins.Source is ValuesInsertSource vals
+                ["source"] = ins.Source is ValuesInsertSource { IsDefaultValues: true } dvs
+                              ? Node("DefaultValuesSource", dvs, new Dictionary<string, object?>())
+                              : ins.Source is ValuesInsertSource vals
                               ? BuildValuesInsertSource(vals)
                               : ins.Source != null ? Leaf("InsertSource", ins.Source, RawText(ins.Source)) : null,
             }),

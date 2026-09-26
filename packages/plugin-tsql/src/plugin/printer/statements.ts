@@ -784,8 +784,6 @@ function printSelect(node: SqlNode, opts: Options): Doc {
     const ctesDocs = printCtes(node, opts);
     const queryExpr = prop(node, 'queryExpression');
     const orderBy = prop(node, 'orderBy');
-    const optimizerHints = node.props?.['optimizerHints'] as string[] | undefined;
-
     const parts: Doc[] = [...ctesDocs, queryExpr ? qexpr(queryExpr, opts) : ''];
 
     if (orderBy) {
@@ -794,21 +792,14 @@ function printSelect(node: SqlNode, opts: Options): Doc {
             printOrderByClause(orderBy, opts, (n) => printNode(n, opts)),
         );
     }
-    if (optimizerHints?.length) {
-        parts.push(
-            hardline,
-            keyword('OPTION', opts),
-            ' (',
-            join(
-                ', ',
-                optimizerHints.map((h) => keyword(h, opts)),
-            ),
-            ')',
-        );
-    }
-
-    parts.push(';');
+    parts.push(optionClause(node, opts), ';');
     return group(parts);
+}
+
+/** OPTION (RECOMPILE, MAXDOP 1, ...): query hints, which any SELECT or DML statement can end with. */
+function optionClause(node: SqlNode, opts: Options): Doc {
+    const hints = (node.props?.['optimizerHints'] as string[] | undefined) ?? [];
+    return hints.length > 0 ? [hardline, keyword('OPTION', opts), ' (', join(', ', hints.map((h) => keyword(h, opts))), ')'] : '';
 }
 
 // ---------------------------------------------------------------------------
@@ -859,7 +850,7 @@ function printInsert(node: SqlNode, opts: Options): Doc {
     if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
     else if (output) parts.push(hardline, printOutputClause(output, opts));
 
-    parts.push(sourcePart, ';');
+    parts.push(sourcePart, optionClause(node, opts), ';');
     return group(parts);
 }
 
@@ -983,7 +974,7 @@ function printUpdate(node: SqlNode, opts: Options): Doc {
 
     if (where) parts.push(hardline, printBoolClause('WHERE', where, opts));
 
-    parts.push(';');
+    parts.push(optionClause(node, opts), ';');
     return group(parts);
 }
 
@@ -1031,7 +1022,7 @@ function printDelete(node: SqlNode, opts: Options): Doc {
 
     if (where) parts.push(hardline, printBoolClause('WHERE', where, opts));
 
-    parts.push(';');
+    parts.push(optionClause(node, opts), ';');
     return group(parts);
 }
 
@@ -1143,7 +1134,7 @@ function printMerge(node: SqlNode, opts: Options): Doc {
     if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
     else if (output) parts.push(hardline, printOutputClause(output, opts));
 
-    parts.push(';');
+    parts.push(optionClause(node, opts), ';');
     return group(parts);
 }
 
@@ -1210,6 +1201,8 @@ function printMergeAction(node: SqlNode, opts: Options): Doc {
 }
 
 function printMergeValues(source: SqlNode, opts: Options): Doc {
+    // INSERT DEFAULT VALUES never has a column list, and the caller already spaced after INSERT
+    if (source.type === 'DefaultValuesSource') return keyword('DEFAULT VALUES', opts);
     if (source.type !== 'ValuesSource') return source.text ? [hardline, source.text] : '';
     const rows = source.props?.['rows'];
     if (!Array.isArray(rows) || rows.length === 0) return [hardline, keyword('VALUES', opts), ' ()'];

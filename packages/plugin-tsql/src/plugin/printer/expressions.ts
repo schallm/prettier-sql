@@ -625,7 +625,7 @@ function printQueryExpressionInner(node: SqlNode, opts: Options, printFn: PrintF
             const inner = q ? printQueryExpression(q, opts, printFn) : '/* query */';
             const sep = getDensity(opts) === 'compact' ? softline : hardline;
             return alias
-                ? group(['(', indent([sep, inner]), sep, ') ', keyword('AS', opts), ' ', alias])
+                ? group(['(', indent([sep, inner]), sep, ') ', keyword('AS', opts), ' ', alias, derivedColumns(node)])
                 : group(['(', indent([sep, inner]), sep, ')']);
         }
         default:
@@ -1537,9 +1537,15 @@ function printQueryDerivedTable(node: SqlNode, opts: Options, printFn: PrintFn):
     const alias = propStr(node, 'alias');
     const queryDoc = query ? printQueryExpression(query, opts, printFn) : '/* query */';
     if (alias) {
-        return ['(', indent([hardline, queryDoc]), hardline, ') ', keyword('AS', opts), ' ', alias];
+        return ['(', indent([hardline, queryDoc]), hardline, ') ', keyword('AS', opts), ' ', alias, derivedColumns(node)];
     }
     return ['(', indent([hardline, queryDoc]), hardline, ')'];
+}
+
+/** A derived table's column names: (SELECT ...) AS s (a, b). */
+function derivedColumns(node: SqlNode): Doc {
+    const columns = (node.props?.['columns'] as string[] | undefined) ?? [];
+    return columns.length > 0 ? [' (', columns.join(', '), ')'] : '';
 }
 
 function printSchemaObjectFunctionTableRef(node: SqlNode, opts: Options, printFn: PrintFn): Doc {

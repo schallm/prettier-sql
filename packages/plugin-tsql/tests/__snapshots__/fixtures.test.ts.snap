@@ -841,6 +841,54 @@ from
 "
 `;
 
+exports[`fixtures > dml/options-and-derived-columns.sql 1`] = `
+"-- OPTION (...) on every DML statement, derived-table column names, MERGE ... INSERT DEFAULT VALUES
+update t
+set a = 1
+option (maxdop 1);
+
+delete from t
+where a = 1
+option (recompile);
+
+insert into t
+select a
+from s
+option (hash join);
+
+merge into t as tgt
+using (
+  select 1 as id
+) as src (id) on tgt.id = src.id
+when matched then
+  update set tgt.a = 1
+when not matched by target and src.id > 0 then
+  insert default values
+output
+  $action
+into @log
+option (loop join);
+
+select *
+from (
+  select
+    1,
+    2
+) as s (a, b);
+
+select *
+from
+  t
+  inner join (
+    select 1
+  ) as s (a) on 1 = 1;
+
+select a
+from t
+option (recompile);
+"
+`;
+
 exports[`fixtures > execute/dynamic-sql.sql 1`] = `
 "execute (@sql);
 
