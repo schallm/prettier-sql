@@ -446,13 +446,14 @@ export function printDeclareCursor(node: SqlNode, opts: Options): Doc {
             ? [' ', join(' ', (options as string[]).map((o) => keyword(o, opts)))]
             : '';
     const select = prop(node, 'select');
+    // INSENSITIVE exists only in the ISO form, where options come before CURSOR:
+    // DECLARE c INSENSITIVE SCROLL CURSOR FOR ...
+    const isoForm = Array.isArray(options) && (options as string[]).includes('INSENSITIVE');
     return group([
         keyword('DECLARE', opts),
         ' ',
         name,
-        ' ',
-        keyword('CURSOR', opts),
-        optPart,
+        isoForm ? [optPart, ' ', keyword('CURSOR', opts)] : [' ', keyword('CURSOR', opts), optPart],
         hardline,
         keyword('FOR', opts),
         hardline,
@@ -461,13 +462,18 @@ export function printDeclareCursor(node: SqlNode, opts: Options): Doc {
     ]);
 }
 
+/** A cursor reference: [GLOBAL] name — GLOBAL picks the global cursor over a local one of the same name. */
+function cursorRef(node: SqlNode, opts: Options): Doc {
+    return [propBool(node, 'cursorGlobal') ? [keyword('GLOBAL', opts), ' '] : '', propStr(node, 'cursorName') ?? ''];
+}
+
 export function printOpenCursor(node: SqlNode, opts: Options): Doc {
-    return [keyword('OPEN', opts), ' ', propStr(node, 'cursorName') ?? '', ';'];
+    return [keyword('OPEN', opts), ' ', cursorRef(node, opts), ';'];
 }
 
 export function printFetchCursor(node: SqlNode, opts: Options): Doc {
     const fetchType = propStr(node, 'fetchType') ?? 'Next';
-    const cursorName = propStr(node, 'cursorName') ?? '';
+    const cursorName = cursorRef(node, opts);
     const intoVars = node.props?.['intoVariables'];
     const fetchOffset = prop(node, 'fetchOffset');
 
@@ -501,11 +507,11 @@ export function printFetchCursor(node: SqlNode, opts: Options): Doc {
 }
 
 export function printCloseCursor(node: SqlNode, opts: Options): Doc {
-    return [keyword('CLOSE', opts), ' ', propStr(node, 'cursorName') ?? '', ';'];
+    return [keyword('CLOSE', opts), ' ', cursorRef(node, opts), ';'];
 }
 
 export function printDeallocateCursor(node: SqlNode, opts: Options): Doc {
-    return [keyword('DEALLOCATE', opts), ' ', propStr(node, 'cursorName') ?? '', ';'];
+    return [keyword('DEALLOCATE', opts), ' ', cursorRef(node, opts), ';'];
 }
 
 // ---------------------------------------------------------------------------

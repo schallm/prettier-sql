@@ -2719,6 +2719,7 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildOpenCursor(OpenCursorStatement oc) =>
         Node("OpenCursorStatement", oc, new Dictionary<string, object?> {
             ["cursorName"] = QuotedName(oc.Cursor?.Name),
+            ["cursorGlobal"] = oc.Cursor?.IsGlobal == true ? (object?)true : null,
         });
 
     private static SqlNode BuildFetchCursor(FetchCursorStatement fc) {
@@ -2726,6 +2727,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         return Node("FetchCursorStatement", fc, new Dictionary<string, object?> {
             ["fetchType"] = fc.FetchType?.Orientation.ToString(),
             ["cursorName"] = QuotedName(fc.Cursor?.Name),
+            ["cursorGlobal"] = fc.Cursor?.IsGlobal == true ? (object?)true : null,
             ["intoVariables"] = intoVars,
             ["fetchOffset"] = BuildScalarExpression(fc.FetchType?.RowOffset),
         });
@@ -2734,11 +2736,13 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildCloseCursor(CloseCursorStatement cc) =>
         Node("CloseCursorStatement", cc, new Dictionary<string, object?> {
             ["cursorName"] = QuotedName(cc.Cursor?.Name),
+            ["cursorGlobal"] = cc.Cursor?.IsGlobal == true ? (object?)true : null,
         });
 
     private static SqlNode BuildDeallocateCursor(DeallocateCursorStatement dalc) =>
         Node("DeallocateCursorStatement", dalc, new Dictionary<string, object?> {
             ["cursorName"] = QuotedName(dalc.Cursor?.Name),
+            ["cursorGlobal"] = dalc.Cursor?.IsGlobal == true ? (object?)true : null,
         });
 
     // -------------------------------------------------------------------------

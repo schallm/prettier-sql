@@ -1443,6 +1443,33 @@ return;
 "
 `;
 
+exports[`fixtures > procedural/cursor-forms.sql 1`] = `
+"-- GLOBAL cursor references, and the ISO DECLARE ... INSENSITIVE SCROLL CURSOR form
+declare c insensitive scroll cursor
+for
+select a
+from t
+for read only;
+declare c insensitive cursor
+for
+select a
+from t;
+declare c cursor global scroll dynamic
+for
+select a
+from t
+for update of a;
+fetch relative -2 from global c into @a, @b;
+fetch next from @cv;
+open global c;
+close global c;
+deallocate global c;
+open c;
+close @cv;
+deallocate c;
+"
+`;
+
 exports[`fixtures > procedural/cursors.sql 1`] = `
 "declare @bookId int;
 declare @title nvarchar(200);
