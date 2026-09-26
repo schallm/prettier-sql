@@ -609,7 +609,9 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         const partitionAll = node.props?.['partitionAll'] as boolean | undefined;
         const partitionNumber = propStr(node, 'partitionNumber');
         const indexOptions = propStrArr(node, 'indexOptions');
+        // REBUILD alone rebuilds the whole table; PARTITION = n | ALL narrows it
         const partDoc: Doc = partitionAll ? keyword('ALL', opts) : (partitionNumber ?? '');
+        const partitionPart: Doc = partitionAll || partitionNumber ? [' ', keyword('PARTITION =', opts), ' ', partDoc] : '';
         const withDoc: Doc = indexOptions.length
             ? [' ', keyword('WITH', opts), ' (', join(', ', indexOptions), ')']
             : '';
@@ -618,9 +620,8 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             ' ',
             name,
             hardline,
-            keyword('REBUILD PARTITION =', opts),
-            ' ',
-            partDoc,
+            keyword('REBUILD', opts),
+            partitionPart,
             withDoc,
             ';',
         ];

@@ -1913,12 +1913,14 @@ public class AstBuilder : TSqlFragmentVisitor {
             props["options"] = setStmt.Options?.Select(o => (object?)SerializeTableOption(o)).ToList();
         } else if (at is AlterTableRebuildStatement rebuild) {
             props["partitionAll"] = rebuild.Partition?.All == true ? (object?)true : null;
-            props["partitionNumber"] = (rebuild.Partition?.Number as IntegerLiteral)?.Value;
+            // A literal or a variable: REBUILD PARTITION = @p
+            props["partitionNumber"] = RawTextOrNull(rebuild.Partition?.Number);
             props["indexOptions"] = MapList(rebuild.IndexOptions, o => (object?)SerializeIndexOption(o));
         } else if (at is AlterTableSwitchStatement switchStmt) {
-            props["sourcePartition"] = (switchStmt.SourcePartitionNumber as IntegerLiteral)?.Value;
+            // Partition numbers may be literals, variables or $PARTITION.pf(...) expressions
+            props["sourcePartition"] = RawTextOrNull(switchStmt.SourcePartitionNumber);
             props["targetTable"] = BuildSchemaObjectName(switchStmt.TargetTable);
-            props["targetPartition"] = (switchStmt.TargetPartitionNumber as IntegerLiteral)?.Value;
+            props["targetPartition"] = RawTextOrNull(switchStmt.TargetPartitionNumber);
             // WITH (WAIT_AT_LOW_PRIORITY (...)) — serialize each option as raw text
             props["switchOptions"] = switchStmt.Options?.Count > 0
                 ? switchStmt.Options.Select(o => (object?)RawText(o).Trim()).ToList()
