@@ -50,14 +50,13 @@ approve the staged versions on npm.
 | `pnpm changeset` | Interactive — describe a change (step 1 above) |
 | `pnpm release:version` | `changeset version` — consumes changesets into version bumps + changelogs, no publish |
 | `pnpm release:publish` | Builds all packages, then `changeset publish` |
-| `pnpm release` | The full local one-shot: checks npm login (prompts `npm login` if needed) → `changeset version` → build → `changeset publish` |
+| `pnpm release` | The full local one-shot (`scripts/release.mjs`): checks npm login (prompts `npm login` if needed) → `changeset version` (skipped if there are no pending changesets) → build → `changeset publish` |
 
 CI does not run `pnpm release` or `changeset publish` — it runs
 `scripts/stage-publish.mjs` after the Version Packages PR is merged. The local scripts
-publish directly (not staged), using your own npm login and 2FA. `pnpm release` is the manual fallback for publishing outside CI.
-Since `@changesets/cli` 3.0, `changeset version` exits 1 when there are no pending
-changesets, so `pnpm release` stops right there if everything is already versioned. In
-that case (e.g. re-running after a failed publish) use `pnpm release:publish` instead.
+publish directly (not staged), using your own npm login and 2FA. `pnpm release` is the
+manual fallback for publishing outside CI; it's safe to re-run after a failed publish,
+since `changeset publish` skips versions that are already on npm.
 
 ## npm authentication: trusted publishing + staged releases
 

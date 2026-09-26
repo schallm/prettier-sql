@@ -8,7 +8,7 @@
     "changeset": "changeset",
     "release:version": "changeset version",
     "release:publish": "pnpm -r --sequential build && changeset publish",
-    "release": "npm whoami --registry https://registry.npmjs.org 2>/dev/null || npm login && changeset version && pnpm -r --sequential build && changeset publish"
+    "release": "node scripts/release.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",
