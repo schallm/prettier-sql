@@ -1340,6 +1340,12 @@ export function printDropObjects(objType: string, node: SqlNode, opts: Options):
     ];
 }
 
+/** A DROP INDEX option; MOVE TO / FILESTREAM_ON name a filegroup, which keeps its case. */
+function dropIndexOption(option: string, opts: Options): Doc {
+    const target = /^(MOVE TO|FILESTREAM_ON) (.*)$/.exec(option);
+    return target ? [keyword(target[1]!, opts), ' ', target[2]!] : keyword(option, opts);
+}
+
 export function printDropIndex(node: SqlNode, opts: Options): Doc {
     const ifExists = propBool(node, 'ifExists');
     const indices = propArr(node, 'indices');
@@ -1350,7 +1356,7 @@ export function printDropIndex(node: SqlNode, opts: Options): Doc {
         const options = propStrArr(idx, 'options');
         return [
             propStr(idx, 'name') ?? '', ' ', keyword('ON', opts), ' ', schemaObjectName(prop(idx, 'table')),
-            options.length > 0 ? [' ', keyword('WITH', opts), ' (', join(', ', options.map((o) => keyword(o, opts))), ')'] : '',
+            options.length > 0 ? [' ', keyword('WITH', opts), ' (', join(', ', options.map((o) => dropIndexOption(o, opts))), ')'] : '',
         ];
     });
     const ifExistsPart: Doc = ifExists ? [' ', keyword('IF EXISTS', opts)] : '';
