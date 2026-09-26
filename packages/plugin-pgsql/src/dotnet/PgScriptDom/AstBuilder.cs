@@ -2538,7 +2538,16 @@ public class AstBuilder {
             .ToList();
         var rels = s.Rels
             .Where(n => n.NodeCase == Node.NodeOneofCase.VacuumRelation)
-            .Select(n => BuildRangeVar(n.VacuumRelation.Relation))
+            .Select(n => {
+                // VACUUM ANALYZE t (a, b) / ANALYZE t (a, b): only these columns
+                var rel = BuildRangeVar(n.VacuumRelation.Relation);
+                var cols = n.VacuumRelation.VaCols
+                    .Where(c => c.NodeCase == Node.NodeOneofCase.String)
+                    .Select(c => Ident.Quote(c.String.Sval))
+                    .ToList();
+                if (cols.Count > 0) rel.Props!["columns"] = cols;
+                return rel;
+            })
             .ToList();
 
         return new SqlNode("VacuumStatement", start, end, null, BuildProps(

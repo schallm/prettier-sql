@@ -1289,6 +1289,13 @@ copy t (a, b) from stdin (format csv, header true, delimiter ';', null '', encod
 copy t to stdout (format csv, force_quote *);
 
 copy t from '/tmp/x' (format text, header match);
+
+-- VACUUM / ANALYZE column lists
+vacuum (analyze, verbose) t (a), u;
+
+analyze t (a, "B");
+
+vacuum (full) t;
 "
 `;
 

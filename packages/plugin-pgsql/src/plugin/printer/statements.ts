@@ -1759,7 +1759,10 @@ function printVacuum(node: SqlNode, opts: Options): Doc {
     const relations = propArr(node, 'relations');
 
     const relDoc: Doc = relations.length > 0
-        ? [' ', join(', ', relations.map(rangeVarName))]
+        ? [' ', join(', ', relations.map((r): Doc => {
+            const columns = propStrArr(r, 'columns');
+            return [rangeVarName(r), columns.length > 0 ? [' (', join(', ', columns), ')'] : ''];
+        }))]
         : '';
 
     if (!isVacuum) {

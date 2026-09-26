@@ -107,6 +107,7 @@ describe('formatting preserves meaning', () => {
         'ddl/views.sql',
         'ddl/create-index.sql',
         'ddl/sequences.sql',
+        'dml/utility-options.sql',
     ];
     const variants = [
         {},
