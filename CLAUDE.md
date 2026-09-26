@@ -87,9 +87,12 @@ Each package versions independently. When changing user-facing behavior, add a c
 
 ```bash
 pnpm changeset          # interactive — select packages and bump type
-pnpm changeset version  # bump versions and write changelogs (CI step)
-pnpm changeset publish  # publish to npm (CI step)
+pnpm release            # cut a release: CI gate, merge Version Packages PR, stage, 2FA approve
 ```
+
+`pnpm release` (`scripts/release.sh`) pushes, merges and publishes — the user runs it in
+their own terminal; don't run it from an agent (use `--dry-run` to check it). See
+`RELEASING.md` for what it automates.
 
 `@prettier-sql/core` is private — it is never published to npm.
 
@@ -102,7 +105,7 @@ can load it.
 
 ## Pending tasks
 
-- [x] **Publish to npm** — `prettier-plugin-postgresql` and `prettier-plugin-tsql` are live on npm (published manually via `pnpm release`; see `RELEASING.md`).
+- [x] **Publish to npm** — `prettier-plugin-postgresql` and `prettier-plugin-tsql` are live on npm (the first releases were published by hand, with what is now `pnpm release:manual`; see `RELEASING.md`).
 - [x] **npmjs.org package pages** — already correct, since `package.json`'s `repository`/`homepage` fields point at the monorepo and npm derives the package page links from those at publish time (verified via `npm view <pkg> repository homepage`).
 - [x] **CI publishing** — the release workflow authenticates to npm via trusted publishing (OIDC, no token) and runs `scripts/stage-publish.mjs`, which *stages* new versions; a maintainer approves them with 2FA on npmjs.com. The npm trusted publishers are stage-only. See `RELEASING.md`.
 

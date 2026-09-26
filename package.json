@@ -8,7 +8,8 @@
     "changeset": "changeset",
     "release:version": "changeset version",
     "release:publish": "pnpm -r --sequential build && changeset publish",
-    "release": "node scripts/release.mjs"
+    "release": "bash scripts/release.sh",
+    "release:manual": "node scripts/release.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",
