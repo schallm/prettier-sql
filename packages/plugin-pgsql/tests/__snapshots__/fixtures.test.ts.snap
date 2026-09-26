@@ -393,6 +393,65 @@ select 1;
 "
 `;
 
+exports[`fixtures > ddl/ddl-options.sql 1`] = `
+"-- Views, index elements, column collations, sequence options, DROP CONCURRENTLY and CTE materialization
+create or replace view v (x, "Y")
+with (security_barrier = true)
+as
+select
+  1,
+  2
+with cascaded check option;
+
+create or replace temporary view v
+as
+select 1
+with local check option;
+
+create view v
+as
+select 1
+with cascaded check option;
+
+create unique index concurrently if not exists i on only t (a desc nulls last, lower(b) text_pattern_ops, c collate "C" nulls first) include (d) nulls not distinct with (fillfactor = 80) tablespace fast where e is not null;
+
+create index i on t ((a + b), (x::text));
+
+create table t (
+  a text collate "C",
+  b text collate pg_catalog."default" not null
+);
+
+create temporary sequence s
+as bigint
+start with 10
+increment by -2
+minvalue -9223372036854775808
+maxvalue 9223372036854775807
+cache 5
+cycle
+owned by t.a;
+
+alter sequence s
+owned by none
+restart with 100;
+
+drop index concurrently if exists i;
+
+with
+  c as materialized (
+    select 1
+  ),
+  d as not materialized (
+    select 2
+  )
+select *
+from
+  c,
+  d;
+"
+`;
+
 exports[`fixtures > ddl/drop.sql 1`] = `
 "-- DROP TABLE with CASCADE (pgsql-specific)
 drop table if exists temp_data cascade;
@@ -402,7 +461,7 @@ drop index idx_books_author;
 
 drop index if exists idx_books_author;
 
-drop index if exists idx_large_table;
+drop index concurrently if exists idx_large_table;
 
 -- DROP FUNCTION
 drop function get_count(integer);
@@ -818,7 +877,7 @@ alter type mood add value if not exists 'meh' before 'ok';
 
 exports[`fixtures > ddl/views.sql 1`] = `
 "-- CREATE VIEW with column aliases
-create view order_summary
+create view order_summary (order_id, total, status)
 as
 select
   id,
@@ -827,7 +886,7 @@ select
 from orders;
 
 -- CREATE OR REPLACE VIEW
-create view active_users
+create or replace view active_users
 as
 select
   id,

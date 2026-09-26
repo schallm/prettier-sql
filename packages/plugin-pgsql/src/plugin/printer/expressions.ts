@@ -34,8 +34,18 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
             const expr = prop(node, 'expr');
             const direction  = propStr(node, 'direction');
             const name = propStr(node, 'name');
-            const base = expr ? printNode(expr) : (name ?? '');
-            return direction ? [base, ' ', keyword(direction, opts)] : base;
+            const collation = propStr(node, 'collation');
+            const opclass = propStr(node, 'opclass');
+            const nulls = propStr(node, 'nulls');
+            // An expression other than a bare function call needs its own parentheses
+            const base = expr ? (expr.type === 'FunctionCall' ? printNode(expr) : ['(', printNode(expr), ')']) : (name ?? '');
+            return [
+                base,
+                collation ? [' ', keyword('COLLATE', opts), ' ', collation] : '',
+                opclass ? [' ', opclass] : '',
+                direction ? [' ', keyword(direction, opts)] : '',
+                nulls ? [' ', keyword(nulls, opts)] : '',
+            ];
         }
         case 'ExprList': return join(', ', propArr(node, 'items').map(printNode));
         case 'ArrayExpr': return printArrayExpr(node, opts, printNode);
@@ -582,7 +592,8 @@ function printColumnDef(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const name = propStr(node, 'name') ?? '';
     const typeName = propStr(node, 'typeName') ?? '';
     const constraints = propArr(node, 'constraints');
-    const parts: Doc[] = [name, ' ', makeKeyword(typeName)];
+    const collation = propStr(node, 'collation');
+    const parts: Doc[] = [name, ' ', makeKeyword(typeName), collation ? [' ', makeKeyword('COLLATE'), ' ', collation] : ''];
     for (const c of constraints) {
         parts.push(' ', printConstraint(c, opts, printNode));
     }
@@ -732,10 +743,12 @@ function printCteInline(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (kw: string) => keyword(kw, opts);
     const name = propStr(node, 'name') ?? '';
     const columns = propStrArr(node, 'columns');
+    const materialized = propStr(node, 'materialized');
     const query = prop(node, 'query');
     return [
         name, columns.length > 0 ? ['(', join(', ', columns), ')'] : '',
-        ' ', makeKeyword('AS'), ' (', indent([hardline, query ? printNode(query) : '']), hardline, ')',
+        ' ', makeKeyword('AS'), materialized ? [' ', makeKeyword(materialized)] : '',
+        ' (', indent([hardline, query ? printNode(query) : '']), hardline, ')',
     ];
 }
 

@@ -430,7 +430,19 @@ public class AstBuilder {
 
     private SqlNode BuildCreateView(ViewStmt s, int start, int end) =>
         new("CreateViewStatement", start, end, null, BuildProps(
+            ("orReplace",   s.Replace ? true : null),
+            ("persistence", Persistence(s.View)),
             ("name", BuildRangeVar(s.View)),
+            ("columns",     MaybeList(s.Aliases
+                .Where(a => a.NodeCase == Node.NodeOneofCase.String)
+                .Select(a => Ident.Quote(a.String.Sval))
+                .ToList())),
+            ("options",     StorageOptions(s.Options)),
+            ("checkOption", s.WithCheckOption switch {
+                ViewCheckOption.LocalCheckOption    => "LOCAL",
+                ViewCheckOption.CascadedCheckOption => "CASCADED",
+                _                                   => null,
+            }),
             ("body", s.Query?.NodeCase == Node.NodeOneofCase.SelectStmt
                 ? BuildSelect(s.Query.SelectStmt, start, end)
                 : null)
@@ -527,7 +539,10 @@ public class AstBuilder {
             ("concurrent",   s.Concurrent   ? true : null),
             ("ifNotExists",  s.IfNotExists  ? true : null),
             ("accessMethod", string.IsNullOrEmpty(s.AccessMethod) || s.AccessMethod == "btree" ? null : s.AccessMethod),
-            ("where",        BuildExpr(s.WhereClause))
+            ("where",        BuildExpr(s.WhereClause)),
+            ("nullsNotDistinct", s.NullsNotDistinct ? true : null),
+            ("options",      StorageOptions(s.Options)),
+            ("tablespace",   Ident.QuoteOpt(s.TableSpace))
         ));
 
     private SqlNode BuildDrop(DropStmt s, int start, int end) {
@@ -553,6 +568,7 @@ public class AstBuilder {
             ("objectType", objectType),
             ("names",      MaybeList(names)),
             ("ifExists",   s.MissingOk ? true : null),
+            ("concurrent", s.Concurrent ? true : null),
             ("cascade",    s.Behavior == DropBehavior.DropCascade ? true : null)
         ));
     }
@@ -1165,6 +1181,11 @@ public class AstBuilder {
 
             return new SqlNode("CTE", 0, 0, null, BuildProps(
                 ("name",   Ident.Quote(cte.Ctename)),
+                ("materialized", cte.Ctematerialized switch {
+                    CTEMaterialize.Always => "MATERIALIZED",
+                    CTEMaterialize.Never  => "NOT MATERIALIZED",
+                    _                     => null,
+                }),
                 ("columns", MaybeList(cte.Aliascolnames
                     .Where(c => c.NodeCase == Node.NodeOneofCase.String)
                     .Select(c => Ident.Quote(c.String.Sval))
@@ -1243,6 +1264,7 @@ public class AstBuilder {
         new("ColumnDef", 0, 0, null, BuildProps(
             ("name",        Ident.QuoteOpt(columnDef.Colname)),
             ("typeName",    columnDef.TypeName != null ? BuildPgTypeName(columnDef.TypeName) : null),
+            ("collation",   columnDef.CollClause != null ? Ident.Qualified(columnDef.CollClause.Collname.Select(c => c.String.Sval)) : null),
             ("constraints", columnDef.Constraints.Count > 0
                 ? (object?)columnDef.Constraints
                     .Where(n => n.NodeCase == Node.NodeOneofCase.Constraint)
@@ -1380,7 +1402,15 @@ public class AstBuilder {
         return new SqlNode("IndexElem", 0, 0, null, BuildProps(
             ("name", Ident.QuoteOpt(ie.Name)),
             ("expr", expr),
-            ("direction", dir)
+            ("collation", ie.Collation.Count > 0 ? Ident.Qualified(ie.Collation.Select(c => c.String.Sval)) : null),
+            // Operator class: text_pattern_ops makes the index usable for LIKE 'x%'
+            ("opclass",   ie.Opclass.Count > 0 ? Ident.Qualified(ie.Opclass.Select(c => c.String.Sval)) : null),
+            ("direction", dir),
+            ("nulls", ie.NullsOrdering switch {
+                SortByNulls.First => "NULLS FIRST",
+                SortByNulls.Last  => "NULLS LAST",
+                _ => null,
+            })
         ));
     }
 
@@ -1831,23 +1861,29 @@ public class AstBuilder {
             ("ifNotExists", ae.SkipIfNewValExists ? true : null)
         ));
 
-    private static List<string> ParseSeqOptions(Google.Protobuf.Collections.RepeatedField<Node> options) {
+    private List<string> ParseSeqOptions(Google.Protobuf.Collections.RepeatedField<Node> options) {
         var result = new List<string>();
         foreach (var o in options) {
             if (o.NodeCase != Node.NodeOneofCase.DefElem) continue;
             var defElem = o.DefElem;
-            int? intVal = defElem.Arg?.NodeCase == Node.NodeOneofCase.Integer ? defElem.Arg.Integer.Ival
-                : defElem.Arg?.NodeCase == Node.NodeOneofCase.AConst && defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival
-                    ? defElem.Arg.AConst.Ival.Ival : (int?)null;
-            switch (defElem.Defname) {
-                case "start":     result.Add($"START WITH {intVal ?? 1}"); break;
-                case "restart":   result.Add(intVal.HasValue ? $"RESTART WITH {intVal}" : "RESTART"); break;
-                case "increment": result.Add($"INCREMENT BY {intVal ?? 1}"); break;
-                case "minvalue":  result.Add(intVal.HasValue ? $"MINVALUE {intVal}" : "NO MINVALUE"); break;
-                case "maxvalue":  result.Add(intVal.HasValue ? $"MAXVALUE {intVal}" : "NO MAXVALUE"); break;
-                case "cache":     result.Add($"CACHE {intVal ?? 1}"); break;
-                case "cycle":     result.Add(GetBoolFromArg(defElem.Arg) ? "CYCLE" : "NO CYCLE"); break;
-            }
+            // The value as written: 64-bit bounds arrive as Float nodes, not Integer
+            var value = BuildDefElemValue(defElem)?.ToString();
+            result.Add(defElem.Defname switch {
+                "start"     => $"START WITH {value ?? "1"}",
+                "restart"   => value != null ? $"RESTART WITH {value}" : "RESTART",
+                "increment" => $"INCREMENT BY {value ?? "1"}",
+                "minvalue"  => value != null ? $"MINVALUE {value}" : "NO MINVALUE",
+                "maxvalue"  => value != null ? $"MAXVALUE {value}" : "NO MAXVALUE",
+                "cache"     => $"CACHE {value ?? "1"}",
+                "cycle"     => GetBoolFromArg(defElem.Arg) ? "CYCLE" : "NO CYCLE",
+                "as" when defElem.Arg?.NodeCase == Node.NodeOneofCase.TypeName
+                            => $"AS {BuildPgTypeName(defElem.Arg.TypeName)}",
+                "owned_by" when defElem.Arg?.NodeCase == Node.NodeOneofCase.List
+                            => defElem.Arg.List.Items.Count == 1 && defElem.Arg.List.Items[0].String?.Sval == "none"
+                                ? "OWNED BY NONE"
+                                : $"OWNED BY {Ident.Qualified(defElem.Arg.List.Items.Select(i => i.String.Sval))}",
+                _ => throw NotSupported($"sequence option ({defElem.Defname})", defElem.Location),
+            });
         }
         return result;
     }
@@ -1855,6 +1891,7 @@ public class AstBuilder {
     private SqlNode BuildCreateSeq(CreateSeqStmt seq, int start, int end) {
         var options = ParseSeqOptions(seq.Options);
         return new SqlNode("CreateSequenceStatement", start, end, null, BuildProps(
+            ("persistence", Persistence(seq.Sequence)),
             ("name",        Ident.QuoteOpt(seq.Sequence?.Relname)),
             ("schema",      Ident.QuoteOpt(seq.Sequence?.Schemaname)),
             ("ifNotExists", seq.IfNotExists ? true : null),

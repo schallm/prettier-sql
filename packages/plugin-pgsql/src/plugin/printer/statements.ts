@@ -293,10 +293,12 @@ function printCtes(ctes: SqlNode, opts: Options, printNode: PrintFn): Doc[] {
     const cteDocs = cteList.map((cte) => {
         const name  = propStr(cte, 'name') ?? '';
         const columns = propStrArr(cte, 'columns');
+        const materialized = propStr(cte, 'materialized');
         const query = prop(cte, 'query');
         const search = prop(cte, 'search');
         const cycle  = prop(cte, 'cycle');
-        const parts: Doc[] = [name, columns.length > 0 ? ['(', join(', ', columns), ')'] : '', ' ', makeKeyword('AS'), ' (', indent([hardline, query ? printNode(query) : '']), hardline, ')'];
+        const parts: Doc[] = [name, columns.length > 0 ? ['(', join(', ', columns), ')'] : '', ' ', makeKeyword('AS'),
+            materialized ? [' ', makeKeyword(materialized)] : '', ' (', indent([hardline, query ? printNode(query) : '']), hardline, ')'];
         if (search) {
             const breadthFirst = propBool(search, 'breadthFirst');
             const cols = propStrArr(search, 'columns');
@@ -726,11 +728,19 @@ function printCreateView(node: SqlNode, opts: Options): Doc {
     const makeKeyword    = (k: string) => keyword(k, opts);
     const name  = prop(node, 'name');
     const body  = prop(node, 'body');
+    const columns = propStrArr(node, 'columns');
+    const options = propStrArr(node, 'options');
+    const checkOption = propStr(node, 'checkOption');
+    const persistence = propStr(node, 'persistence');
+    const createKw = ['CREATE', propBool(node, 'orReplace') ? ' OR REPLACE' : '', persistence ? ` ${persistence}` : '', ' VIEW'].join('');
 
     return [
-        makeKeyword('CREATE VIEW'), ' ', rangeVarName(name), hardline,
-        makeKeyword('AS'), hardline,
+        makeKeyword(createKw), ' ', rangeVarName(name),
+        columns.length > 0 ? [' (', join(', ', columns), ')'] : '',
+        options.length > 0 ? [hardline, makeKeyword('WITH'), ' (', join(', ', options), ')'] : '',
+        hardline, makeKeyword('AS'), hardline,
         body ? printQueryExpr(body, opts) : '',
+        checkOption ? [hardline, makeKeyword(`WITH ${checkOption} CHECK OPTION`)] : '',
         ';',
     ];
 }
@@ -793,10 +803,15 @@ function printCreateIndex(node: SqlNode, opts: Options): Doc {
     const parts: Doc[] = [keyword1];
     if (concurrent)  parts.push(' ', makeKeyword('CONCURRENTLY'));
     if (ifNotExists) parts.push(' ', makeKeyword('IF NOT EXISTS'));
-    parts.push(' ', indexName, ' ', makeKeyword('ON'), ' ', rangeVarName(relation));
+    const options    = propStrArr(node, 'options');
+    const tablespace = propStr(node, 'tablespace');
+    parts.push(' ', indexName, ' ', makeKeyword('ON'), ' ', onlyPrefix(relation, opts), rangeVarName(relation));
     if (accessMethod) parts.push(' ', makeKeyword('USING'), ' ', accessMethod);
     parts.push(' (', join(', ', columns.map(printNode)), ')');
     if (including.length > 0) parts.push(' ', makeKeyword('INCLUDE'), ' (', join(', ', including.map(printNode)), ')');
+    if (propBool(node, 'nullsNotDistinct')) parts.push(' ', makeKeyword('NULLS NOT DISTINCT'));
+    if (options.length > 0) parts.push(' ', makeKeyword('WITH'), ' (', join(', ', options), ')');
+    if (tablespace) parts.push(' ', makeKeyword('TABLESPACE'), ' ', tablespace);
     if (where) parts.push(' ', makeKeyword('WHERE'), ' ', printNode(where));
     parts.push(';');
     return parts;
@@ -825,6 +840,7 @@ function printDrop(node: SqlNode, opts: Options): Doc {
 
     return [
         makeKeyword('DROP'), ' ', makeKeyword(objectType),
+        propBool(node, 'concurrent') ? [' ', makeKeyword('CONCURRENTLY')] : '',
         ifExists ? [' ', makeKeyword('IF EXISTS')] : '',
         names.length > 0 ? [' ', join(', ', names)] : '',
         cascade  ? [' ', makeKeyword('CASCADE')]   : '',
@@ -1021,7 +1037,8 @@ function printCreateSequence(node: SqlNode, opts: Options): Doc {
 
     const qname = qualifiedName(schema, name);
     const ifNotExistsDoc: Doc = ifNotExists ? [makeKeyword('IF NOT EXISTS'), ' '] : '';
-    const parts: Doc[] = [[makeKeyword('CREATE SEQUENCE'), ' ', ifNotExistsDoc, qname]];
+    const persistence = propStr(node, 'persistence');
+    const parts: Doc[] = [[makeKeyword(persistence ? `CREATE ${persistence} SEQUENCE` : 'CREATE SEQUENCE'), ' ', ifNotExistsDoc, qname]];
     for (const opt of options) parts.push(makeKeyword(opt));
     return [join(hardline, parts), ';'];
 }

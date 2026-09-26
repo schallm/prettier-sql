@@ -103,6 +103,10 @@ describe('formatting preserves meaning', () => {
         'ddl/triggers.sql',
         'ddl/trigger-options.sql',
         'select/query-clauses.sql',
+        'ddl/ddl-options.sql',
+        'ddl/views.sql',
+        'ddl/create-index.sql',
+        'ddl/sequences.sql',
     ];
     const variants = [
         {},
