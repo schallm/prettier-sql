@@ -1517,47 +1517,50 @@ public class AstBuilder : TSqlFragmentVisitor {
 
     private static SqlNode BuildExecute(ExecuteStatement es) {
         var spec = es.ExecuteSpecification;
+        var entity = spec?.ExecutableEntity;
+        var execProc = entity as ExecutableProcedureReference;
 
-        var linkedServer = spec?.LinkedServer?.Value;
-
-        // EXECUTE (@sql) or EXECUTE (@sql1 + @sql2) — dynamic SQL string list
-        if (spec?.ExecutableEntity is ExecutableStringList esl) {
-            var sqlStrings = esl.Strings.Select(s => (object?)BuildScalarExpression(s)).ToList();
-            return Node("ExecuteStatement", es, new Dictionary<string, object?> {
-                ["sqlStrings"] = sqlStrings,
-                ["linkedServer"] = linkedServer,
-            });
-        }
-
-        var execProc = spec?.ExecutableEntity as ExecutableProcedureReference;
-        // Named proc: EXECUTE schema.proc | Variable proc: EXECUTE @var
-        var procNode = execProc?.ProcedureReference?.ProcedureReference?.Name != null
-            ? BuildSchemaObjectName(execProc.ProcedureReference.ProcedureReference.Name)
-            : null;
-        var procVar = execProc?.ProcedureReference?.ProcedureVariable?.Name;
-
-        var procParams = execProc?.Parameters;
-        var parameters = procParams?.Select(p => (object?)Node("ExecuteParameter", p, new Dictionary<string, object?> {
+        var parameters = entity?.Parameters?.Select(p => (object?)Node("ExecuteParameter", p, new Dictionary<string, object?> {
             ["name"] = p.Variable?.Name,
             ["value"] = BuildScalarExpression(p.ParameterValue),
             ["output"] = p.IsOutput,
         })).ToList();
 
-        // WITH RESULT SETS — property not available in this ScriptDOM version; detect via raw text.
-        var rawEs = RawText(es).Trim();
-        var wrsIdx = rawEs.IndexOf("WITH RESULT SETS", StringComparison.OrdinalIgnoreCase);
-        var withResultSets = wrsIdx >= 0
-            ? rawEs.Substring(wrsIdx).TrimEnd(';').Trim()
-            : null;
+        // WITH RECOMPILE, RESULT SETS (...) | NONE | UNDEFINED
+        var options = es.Options?.Select(o => (object?)(o switch {
+            ResultSetsExecuteOption rs => rs.ResultSetsOptionKind switch {
+                ResultSetsOptionKind.None => "RESULT SETS NONE",
+                ResultSetsOptionKind.Undefined => "RESULT SETS UNDEFINED",
+                _ => null,
+            } is { } word
+                ? Leaf("ExecuteOption", rs, word)
+                : Node("ResultSetsOption", rs, new Dictionary<string, object?> {
+                    // A definition's own span is off by a token, so build each from its parts
+                    ["definitions"] = rs.Definitions.Select(d => (object?)(d switch {
+                        InlineResultSetDefinition inline =>
+                            "(" + string.Join(", ", inline.ResultColumnDefinitions.Select(c => RawText(c).Trim())) + ")",
+                        SchemaObjectResultSetDefinition so =>
+                            $"AS {(so.ResultSetType == ResultSetType.Type ? "TYPE" : "OBJECT")} {RawText(so.Name).Trim()}",
+                        _ => "AS FOR XML",
+                    })).ToList(),
+                }),
+            _ => Leaf("ExecuteOption", o, o.OptionKind.ToString().ToUpperInvariant()),
+        })).ToList();
 
         return Node("ExecuteStatement", es, new Dictionary<string, object?> {
-            ["proc"] = procNode,
-            ["procVar"] = procVar,
+            // EXECUTE (@sql) or EXECUTE (@sql1 + @sql2) — dynamic SQL
+            ["sqlStrings"] = entity is ExecutableStringList esl ? esl.Strings.Select(x => (object?)BuildScalarExpression(x)).ToList() : null,
+            // Named proc: EXECUTE schema.proc[;number] | variable proc: EXECUTE @var
+            ["proc"] = BuildSchemaObjectName(execProc?.ProcedureReference?.ProcedureReference?.Name),
+            ["procNumber"] = RawTextOrNull(execProc?.ProcedureReference?.ProcedureReference?.Number),
+            ["procVar"] = execProc?.ProcedureReference?.ProcedureVariable?.Name,
             ["returnVar"] = spec?.Variable?.Name,
-            ["linkedServer"] = linkedServer,
             ["parameters"] = parameters,
-            ["withResultSets"] = withResultSets,
-            ["withRecompile"] = es.Options?.Any(o => o.OptionKind == ExecuteOptionKind.Recompile) == true ? true : null,
+            // EXECUTE ('...') AS USER | LOGIN = 'name'
+            ["contextKind"] = spec?.ExecuteContext != null ? spec.ExecuteContext.Kind.ToString().ToUpperInvariant() : null,
+            ["contextPrincipal"] = RawTextOrNull(spec?.ExecuteContext?.Principal),
+            ["linkedServer"] = QuotedName(spec?.LinkedServer),
+            ["options"] = options,
         });
     }
 

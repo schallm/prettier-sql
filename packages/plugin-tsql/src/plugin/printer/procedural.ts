@@ -2,7 +2,7 @@ import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
 import { keyword, hardline, softline, join, indent, group, onOffKw, line, getDensity, parenList, parenListFill, commaFill } from '@prettier-sql/core/printer/utils';
-import { prop, propArr, propStr, propBool, schemaObjectName, assignmentOp, withTrailingComment } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, assignmentOp, withTrailingComment } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
 import { printStatementWithComments, joinBodyStatements, printNode, printBool, qexpr } from './statements.js';
@@ -381,54 +381,57 @@ export function printWhile(node: SqlNode, opts: Options): Doc {
 
 export function printExecute(node: SqlNode, opts: Options): Doc {
     const sqlStrings = propArr(node, 'sqlStrings');
-
-    const linkedServer = propStr(node, 'linkedServer');
-    const atClause: Doc = linkedServer ? [' ', keyword('AT', opts), ' ', linkedServer] : '';
-
-    // EXECUTE (@sql) or EXECUTE (@sql1 + @sql2)
-    if (sqlStrings.length > 0) {
-        const strDocs = sqlStrings.map((s) => printNode(s, opts));
-        const innerDoc = strDocs.length === 1 ? strDocs[0]! : join([' + '], strDocs);
-        return [keyword('EXECUTE', opts), ' (', innerDoc, ')', atClause, ';'];
-    }
-
-    const procNode = prop(node, 'proc');
-    const procVar = propStr(node, 'procVar');
-    const returnVar = propStr(node, 'returnVar');
     const parameters = propArr(node, 'parameters');
-
-    const target: Doc = procNode ? schemaObjectName(procNode) : (procVar ?? '');
-    const returnVarPrefix: Doc = returnVar ? [returnVar, ' = '] : '';
-
     const paramDocs = parameters.map((p) => {
         const pname = propStr(p, 'name');
         const val = prop(p, 'value');
-        const isOutput = propBool(p, 'output');
         const valDoc = val ? printNode(val, opts) : '';
-        const parts: Doc[] = pname ? [pname, ' = ', valDoc] : [valDoc];
-        if (isOutput) parts.push(' ', keyword('OUTPUT', opts));
-        return parts as Doc;
+        return [pname ? [pname, ' = ', valDoc] : valDoc, propBool(p, 'output') ? [' ', keyword('OUTPUT', opts)] : ''] as Doc;
     });
 
-    const withResultSets = propStr(node, 'withResultSets');
-    // withResultSets raw text is e.g. "WITH RESULT SETS ((Id int, Name nvarchar(100)))"
-    // Re-emit the keyword cased, then the raw parenthesized definition verbatim.
-    const withRecompile = propBool(node, 'withRecompile');
-    const withResultSetsPart: Doc = withResultSets
-        ? [' ', keyword(withRecompile ? 'WITH RECOMPILE, RESULT SETS' : 'WITH RESULT SETS', opts),
-           withResultSets.replace(/^with\s+result\s+sets\s*/i, ' ')]
-        : withRecompile ? [' ', keyword('WITH RECOMPILE', opts)] : '';
+    const linkedServer = propStr(node, 'linkedServer');
+    const contextKind = propStr(node, 'contextKind');
+    const tail: Doc = [
+        // AS USER | LOGIN = 'name' (dynamic SQL only)
+        contextKind ? [' ', keyword(`AS ${contextKind}`, opts), ' = ', propStr(node, 'contextPrincipal') ?? ''] : '',
+        linkedServer ? [' ', keyword('AT', opts), ' ', linkedServer] : '',
+        printExecuteOptions(node, opts),
+        ';',
+    ];
+
+    // EXECUTE (@sql) or EXECUTE (@sql1 + @sql2) — with pass-through parameters for AT
+    if (sqlStrings.length > 0) {
+        const strDocs = sqlStrings.map((s) => printNode(s, opts));
+        const innerDoc = strDocs.length === 1 ? strDocs[0]! : join([' + '], strDocs);
+        return [keyword('EXECUTE', opts), ' (', innerDoc, paramDocs.length > 0 ? [', ', join(', ', paramDocs)] : '', ')', tail];
+    }
+
+    const procNode = prop(node, 'proc');
+    const procNumber = propStr(node, 'procNumber');
+    const returnVar = propStr(node, 'returnVar');
+    // A numbered procedure: EXECUTE dbo.p;2
+    const target: Doc = procNode ? [schemaObjectName(procNode), procNumber ? [';', procNumber] : ''] : (propStr(node, 'procVar') ?? '');
 
     return group([
         keyword('EXECUTE', opts),
         ' ',
-        returnVarPrefix,
+        returnVar ? [returnVar, ' = '] : '',
         target,
         parameters.length > 0 ? indent([hardline, join([',', hardline], paramDocs)]) : '',
-        atClause,
-        withResultSetsPart,
-        ';',
+        tail,
     ]);
+}
+
+/** WITH RECOMPILE, RESULT SETS ((a int, ...)) | NONE | UNDEFINED */
+function printExecuteOptions(node: SqlNode, opts: Options): Doc {
+    const options = propArr(node, 'options');
+    if (options.length === 0) return '';
+    const docs = options.map((o): Doc =>
+        o.type === 'ResultSetsOption'
+            ? [keyword('RESULT SETS', opts), ' (', join(', ', propStrArr(o, 'definitions')), ')']
+            : keyword(o.text ?? '', opts),
+    );
+    return [' ', keyword('WITH', opts), ' ', join(', ', docs)];
 }
 
 // ---------------------------------------------------------------------------

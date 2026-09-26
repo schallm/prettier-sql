@@ -936,6 +936,43 @@ go
 "
 `;
 
+exports[`fixtures > execute/execute-forms.sql 1`] = `
+"-- EXECUTE: context, linked server with pass-through parameters, numbered procedures, WITH options
+execute ('select 1') as user = 'u';
+
+execute ('select 1') as login = 'l';
+
+execute ('select ?, ?', 1, @x) at [my server];
+
+execute [my server].db.dbo.p;
+
+execute dbo.p;2
+  1;
+
+execute dbo.p
+  @a = 1 with recompile;
+
+execute dbo.p with result sets ((a int, b varchar(10)));
+
+execute dbo.p with result sets none;
+
+execute @rc = @procname
+  @x = 1;
+
+execute sp_executesql
+  @stmt = N'select @a',
+  @params = N'@a int',
+  @a = 1;
+
+execute dbo.p
+  'WITH RESULT SETS';
+
+execute dbo.p with result sets ((a int NOT NULL, b varchar(10)), AS OBJECT dbo.t, AS TYPE dbo.tt, AS FOR XML);
+
+execute dbo.p with recompile, result sets undefined;
+"
+`;
+
 exports[`fixtures > execute/proc-call.sql 1`] = `
 "execute dbo.GetAvailableBooks;
 
