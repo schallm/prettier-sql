@@ -1388,21 +1388,31 @@ public class AstBuilder : TSqlFragmentVisitor {
     }
 
     private static SqlNode BuildBeginTransaction(BeginTransactionStatement bt) {
-        // MarkDescription is a StringLiteral; its Value does not include the surrounding quotes.
-        string? markText = bt.MarkDefined && bt.MarkDescription is StringLiteral sl ? sl.Value : null;
         return Node("BeginTransactionStatement", bt, new Dictionary<string, object?> {
-            ["name"] = QuotedName(bt.Name?.Identifier),
+            // A transaction or savepoint name may be a variable: BEGIN TRAN @t
+            ["name"] = QuotedName(bt.Name),
             ["distributed"] = bt.Distributed ? (object?)true : null,
             ["markDefined"] = bt.MarkDefined ? (object?)true : null,
-            ["markDescription"] = markText,
+            // WITH MARK 'description' | @variable, as written
+            ["markDescription"] = bt.MarkDefined ? RawTextOrNull(bt.MarkDescription) : null,
         });
     }
 
     private static SqlNode BuildCommitTransaction(CommitTransactionStatement ct) =>
-        Node("CommitTransactionStatement", ct, new Dictionary<string, object?> { ["name"] = QuotedName(ct.Name?.Identifier) });
+        Node("CommitTransactionStatement", ct, new Dictionary<string, object?> {
+            ["name"] = QuotedName(ct.Name),
+            // COMMIT ... WITH (DELAYED_DURABILITY = ON | OFF)
+            ["delayedDurability"] = ct.DelayedDurabilityOption switch {
+                OptionState.On => "ON",
+                OptionState.Off => "OFF",
+                _ => null,
+            },
+        });
 
     private static SqlNode BuildRollbackTransaction(RollbackTransactionStatement rt) =>
-        Node("RollbackTransactionStatement", rt, new Dictionary<string, object?> { ["name"] = QuotedName(rt.Name?.Identifier) });
+        // ROLLBACK TRAN @savepoint rolls back to the savepoint; losing the name would roll
+        // back the whole transaction
+        Node("RollbackTransactionStatement", rt, new Dictionary<string, object?> { ["name"] = QuotedName(rt.Name) });
 
     private static SqlNode BuildDeclareVariable(DeclareVariableStatement dv) {
         var decls = dv.Declarations?.Select(d => (object?)BuildDeclareElement(d)).ToList();

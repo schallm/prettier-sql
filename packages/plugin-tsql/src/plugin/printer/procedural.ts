@@ -14,7 +14,13 @@ import { printColumnDef, printConstraintDef, printInlineIndex } from './ddl.js';
 
 function printTransaction(kw: string, node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name');
-    return [keyword(kw, opts), ...(name ? [' ', name] : []), ';'];
+    const durability = propStr(node, 'delayedDurability');
+    return [
+        keyword(kw, opts),
+        ...(name ? [' ', name] : []),
+        durability ? [' ', keyword('WITH', opts), ' (', keyword('DELAYED_DURABILITY', opts), ' = ', keyword(durability, opts), ')'] : '',
+        ';',
+    ];
 }
 
 export function printBeginTransaction(node: SqlNode, opts: Options): Doc {
@@ -24,7 +30,7 @@ export function printBeginTransaction(node: SqlNode, opts: Options): Doc {
     const markDesc = propStr(node, 'markDescription');
     const txnKw = distributed ? keyword('BEGIN DISTRIBUTED TRANSACTION', opts) : keyword('BEGIN TRANSACTION', opts);
     const markPart: Doc = markDefined
-        ? [' ', keyword('WITH MARK', opts), ...(markDesc ? [` '${markDesc}'`] : [])]
+        ? [' ', keyword('WITH MARK', opts), ...(markDesc ? [' ', markDesc] : [])]
         : '';
     return [txnKw, ...(name ? [' ', name] : []), markPart, ';'];
 }

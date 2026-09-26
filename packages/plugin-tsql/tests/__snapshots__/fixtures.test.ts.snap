@@ -1406,6 +1406,23 @@ end
 "
 `;
 
+exports[`fixtures > procedural/transaction-names.sql 1`] = `
+"-- Transaction and savepoint names (including variables), WITH MARK and DELAYED_DURABILITY
+begin transaction @t;
+save transaction @s;
+rollback transaction @s;
+commit transaction @t;
+commit transaction with (delayed_durability = on);
+commit transaction t1 with (delayed_durability = off);
+begin distributed transaction @t;
+begin transaction t with mark 'desc';
+commit transaction;
+rollback transaction;
+begin transaction t with mark 'it''s';
+begin transaction @t with mark @d;
+"
+`;
+
 exports[`fixtures > procedural/transactions.sql 1`] = `
 "begin transaction;
 begin transaction SaveOrder;
