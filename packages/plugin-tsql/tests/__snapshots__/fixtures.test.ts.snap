@@ -1796,6 +1796,40 @@ where Id = 42;
 "
 `;
 
+exports[`fixtures > select/collate-expressions.sql 1`] = `
+"-- COLLATE after any primary expression, not just a column
+select collationproperty('x', 'y') collate Latin1_General_BIN
+from t;
+
+select
+  a collate DATABASE_DEFAULT,
+  'x' collate Latin1_General_BIN,
+  @v collate Latin1_General_BIN,
+  (a + b) collate Latin1_General_BIN,
+  upper(a) collate Latin1_General_BIN,
+  cast(a as varchar(10)) collate Latin1_General_BIN
+from t;
+
+select a
+from t
+where a collate Latin1_General_CS_AS = 'X'
+order by a collate Latin1_General_BIN asc;
+
+select
+  case
+    when a = 1 then 'x'
+  end collate Latin1_General_BIN,
+  (
+    select max(a)
+    from t
+  ) collate Latin1_General_BIN,
+  iif(a = 1, 'x', 'y') collate Latin1_General_BIN,
+  coalesce(a, b) collate Latin1_General_BIN,
+  t.c.value('.', 'varchar(10)') collate Latin1_General_BIN
+from t;
+"
+`;
+
 exports[`fixtures > select/comments.sql 1`] = `
 "select Id
 from Books
