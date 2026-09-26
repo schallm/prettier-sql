@@ -1589,6 +1589,15 @@ order by Books.Title asc;
 "
 `;
 
+exports[`fixtures > select/bracket-escape.sql 1`] = `
+"-- A ] inside a bracketed name is escaped by doubling it
+select
+  [a]]b],
+  [x]]]] as [y]]z]
+from [t]]1];
+"
+`;
+
 exports[`fixtures > select/bracketed-identifiers.sql 1`] = `
 "-- Bracketed reserved words keep their brackets in every position
 select
