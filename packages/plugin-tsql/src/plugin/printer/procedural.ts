@@ -6,7 +6,7 @@ import { prop, propArr, propStr, propBool, schemaObjectName, assignmentOp } from
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
 import { printStatementWithComments, joinBodyStatements, printNode, printBool, qexpr } from './statements.js';
-import { printColumnDef, printConstraintDef } from './ddl.js';
+import { printColumnDef, printConstraintDef, printInlineIndex } from './ddl.js';
 
 // ---------------------------------------------------------------------------
 // Transactions
@@ -96,6 +96,7 @@ export function printDeclareTableVariable(node: SqlNode, opts: Options): Doc {
     const allDefs = [
         ...propArr(node, 'columns').map((c) => printColumnDef(c, opts)),
         ...propArr(node, 'constraints').map((c) => printConstraintDef(c, opts)),
+        ...propArr(node, 'indexes').map((i) => printInlineIndex(i, opts)),
     ];
     // compact: try to keep everything on one line; fill-pack when it wraps
     // standard/spacious: always one definition per line with hard breaks

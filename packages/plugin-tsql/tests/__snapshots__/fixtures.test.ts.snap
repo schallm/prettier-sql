@@ -398,6 +398,30 @@ create table dbo.LineItems (
 "
 `;
 
+exports[`fixtures > create-table/inline-indexes.sql 1`] = `
+"-- Indexes declared inside a table body: column-level, table-level, in table variables and table types
+create table t (
+  a int primary key,
+  b int default 0 index ix,
+  c int index ix2 nonclustered,
+  index ix3 (c asc) where c > 0
+);
+
+declare @t table (
+  a int primary key,
+  b int default 0 index ix,
+  index ix3 nonclustered (b asc, a desc)
+);
+
+create type dbo.TT as table (
+  a int primary key nonclustered,
+  b int index ib,
+  index ix (a asc)
+)
+with (memory_optimized = on);
+"
+`;
+
 exports[`fixtures > create-table/temporal.sql 1`] = `
 "-- Temporal (system-versioned) table features
 -- GENERATED ALWAYS AS ROW START/END + PERIOD FOR SYSTEM_TIME + SYSTEM_VERSIONING

@@ -66,7 +66,7 @@ function withOptionsClause(options: string[] | null | undefined, opts: Options):
 // ---------------------------------------------------------------------------
 
 /** Inline INDEX definition within CREATE TABLE body. */
-function printInlineIndex(node: SqlNode, opts: Options): Doc {
+export function printInlineIndex(node: SqlNode, opts: Options): Doc {
     const indexName = propStr(node, 'indexName') ?? '';
     const isUnique = node.props?.['unique'];
     const kind = propStr(node, 'kind'); // 'clustered', 'nonclustered', etc.
@@ -75,8 +75,8 @@ function printInlineIndex(node: SqlNode, opts: Options): Doc {
     const filterPredicateNode = prop(node, 'filterPredicate');
     const indexOptions = propStrArr(node, 'indexOptions');
 
-    const uniqueKw: Doc = isUnique ? [keyword('UNIQUE', opts), ' '] : '';
-    const kindKw: Doc = kind ? [keyword(kind.toUpperCase(), opts), ' '] : '';
+    const uniqueKw: Doc = isUnique ? [' ', keyword('UNIQUE', opts)] : '';
+    const kindKw: Doc = kind ? [' ', keyword(kind.toUpperCase(), opts)] : '';
 
     const colDocs = columns.map((c) => {
         const colName = propStr(c, 'name') ?? '';
@@ -94,10 +94,10 @@ function printInlineIndex(node: SqlNode, opts: Options): Doc {
         keyword('INDEX', opts),
         ' ',
         indexName,
-        ' ',
         uniqueKw,
         kindKw,
-        parenList(colDocs as Doc[]),
+        // A column-level index has no column list: it indexes its column
+        colDocs.length > 0 ? [' ', parenList(colDocs as Doc[])] : '',
         includePart,
         filterPart,
         withPart,
@@ -346,6 +346,9 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         }
     }
 
+    // Column-level INDEX ix [CLUSTERED | NONCLUSTERED]
+    const columnIndex = prop(node, 'index');
+    if (columnIndex) parts.push(' ', printInlineIndex(columnIndex, opts));
     return parts;
 }
 
@@ -1261,7 +1264,9 @@ export function printCreateTypeTable(node: SqlNode, opts: Options): Doc {
     const allDefs = [
         ...propArr(node, 'columns').map((c) => printColumnDef(c, opts)),
         ...propArr(node, 'constraints').map((c) => printConstraintDef(c, opts)),
+        ...propArr(node, 'indexes').map((i) => printInlineIndex(i, opts)),
     ];
+    const options = propStrArr(node, 'options');
     return group([
         keyword('CREATE TYPE', opts),
         ' ',
@@ -1271,7 +1276,9 @@ export function printCreateTypeTable(node: SqlNode, opts: Options): Doc {
         ' (',
         indent([hardline, join([',', hardline], allDefs)]),
         hardline,
-        ');',
+        ')',
+        options.length > 0 ? [hardline, keyword('WITH', opts), ' ', parenList(options)] : '',
+        ';',
     ]);
 }
 

@@ -1416,6 +1416,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["name"] = body?.VariableName?.Value,
             ["columns"] = columns,
             ["constraints"] = constraints,
+            ["indexes"] = MapList(body?.Definition?.Indexes, i => (object?)BuildInlineIndex(i)),
         });
     }
 
@@ -1752,6 +1753,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             QuotedName(col.ColumnIdentifier),
             new Dictionary<string, object?> {
                 ["name"] = QuotedName(col.ColumnIdentifier),
+                // Column-level INDEX ix [CLUSTERED | NONCLUSTERED]
+                ["index"] = col.Index != null ? BuildInlineIndex(col.Index) : null,
                 ["dataType"] = dataTypeName,
                 ["xmlSchemaCollection"] = xmlSchemaCollection,
                 ["xmlTypeOption"] = xmlTypeOption,
@@ -2802,6 +2805,9 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["name"] = BuildSchemaObjectName(cttbl.Name),
             ["columns"] = columns,
             ["constraints"] = constraints,
+            ["indexes"] = MapList(cttbl.Definition?.Indexes, i => (object?)BuildInlineIndex(i)),
+            // WITH (MEMORY_OPTIMIZED = ON)
+            ["options"] = MapList(cttbl.Options, o => (object?)SerializeTableOption(o)),
         });
     }
 
