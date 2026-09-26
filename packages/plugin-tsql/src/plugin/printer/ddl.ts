@@ -101,6 +101,7 @@ export function printInlineIndex(node: SqlNode, opts: Options): Doc {
         includePart,
         filterPart,
         withPart,
+        storageClause(node.props, opts),
     ];
 }
 
@@ -302,7 +303,12 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
                 : uniqueConstraint.clustered === false
                   ? [' ', keyword('NONCLUSTERED', opts)]
                   : '';
-        parts.push(' ', constraintNamePrefix, uqKw, clusteredKw);
+        const uqOptions = (uniqueConstraint as { indexOptions?: string[] }).indexOptions ?? [];
+        parts.push(
+            ' ', constraintNamePrefix, uqKw, clusteredKw,
+            uqOptions.length > 0 ? [' ', keyword('WITH', opts), ' (', join(', ', uqOptions), ')'] : '',
+            storageClause(uniqueConstraint as Record<string, unknown>, opts),
+        );
     }
 
     // Inline REFERENCES (column-level foreign key: col type [CONSTRAINT name] REFERENCES Table(col))
@@ -352,6 +358,16 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
     return parts;
 }
 
+/** ON filegroup | scheme(column) [FILESTREAM_ON ...]: where an index or constraint is stored. */
+function storageClause(props: Record<string, unknown> | undefined, opts: Options): Doc {
+    const on = props?.['onFileGroup'] as string | undefined;
+    const fileStream = props?.['fileStreamOn'] as string | undefined;
+    return [
+        on ? [' ', keyword('ON', opts), ' ', on] : '',
+        fileStream ? [' ', keyword('FILESTREAM_ON', opts), ' ', fileStream] : '',
+    ];
+}
+
 export function printConstraintDef(node: SqlNode, opts: Options): Doc {
     const constraintName = propStr(node, 'constraintName');
     const namePrefix: Doc = constraintName ? [keyword('CONSTRAINT', opts), ' ', constraintName, ' '] : '';
@@ -380,7 +396,7 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
             const withPart: Doc = indexOptions.length
                 ? [' ', keyword('WITH', opts), ' (', join(', ', indexOptions), ')']
                 : '';
-            return group([namePrefix, indent([softline, kw, ' ', clusteredKw, colsDoc]), withPart]);
+            return group([namePrefix, indent([softline, kw, ' ', clusteredKw, colsDoc]), withPart, storageClause(node.props, opts)]);
         }
         case 'CheckConstraint': {
             const expr = prop(node, 'expression');
@@ -724,7 +740,11 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
             : '';
 
     const onFileGroup = propStr(node, 'onFileGroup');
-    const fileGroupPart: Doc = onFileGroup ? [hardline, keyword('ON', opts), ' ', onFileGroup] : '';
+    const fileStreamOn = propStr(node, 'fileStreamOn');
+    const fileGroupPart: Doc = [
+        onFileGroup ? [hardline, keyword('ON', opts), ' ', onFileGroup] : '',
+        fileStreamOn ? [hardline, keyword('FILESTREAM_ON', opts), ' ', fileStreamOn] : '',
+    ];
 
     return group([
         keyword('CREATE', opts),
@@ -1648,6 +1668,8 @@ export function printCreateColumnStoreIndex(node: SqlNode, opts: Options): Doc {
             ]),
         ]);
     }
+    const onFileGroup = propStr(node, 'onFileGroup');
+    if (onFileGroup) parts.push([hardline, keyword('ON', opts), ' ', onFileGroup]);
     parts.push(';');
     return parts;
 }

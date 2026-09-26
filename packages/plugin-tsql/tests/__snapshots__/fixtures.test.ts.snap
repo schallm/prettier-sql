@@ -444,6 +444,55 @@ with (memory_optimized = on);
 "
 `;
 
+exports[`fixtures > create-table/storage-clauses.sql 1`] = `
+"-- ON filegroup / partition scheme(column) and FILESTREAM_ON on tables, indexes and constraints
+create table t (
+  a int,
+  b varbinary(max) filestream,
+  g uniqueidentifier rowguidcol unique
+)
+on ps(a)
+filestream_on fsps;
+
+create table t (
+  a int,
+  constraint pk primary key (a) on [PRIMARY],
+  index ix (a asc) on fg2
+);
+
+create table t (
+  a int constraint pk primary key on ps(a)
+);
+
+create unique index ix
+  on t (
+    a asc
+  )
+on ps(a);
+
+create index ix
+  on t (
+    a asc
+  )
+on [PRIMARY]
+filestream_on fs;
+
+create clustered columnstore index cci
+on t
+on ps(a);
+
+alter table t
+add constraint pk primary key clustered (a) on ps(a);
+
+CREATE PRIMARY XML INDEX px ON t (x);
+
+create table t (
+  a int constraint pk primary key with (FILLFACTOR = 80) on [PRIMARY],
+  b int unique nonclustered
+);
+"
+`;
+
 exports[`fixtures > create-table/temporal.sql 1`] = `
 "-- Temporal (system-versioned) table features
 -- GENERATED ALWAYS AS ROW START/END + PERIOD FOR SYSTEM_TIME + SYSTEM_VERSIONING

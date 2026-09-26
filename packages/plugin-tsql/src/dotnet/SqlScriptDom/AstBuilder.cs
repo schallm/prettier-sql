@@ -135,6 +135,18 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static string? QuotedName(IdentifierOrValueExpression? name) =>
         name?.Identifier != null ? QuotedName(name.Identifier) : name?.Value;
 
+    /// <summary>
+    /// Where a table, index or constraint is stored: ON filegroup, or ON scheme(column) for
+    /// a partition scheme — the column says how rows are partitioned, so it must be kept.
+    /// </summary>
+    private static string? StorageTarget(FileGroupOrPartitionScheme? f) {
+        if (f == null) return null;
+        var name = QuotedName(f.Name);
+        return f.PartitionSchemeColumns?.Count > 0
+            ? $"{name}({string.Join(", ", f.PartitionSchemeColumns.Select(QuotedName))})"
+            : name;
+    }
+
     private static SqlNode? BuildSchemaObjectName(SchemaObjectName? name) =>
         name == null ? null : new SqlNode(
             "SchemaObjectName",
@@ -1674,6 +1686,8 @@ public class AstBuilder : TSqlFragmentVisitor {
                 (object?)(QuotedName(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()) ?? "")).ToList(),
             ["filterPredicate"] = idx.FilterPredicate != null ? BuildBooleanExpression(idx.FilterPredicate) : null,
             ["indexOptions"] = MapList(idx.IndexOptions, o => (object?)SerializeIndexOption(o)),
+            ["onFileGroup"] = StorageTarget(idx.OnFileGroupOrPartitionScheme),
+            ["fileStreamOn"] = QuotedName(idx.FileStreamOn),
         });
     }
 
@@ -1694,8 +1708,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         } : null;
 
         // ON filegroup/partition — physical storage location
-        var fgName = ct.OnFileGroupOrPartitionScheme?.Name;
-        var onName = QuotedName(fgName);
+        var onName = StorageTarget(ct.OnFileGroupOrPartitionScheme);
         var textimageOn = QuotedName(ct.TextImageOn);
         var fileStreamOn = QuotedName(ct.FileStreamOn);
 
@@ -1805,6 +1818,8 @@ public class AstBuilder : TSqlFragmentVisitor {
                         ["isPrimaryKey"] = uq.IsPrimaryKey,
                         ["clustered"] = uq.Clustered == true ? (object?)true : uq.Clustered == false ? (object?)false : null,
                         ["indexOptions"] = MapList(uq.IndexOptions, o => (object?)SerializeIndexOption(o)),
+                        ["onFileGroup"] = StorageTarget(uq.OnFileGroupOrPartitionScheme),
+                        ["fileStreamOn"] = QuotedName(uq.FileStreamOn),
                     }
                     : null,
                 // Inline column-level CHECK constraint name
@@ -1841,6 +1856,8 @@ public class AstBuilder : TSqlFragmentVisitor {
                         ["order"] = col.SortOrder == SortOrder.Descending ? "Descending" : "Ascending",
                     }).ToList(),
                     ["indexOptions"] = MapList(unique.IndexOptions, o => (object?)SerializeIndexOption(o)),
+                    ["onFileGroup"] = StorageTarget(unique.OnFileGroupOrPartitionScheme),
+                    ["fileStreamOn"] = QuotedName(unique.FileStreamOn),
                 }),
             CheckConstraintDefinition check => new SqlNode(
                 "CheckConstraint",
@@ -1973,9 +1990,8 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["includeColumns"] = ci.IncludeColumns?.Select(c => (object?)QuotedName(c.MultiPartIdentifier?.Identifiers.LastOrDefault())).ToList(),
                 ["filterPredicate"] = ci.FilterPredicate != null ? BuildBooleanExpression(ci.FilterPredicate) : null,
                 ["indexOptions"] = MapList(ci.IndexOptions, o => (object?)SerializeIndexOption(o)),
-                ["onFileGroup"] = ci.OnFileGroupOrPartitionScheme?.Name is { } fg
-                    ? (fg.Identifier != null ? QuotedName(fg.Identifier) : fg.Value)
-                    : null,
+                ["onFileGroup"] = StorageTarget(ci.OnFileGroupOrPartitionScheme),
+                ["fileStreamOn"] = QuotedName(ci.FileStreamOn),
             });
     }
 
@@ -1985,9 +2001,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["table"] = BuildSchemaObjectName(cvi.OnName),
             ["vectorColumn"] = QuotedName(cvi.VectorColumn),
             ["indexOptions"] = MapList(cvi.IndexOptions, o => (object?)SerializeVectorIndexOption(o)),
-            ["onFileGroup"] = cvi.OnFileGroupOrPartitionScheme?.Name is { } fg
-                ? (fg.Identifier != null ? QuotedName(fg.Identifier) : fg.Value)
-                : null,
+            ["onFileGroup"] = StorageTarget(cvi.OnFileGroupOrPartitionScheme),
         });
 
     // -------------------------------------------------------------------------
@@ -3522,6 +3536,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["columns"] = cols,
             ["filterPredicate"] = csi.FilterPredicate != null ? BuildBooleanExpression(csi.FilterPredicate) : null,
             ["options"] = opts,
+            ["onFileGroup"] = StorageTarget(csi.OnFileGroupOrPartitionScheme),
         });
     }
 
