@@ -111,6 +111,28 @@ staged_from_run() {
     | sort -u
 }
 
+# Waits for npm's automated review of staged version $2 (stage id $1) to finish. A
+# staged version reads "validating" while the review runs — typically a few minutes
+# after staging — and can't be approved until it reads "staged" (npm answers 409).
+# `npm stage view` needs no 2FA.
+wait_for_review() {
+  local id="$1" spec="$2" deadline=$((SECONDS + 1200)) status said=false
+  while :; do
+    status="$(npm stage view "$id" --json --registry "$REGISTRY" </dev/null 2>/dev/null \
+      | node -e 'let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
+          try { console.log(JSON.parse(s).status ?? ""); } catch { console.log(""); }
+        })' || true)"
+    case "$status" in
+      staged) return 0 ;;
+      validating|"")
+        $said || { info "npm is still reviewing ${spec} (usually a few minutes)..."; said=true; }
+        (( SECONDS >= deadline )) && die "npm's review of ${spec} hasn't finished after 20 minutes. Run 'pnpm release' again later to approve it."
+        sleep 15 ;;
+      *) die "npm's review of ${spec} ended with status '${status}'. See https://www.npmjs.com/package/${spec%@*}" ;;
+    esac
+  done
+}
+
 is_published() {
   [[ "$(npm view "$1" version --registry "$REGISTRY" --prefer-online 2>/dev/null || true)" == "${1##*@}" ]]
 }
@@ -488,6 +510,7 @@ if [[ -n "$STAGED" ]]; then
   while read -r spec id; do
     [[ -z "$spec" ]] && continue
     echo
+    $DRY_RUN || wait_for_review "$id" "$spec"
     info "Approving ${spec}..."
     act npm stage approve "$id" --registry "$REGISTRY" </dev/tty
   done <<<"$STAGED"
