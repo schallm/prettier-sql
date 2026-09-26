@@ -296,9 +296,13 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
         getDensity(opts) === 'compact' && args.length > 1
             ? fill(args.flatMap((a, i) => (i === 0 ? [a] : [[',', line], a])))
             : join([',', line], args);
+    // Only an unqualified call is a built-in (scalar UDFs and CLR aggregates must be
+    // schema-qualified), so only it gets keyword casing. Anything with a call target keeps
+    // its name as written: CLR/xml methods (h.GetAncestor, x.value) are case-sensitive.
+    const nameDoc: Doc = callTargetPrefix ? name : keyword(name, opts);
     const argsDoc = group([
         callTargetPrefix,
-        keyword(name, opts),
+        nameDoc,
         '(',
         indent([softline, ...distinctDoc, argsListDoc, nullClause]),
         softline,
