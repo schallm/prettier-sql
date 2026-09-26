@@ -7,7 +7,7 @@ import { propArr } from '@prettier-sql/core/printer/helpers';
 // ---------------------------------------------------------------------------
 
 interface TsqlDotnet extends DotnetHandle {
-    PrettierTsql: { SqlParser: { Parse(sql: string): string } };
+    PrettierTsql: { TsqlParser: { Parse(sql: string): string } };
 }
 
 let dotnetModule: TsqlDotnet | null = null;
@@ -23,8 +23,8 @@ function loadDotnet(): TsqlDotnet {
 // ---------------------------------------------------------------------------
 
 export function parse(text: string): SqlNode {
-    const { SqlParser } = loadDotnet().PrettierTsql;
-    const result = JSON.parse(SqlParser.Parse(text)) as {
+    const { TsqlParser } = loadDotnet().PrettierTsql;
+    const result = JSON.parse(TsqlParser.Parse(text)) as {
         ast?: SqlNode;
         comments?: CommentToken[];
         errors?: Array<{ message: string; line: number; column: number }>;

@@ -6,7 +6,7 @@ import { loadDotnetDll, type DotnetHandle } from '@prettier-sql/core/parser';
 // ---------------------------------------------------------------------------
 
 interface PgsqlDotnet extends DotnetHandle {
-    PrettierPgsql: { SqlParser: { Parse(sql: string): string } };
+    PrettierPgsql: { PgsqlParser: { Parse(sql: string): string } };
 }
 
 let dotnetModule: PgsqlDotnet | null = null;
@@ -22,8 +22,8 @@ function loadDotnet(): PgsqlDotnet {
 // ---------------------------------------------------------------------------
 
 export function parse(text: string): SqlNode {
-    const { SqlParser } = loadDotnet().PrettierPgsql;
-    const result = JSON.parse(SqlParser.Parse(text)) as {
+    const { PgsqlParser } = loadDotnet().PrettierPgsql;
+    const result = JSON.parse(PgsqlParser.Parse(text)) as {
         ast?: SqlNode;
         comments?: CommentToken[];
         errors?: Array<{ kind?: 'parse' | 'unsupported'; message: string; line: number; column: number }>;

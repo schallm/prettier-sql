@@ -10,7 +10,7 @@ See the root `CLAUDE.md` for the full monorepo structure and shared code in `@pr
 ```
 SQL string
   → C# (PgScriptDom.dll via node-api-dotnet)
-      SqlParser.Parse(sql)
+      PgsqlParser.Parse(sql)
         → pgsqlparser (libpg_query .NET wrapper) produces a protobuf parse tree
         → AstBuilder walks the tree, emits SqlNode JSON
         → Parser.Scan(sql) extracts comment tokens (SqlComment, CComment)
@@ -30,7 +30,7 @@ ScriptDOM calls you. PostgreSQL has no visitor; `AstBuilder.cs` manually switche
 
 ## C# project — `src/dotnet/PgScriptDom/`
 
-### `SqlParser.cs`
+### `PgsqlParser.cs`
 Calls `PgSqlParser.Parser.Parse(sql)` which returns `Result<ParseResult?>`.
 Serializes `AstBuilder.Build(result.Value)` as JSON with camelCase keys, null values omitted.
 Also calls `Parser.Scan(sql)` to extract comment tokens and includes them in the JSON output.

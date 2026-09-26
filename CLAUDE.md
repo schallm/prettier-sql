@@ -69,7 +69,9 @@ Both plugin csproj files reference it:
 <ProjectReference Include="../../../../core/src/dotnet/Core/PrettierSql.Core.csproj" />
 ```
 
-Both plugin `AstBuilder.cs` and `SqlParser.cs` files add `using PrettierSql.Core;`.
+Both plugins' `AstBuilder.cs` and parser entry points (`TsqlParser.cs` / `PgsqlParser.cs`) add
+`using PrettierSql.Core;`. The entry-point classes need distinct names: node-api-dotnet exposes
+static classes by simple name, so two plugins loaded in one process can't both define `SqlParser`.
 
 ### Shared test fixtures
 

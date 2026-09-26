@@ -14,7 +14,7 @@ flowchart TD
 
     subgraph cs ["Layer 1 — C# Parser"]
         direction LR
-        CS1["TSql160Parser"] --> CS2["AstBuilder"] --> CS3["SqlParser.Parse()"]
+        CS1["TSql160Parser"] --> CS2["AstBuilder"] --> CS3["TsqlParser.Parse()"]
     end
 
     subgraph bridge ["Layer 2 — Parser Bridge"]
@@ -48,7 +48,7 @@ T-SQL is a complex dialect. Rather than maintaining a hand-written parser, the p
 | `SqlScriptDom.csproj` | .NET 8.0 project; references `Microsoft.SqlServer.TransactSql.ScriptDom` v161.\*      |
 | `SqlNode.cs`          | Serializable record: `type`, `startOffset`, `endOffset`, optional `text` and `props`  |
 | `AstBuilder.cs`       | `TSqlFragmentVisitor` subclass; walks the ScriptDom tree and builds `SqlNode` objects |
-| `SqlParser.cs`        | Static `Parse(string sql)` entry point; extracts comment tokens; returns JSON         |
+| `TsqlParser.cs`        | Static `Parse(string sql)` entry point; extracts comment tokens; returns JSON         |
 
 ### Parse flow
 
@@ -88,7 +88,7 @@ public record SqlNode(
 const require = createRequire(import.meta.url);
 const dotnet = require('node-api-dotnet') as DotnetModule;
 dotnet.load('/path/to/SqlScriptDom.dll');
-const { SqlParser } = dotnet.PrettierTsql;
+const { TsqlParser } = dotnet.PrettierTsql;
 ```
 
 The DLL path is resolved at runtime by detecting whether the current file is under `dist/parser/` (compiled) or `src/plugin/parser/` (source/ts-node), then walking up to `bin/dotnet/`. The module is cached after a successful `load()` call so the DLL is only initialised once per process.
@@ -182,7 +182,7 @@ prettier-plugin-tsql/
 │   │   ├── SqlScriptDom.csproj
 │   │   ├── SqlNode.cs
 │   │   ├── AstBuilder.cs
-│   │   └── SqlParser.cs
+│   │   └── TsqlParser.cs
 │   └── plugin/                # TypeScript Prettier plugin
 │       ├── index.ts           # Plugin export
 │       ├── language.ts        # .sql / .tsql extension registration

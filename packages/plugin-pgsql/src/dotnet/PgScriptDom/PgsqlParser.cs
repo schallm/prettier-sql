@@ -5,7 +5,10 @@ using PrettierSql.Core;
 
 namespace PrettierPgsql;
 
-public static class SqlParser {
+// Named PgsqlParser, not SqlParser: node-api-dotnet exposes static classes by simple
+// name, so two loaded plugins that both define SqlParser (in different namespaces)
+// collide, and whichever loads second can't find its parser.
+public static class PgsqlParser {
     private static readonly JsonSerializerOptions JsonOptions = new() {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,

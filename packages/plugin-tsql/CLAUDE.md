@@ -10,7 +10,7 @@ See the root `CLAUDE.md` for the full monorepo structure and shared code in `@pr
 ```
 SQL string
   → C# (SqlScriptDom.dll via node-api-dotnet)
-      SqlParser.Parse(sql)
+      TsqlParser.Parse(sql)
         → TSql180Parser produces a ScriptDOM parse tree
         → AstBuilder visits the tree via TSqlFragmentVisitor, emits SqlNode JSON
         → ScriptTokenStream filtered for comment tokens
@@ -30,7 +30,7 @@ and ScriptDOM calls you during `fragment.Accept(builder)`. PostgreSQL has no vis
 
 ## C# project — `src/dotnet/SqlScriptDom/`
 
-### `SqlParser.cs`
+### `TsqlParser.cs`
 
 Parses with `TSql180Parser(initialQuotedIdentifiers: false)`.
 Collects comments from `fragment.ScriptTokenStream` filtering for
@@ -65,7 +65,7 @@ private static string RawText(TSqlFragment f) // reconstructs SQL text via Scrip
 There is no `BuildProps` helper in this file (that's pgsql's `AstBuilder.cs`) — build the
 `Dictionary<string, object?>` literal directly and pass it to `Node(...)`; the JSON
 serializer drops null values on its own (`DefaultIgnoreCondition = WhenWritingNull` in
-`SqlParser.cs`), so there's nothing to filter manually.
+`TsqlParser.cs`), so there's nothing to filter manually.
 
 ## TypeScript project — `src/plugin/`
 
