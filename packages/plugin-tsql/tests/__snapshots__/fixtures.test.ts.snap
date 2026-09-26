@@ -2522,6 +2522,22 @@ from dbo.Employee for system_time all;
 "
 `;
 
+exports[`fixtures > select/unary-operators.sql 1`] = `
+"-- Unary operators: a double negation must not become a -- comment
+select
+  -a,
+  - -a,
+  -(-a),
+  - - -1,
+  ~a,
+  ~(~a),
+  +a,
+  1 - -1,
+  a - -b
+from t;
+"
+`;
+
 exports[`fixtures > select/vector.sql 1`] = `
 "-- VECTOR data type — SQL Server 2025
 create table Embeddings (

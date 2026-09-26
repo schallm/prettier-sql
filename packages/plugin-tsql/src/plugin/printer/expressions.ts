@@ -402,7 +402,9 @@ function printUnaryExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     const op = propStr(node, 'operator') ?? '-';
     const opStr = op === 'Positive' ? '+' : op === 'Negative' ? '-' : op === 'BitwiseNot' ? '~' : op;
-    return [opStr, expr ? printExpression(expr, opts, printFn) : ''];
+    // - -a: written together, the two minus signs would start a -- comment
+    const nestedMinus = opStr === '-' && expr?.type === 'UnaryExpression' && propStr(expr, 'operator') === 'Negative';
+    return [opStr, nestedMinus ? ' ' : '', expr ? printExpression(expr, opts, printFn) : ''];
 }
 
 function printParenExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
