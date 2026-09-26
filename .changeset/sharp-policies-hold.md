@@ -1,6 +1,6 @@
 ---
-"prettier-plugin-postgresql": patch
-"prettier-plugin-tsql": patch
+"prettier-plugin-postgresql": minor
+"prettier-plugin-tsql": minor
 ---
 
 PostgreSQL: more fixes for formatting that changed what SQL does.

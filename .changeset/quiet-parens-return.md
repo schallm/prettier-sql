@@ -1,6 +1,6 @@
 ---
-"prettier-plugin-postgresql": patch
-"prettier-plugin-tsql": patch
+"prettier-plugin-postgresql": minor
+"prettier-plugin-tsql": minor
 ---
 
 PostgreSQL: formatting no longer changes what a query means.

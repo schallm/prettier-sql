@@ -1,5 +1,5 @@
 ---
-"prettier-plugin-postgresql": patch
+"prettier-plugin-postgresql": minor
 ---
 
 PostgreSQL: more clauses that were silently dropped are now kept.

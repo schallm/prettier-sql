@@ -1,6 +1,6 @@
 ---
-"prettier-plugin-tsql": patch
-"prettier-plugin-postgresql": patch
+"prettier-plugin-tsql": minor
+"prettier-plugin-postgresql": minor
 ---
 
 T-SQL: formatting no longer changes what SQL does.

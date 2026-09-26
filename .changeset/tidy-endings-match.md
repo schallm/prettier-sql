@@ -1,6 +1,6 @@
 ---
-"prettier-plugin-tsql": patch
-"prettier-plugin-postgresql": patch
+"prettier-plugin-tsql": minor
+"prettier-plugin-postgresql": minor
 ---
 
 - `sqlKeywordCase: "preserve"` now follows the input: an upper-case file keeps

@@ -1,5 +1,5 @@
 ---
-"prettier-plugin-postgresql": patch
+"prettier-plugin-postgresql": minor
 ---
 
 PostgreSQL: DDL formatting no longer drops clauses that change what a statement does.
