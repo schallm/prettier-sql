@@ -90,6 +90,7 @@ describe('formatting preserves meaning', () => {
         'dml/only.sql',
         'ddl/alter-table-extended.sql',
         'ddl/alter-table-options.sql',
+        'dml/set-show.sql',
     ];
     const variants = [
         {},

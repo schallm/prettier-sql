@@ -1486,13 +1486,7 @@ public class AstBuilder {
                 ("kind", "SET TRANSACTION"), ("options", MaybeList(txOpts))));
         }
         if (v.Kind == VariableSetKind.VarSetValue) {
-            var vals = v.Args.Select(a =>
-                a.NodeCase == Node.NodeOneofCase.AConst && a.AConst.ValCase == A_Const.ValOneofCase.Sval
-                    ? a.AConst.Sval.Sval
-                    : a.NodeCase == Node.NodeOneofCase.TypeCast
-                        ? a.TypeCast.Arg?.AConst?.Sval?.Sval
-                        : null
-            ).OfType<string>().ToList();
+            var vals = v.Args.Select(SetValue).ToList();
             return new SqlNode("VariableSetStatement", start, end, null, BuildProps(
                 ("kind", "SET"), ("name", v.Name),
                 ("values", MaybeList(vals)),
@@ -1507,6 +1501,23 @@ public class AstBuilder {
         if (v.Kind == VariableSetKind.VarResetAll)
             return new SqlNode("VariableSetStatement", start, end, null, BuildProps(("kind", "RESET ALL")));
         return Fallback(start, end);
+    }
+
+    // Formats one SET / ALTER SYSTEM SET value as SQL text. A string value prints
+    // bare when that reads back identically, otherwise as a single-quoted literal:
+    // `"MySchema"` and `'MySchema'` both parse to the string MySchema, and must not
+    // print as bare `MySchema`, which would fold to `myschema`.
+    private string SetValue(Node a) {
+        if (a.NodeCase == Node.NodeOneofCase.TypeCast && a.TypeCast.Arg != null) a = a.TypeCast.Arg;
+        if (a.NodeCase != Node.NodeOneofCase.AConst) throw NotSupported($"SET value ({a.NodeCase})", TryGetLocation(GetOneofValue(a)));
+        return a.AConst.ValCase switch {
+            A_Const.ValOneofCase.Ival => a.AConst.Ival.Ival.ToString(),
+            A_Const.ValOneofCase.Fval => a.AConst.Fval.Fval,
+            A_Const.ValOneofCase.Sval => a.AConst.Sval.Sval is "on" or "true" or "false" || Ident.Quote(a.AConst.Sval.Sval) == a.AConst.Sval.Sval
+                ? a.AConst.Sval.Sval
+                : $"'{a.AConst.Sval.Sval.Replace("'", "''")}'",
+            _ => throw NotSupported($"SET value ({a.AConst.ValCase})", a.AConst.Location),
+        };
     }
 
     private static SqlNode BuildVariableShow(VariableShowStmt v, int start, int end) =>
@@ -2690,13 +2701,7 @@ public class AstBuilder {
     private SqlNode BuildAlterSystem(AlterSystemStmt s, int start, int end) {
         var inner = s.Setstmt;
         if (inner.Kind == VariableSetKind.VarSetValue) {
-            var vals = inner.Args.Select(a =>
-                a.NodeCase == Node.NodeOneofCase.AConst && a.AConst.ValCase == A_Const.ValOneofCase.Sval
-                    ? a.AConst.Sval.Sval
-                    : a.NodeCase == Node.NodeOneofCase.TypeCast
-                        ? a.TypeCast.Arg?.AConst?.Sval?.Sval
-                        : null
-            ).OfType<string>().ToList();
+            var vals = inner.Args.Select(SetValue).ToList();
             return new SqlNode("AlterSystemStatement", start, end, null, BuildProps(
                 ("kind", "SET"), ("name", inner.Name),
                 ("values", MaybeList(vals))));

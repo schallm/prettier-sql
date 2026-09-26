@@ -17,3 +17,8 @@ reset all;
 show work_mem;
 
 show all;
+
+-- Case-sensitive and numeric values must survive
+set search_path to "MySchema", public;
+set statement_timeout = 5000;
+set enable_seqscan = off;

@@ -801,14 +801,8 @@ function printVariableSet(node: SqlNode, opts: Options): Doc {
         return [[makeKeyword('SET'), ' ', localKw, name, ' ', makeKeyword('TO'), ' ', makeKeyword('DEFAULT')], ';'];
     }
 
-    // SET name = value(s)
-    // - Starts with digit or contains special chars: must be quoted
-    // - Otherwise: lowercase (PostgreSQL normalizes unquoted identifiers)
-    const valDocs: Doc[] = values.map((v) => {
-        if (/^[0-9]/.test(v) || /[^a-zA-Z0-9_$]/.test(v)) return `'${v.replace(/'/g, "''")}'`;
-        return v.toLowerCase();
-    });
-    return [[makeKeyword('SET'), ' ', localKw, name, ' = ', join(', ', valDocs)], ';'];
+    // Values arrive as SQL text (numbers, bare words, or quoted literals)
+    return [[makeKeyword('SET'), ' ', localKw, name, ' = ', join(', ', values)], ';'];
 }
 
 function printVariableShow(node: SqlNode, opts: Options): Doc {
@@ -1945,11 +1939,8 @@ function printAlterSystem(node: SqlNode, opts: Options): Doc {
     if (kind === 'RESET ALL') return [[makeKeyword('ALTER SYSTEM RESET ALL')], ';'];
     if (kind === 'RESET')     return [[makeKeyword('ALTER SYSTEM RESET'), ' ', name], ';'];
 
-    const valDocs: Doc[] = values.map((v) => {
-        if (/^[0-9]/.test(v) || /[^a-zA-Z0-9_$]/.test(v)) return `'${v.replace(/'/g, "''")}'`;
-        return v.toLowerCase();
-    });
-    return [[makeKeyword('ALTER SYSTEM SET'), ' ', name, ' = ', join(', ', valDocs)], ';'];
+    // Values arrive as SQL text (numbers, bare words, or quoted literals)
+    return [[makeKeyword('ALTER SYSTEM SET'), ' ', name, ' = ', join(', ', values)], ';'];
 }
 
 function printReassignOwned(node: SqlNode, opts: Options): Doc {
