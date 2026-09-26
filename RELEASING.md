@@ -35,8 +35,8 @@ Every push to `main` runs the release workflow:
   `CHANGELOG.md` entries, and deletes the consumed changeset files. It does *not*
   publish anything yet.
 - **When you merge that "Version Packages" PR**, the next workflow run finds no
-  pending changesets and instead runs `pnpm release` (see below) to actually publish
-  to npm.
+  pending changesets and instead runs `changeset publish` to actually publish to npm
+  (the workflow builds all packages first).
 
 So day-to-day, publishing is just: write a changeset, merge your PR, then later merge
 the auto-generated "Version Packages" PR whenever you're ready to cut a release.
@@ -50,9 +50,11 @@ the auto-generated "Version Packages" PR whenever you're ready to cut a release.
 | `pnpm release:publish` | Builds all packages, then `changeset publish` |
 | `pnpm release` | The full local one-shot: checks npm login (prompts `npm login` if needed) → `changeset version` → build → `changeset publish` |
 
-`pnpm release` is what CI's release workflow runs for you after the Version Packages
-PR is merged. You normally never run it yourself — it's there as a manual fallback if
-you ever need to publish outside CI.
+CI does not run `pnpm release` — it runs `changeset publish` directly after the Version
+Packages PR is merged. `pnpm release` is the manual fallback for publishing outside CI.
+Since `@changesets/cli` 3.0, `changeset version` exits 1 when there are no pending
+changesets, so `pnpm release` stops right there if everything is already versioned. In
+that case (e.g. re-running after a failed publish) use `pnpm release:publish` instead.
 
 ## ⚠️ Known gap: NPM_TOKEN is not configured
 
