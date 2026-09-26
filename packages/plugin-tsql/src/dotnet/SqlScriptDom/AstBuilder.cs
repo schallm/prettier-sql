@@ -2445,6 +2445,10 @@ public class AstBuilder : TSqlFragmentVisitor {
         Node("WaitForStatement", wf, new Dictionary<string, object?> {
             ["option"] = wf.WaitForOption.ToString(),
             ["parameter"] = RawTextOrNull(wf.Parameter),
+            // WAITFOR (RECEIVE ... | GET CONVERSATION GROUP ...), TIMEOUT n — the Service
+            // Broker statement as written, since neither is formatted on its own yet
+            ["statement"] = wf.Statement != null ? RawText(wf.Statement).Trim() : null,
+            ["timeout"] = RawTextOrNull(wf.Timeout),
         });
 
     // SetOptions is a flags enum: SET NOCOUNT, XACT_ABORT ON arrives as one combined

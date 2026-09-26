@@ -209,6 +209,11 @@ export function printSetIsolationLevel(node: SqlNode, opts: Options): Doc {
 export function printWaitFor(node: SqlNode, opts: Options): Doc {
     const opt = propStr(node, 'option') ?? 'Delay';
     const param = propStr(node, 'parameter') ?? '';
+    const statement = propStr(node, 'statement');
+    if (statement) {
+        const timeout = propStr(node, 'timeout');
+        return [keyword('WAITFOR', opts), ' (', statement, ')', timeout ? [', ', keyword('TIMEOUT', opts), ' ', timeout] : '', ';'];
+    }
     const kw = opt === 'Time' ? keyword('WAITFOR TIME', opts) : keyword('WAITFOR DELAY', opts);
     return [kw, ' ', param, ';'];
 }
