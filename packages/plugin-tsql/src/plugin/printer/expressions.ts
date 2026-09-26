@@ -113,6 +113,11 @@ export function printExpression(node: SqlNode, opts: Options, printFn: PrintFn):
             return printFunctionCall(node, opts, printFn);
         case 'BinaryExpression':
             return printBinaryExpr(node, opts, printFn);
+        case 'OdbcFunctionCall':
+            return [
+                '{', keyword('fn', opts), ' ', keyword(propStr(node, 'name') ?? '', opts),
+                '(', join(', ', propArr(node, 'args').map((a) => printExpression(a, opts, printFn))), ')}',
+            ];
         case 'UnaryExpression':
             return printUnaryExpr(node, opts, printFn);
         case 'ParenthesisExpression':

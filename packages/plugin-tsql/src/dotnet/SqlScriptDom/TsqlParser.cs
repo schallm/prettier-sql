@@ -102,6 +102,7 @@ public static class TsqlParser {
         (BuiltInFunctionTableReference, "Name") => true,
         (GlobalFunctionTableReference, "Name") => true,
         (FunctionCall { CallTarget: null }, "FunctionName") => true,
+        (OdbcFunctionCall, "Name") => true,
         _ => false,
     };
 

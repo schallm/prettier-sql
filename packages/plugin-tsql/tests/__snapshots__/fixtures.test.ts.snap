@@ -2185,6 +2185,17 @@ group by Name;
 "
 `;
 
+exports[`fixtures > select/odbc-escapes.sql 1`] = `
+"-- ODBC escapes: {fn ...} functions only exist inside the escape
+select
+  {d '2020-01-01'},
+  {ts '2020-01-01 00:00:00'},
+  {fn ucase('a')},
+  {fn curdate()},
+  {fn concat('a', 'b')};
+"
+`;
+
 exports[`fixtures > select/option-clause.sql 1`] = `
 "select
   BookId,

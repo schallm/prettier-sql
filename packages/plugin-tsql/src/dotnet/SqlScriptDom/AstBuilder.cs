@@ -190,7 +190,11 @@ public class AstBuilder : TSqlFragmentVisitor {
             LeftFunctionCall lfc => BuildBuiltinCall("left", lfc, lfc.Parameters),
             RightFunctionCall rfc => BuildBuiltinCall("right", rfc, rfc.Parameters),
             // ODBC escape function: {fn Name(args)} — render as a regular function call
-            OdbcFunctionCall odbc => BuildBuiltinCall(odbc.Name?.Value ?? "fn", odbc, odbc.Parameters),
+            // {fn UCASE('a')}: an ODBC escape; UCASE and friends only exist inside one
+            OdbcFunctionCall odbc => Node("OdbcFunctionCall", odbc, new Dictionary<string, object?> {
+                ["name"] = odbc.Name?.Value,
+                ["args"] = odbc.Parameters?.Select(p => (object?)BuildScalarExpression(p)).ToList(),
+            }),
             _ => Leaf("ScalarExpression", expr, RawText(expr)),
         };
     }
