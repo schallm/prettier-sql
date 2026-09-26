@@ -4,6 +4,7 @@ import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import plugin from '../src/plugin/index.js';
+import { canonical } from '../src/plugin/parser/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fmt = makeFmt('tsql', plugin);
@@ -13,6 +14,7 @@ registerFixtureTests({
     plugin,
     fixturesDir: join(__dirname, 'fixtures'),
     sharedDir: join(__dirname, '../../core/tests/fixtures/shared'),
+    canonical,
 });
 
 // ---------------------------------------------------------------------------

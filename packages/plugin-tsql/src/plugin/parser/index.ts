@@ -7,7 +7,7 @@ import { propArr } from '@prettier-sql/core/printer/helpers';
 // ---------------------------------------------------------------------------
 
 interface TsqlDotnet extends DotnetHandle {
-    PrettierTsql: { TsqlParser: { Parse(sql: string): string } };
+    PrettierTsql: { TsqlParser: { Parse(sql: string): string; Canonical(sql: string): string | null } };
 }
 
 let dotnetModule: TsqlDotnet | null = null;
@@ -21,6 +21,15 @@ function loadDotnet(): TsqlDotnet {
 // ---------------------------------------------------------------------------
 // Public parse entry point
 // ---------------------------------------------------------------------------
+
+/**
+ * The SQL's meaning in canonical form — ScriptDom's syntax tree without source
+ * positions, plus its comments — or null if it doesn't parse. Formatting must leave
+ * this unchanged; the tests compare it before and after.
+ */
+export function canonical(text: string): string | null {
+    return loadDotnet().PrettierTsql.TsqlParser.Canonical(text) ?? null;
+}
 
 export function parse(text: string): SqlNode {
     const { TsqlParser } = loadDotnet().PrettierTsql;
