@@ -854,14 +854,19 @@ function printVariableShow(node: SqlNode, opts: Options): Doc {
 function printGrantRevoke(node: SqlNode, opts: Options, isGrant: boolean): Doc {
     const makeKeyword      = (k: string) => keyword(k, opts);
     const printNode = printWith(opts);
-    const privs   = (node.props?.['privs'] as string[] | undefined) ?? [];
+    const privs   = propArr(node, 'privs');
     const objtype = propStr(node, 'objtype') ?? '';
     const objects = propArr(node, 'objects');
-    const grantees = (node.props?.['grantees'] as string[] | undefined) ?? [];
+    const grantees = propStrArr(node, 'grantees');
     const grantOption = propBool(node, 'grantOption');
+    const grantedBy  = propStr(node, 'grantedBy');
     const cascade    = propBool(node, 'cascade');
 
-    const privsDoc: Doc = privs.length > 0 ? join(', ', privs.map(makeKeyword)) : makeKeyword('ALL PRIVILEGES');
+    const privDocs = privs.map((p): Doc => {
+        const columns = propStrArr(p, 'columns');
+        return [makeKeyword(propStr(p, 'name') ?? ''), columns.length > 0 ? [' (', join(', ', columns), ')'] : ''];
+    });
+    const privsDoc: Doc = privDocs.length > 0 ? join(', ', privDocs) : makeKeyword('ALL PRIVILEGES');
     const verb: Doc = isGrant ? makeKeyword('GRANT') : makeKeyword('REVOKE');
     const toFrom: Doc = isGrant ? makeKeyword('TO') : makeKeyword('FROM');
 
@@ -870,11 +875,13 @@ function printGrantRevoke(node: SqlNode, opts: Options, isGrant: boolean): Doc {
         : '';
 
     const parts: Doc[] = [
-        [verb, ' ', privsDoc, ' ', makeKeyword('ON'), ' ', makeKeyword(objtype), objectsDoc ? [' ', objectsDoc] : ''],
-        [toFrom, ' ', join(', ', grantees)],
+        [verb, !isGrant && grantOption ? [' ', makeKeyword('GRANT OPTION FOR')] : '', ' ', privsDoc, ' ',
+         makeKeyword('ON'), ' ', makeKeyword(objtype), objectsDoc ? [' ', objectsDoc] : ''],
+        [toFrom, ' ', roleListDoc(grantees, opts)],
     ];
 
     if (isGrant && grantOption) parts.push(makeKeyword('WITH GRANT OPTION'));
+    if (grantedBy)              parts.push([makeKeyword('GRANTED BY'), ' ', roleListDoc([grantedBy], opts)]);
     if (!isGrant && cascade)    parts.push(makeKeyword('CASCADE'));
 
     return [join(hardline, parts), ';'];
@@ -1433,14 +1440,17 @@ function printAlterPolicy(node: SqlNode, opts: Options): Doc {
     return [join(hardline, parts), ';'];
 }
 
-// `TO role, …` for CREATE / ALTER POLICY. PUBLIC, CURRENT_USER etc. arrive as
-// lowercase pseudo-role names and print as keywords; real role names are
-// already quoted where needed.
+// Role names arrive already quoted where needed; PUBLIC, CURRENT_USER etc.
+// arrive as lowercase pseudo-role names and print as keywords.
 const PSEUDO_ROLES = new Set(['public', 'current_user', 'current_role', 'session_user']);
 
 function policyRolesDoc(roles: string[], opts: Options): Doc {
-    const roleDocs = roles.map((r): Doc => (PSEUDO_ROLES.has(r) ? keyword(r.toUpperCase(), opts) : r));
-    return [keyword('TO', opts), ' ', join(', ', roleDocs)];
+    return [keyword('TO', opts), ' ', roleListDoc(roles, opts)];
+}
+
+/** A comma-separated role list, with PUBLIC, CURRENT_USER etc. printed as keywords. */
+function roleListDoc(roles: string[], opts: Options): Doc {
+    return join(', ', roles.map((r): Doc => (PSEUDO_ROLES.has(r) ? keyword(r.toUpperCase(), opts) : r)));
 }
 
 // ---------------------------------------------------------------------------

@@ -389,6 +389,32 @@ drop sequence if exists order_seq;
 "
 `;
 
+exports[`fixtures > ddl/grant-options.sql 1`] = `
+"-- Column lists, GRANT OPTION FOR, GRANTED BY and pseudo-roles
+grant select, insert (a, "B"), update (c) on table t
+to r
+with grant option;
+grant all privileges on table t
+to "Role Name", public;
+grant select on table t
+to current_user, session_user;
+grant select on table t
+to r
+granted by current_user;
+revoke grant option for select on table t
+from r
+cascade;
+revoke update (c) on table t
+from r;
+grant usage on schema s
+to r;
+grant select on all tables in schema s
+to r;
+grant execute on function f(integer)
+to r;
+"
+`;
+
 exports[`fixtures > ddl/grant-revoke.sql 1`] = `
 "-- GRANT on specific tables
 grant select, insert on table books
@@ -403,7 +429,7 @@ grant select on all tables in schema public
 to alice;
 -- GRANT to public
 grant execute on function get_count(integer)
-to PUBLIC;
+to public;
 -- REVOKE
 revoke select on table books
 from alice;

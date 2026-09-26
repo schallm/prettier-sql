@@ -94,6 +94,8 @@ describe('formatting preserves meaning', () => {
         'select/from-items.sql',
         'ddl/object-signatures.sql',
         'ddl/create-table-options.sql',
+        'ddl/grant-revoke.sql',
+        'ddl/grant-options.sql',
     ];
     const variants = [
         {},

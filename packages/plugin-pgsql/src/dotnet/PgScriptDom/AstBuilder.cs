@@ -1588,11 +1588,17 @@ public class AstBuilder {
         new("VariableShowStatement", start, end, null, BuildProps(("name", v.Name)));
 
     private SqlNode BuildGrant(GrantStmt g, int start, int end) {
+        // A column list restricts the privilege to those columns: INSERT (a, b)
         var privs = g.Privileges
-            .Select(p => p.NodeCase == Node.NodeOneofCase.AccessPriv
-                ? (string.IsNullOrEmpty(p.AccessPriv.PrivName) ? "ALL PRIVILEGES" : p.AccessPriv.PrivName.ToUpper())
-                : null)
-            .OfType<string>().ToList();
+            .Where(p => p.NodeCase == Node.NodeOneofCase.AccessPriv)
+            .Select(p => new SqlNode("Privilege", 0, 0, null, BuildProps(
+                ("name",    string.IsNullOrEmpty(p.AccessPriv.PrivName) ? "ALL PRIVILEGES" : p.AccessPriv.PrivName.ToUpper()),
+                ("columns", MaybeList(p.AccessPriv.Cols
+                    .Where(c => c.NodeCase == Node.NodeOneofCase.String)
+                    .Select(c => Ident.Quote(c.String.Sval))
+                    .ToList()))
+            )))
+            .ToList();
 
         var objtypeStr = g.Objtype switch {
             ObjectType.ObjectTable    => g.Targtype == GrantTargetType.AclTargetAllInSchema ? "ALL TABLES IN SCHEMA" : "TABLE",
@@ -1615,16 +1621,19 @@ public class AstBuilder {
             _ => null,
         }).OfType<SqlNode>().ToList();
 
-        var grantees = g.Grantees.Select(gr => gr.NodeCase == Node.NodeOneofCase.RoleSpec
-            ? (gr.RoleSpec.Roletype == RoleSpecType.RolespecPublic ? "PUBLIC" : Ident.QuoteOpt(gr.RoleSpec.Rolename))
-            : null).OfType<string>().ToList();
+        var grantees = g.Grantees
+            .Where(gr => gr.NodeCase == Node.NodeOneofCase.RoleSpec)
+            .Select(gr => RoleSpecName(gr.RoleSpec))
+            .ToList();
 
         return new SqlNode(g.IsGrant ? "GrantStatement" : "RevokeStatement", start, end, null, BuildProps(
             ("privs",       MaybeList(privs)),
             ("objtype",     objtypeStr),
             ("objects",     MaybeList(objects)),
             ("grantees",    MaybeList(grantees)),
+            // WITH GRANT OPTION on GRANT; GRANT OPTION FOR (revoke only the grant option) on REVOKE
             ("grantOption", g.GrantOption ? true : null),
+            ("grantedBy",   g.Grantor != null ? RoleSpecName(g.Grantor) : null),
             ("cascade",     g.Behavior == DropBehavior.DropCascade ? true : null)
         ));
     }
