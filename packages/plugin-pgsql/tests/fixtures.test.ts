@@ -88,6 +88,8 @@ describe('formatting preserves meaning', () => {
         'ddl/roles.sql',
         'ddl/policies.sql',
         'dml/only.sql',
+        'ddl/alter-table-extended.sql',
+        'ddl/alter-table-options.sql',
     ];
     const variants = [
         {},

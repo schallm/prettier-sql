@@ -674,9 +674,11 @@ function printAlterTable(node: SqlNode, opts: Options): Doc {
     const printNode = printWith(opts);
     const name     = prop(node, 'name');
     const commands = propArr(node, 'commands');
+    const objType  = propStr(node, 'objType') ?? 'TABLE';
+    const ifExists: Doc = propBool(node, 'ifExists') ? [makeKeyword('IF EXISTS'), ' '] : '';
 
     return [
-        makeKeyword('ALTER TABLE'), ' ', onlyPrefix(name, opts), rangeVarName(name),
+        makeKeyword(`ALTER ${objType}`), ' ', ifExists, onlyPrefix(name, opts), rangeVarName(name),
         indent([hardline, join([',', hardline], commands.map(printNode))]),
         ';',
     ];
@@ -1247,7 +1249,8 @@ function printAlterObjectSchema(node: SqlNode, opts: Options): Doc {
     const objType  = propStr(node, 'objType') ?? '';
     const name     = propStr(node, 'name') ?? '';
     const newSchema = propStr(node, 'newSchema') ?? '';
-    return [[makeKeyword(`ALTER ${objType}`), ' ', name, ' ', makeKeyword('SET SCHEMA'), ' ', newSchema], ';'];
+    const ifExists: Doc = propBool(node, 'ifExists') ? [makeKeyword('IF EXISTS'), ' '] : '';
+    return [[makeKeyword(`ALTER ${objType}`), ' ', ifExists, name, ' ', makeKeyword('SET SCHEMA'), ' ', newSchema], ';'];
 }
 
 // ---------------------------------------------------------------------------

@@ -388,7 +388,10 @@ public class AstBuilder {
 
     private SqlNode BuildAlterTable(AlterTableStmt s, int start, int end) =>
         new("AlterTableStatement", start, end, null, BuildProps(
-            ("name", BuildRangeVar(s.Relation)),
+            // ALTER TABLE / VIEW / INDEX / SEQUENCE / MATERIALIZED VIEW / FOREIGN TABLE all parse here
+            ("objType",  ObjectTypeKw(s.Objtype)),
+            ("name",     BuildRangeVar(s.Relation)),
+            ("ifExists", s.MissingOk ? true : null),
             ("commands", MapList(s.Cmds, BuildAlterCmd))
         ));
 
@@ -1182,7 +1185,9 @@ public class AstBuilder {
             AlterTableType.AtColumnDefault   => cmd.Def != null ? "SET DEFAULT" : "DROP DEFAULT",
             AlterTableType.AtSetNotNull      => "SET NOT NULL",
             AlterTableType.AtDropNotNull     => "DROP NOT NULL",
-            _ => cmd.Subtype.ToString().Replace("At", ""),
+            // Anything else used to print its enum name (`changeowner`, `settablespace`):
+            // invalid SQL. Fail loudly instead, like every other unmapped construct.
+            _ => throw NotSupported($"ALTER TABLE subcommand ({cmd.Subtype})", null),
         };
         string? newType = null;
         if (cmd.Subtype == AlterTableType.AtAlterColumnType && cmd.Def?.NodeCase == Node.NodeOneofCase.ColumnDef
@@ -1199,7 +1204,9 @@ public class AstBuilder {
                         : cmd.Subtype == AlterTableType.AtAddConstraint && cmd.Def?.NodeCase == Node.NodeOneofCase.Constraint
                         ? BuildConstraint(cmd.Def.Constraint)
                         : null),
-            ("ifExists", cmd.MissingOk ? true : null)
+            // MissingOk means IF NOT EXISTS for ADD COLUMN and IF EXISTS for the DROPs
+            ("ifExists", cmd.MissingOk ? true : null),
+            ("cascade",  cmd.Behavior == DropBehavior.DropCascade ? true : null)
         ));
     }
 
@@ -1883,7 +1890,9 @@ public class AstBuilder {
     private static SqlNode BuildAlterObjectSchema(AlterObjectSchemaStmt s, int start, int end) =>
         new("AlterObjectSchemaStatement", start, end, null, BuildProps(
             ("objType",   ObjectTypeKw(s.ObjectType)),
-            ("name",      NodeObjName(s.Object)),
+            // Tables, views, sequences and matviews carry their name in Relation, not Object
+            ("name",      s.Relation != null ? RangeVarQualifiedName(s.Relation) : NodeObjName(s.Object)),
+            ("ifExists",  s.MissingOk ? true : null),
             ("newSchema", Ident.QuoteOpt(s.Newschema))
         ));
 
@@ -2785,6 +2794,7 @@ public class AstBuilder {
         ObjectType.ObjectIndex     => "INDEX",
         ObjectType.ObjectView      => "VIEW",
         ObjectType.ObjectMatview   => "MATERIALIZED VIEW",
+        ObjectType.ObjectForeignTable => "FOREIGN TABLE",
         ObjectType.ObjectSequence  => "SEQUENCE",
         ObjectType.ObjectFunction  => "FUNCTION",
         ObjectType.ObjectProcedure => "PROCEDURE",

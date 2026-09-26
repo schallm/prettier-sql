@@ -622,13 +622,20 @@ function printAlterCmd(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const newType = propStr(node, 'newType');
     const expr    = prop(node, 'expr');
     const def     = prop(node, 'def');
-    const ifExists: Doc = propBool(node, 'ifExists') ? [makeKeyword('IF EXISTS'), ' '] : '';
+    const missingOk = propBool(node, 'ifExists');
+    const ifExists: Doc = missingOk ? [makeKeyword('IF EXISTS'), ' '] : '';
+    const cascade: Doc = propBool(node, 'cascade') ? [' ', makeKeyword('CASCADE')] : '';
 
     switch (subtype) {
-        case 'ADD COLUMN':
-            return [makeKeyword('ADD COLUMN'), ' ', ifExists, def ? printNode(def) : name];
+        case 'ADD COLUMN': {
+            // For ADD COLUMN the same missing_ok flag means IF NOT EXISTS
+            const ifNotExists: Doc = missingOk ? [makeKeyword('IF NOT EXISTS'), ' '] : '';
+            return [makeKeyword('ADD COLUMN'), ' ', ifNotExists, def ? printNode(def) : name];
+        }
         case 'DROP COLUMN':
-            return [makeKeyword('DROP COLUMN'), ' ', ifExists, name];
+            return [makeKeyword('DROP COLUMN'), ' ', ifExists, name, cascade];
+        case 'DROP CONSTRAINT':
+            return [makeKeyword('DROP CONSTRAINT'), ' ', ifExists, name, cascade];
         case 'ADD CONSTRAINT':
             return [makeKeyword('ADD'), ' ', def ? printNode(def) : name];
         case 'ALTER COLUMN TYPE':
