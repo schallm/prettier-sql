@@ -87,6 +87,7 @@ describe('formatting preserves meaning', () => {
         'select/quoted-identifiers.sql',
         'ddl/roles.sql',
         'ddl/policies.sql',
+        'dml/only.sql',
     ];
     const variants = [
         {},

@@ -15,7 +15,7 @@ import {
     fill,
     line,
 } from '@prettier-sql/core/printer/utils';
-import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix } from './helpers.js';
 import { printExpression, printWindowDef, printOperand, PREC } from './expressions.js';
 
 // ---------------------------------------------------------------------------
@@ -476,7 +476,7 @@ function printUpdateBody(node: SqlNode, opts: Options): Doc {
 
     const parts: Doc[] = ctes ? printCtes(ctes, opts, printNode) : [];
     parts.push(
-        [makeKeyword('UPDATE'), ' ', rangeVarName(target)],
+        [makeKeyword('UPDATE'), ' ', onlyPrefix(target, opts), rangeVarName(target)],
         [
             makeKeyword('SET'),
             density !== 'spacious' && setDocs.length === 1
@@ -519,7 +519,7 @@ function printDeleteBody(node: SqlNode, opts: Options): Doc {
     const returning = propArr(node, 'returning');
 
     const parts: Doc[] = ctes ? printCtes(ctes, opts, printNode) : [];
-    parts.push([makeKeyword('DELETE FROM'), ' ', rangeVarName(target)]);
+    parts.push([makeKeyword('DELETE FROM'), ' ', onlyPrefix(target, opts), rangeVarName(target)]);
 
     if (using.length > 0) parts.push(printListClause('USING', using, opts, printNode));
 
@@ -676,7 +676,7 @@ function printAlterTable(node: SqlNode, opts: Options): Doc {
     const commands = propArr(node, 'commands');
 
     return [
-        makeKeyword('ALTER TABLE'), ' ', rangeVarName(name),
+        makeKeyword('ALTER TABLE'), ' ', onlyPrefix(name, opts), rangeVarName(name),
         indent([hardline, join([',', hardline], commands.map(printNode))]),
         ';',
     ];
@@ -756,7 +756,7 @@ function printTruncate(node: SqlNode, opts: Options): Doc {
     const cascade   = propBool(node, 'cascade');
 
     return [
-        makeKeyword('TRUNCATE TABLE'), ' ', join(', ', relations.map(rangeVarName)),
+        makeKeyword('TRUNCATE TABLE'), ' ', join(', ', relations.map((r) => [onlyPrefix(r, opts), rangeVarName(r)])),
         restart  ? [' ', makeKeyword('RESTART IDENTITY')]  : '',
         cascade  ? [' ', makeKeyword('CASCADE')]            : '',
         ';',
@@ -1623,7 +1623,7 @@ function printLockTable(node: SqlNode, opts: Options): Doc {
     const nowait    = propBool(node, 'nowait');
 
     return [
-        makeKeyword('LOCK TABLE'), ' ', join(', ', relations.map(rangeVarName)),
+        makeKeyword('LOCK TABLE'), ' ', join(', ', relations.map((r) => [onlyPrefix(r, opts), rangeVarName(r)])),
         ' ', makeKeyword('IN'), ' ', makeKeyword(mode), ' ', makeKeyword('MODE'),
         nowait ? [' ', makeKeyword('NOWAIT')] : '',
         ';',

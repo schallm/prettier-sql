@@ -925,7 +925,9 @@ public class AstBuilder {
         return new SqlNode("RangeVar", 0, 0, null, BuildProps(
             ("schema", Ident.QuoteOpt(r.Schemaname)),
             ("name", Ident.QuoteOpt(r.Relname)),
-            ("alias", Ident.QuoteOpt(r.Alias?.Aliasname))
+            ("alias", Ident.QuoteOpt(r.Alias?.Aliasname)),
+            // Inh is false only for `ONLY t`: exclude inheritance children / partitions
+            ("only", r.Inh ? null : true)
         ));
     }
 

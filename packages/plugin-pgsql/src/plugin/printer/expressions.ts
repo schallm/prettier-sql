@@ -3,7 +3,7 @@ import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options, PrintFn } from '@prettier-sql/core/printer/utils';
 import { keyword, join, indent, hardline, softline, group, fill, line, getDensity, aliasDoc } from '@prettier-sql/core/printer/utils';
 import { printStatement, printQueryExpr } from './statements.js';
-import { prop, propArr, propStr, propBool, propStrArr, rangeVarName } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, onlyPrefix } from './helpers.js';
 
 export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     switch (node.type) {
@@ -479,7 +479,7 @@ function printResTarget(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 // ---------------------------------------------------------------------------
 
 function printRangeVar(node: SqlNode, opts: Options): Doc {
-    return [rangeVarName(node), aliasDoc(propStr(node, 'alias'), opts)];
+    return [onlyPrefix(node, opts), rangeVarName(node), aliasDoc(propStr(node, 'alias'), opts)];
 }
 
 function printJoinExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
