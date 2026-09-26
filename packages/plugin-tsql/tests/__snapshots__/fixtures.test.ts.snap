@@ -3120,6 +3120,30 @@ window w as (
 "
 `;
 
+exports[`fixtures > select/window-clause-order.sql 1`] = `
+"-- WINDOW comes after HAVING and before ORDER BY
+select
+  a,
+  sum(a) over w
+from t
+group by a
+having count(*) > 1
+window w as (partition by a)
+order by sum(a) over w asc;
+
+select a
+from t
+window
+  w as (partition by b),
+  w2 as (
+    w
+    order by c asc
+  )
+order by a asc
+offset 1 rows;
+"
+`;
+
 exports[`fixtures > select/xml-methods.sql 1`] = `
 "-- XML instance method calls on XML-typed columns
 select

@@ -768,7 +768,10 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
         }
     }
 
-    // Tail clauses — same layout intent for all densities, sep varies
+    // Tail clauses — same layout intent for all densities, sep varies.
+    // WINDOW comes before ORDER BY: SELECT ... HAVING ... WINDOW w AS (...) ORDER BY ...
+    if (windowDefs.length > 0) parts.push(sep, printWindowClause(windowDefs, opts, printFn));
+
     if (orderBy) parts.push(sep, printOrderByClause(orderBy, opts, printFn));
 
     if (offsetNode) {
@@ -777,8 +780,6 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
             parts.push(sep, keyword('FETCH NEXT', opts), ' ', printExpression(fetchNode, opts, printFn), ' ', keyword('ROWS ONLY', opts));
         }
     }
-
-    if (windowDefs.length > 0) parts.push(sep, printWindowClause(windowDefs, opts, printFn));
 
     if (forClause) parts.push(sep, printForClause(forClause, opts));
 
