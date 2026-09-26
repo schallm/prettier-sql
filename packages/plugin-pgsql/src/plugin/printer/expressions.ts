@@ -29,7 +29,7 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'ColumnDef': return printColumnDef(node, opts, printNode);
         case 'Constraint': return printConstraint(node, opts, printNode);
         case 'AlterCmd': return printAlterCmd(node, opts, printNode);
-        case 'FunctionParam': return printFunctionParam(node, opts);
+        case 'FunctionParam': return printFunctionParam(node, opts, printNode);
         case 'IndexElem': {
             const expr = prop(node, 'expr');
             const direction  = propStr(node, 'direction');
@@ -679,13 +679,17 @@ function printAlterCmd(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     }
 }
 
-function printFunctionParam(node: SqlNode, opts: Options): Doc {
+function printFunctionParam(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (kw: string) => keyword(kw, opts);
     const name = propStr(node, 'name') ?? '';
     const typeName = propStr(node, 'typeName') ?? '';
     const mode = propStr(node, 'mode');
+    const defaultExpr = prop(node, 'default');
     const modePrefix = mode ? [makeKeyword(mode), ' '] : '';
-    return [modePrefix, name ? [name, ' '] : '', makeKeyword(typeName)];
+    return [
+        modePrefix, name ? [name, ' '] : '', makeKeyword(typeName),
+        defaultExpr ? [' ', makeKeyword('DEFAULT'), ' ', printNode(defaultExpr)] : '',
+    ];
 }
 
 // ---------------------------------------------------------------------------

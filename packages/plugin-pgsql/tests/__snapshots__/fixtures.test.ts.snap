@@ -234,7 +234,7 @@ as $$
 $$;
 
 -- Function with OUT parameters
-create function get_stats(p_author_id integer, out book_count bigint, out avg_price numeric)
+create function get_stats(in p_author_id integer, out book_count bigint, out avg_price numeric)
 language sql
 as $$
   select count(*), avg(price) from books where author_id = p_author_id
@@ -259,6 +259,9 @@ $$;
 create function safe_divide(a numeric, b numeric)
 returns numeric
 language sql
+stable
+strict
+security definer
 as $$
   select a / b
 $$;
@@ -386,6 +389,51 @@ drop type if exists my_status cascade;
 drop sequence order_seq;
 
 drop sequence if exists order_seq;
+"
+`;
+
+exports[`fixtures > ddl/function-attributes.sql 1`] = `
+"-- OR REPLACE, procedures, attributes (volatility, STRICT, SECURITY DEFINER, ...), SETOF, parameter defaults, C symbols and $$ inside a body
+create or replace function f(a integer default 1, in b text default 'x', out c integer)
+returns setof integer
+language plpgsql
+immutable
+strict
+security definer
+parallel safe
+cost 10
+rows 5
+set search_path = 'MySchema', pg_temp
+as $$ begin end $$;
+
+create function g()
+returns integer
+language c
+stable
+leakproof
+called on null input
+security invoker
+as 'mylib', 'g_impl';
+
+create function h()
+returns text
+language sql
+as $body$ select '$$' $body$;
+
+create function k(variadic xs integer[])
+returns table (x integer, y text)
+language sql
+set work_mem from current
+as $$select 1, 'a'$$;
+
+create procedure p(inout n integer)
+language plpgsql
+as $$ begin n := n + 1; end $$;
+
+create or replace procedure q()
+language sql
+security definer
+as $$select 1$$;
 "
 `;
 

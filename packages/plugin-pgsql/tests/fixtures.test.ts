@@ -96,6 +96,8 @@ describe('formatting preserves meaning', () => {
         'ddl/create-table-options.sql',
         'ddl/grant-revoke.sql',
         'ddl/grant-options.sql',
+        'ddl/create-function.sql',
+        'ddl/function-attributes.sql',
     ];
     const variants = [
         {},

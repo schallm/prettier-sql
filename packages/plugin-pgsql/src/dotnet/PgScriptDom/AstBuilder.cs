@@ -436,21 +436,32 @@ public class AstBuilder {
         ));
 
     private SqlNode BuildCreateFunction(CreateFunctionStmt s, int start, int end) {
+        // A SQL-standard body (RETURN expr / BEGIN ATOMIC ... END) isn't supported yet;
+        // it used to vanish, leaving a function with no body at all.
+        if (s.SqlBody != null && s.SqlBody.NodeCase != Node.NodeOneofCase.None)
+            throw NotSupported("SQL-standard function body (RETURN / BEGIN ATOMIC)", null);
+
         string? language = null;
-        string? body = null;
+        List<string>? body = null;
+        var attributes = new List<string>();
         foreach (var o in s.Options) {
             if (o.NodeCase != Node.NodeOneofCase.DefElem) continue;
             var defElem = o.DefElem;
             switch (defElem.Defname) {
                 case "language":
                     if (defElem.Arg?.NodeCase == Node.NodeOneofCase.String)
-                        language = defElem.Arg.String.Sval;
+                        language = Ident.Quote(defElem.Arg.String.Sval);
                     break;
                 case "as":
-                    // AS body is a List with one String item (dollar-quoted body contents)
-                    if (defElem.Arg?.NodeCase == Node.NodeOneofCase.List && defElem.Arg.List.Items.Count > 0
-                        && defElem.Arg.List.Items[0].NodeCase == Node.NodeOneofCase.String)
-                        body = defElem.Arg.List.Items[0].String.Sval;
+                    // One string (the body), or two for a C function: 'obj_file', 'link_symbol'
+                    if (defElem.Arg?.NodeCase == Node.NodeOneofCase.List)
+                        body = defElem.Arg.List.Items
+                            .Where(i => i.NodeCase == Node.NodeOneofCase.String)
+                            .Select(i => i.String.Sval)
+                            .ToList();
+                    break;
+                default:
+                    attributes.Add(FunctionAttribute(defElem));
                     break;
             }
         }
@@ -463,14 +474,47 @@ public class AstBuilder {
             .Where(n => n.NodeCase != Node.NodeOneofCase.FunctionParameter ||
                         n.FunctionParameter.Mode != FunctionParameterMode.FuncParamTable);
         return new SqlNode("CreateFunctionStatement", start, end, null, BuildProps(
+            ("orReplace",    s.Replace ? true : null),
+            ("isProcedure",  s.IsProcedure ? true : null),
             ("name",         s.Funcname.Count > 0 ? Ident.QualifiedFunc(s.Funcname.Select(n => n.String.Sval)) : null),
             ("parameters",   MapList(regularParams, BuildFunctionParam)),
             ("returnType",   tableParams.Count == 0 && s.ReturnType != null ? BuildPgTypeName(s.ReturnType) : null),
             ("returnsTable", MaybeList(tableParams)),
             ("language",     language),
-            ("body",         body)
+            ("attributes",   MaybeList(attributes)),
+            ("body",         body != null ? MaybeList(body) : null)
         ));
     }
+
+    // One CREATE FUNCTION / ALTER FUNCTION attribute as SQL text: IMMUTABLE, STRICT,
+    // SECURITY DEFINER, PARALLEL SAFE, COST 10, SET search_path = x, ...
+    private string FunctionAttribute(DefElem d) {
+        bool Flag() => GetBoolFromArg(d.Arg);
+        string Value() => BuildDefElemValue(d)?.ToString() ?? throw NotSupported($"function attribute value ({d.Defname})", d.Location);
+        return d.Defname switch {
+            "volatility" => Value().ToUpperInvariant(),
+            "strict"     => Flag() ? "STRICT" : "CALLED ON NULL INPUT",
+            "security"   => Flag() ? "SECURITY DEFINER" : "SECURITY INVOKER",
+            "leakproof"  => Flag() ? "LEAKPROOF" : "NOT LEAKPROOF",
+            "window"     => "WINDOW",
+            "parallel"   => $"PARALLEL {Value().ToUpperInvariant()}",
+            "cost"       => $"COST {Value()}",
+            "rows"       => $"ROWS {Value()}",
+            "support"    => $"SUPPORT {(d.Arg?.NodeCase == Node.NodeOneofCase.List ? Ident.QualifiedFunc(d.Arg.List.Items.Select(i => i.String.Sval)) : Value())}",
+            "set" when d.Arg?.NodeCase == Node.NodeOneofCase.VariableSetStmt => FunctionSetClause(d.Arg.VariableSetStmt),
+            _ => throw NotSupported($"function attribute ({d.Defname})", d.Location),
+        };
+    }
+
+    // SET name = value / SET name FROM CURRENT / RESET name / RESET ALL, inside CREATE FUNCTION
+    private string FunctionSetClause(VariableSetStmt v) => v.Kind switch {
+        VariableSetKind.VarSetValue   => $"SET {v.Name} = {string.Join(", ", v.Args.Select(SetValue))}",
+        VariableSetKind.VarSetDefault => $"SET {v.Name} TO DEFAULT",
+        VariableSetKind.VarSetCurrent => $"SET {v.Name} FROM CURRENT",
+        VariableSetKind.VarReset      => $"RESET {v.Name}",
+        VariableSetKind.VarResetAll   => "RESET ALL",
+        _ => throw NotSupported($"function SET clause ({v.Kind})", null),
+    };
 
     private SqlNode BuildCreateIndex(IndexStmt s, int start, int end) =>
         new("CreateIndexStatement", start, end, null, BuildProps(
@@ -1274,10 +1318,11 @@ public class AstBuilder {
         ));
     }
 
-    private static SqlNode? BuildFunctionParam(Node n) {
+    private SqlNode? BuildFunctionParam(Node n) {
         if (n.NodeCase != Node.NodeOneofCase.FunctionParameter) return null;
         var p = n.FunctionParameter;
         var mode = p.Mode switch {
+            FunctionParameterMode.FuncParamIn       => "IN",
             FunctionParameterMode.FuncParamOut      => "OUT",
             FunctionParameterMode.FuncParamInout    => "INOUT",
             FunctionParameterMode.FuncParamVariadic => "VARIADIC",
@@ -1286,7 +1331,8 @@ public class AstBuilder {
         return new SqlNode("FunctionParam", 0, 0, null, BuildProps(
             ("name",     Ident.QuoteOpt(p.Name)),
             ("typeName", p.ArgType != null ? BuildPgTypeName(p.ArgType) : null),
-            ("mode",     mode)
+            ("mode",     mode),
+            ("default",  p.Defexpr != null ? BuildExpr(p.Defexpr) : null)
         ));
     }
 
@@ -1379,7 +1425,8 @@ public class AstBuilder {
 
         if (t.ArrayBounds.Count > 0) name += "[]";
 
-        return name;
+        // RETURNS SETOF t: a set-returning function, not one returning a single t
+        return t.Setof ? $"setof {name}" : name;
     }
 
     private SqlNode BuildIndirection(A_Indirection a) {

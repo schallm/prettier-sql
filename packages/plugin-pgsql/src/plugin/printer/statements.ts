@@ -741,10 +741,12 @@ function printCreateFunction(node: SqlNode, opts: Options): Doc {
     const returnType   = propStr(node, 'returnType');
     const returnsTable = propArr(node, 'returnsTable');
     const language     = propStr(node, 'language');
-    const body         = propStr(node, 'body');
+    const attributes   = propStrArr(node, 'attributes');
+    const body         = propStrArr(node, 'body');
+    const kind         = propBool(node, 'isProcedure') ? 'PROCEDURE' : 'FUNCTION';
 
     const parts: Doc[] = [
-        makeKeyword('CREATE FUNCTION'), ' ', name,
+        makeKeyword(propBool(node, 'orReplace') ? `CREATE OR REPLACE ${kind}` : `CREATE ${kind}`), ' ', name,
         '(', join(', ', parameters.map(printNode)), ')',
     ];
 
@@ -754,11 +756,22 @@ function printCreateFunction(node: SqlNode, opts: Options): Doc {
         parts.push(hardline, makeKeyword('RETURNS'), ' ', makeKeyword(returnType));
     }
     if (language)   parts.push(hardline, makeKeyword('LANGUAGE'), ' ', language);
-    if (body != null) {
-        parts.push(hardline, makeKeyword('AS'), ' ', '$$', body, '$$');
+    for (const attribute of attributes) parts.push(hardline, makeKeyword(attribute));
+    if (body.length === 1) {
+        parts.push(hardline, makeKeyword('AS'), ' ', dollarQuote(body[0]!));
+    } else if (body.length > 1) {
+        // C function: AS 'obj_file', 'link_symbol'
+        parts.push(hardline, makeKeyword('AS'), ' ', join(', ', body.map((b) => `'${b.replace(/'/g, "''")}'`)));
     }
 
     return [join('', parts), ';'];
+}
+
+/** Dollar-quotes `text` with a tag that doesn't occur in it: $$…$$, else $body$…$body$, $body1$… */
+function dollarQuote(text: string): string {
+    let tag = '$$';
+    for (let i = 0; text.includes(tag); i++) tag = i === 0 ? '$body$' : `$body${i}$`;
+    return `${tag}${text}${tag}`;
 }
 
 function printCreateIndex(node: SqlNode, opts: Options): Doc {
@@ -1172,7 +1185,7 @@ function printDo(node: SqlNode, opts: Options): Doc {
     const language = propStr(node, 'language') ?? 'plpgsql';
     const body = propStr(node, 'body') ?? '';
     // Standard convention: body first, LANGUAGE after
-    return [[makeKeyword('DO'), ' ', '$$', body, '$$', hardline, makeKeyword('LANGUAGE'), ' ', language], ';'];
+    return [[makeKeyword('DO'), ' ', dollarQuote(body), hardline, makeKeyword('LANGUAGE'), ' ', language], ';'];
 }
 
 // ---------------------------------------------------------------------------
