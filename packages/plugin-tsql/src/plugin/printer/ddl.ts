@@ -272,13 +272,14 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
     // Dynamic data masking
     if (node.props?.['isMasked']) {
         const maskFn = propStr(node, 'maskingFunction') ?? 'default()';
-        parts.push(' ', keyword('MASKED WITH', opts), ' (', keyword('FUNCTION', opts), ` = '${maskFn}')`);
+        parts.push(' ', keyword('MASKED WITH', opts), ' (', keyword('FUNCTION', opts), ` = '${maskFn.replace(/'/g, "''")}')`);
     }
 
     if (defaultValue) {
         const defaultName = propStr(node, 'defaultConstraintName');
         const defaultNamePrefix: Doc = defaultName ? [keyword('CONSTRAINT', opts), ' ', defaultName, ' '] : '';
         parts.push(' ', defaultNamePrefix, keyword('DEFAULT', opts), ' ', printNode(defaultValue, opts));
+        if (propBool(node, 'defaultWithValues')) parts.push(' ', keyword('WITH VALUES', opts));
     }
     parts.push(nullablePart(isNullable, opts));
     if (checkConstraint) {
@@ -470,7 +471,10 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         const defs = [
             ...propArr(node, 'columns').map((c) => withTrailingComment(c, printColumnDef(c, opts))),
             ...propArr(node, 'constraints').map((c) => withTrailingComment(c, printConstraintDef(c, opts))),
+            ...propArr(node, 'indexes').map((i) => withTrailingComment(i, printInlineIndex(i, opts))),
         ];
+        const period = propStr(node, 'systemTimePeriod');
+        if (period) defs.push([keyword('PERIOD FOR SYSTEM_TIME', opts), ' (', period, ')']);
         const addPart: Doc = defs.length === 1 ? [' ', defs[0]!] : indent([hardline, join([',', hardline], defs)]);
         return [keyword('ALTER TABLE', opts), ' ', name, hardline, withCheckPrefix, keyword('ADD', opts), addPart, ';'];
     }

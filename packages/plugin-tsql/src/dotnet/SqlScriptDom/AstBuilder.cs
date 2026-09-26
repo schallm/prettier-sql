@@ -1814,6 +1814,8 @@ public class AstBuilder : TSqlFragmentVisitor {
                     ? BuildScalarExpression(col.DefaultConstraint.Expression)
                     : null,
                 ["defaultConstraintName"] = QuotedName(col.DefaultConstraint?.ConstraintIdentifier),
+                // DEFAULT ... WITH VALUES: fill the new column's existing rows with the default
+                ["defaultWithValues"] = col.DefaultConstraint?.WithValues == true ? (object?)true : null,
                 ["isRowGuidCol"] = col.IsRowGuidCol ? (object?)true : null,
                 // COLLATE clause on the column
                 ["collation"] = col.Collation?.Value,
@@ -1924,6 +1926,11 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ?.Select(c => (object?)BuildColumnDefinition(c)).ToList();
             props["constraints"] = addElem.Definition?.TableConstraints
                 ?.Select(c => (object?)BuildTableConstraint(c)).ToList();
+            props["indexes"] = MapList(addElem.Definition?.Indexes, i => (object?)BuildInlineIndex(i));
+            // ADD PERIOD FOR SYSTEM_TIME (start, end)
+            props["systemTimePeriod"] = addElem.Definition?.SystemTimePeriod is { } period
+                ? $"{QuotedName(period.StartTimeColumn)}, {QuotedName(period.EndTimeColumn)}"
+                : null;
             props["withCheckEnforcement"] = addElem.ExistingRowsCheckEnforcement == ConstraintEnforcement.NotSpecified
                 ? null : addElem.ExistingRowsCheckEnforcement.ToString();
         } else if (at is AlterTableDropTableElementStatement dropElem) {

@@ -181,6 +181,42 @@ add
 "
 `;
 
+exports[`fixtures > alter-table/add-elements.sql 1`] = `
+"-- ALTER TABLE ADD: DEFAULT ... WITH VALUES, PERIOD FOR SYSTEM_TIME, INDEX; masking functions with quotes
+alter table t
+add
+  a int null,
+  b varchar(10) constraint df_b default 'x' with values not null;
+
+alter table t
+add c int default 0 with values;
+
+alter table t
+add period for system_time (vf, vt);
+
+alter table t
+add
+  vf datetime2 generated always as row start hidden default sysutcdatetime(
+
+  ) not null,
+  vt datetime2 generated always as row end hidden default '9999-12-31' not null,
+  period for system_time (vf, vt);
+
+alter table t
+add index ix nonclustered (a asc);
+
+alter table t
+add CONSTRAINT df DEFAULT 0 FOR a WITH VALUES;
+
+alter table t
+alter column s add masked with (function = 'partial(1,"XX",0)');
+
+create table t (
+  s varchar(10) masked with (function = 'partial(1,''X'',0)')
+);
+"
+`;
+
 exports[`fixtures > alter-table/alter-column.sql 1`] = `
 "alter table Books
 alter column Title nvarchar(500) null;
