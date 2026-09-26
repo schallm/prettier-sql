@@ -39,7 +39,7 @@
     "prettier": ">=3.0.0"
   },
   "dependencies": {
-    "node-api-dotnet": "0.9.25"
+    "node-api-dotnet": "0.9.27"
   },
   "devDependencies": {
     "@prettier-sql/core": "workspace:*"
