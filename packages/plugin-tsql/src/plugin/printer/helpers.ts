@@ -1,9 +1,72 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
-import { keyword, ifExistsDoc } from '@prettier-sql/core/printer/utils';
+import { keyword, ifExistsDoc, lineSuffix } from '@prettier-sql/core/printer/utils';
+import { builders } from 'prettier/doc';
+
+const { breakParent } = builders;
 import { prop, propArr, propStr, propBool, propStrArr } from '@prettier-sql/core/printer/helpers';
 export { prop, propArr, propStr, propBool, propStrArr };
+
+// Trailing comments inside a statement. Comments attach to the nearest node in the
+// source, often one whose printer never looks for a comment (a table name, a column
+// reference), so:
+//  - a clause that lays out a comment itself (a WHERE after a predicate, a join between
+//    joins, a table reference after itself) claims the node before any of it prints,
+//    then takes the comment when it prints it;
+//  - every other node prints its own (withTrailingComment);
+//  - each comment is printed once (takeTrailingComment), and anything still unprinted
+//    once its statement is printed goes after the statement (unprintedComments), so a
+//    comment is never silently dropped.
+const claimedComments = new WeakSet<SqlNode>();
+const printedComments = new WeakSet<SqlNode>();
+
+export function claimTrailingComment(node: SqlNode): void {
+    claimedComments.add(node);
+}
+
+export function isCommentClaimed(node: SqlNode): boolean {
+    return claimedComments.has(node);
+}
+
+/** The node's trailing comment, marked printed — or undefined if it has none or was printed already. */
+export function takeTrailingComment(node: SqlNode | null | undefined): string | undefined {
+    if (!node?.trailingComment || printedComments.has(node)) return undefined;
+    printedComments.add(node);
+    return node.trailingComment;
+}
+
+/** A doc followed by comments: line comments end at the next line break, block comments sit inline. */
+export function appendComments(doc: Doc, comment: string | undefined): Doc {
+    if (!comment) return doc;
+    return comment.split('\n').map((c) => c.trim()).reduce<Doc>(
+        (d, c) => (c.startsWith('--') ? [d, lineSuffix([' ', c]), breakParent] : [d, ' ', c]),
+        doc,
+    );
+}
+
+/** A node's doc followed by its trailing comment, unless a clause prints that comment itself. */
+export function withTrailingComment(node: SqlNode, doc: Doc): Doc {
+    if (claimedComments.has(node) || node.type.endsWith('Statement')) return doc;
+    return appendComments(doc, takeTrailingComment(node));
+}
+
+/** Trailing comments under a statement that its printing didn't emit. */
+export function unprintedComments(stmt: SqlNode): string[] {
+    const out: string[] = [];
+    const walk = (v: unknown): void => {
+        if (Array.isArray(v)) return v.forEach(walk);
+        if (!v || typeof v !== 'object') return;
+        const n = v as SqlNode;
+        if (typeof n.type === 'string' && n !== stmt) {
+            const c = takeTrailingComment(n);
+            if (c) out.push(c);
+        }
+        for (const child of Object.values(n.props ?? {})) walk(child);
+    };
+    walk(stmt);
+    return out;
+}
 
 export function schemaObjectName(nameNode: SqlNode | null): string {
     if (!nameNode) return '';

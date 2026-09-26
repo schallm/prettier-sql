@@ -13,7 +13,7 @@ import {
     commentsBlock,
     parenList,
 } from '@prettier-sql/core/printer/utils';
-import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, printDropSingleObject } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, printDropSingleObject, withTrailingComment } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
 import { joinBodyStatements, printNode, printBool, printBoolClause, qexpr } from './statements.js';
@@ -116,9 +116,9 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
 
     const indexes = propArr(node, 'indexes');
     const allDefs: Doc[] = [
-        ...columns.map((col) => printColumnDef(col, opts)),
-        ...constraints.map((c) => printConstraintDef(c, opts)),
-        ...indexes.map((idx) => printInlineIndex(idx, opts)),
+        ...columns.map((col) => withTrailingComment(col, printColumnDef(col, opts))),
+        ...constraints.map((c) => withTrailingComment(c, printConstraintDef(c, opts))),
+        ...indexes.map((idx) => withTrailingComment(idx, printInlineIndex(idx, opts))),
     ];
 
     // PERIOD FOR SYSTEM_TIME (ValidFrom, ValidTo) — always last in the table body
@@ -468,8 +468,8 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
                   ? [keyword('WITH NOCHECK', opts), hardline]
                   : '';
         const defs = [
-            ...propArr(node, 'columns').map((c) => printColumnDef(c, opts)),
-            ...propArr(node, 'constraints').map((c) => printConstraintDef(c, opts)),
+            ...propArr(node, 'columns').map((c) => withTrailingComment(c, printColumnDef(c, opts))),
+            ...propArr(node, 'constraints').map((c) => withTrailingComment(c, printConstraintDef(c, opts))),
         ];
         const addPart: Doc = defs.length === 1 ? [' ', defs[0]!] : indent([hardline, join([',', hardline], defs)]);
         return [keyword('ALTER TABLE', opts), ' ', name, hardline, withCheckPrefix, keyword('ADD', opts), addPart, ';'];
@@ -1283,9 +1283,9 @@ export function printCreateTypeUddt(node: SqlNode, opts: Options): Doc {
 
 export function printCreateTypeTable(node: SqlNode, opts: Options): Doc {
     const allDefs = [
-        ...propArr(node, 'columns').map((c) => printColumnDef(c, opts)),
-        ...propArr(node, 'constraints').map((c) => printConstraintDef(c, opts)),
-        ...propArr(node, 'indexes').map((i) => printInlineIndex(i, opts)),
+        ...propArr(node, 'columns').map((c) => withTrailingComment(c, printColumnDef(c, opts))),
+        ...propArr(node, 'constraints').map((c) => withTrailingComment(c, printConstraintDef(c, opts))),
+        ...propArr(node, 'indexes').map((i) => withTrailingComment(i, printInlineIndex(i, opts))),
     ];
     const options = propStrArr(node, 'options');
     return group([

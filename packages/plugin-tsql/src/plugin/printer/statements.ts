@@ -17,8 +17,9 @@ import {
     appendTrailingLines,
     parenList,
     fill,
+    hasLineSuffix,
 } from '@prettier-sql/core/printer/utils';
-import { prop, propArr, propStr, propBool, assignmentOp } from './helpers.js';
+import { prop, propArr, propStr, propBool, assignmentOp, claimTrailingComment, takeTrailingComment, unprintedComments } from './helpers.js';
 import {
     printExpression,
     printBoolExpr,
@@ -176,7 +177,10 @@ function appendTrailingComment(doc: Doc, comment: string | undefined): Doc {
  * Exported so that ddl.ts and procedural.ts can call it (circular import — safe in ESM).
  */
 export function printStatementWithComments(s: SqlNode, opts: Options): Doc {
-    const stmtDoc = printStatement(s, opts);
+    const printed = printStatement(s, opts);
+    // Comments inside the statement that no part of it printed: keep them, after it
+    const leftover = unprintedComments(s);
+    const stmtDoc = leftover.length > 0 ? appendTrailingLines(printed, leftover.join('\n')) : printed;
     const withTrailing = appendTrailingComment(stmtDoc, s.trailingComment);
     if (s.leadingComments?.length) {
         return [...s.leadingComments.flatMap((c): Doc[] => [c, hardline]), withTrailing] as Doc;
@@ -194,9 +198,10 @@ function rightmostBoolLeaf(node: SqlNode | null | undefined): SqlNode | null {
 // Append any trailing comment on the rightmost predicate leaf — covers single-predicate
 // WHERE with a comment below it, and comments after the last predicate in a multi-predicate WHERE.
 function printBoolDoc(where: SqlNode, opts: Options): Doc {
+    const leaf = rightmostBoolLeaf(where);
+    if (leaf?.trailingComment) claimTrailingComment(leaf);
     const base = printBool(where, opts);
-    const trailing = rightmostBoolLeaf(where)?.trailingComment;
-    return appendTrailingLines(base, trailing);
+    return appendTrailingLines(base, takeTrailingComment(leaf));
 }
 
 function printTable(node: SqlNode, opts: Options): Doc {
@@ -218,7 +223,9 @@ function fillList(docs: Doc[], opts: Options): Doc {
             if (i === 0) return [d] as Doc[];
             // leading: break point before ', item' so comma leads the new line
             // trailing: 'item,' then break point so comma trails the old line
-            return leading ? ([line, [', ', d]] as Doc[]) : ([[',', line], d] as Doc[]);
+            // After a line comment the break is forced, or the next item joins the comment
+            const brk = hasLineSuffix(docs[i - 1]!) ? hardline : line;
+            return leading ? ([brk, [', ', d]] as Doc[]) : ([[',', brk], d] as Doc[]);
         }),
     );
 }
@@ -864,7 +871,8 @@ function printValuesSource(node: SqlNode, opts: Options): Doc {
         const rowNode = row as SqlNode;
         const vals = propArr(rowNode, 'values').map((v) => printNode(v, opts));
         const rowDoc = group(['(', indent([softline, join(softSep(opts), vals)]), softline, ')']);
-        return rowNode.trailingComment ? [rowDoc, lineSuffix([' ', rowNode.trailingComment])] : rowDoc;
+        const rowComment = takeTrailingComment(rowNode);
+        return rowComment ? [rowDoc, lineSuffix([' ', rowComment])] : rowDoc;
     });
 
     if (rows.length === 1) {

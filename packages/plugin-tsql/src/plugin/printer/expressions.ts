@@ -16,8 +16,12 @@ import {
     appendTrailingLines,
     parenList,
     aliasDoc,
+    commaFill,
 } from '@prettier-sql/core/printer/utils';
-import { prop, propArr, propStr, propBool, schemaObjectName, assignmentOp } from './helpers.js';
+import {
+    prop, propArr, propStr, propBool, schemaObjectName, assignmentOp,
+    claimTrailingComment, isCommentClaimed, takeTrailingComment, withTrailingComment, appendComments,
+} from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // Module-level lookup tables (created once, not per call)
@@ -69,6 +73,10 @@ const JOIN_TYPE_WORD: Record<string, string> = {
 // ---------------------------------------------------------------------------
 
 export function printExpression(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
+    return withTrailingComment(node, printExpressionInner(node, opts, printFn));
+}
+
+function printExpressionInner(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     switch (node.type) {
         case 'WildcardColumn':
             return '*';
@@ -299,7 +307,7 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
     // standard/spacious: all-or-nothing group (all inline or each on its own line)
     const argsListDoc: Doc =
         getDensity(opts) === 'compact' && args.length > 1
-            ? fill(args.flatMap((a, i) => (i === 0 ? [a] : [[',', line], a])))
+            ? commaFill(args)
             : join([',', line], args);
     // Only an unqualified call is a built-in (scalar UDFs and CLR aggregates must be
     // schema-qualified), so only it gets keyword casing. Anything with a call target keeps
@@ -596,6 +604,10 @@ function printScalarSubquery(node: SqlNode, opts: Options, printFn: PrintFn): Do
 // ---------------------------------------------------------------------------
 
 export function printQueryExpression(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
+    return withTrailingComment(node, printQueryExpressionInner(node, opts, printFn));
+}
+
+function printQueryExpressionInner(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     switch (node.type) {
         case 'QuerySpecification':
             return printQuerySpec(node, opts, printFn);
@@ -650,7 +662,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     if (compact) {
         // Compact: fill-pack each list clause — as many items per line as fit, wrapping only when needed.
         // indent() ensures wrapped lines are indented one level under the keyword.
-        const colList = indent(fill(colDocs.flatMap((d, i) => (i === 0 ? [d] : [[',', line], d]))));
+        const colList = indent(commaFill(colDocs));
         parts.push(' ', colList);
 
         if (intoTarget) parts.push(line, keyword('INTO', opts), ' ', schemaObjectName(intoTarget));
@@ -676,7 +688,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
                 line,
                 groupByKeyword(groupBy, opts),
                 ' ',
-                indent(fill(elemDocs.flatMap((d, i) => (i === 0 ? [d] : [[',', line], d])))),
+                indent(commaFill(elemDocs)),
                 groupByWithOption(groupBy, opts),
             );
         }
@@ -967,6 +979,12 @@ export function printWindowClause(defs: SqlNode[], opts: Options, printFn: Print
 // ---------------------------------------------------------------------------
 
 export function printBoolExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
+    // Claim the comments this predicate tree prints between predicates, before any part prints
+    claimPredicateComments(node);
+    return withTrailingComment(node, printBoolExprInner(node, opts, printFn));
+}
+
+function printBoolExprInner(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     switch (node.type) {
         // UPDATE / DELETE ... WHERE CURRENT OF [GLOBAL] cursor
         case 'CurrentOfCursor':
@@ -1268,6 +1286,17 @@ function printBetween(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
 // ---------------------------------------------------------------------------
 
 export function printTableRef(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
+    // A comment right after a table reference lands on its rightmost part — the table
+    // name, or the last column of a join's ON condition. Claim it before the reference
+    // prints (unless an enclosing join already has, to print between joins), print it after.
+    const inner = rightmostCommentNode(node, node.endOffset);
+    const own = inner && inner !== node && !isCommentClaimed(inner) ? inner : undefined;
+    if (own) claimTrailingComment(own);
+    const doc = withTrailingComment(node, printTableRefInner(node, opts, printFn));
+    return own ? appendComments(doc, takeTrailingComment(own)) : doc;
+}
+
+function printTableRefInner(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     switch (node.type) {
         case 'NamedTableReference':
             return printNamedTableRef(node, opts, printFn);
@@ -1361,19 +1390,44 @@ function joinTypeKeyword(jt: string, opts: Options, hint?: string | null): Doc {
  * re-discover the same comment on every subsequent gap.
  */
 function rightmostTrailingComment(node: SqlNode | null, targetEndOffset: number): string | undefined {
+    const found = rightmostCommentNode(node, targetEndOffset);
+    if (!found) return undefined;
+    claimTrailingComment(found);
+    return takeTrailingComment(found);
+}
+
+/** The node on the rightmost path (ending at targetEndOffset) that carries a trailing comment. */
+function rightmostCommentNode(node: SqlNode | null, targetEndOffset: number): SqlNode | undefined {
     if (!node || node.endOffset !== targetEndOffset) return undefined;
-    if (node.trailingComment) return node.trailingComment;
+    if (node.trailingComment) return node;
     const props = node.props;
     if (!props) return undefined;
     const vals = Object.values(props);
     for (let i = vals.length - 1; i >= 0; i--) {
         const v = vals[i];
         if (v && typeof v === 'object' && 'type' in (v as object)) {
-            const found = rightmostTrailingComment(v as SqlNode, targetEndOffset);
+            const found = rightmostCommentNode(v as SqlNode, targetEndOffset);
             if (found) return found;
         }
     }
     return undefined;
+}
+
+/**
+ * Claim the trailing comments a predicate tree prints itself — each predicate's, found
+ * the way boolWithTrailing and printBoolBinary find them — so their parts don't print
+ * them too. Runs before any part of the tree is printed.
+ */
+function claimPredicateComments(node: SqlNode | null): void {
+    if (!node) return;
+    if (node.type === 'BooleanBinary') {
+        claimPredicateComments(prop(node, 'left'));
+        claimPredicateComments(prop(node, 'right'));
+        return;
+    }
+    const rp = rightmostPred(node);
+    const found = rp ? rightmostCommentNode(rp, rp.endOffset) : undefined;
+    if (found) claimTrailingComment(found);
 }
 
 function printQualifiedJoin(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
@@ -1405,13 +1459,13 @@ function printQualifiedJoin(node: SqlNode, opts: Options, printFn: PrintFn): Doc
         }
     }
 
-    const leftDoc = left ? printTableRef(left, opts, printFn) : '';
-
     // A comment between two JOIN clauses lands on the rightmost descendant of
     // the left-child join (via Pass 3 `>=` tie-breaking).  Restrict search to
     // nodes whose endOffset == left.endOffset so subsequent joins don't
-    // re-discover the same comment from an ancestor.
+    // re-discover the same comment from an ancestor. Found (and claimed) before
+    // the left side prints, so it isn't printed there too.
     const betweenComment = left ? rightmostTrailingComment(left, left.endOffset) : undefined;
+    const leftDoc = left ? printTableRef(left, opts, printFn) : '';
     const commentLines: Doc[] = betweenComment ? betweenComment.split('\n').flatMap((c): Doc[] => [hardline, c]) : [];
     const separator: Doc = commentLines.length > 0 ? [...commentLines, hardline] : joinBreak;
 
@@ -1436,9 +1490,9 @@ function printUnqualifiedJoin(node: SqlNode, opts: Options, printFn: PrintFn): D
               ? keyword('OUTER APPLY', opts)
               : keyword('CROSS APPLY', opts);
 
-    const leftDoc = left ? printTableRef(left, opts, printFn) : '';
     // Unqualified joins have no condition; comment lands on left node itself.
     const betweenComment = left ? rightmostTrailingComment(left, left.endOffset) : undefined;
+    const leftDoc = left ? printTableRef(left, opts, printFn) : '';
     const commentLines: Doc[] = betweenComment ? betweenComment.split('\n').flatMap((c): Doc[] => [hardline, c]) : [];
     const separator: Doc = commentLines.length > 0 ? [...commentLines, hardline] : hardline;
 
@@ -1465,7 +1519,7 @@ function printInlineDerivedTable(node: SqlNode, opts: Options, printFn: PrintFn)
     // standard/spacious: all-or-nothing group (all inline or each on own line)
     const rowsDoc: Doc =
         getDensity(opts) === 'compact' && rows.length > 1
-            ? fill(rowDocs.flatMap((r, i) => (i === 0 ? [r] : [[',', line], r])))
+            ? commaFill(rowDocs)
             : join([',', line], rowDocs);
     return group([
         '(',
@@ -1690,7 +1744,7 @@ export function printOrderByClause(node: SqlNode, opts: Options, printFn: PrintF
     if (density === 'compact') {
         return group([
             keyword('ORDER BY', opts),
-            indent([line, fill(elDocs.flatMap((d, i) => (i === 0 ? [d] : [[',', line], d])))]),
+            indent([line, commaFill(elDocs)]),
         ]);
     }
     if (density === 'standard' && elements.length === 1) {

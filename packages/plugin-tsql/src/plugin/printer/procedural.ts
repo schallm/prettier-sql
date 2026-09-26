@@ -1,8 +1,8 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
-import { keyword, hardline, softline, join, indent, group, onOffKw, fill, line, getDensity, parenList, parenListFill } from '@prettier-sql/core/printer/utils';
-import { prop, propArr, propStr, propBool, schemaObjectName, assignmentOp } from './helpers.js';
+import { keyword, hardline, softline, join, indent, group, onOffKw, line, getDensity, parenList, parenListFill, commaFill } from '@prettier-sql/core/printer/utils';
+import { prop, propArr, propStr, propBool, schemaObjectName, assignmentOp, withTrailingComment } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
 import { printStatementWithComments, joinBodyStatements, printNode, printBool, qexpr } from './statements.js';
@@ -100,15 +100,15 @@ export function printDeclareVariable(node: SqlNode, opts: Options): Doc {
 export function printDeclareTableVariable(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name') ?? '@t';
     const allDefs = [
-        ...propArr(node, 'columns').map((c) => printColumnDef(c, opts)),
-        ...propArr(node, 'constraints').map((c) => printConstraintDef(c, opts)),
-        ...propArr(node, 'indexes').map((i) => printInlineIndex(i, opts)),
+        ...propArr(node, 'columns').map((c) => withTrailingComment(c, printColumnDef(c, opts))),
+        ...propArr(node, 'constraints').map((c) => withTrailingComment(c, printConstraintDef(c, opts))),
+        ...propArr(node, 'indexes').map((i) => withTrailingComment(i, printInlineIndex(i, opts))),
     ];
     // compact: try to keep everything on one line; fill-pack when it wraps
     // standard/spacious: always one definition per line with hard breaks
     const isCompact = getDensity(opts) === 'compact';
     const defsDoc: Doc = isCompact
-        ? fill(allDefs.flatMap((d, i) => (i === 0 ? [d] : [[',', line], d])))
+        ? commaFill(allDefs)
         : join([',', hardline], allDefs);
     const open: Doc = isCompact ? softline : hardline;
     const close: Doc = isCompact ? softline : hardline;

@@ -119,13 +119,33 @@ export function parenList(items: Doc[]): Doc {
 }
 
 /**
+ * True when a doc contains a line comment waiting for the end of its line (a
+ * lineSuffix). Nothing may follow it on that line, or it becomes part of the comment.
+ */
+export function hasLineSuffix(doc: Doc): boolean {
+    if (Array.isArray(doc)) return doc.some(hasLineSuffix);
+    if (!doc || typeof doc !== 'object') return false;
+    if (doc.type === 'line-suffix') return true;
+    const d = doc as { contents?: Doc; parts?: Doc[]; breakContents?: Doc; flatContents?: Doc };
+    return [d.contents, d.breakContents, d.flatContents, ...(d.parts ?? [])].some((c) => c !== undefined && hasLineSuffix(c));
+}
+
+/**
+ * Fill-pack a comma-separated list: as many items per line as fit. An item ending in a
+ * line comment always ends its line, so the next item can't land inside the comment.
+ */
+export function commaFill(items: Doc[]): Doc {
+    return fill(items.flatMap((d, i) => (i === 0 ? [d] : [[',', hasLineSuffix(items[i - 1]!) ? hardline : line], d])));
+}
+
+/**
  * Like parenList but uses fill-packing — multiple items per line when they fit,
  * wrapping to the next line only when needed. Use in compact density.
  */
 export function parenListFill(items: Doc[]): Doc {
     return group([
         '(',
-        indent([softline, fill(items.flatMap((d, i) => (i === 0 ? [d] : [[',', line], d])))]),
+        indent([softline, commaFill(items)]),
         softline,
         ')',
     ]);

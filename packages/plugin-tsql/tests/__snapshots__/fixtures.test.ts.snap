@@ -1938,6 +1938,111 @@ from Books;
 "
 `;
 
+exports[`fixtures > select/comments-everywhere.sql 1`] = `
+"-- Comments in every position must survive formatting (none may be dropped or merged)
+select
+  a, -- first
+  b -- second
+from t;
+
+select
+  a /* x */,
+  b
+from t /* after t */
+where a = 1
+/* after pred */;
+
+select a
+from
+  t
+  -- table
+  inner join u on u.id = t.id -- join cond
+where
+  a = 1
+  -- pred one
+  and b = 2
+  -- pred two
+group by a -- group
+order by a asc; -- order
+
+update t
+set
+  a = 1, -- first set
+  b = 2 -- second set
+where id = 3;
+
+insert into t (
+  a, -- col a
+  b
+)
+values (1, 2);
+
+select
+  case
+    when a = 1 then 'x' -- when one
+    else 'y'
+  end
+from t;
+
+select f(
+  a, -- arg
+  b
+)
+from t;
+
+execute p
+  @a = 1, -- first param
+  @b = 2;
+
+create table t (
+  a int, -- col a
+  b int -- col b
+);
+
+select a
+from t
+where a in (
+  1, -- one
+  2
+);
+
+declare @a int = 1; -- trailing
+set @a = 2;
+/* block */
+if @a = 1
+  -- cond
+  print 'x';
+
+select *
+from (
+  select a -- inner
+  from t
+) as s;
+
+with
+  c as (
+    select a
+    from t -- cte
+  )
+select *
+from c;
+
+select a
+from t -- union
+
+union all
+
+select b
+from u;
+
+create table t (
+  a int, -- col a
+  b int, -- col b
+  constraint pk primary key (a) -- pk
+);
+"
+`;
+
 exports[`fixtures > select/expressions.sql 1`] = `
 "select
   current_timestamp,
