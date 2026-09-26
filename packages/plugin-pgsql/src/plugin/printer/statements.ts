@@ -1572,14 +1572,7 @@ function printCopy(node: SqlNode, opts: Options): Doc {
 
     let optionPart: Doc = '';
     if (options.length > 0) {
-        const optDocs = options.map((o): Doc => {
-            const val = o.value ?? '';
-            // Quote if not already quoted, not a boolean, and not a plain identifier
-            const fmtVal = val.startsWith("'") || val === 'true' || val === 'false'
-                ? val
-                : /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(val) ? val : `'${val.replace(/'/g, "''")}'`;
-            return [makeKeyword(o.name.toUpperCase()), ' ', fmtVal];
-        });
+        const optDocs = options.map((o) => utilityOptionDoc(o, opts));
         optionPart = [' (', join(', ', optDocs), ')'];
     }
 
@@ -1616,12 +1609,17 @@ function printExplain(node: SqlNode, opts: Options): Doc {
         return [[makeKeyword('EXPLAIN'), ' ', makeKeyword('VERBOSE'), ' ', query ? printQueryExpr(query, opts) : ''], ';'];
     }
 
-    const optDocs = options.map((o) => {
-        const val = o.value === 'true' ? makeKeyword('true') : o.value === 'false' ? makeKeyword('false') : o.value;
-        return [makeKeyword(o.name.toUpperCase()), ' ', val] as Doc;
-    });
+    const optDocs = options.map((o) => utilityOptionDoc(o, opts));
 
     return [[makeKeyword('EXPLAIN'), ' (', join(', ', optDocs), ') ', query ? printQueryExpr(query, opts) : ''], ';'];
+}
+
+/** A COPY / EXPLAIN option: `FORMAT csv`, `DELIMITER ','`, or a bare flag such as `ANALYZE`. */
+function utilityOptionDoc(option: { name: string; value?: string | null }, opts: Options): Doc {
+    const name = keyword(option.name.toUpperCase(), opts);
+    const value = option.value;
+    if (value == null) return name;
+    return [name, ' ', value === 'true' || value === 'false' ? keyword(value, opts) : value];
 }
 
 // ---------------------------------------------------------------------------

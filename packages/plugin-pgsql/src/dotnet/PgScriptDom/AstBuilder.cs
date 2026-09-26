@@ -2254,7 +2254,7 @@ public class AstBuilder {
                 .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
                 .Select(n => new Dictionary<string, object?> {
                     ["name"]  = n.DefElem.Defname,
-                    ["value"] = BuildDefElemValue(n.DefElem)
+                    ["value"] = UtilityOptionValue(n.DefElem)
                 })
                 .ToList<object?>()
             : null;
@@ -2295,7 +2295,7 @@ public class AstBuilder {
                 .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
                 .Select(n => new Dictionary<string, object?> {
                     ["name"]  = n.DefElem.Defname,
-                    ["value"] = BuildDefElemValue(n.DefElem)
+                    ["value"] = UtilityOptionValue(n.DefElem)
                 })
                 .ToList<object?>()
             : null;
@@ -2483,6 +2483,32 @@ public class AstBuilder {
             ("absentOnNull", a.AbsentOnNull ? true : null),
             ("returning",   returning)
         ));
+    }
+
+    // The value of a COPY / EXPLAIN option as SQL text, or null for a bare flag such as
+    // `analyze` or `header` (which means true). Words stay bare when that reads back
+    // identically; other strings are quoted: `delimiter ','`, `encoding 'UTF8'`.
+    private string? UtilityOptionValue(DefElem d) {
+        if (d.Arg == null) return null;
+        var a = d.Arg;
+        string Word(string v) => v is "true" or "false" or "on" or "off" || Ident.Quote(v) == v ? v : $"'{v.Replace("'", "''")}'";
+        return a.NodeCase switch {
+            Node.NodeOneofCase.String  => Word(a.String.Sval),
+            Node.NodeOneofCase.Integer => a.Integer.Ival.ToString(),
+            Node.NodeOneofCase.Float   => a.Float.Fval,
+            Node.NodeOneofCase.Boolean => a.Boolean.Boolval ? "true" : "false",
+            Node.NodeOneofCase.AStar   => "*",
+            // force_quote (a, b)
+            Node.NodeOneofCase.List    => $"({string.Join(", ", a.List.Items.Select(i => Ident.Quote(i.String.Sval)))})",
+            Node.NodeOneofCase.AConst  => a.AConst.ValCase switch {
+                A_Const.ValOneofCase.Sval    => Word(a.AConst.Sval.Sval),
+                A_Const.ValOneofCase.Ival    => a.AConst.Ival.Ival.ToString(),
+                A_Const.ValOneofCase.Fval    => a.AConst.Fval.Fval,
+                A_Const.ValOneofCase.Boolval => a.AConst.Boolval.Boolval ? "true" : "false",
+                _ => throw NotSupported($"option value ({d.Defname})", d.Location),
+            },
+            _ => throw NotSupported($"option value ({d.Defname}: {a.NodeCase})", d.Location),
+        };
     }
 
     // Helper to extract a string or bool value from a DefElem Arg
