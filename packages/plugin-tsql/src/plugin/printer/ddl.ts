@@ -16,7 +16,7 @@ import {
 import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, printDropSingleObject, withTrailingComment } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
-import { joinBodyStatements, printNode, printBool, printBoolClause, qexpr } from './statements.js';
+import { joinBodyStatements, printNode, printBool, printBoolClause, qexpr, printCtes } from './statements.js';
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -1134,6 +1134,7 @@ export function printCreateView(node: SqlNode, opts: Options): Doc {
         hardline,
         keyword('AS', opts),
         hardline,
+        ...printCtes(node, opts),
         body ? qexpr(body, opts) : '',
         checkOptionPart,
         ';',

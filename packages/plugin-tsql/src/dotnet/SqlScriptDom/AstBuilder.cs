@@ -2179,7 +2179,12 @@ public class AstBuilder : TSqlFragmentVisitor {
 
         return Node(type, view, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(view.SchemaObjectName),
-            ["columns"] = view.Columns?.Select(c => (object?)c.Value).ToList(),
+            ["columns"] = view.Columns?.Select(c => (object?)QuotedName(c)).ToList(),
+            // AS WITH c AS (...) SELECT ...: the body's CTEs (and XMLNAMESPACES)
+            ["ctes"] = body?.WithCtesAndXmlNamespaces?.CommonTableExpressions?.Select(c => (object?)BuildCte(c)).ToList(),
+            ["xmlNamespaces"] = body?.WithCtesAndXmlNamespaces?.XmlNamespaces?.XmlNamespacesElements is { Count: > 0 } ns
+                ? ns.Select(e => (object?)BuildXmlNamespaceElement(e)).ToList()
+                : null,
             ["withOptions"] = withOptions,
             ["withCheckOption"] = view.WithCheckOption ? (object?)true : null,
             ["body"] = queryExpr,

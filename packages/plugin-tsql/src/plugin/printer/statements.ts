@@ -732,7 +732,7 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
 // SELECT
 // ---------------------------------------------------------------------------
 
-function printCtes(node: SqlNode, opts: Options): Doc[] {
+export function printCtes(node: SqlNode, opts: Options): Doc[] {
     const ctes = propArr(node, 'ctes');
     const xmlNamespaces = node.props?.['xmlNamespaces'] as string[] | undefined;
     const changeTrackingCtx = propStr(node, 'changeTrackingContext');

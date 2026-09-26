@@ -3555,6 +3555,47 @@ go
 "
 `;
 
+exports[`fixtures > view/cte-body.sql 1`] = `
+"-- A view body can start with WITH (CTEs, XMLNAMESPACES); view column names keep their brackets
+create or alter view v
+as
+with
+  c as (
+    select 1 as a
+  )
+select a
+from c;
+go
+
+create view dbo.v ([my col], b)
+with schemabinding
+as
+with
+  x as (
+    select a
+    from dbo.t
+  ),
+  y as (
+    select a
+    from x
+  )
+select
+  a,
+  a
+from y;
+go
+
+alter view v
+as
+with
+  xmlnamespaces (
+    'urn:x' AS x
+  )
+select 1 as a;
+go
+"
+`;
+
 exports[`fixtures > view/schemabinding.sql 1`] = `
 "create view dbo.BookSummary
 with schemabinding
