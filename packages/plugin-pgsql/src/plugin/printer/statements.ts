@@ -1115,15 +1115,31 @@ function printCreateTrigger(node: SqlNode, opts: Options): Doc {
     const funcName = propStr(node, 'funcName') ?? '';
     const when     = prop(node, 'when');
 
-    const eventDoc: Doc = join([' ', makeKeyword('OR'), ' '], events.map(makeKeyword));
+    const updateOf = propStrArr(node, 'updateOf');
+    const fromRelation = prop(node, 'fromRelation');
+    const referencing  = propStrArr(node, 'referencing');
+    const funcArgs     = propStrArr(node, 'funcArgs');
+
+    const eventDoc: Doc = join([' ', makeKeyword('OR'), ' '], events.map((e): Doc =>
+        e === 'UPDATE' && updateOf.length > 0 ? [makeKeyword('UPDATE OF'), ' ', join(', ', updateOf)] : makeKeyword(e)));
     const whenDoc: Doc  = when ? [hardline, makeKeyword('WHEN'), ' (', printNode(when), ')'] : '';
+    const createKw = [
+        'CREATE',
+        propBool(node, 'orReplace') ? ' OR REPLACE' : '',
+        propBool(node, 'isConstraint') ? ' CONSTRAINT' : '',
+        ' TRIGGER',
+    ].join('');
 
     return [
-        makeKeyword('CREATE TRIGGER'), ' ', name,
+        makeKeyword(createKw), ' ', name,
         hardline, makeKeyword(timing), ' ', eventDoc, ' ', makeKeyword('ON'), ' ', rangeVarName(relation),
+        fromRelation ? [hardline, makeKeyword('FROM'), ' ', rangeVarName(fromRelation)] : '',
+        propBool(node, 'deferrable') ? [hardline, makeKeyword('DEFERRABLE')] : '',
+        propBool(node, 'initDeferred') ? [hardline, makeKeyword('INITIALLY DEFERRED')] : '',
+        referencing.length > 0 ? [hardline, makeKeyword('REFERENCING'), ' ', join(' ', referencing.map(makeKeyword))] : '',
         hardline, makeKeyword(`FOR EACH ${forEach}`),
         whenDoc,
-        hardline, makeKeyword('EXECUTE FUNCTION'), ' ', funcName, '()',
+        hardline, makeKeyword('EXECUTE FUNCTION'), ' ', funcName, '(', join(', ', funcArgs), ')',
         ';',
     ];
 }

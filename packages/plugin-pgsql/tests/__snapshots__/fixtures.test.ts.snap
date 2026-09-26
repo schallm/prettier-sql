@@ -712,6 +712,40 @@ increment by 5;
 "
 `;
 
+exports[`fixtures > ddl/trigger-options.sql 1`] = `
+"-- UPDATE OF columns, function arguments, OR REPLACE, constraint triggers and transition tables
+create trigger tr
+before update of a, "B" on t
+for each row
+when (old.a is distinct from new.a)
+execute function f();
+
+create or replace trigger tr
+after insert or delete or update of c on s.t
+for each statement
+execute function audit('orders', 'it''s');
+
+create constraint trigger ct
+after insert on t
+from u
+deferrable
+initially deferred
+for each row
+execute function check_fk();
+
+create trigger tr
+after update on t
+referencing old table as old_rows new table as "New Rows"
+for each statement
+execute function f();
+
+create trigger tr
+instead of delete on v
+for each row
+execute function f();
+"
+`;
+
 exports[`fixtures > ddl/triggers.sql 1`] = `
 "-- BEFORE INSERT trigger
 create trigger check_before_insert
@@ -751,8 +785,10 @@ for each row
 execute function handle_view_insert();
 
 -- CONSTRAINT trigger
-create trigger check_fk
+create constraint trigger check_fk
 after insert on order_items
+deferrable
+initially deferred
 for each row
 execute function check_order_item_fk();
 "

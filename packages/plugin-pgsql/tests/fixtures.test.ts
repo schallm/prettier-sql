@@ -100,6 +100,8 @@ describe('formatting preserves meaning', () => {
         'ddl/function-attributes.sql',
         'ddl/alter-function.sql',
         'ddl/alter-function-attributes.sql',
+        'ddl/triggers.sql',
+        'ddl/trigger-options.sql',
     ];
     const variants = [
         {},

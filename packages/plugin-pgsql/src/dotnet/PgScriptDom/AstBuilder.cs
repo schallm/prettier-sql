@@ -1890,13 +1890,33 @@ public class AstBuilder {
         if ((t.Events & 16) != 0) events.Add("UPDATE");
         if ((t.Events & 32) != 0) events.Add("TRUNCATE");
         return new SqlNode("CreateTriggerStatement", start, end, null, BuildProps(
-            ("name",      Ident.Quote(t.Trigname)),
-            ("timing",    timing),
-            ("events",    (object?)events),
-            ("relation",  BuildRangeVar(t.Relation)),
-            ("forEach",   t.Row ? "ROW" : "STATEMENT"),
-            ("funcName",  Ident.QualifiedFunc(t.Funcname.Select(n => n.String.Sval))),
-            ("when",      t.WhenClause != null ? BuildExpr(t.WhenClause) : null)
+            ("orReplace",    t.Replace ? true : null),
+            ("isConstraint", t.Isconstraint ? true : null),
+            ("name",         Ident.Quote(t.Trigname)),
+            ("timing",       timing),
+            ("events",       (object?)events),
+            // UPDATE OF a, b: fire only when these columns are updated
+            ("updateOf",     MaybeList(t.Columns
+                .Where(c => c.NodeCase == Node.NodeOneofCase.String)
+                .Select(c => Ident.Quote(c.String.Sval))
+                .ToList())),
+            ("relation",     BuildRangeVar(t.Relation)),
+            ("fromRelation", t.Constrrel != null ? BuildRangeVar(t.Constrrel) : null),
+            ("deferrable",   t.Deferrable ? true : null),
+            ("initDeferred", t.Initdeferred ? true : null),
+            // REFERENCING OLD TABLE AS o NEW TABLE AS n
+            ("referencing",  MaybeList(t.TransitionRels
+                .Where(r => r.NodeCase == Node.NodeOneofCase.TriggerTransition)
+                .Select(r => $"{(r.TriggerTransition.IsNew ? "NEW" : "OLD")} {(r.TriggerTransition.IsTable ? "TABLE" : "ROW")} AS {Ident.Quote(r.TriggerTransition.Name)}")
+                .ToList())),
+            ("forEach",      t.Row ? "ROW" : "STATEMENT"),
+            ("funcName",     Ident.QualifiedFunc(t.Funcname.Select(n => n.String.Sval))),
+            // Trigger arguments are always string constants
+            ("funcArgs",     MaybeList(t.Args
+                .Where(a => a.NodeCase == Node.NodeOneofCase.String)
+                .Select(a => $"'{a.String.Sval.Replace("'", "''")}'")
+                .ToList())),
+            ("when",         t.WhenClause != null ? BuildExpr(t.WhenClause) : null)
         ));
     }
 
