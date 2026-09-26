@@ -860,6 +860,26 @@ go
 "
 `;
 
+exports[`fixtures > function/parameter-defaults.sql 1`] = `
+"-- Function parameters keep their defaults
+create function dbo.f(@a int = 1, @b varchar(10) = 'x', @t dbo.TT readonly)
+returns table
+as
+return (
+  select @a as a
+);
+go
+
+create function dbo.g(@a int = null)
+returns int
+as
+begin
+  return @a;
+end;
+go
+"
+`;
+
 exports[`fixtures > function/scalar.sql 1`] = `
 "create function GetAuthorFullName(
   @FirstName nvarchar(50),

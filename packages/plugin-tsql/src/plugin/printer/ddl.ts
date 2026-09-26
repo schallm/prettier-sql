@@ -850,25 +850,25 @@ function printModuleOptions(node: SqlNode, opts: Options): Doc {
 // CREATE / ALTER / CREATE OR ALTER PROCEDURE
 // ---------------------------------------------------------------------------
 
+/** A procedure or function parameter: @name type [= default] [OUTPUT] [READONLY]. */
+function printParameter(p: SqlNode, opts: Options): Doc {
+    const dt = propStr(p, 'dataType') ?? 'INT';
+    const defaultVal = prop(p, 'defaultValue');
+    return [
+        propStr(p, 'name') ?? '@p', ' ',
+        // UDT names are identifiers, not SQL keywords — skip keyword-casing
+        propBool(p, 'isUdt') ? dt : keyword(dt, opts),
+        defaultVal ? [' = ', printNode(defaultVal, opts)] : '',
+        propBool(p, 'output') ? [' ', keyword('OUTPUT', opts)] : '',
+        propBool(p, 'readonly') ? [' ', keyword('READONLY', opts)] : '',
+    ];
+}
+
 export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
     const parameters = propArr(node, 'parameters');
     const body = propArr(node, 'body');
 
-    const paramDocs = parameters.map((p) => {
-        const pName = propStr(p, 'name') ?? '@p';
-        const dt = propStr(p, 'dataType') ?? 'INT';
-        const isUdt = propBool(p, 'isUdt');
-        const isOutput = propBool(p, 'output');
-        const isReadonly = propBool(p, 'readonly');
-        const defaultVal = prop(p, 'defaultValue');
-        // UDT names are identifiers, not SQL keywords — skip keyword-casing
-        const dtDoc: Doc = isUdt ? dt : keyword(dt, opts);
-        const parts: Doc[] = [pName, ' ', dtDoc];
-        if (defaultVal) parts.push(' = ', printNode(defaultVal, opts));
-        if (isOutput) parts.push(' ', keyword('OUTPUT', opts));
-        if (isReadonly) parts.push(' ', keyword('READONLY', opts));
-        return parts as Doc;
-    });
+    const paramDocs = parameters.map((p) => printParameter(p, opts));
 
     // Natively compiled procs have a single BEGIN ATOMIC WITH (...) body statement.
     const atomicBlock = body.length === 1 && body[0]?.type === 'BeginEndAtomicBlock' ? body[0] : null;
@@ -947,13 +947,7 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
     const returnType = propStr(node, 'returnType') ?? '';
     const body = node.props?.['body'];
 
-    const paramDocs = parameters.map((p) => {
-        const pName = propStr(p, 'name') ?? '@p';
-        const dt = propStr(p, 'dataType') ?? 'INT';
-        const isUdt = propBool(p, 'isUdt');
-        // UDT names are identifiers — skip keyword-casing
-        return [pName, ' ', isUdt ? dt : keyword(dt, opts)] as Doc;
-    });
+    const paramDocs = parameters.map((p) => printParameter(p, opts));
 
     const preBody = commentsBlock(node.preBodyComments);
     const postParam = commentsBlock(node.postParamComments);
