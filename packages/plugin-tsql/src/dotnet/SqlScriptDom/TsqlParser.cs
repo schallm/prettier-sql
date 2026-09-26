@@ -125,6 +125,8 @@ public static class TsqlParser {
             case QueryParenthesisExpression qp when qp.OrderByClause == null && qp.OffsetClause == null && qp.ForClause == null:
                 return CanonicalNode(qp.QueryExpression);
             // varchar(MAX) and varchar(max)
+            case NullLiteral:
+                return new System.Text.Json.Nodes.JsonObject { ["$type"] = nameof(NullLiteral) };
             case DefaultLiteral:
                 return new System.Text.Json.Nodes.JsonObject { ["$type"] = nameof(DefaultLiteral) };
             case MaxLiteral:
@@ -143,6 +145,14 @@ public static class TsqlParser {
                     if (fragment is ProcedureStatementBody or TriggerStatementBody && prop.Name == "StatementList"
                         && propValue is StatementList { Statements: [BeginEndBlockStatement block] } && block is not BeginEndAtomicBlockStatement)
                         propValue = block.StatementList;
+                    // a AS 'x', 'x' = a and a AS x name the column the same
+                    if (fragment is SelectScalarExpression && prop.Name == "ColumnName" && propValue is IdentifierOrValueExpression alias) {
+                        obj[prop.Name] = alias.Value;
+                        continue;
+                    }
+                    // INSERT t and INSERT INTO t
+                    if (fragment is InsertSpecification && prop.Name == "InsertOption" && propValue is InsertOption.None)
+                        propValue = InsertOption.Into;
                     // DBCC CHECKDB: the command name is a keyword, kept as a string
                     if (fragment is DbccStatement && prop.Name == nameof(DbccStatement.DllName)) propValue = (propValue as string)?.ToLowerInvariant();
                     var child = CanonicalNode(propValue, caseInsensitive || IsCaseInsensitiveName(fragment, prop.Name));
