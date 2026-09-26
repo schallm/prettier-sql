@@ -1291,7 +1291,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         var target = BuildTableReference(spec.Target);
         var setClauses = spec.SetClauses?.Select(sc => (object?)BuildSetClause(sc)).ToList();
         var fromClause = spec.FromClause != null ? BuildFromClause(spec.FromClause) : null;
-        var whereClause = spec.WhereClause != null ? BuildBooleanExpression(spec.WhereClause.SearchCondition) : null;
+        var whereClause = BuildDmlWhere(spec.WhereClause);
 
         return Node("UpdateStatement", upd, new Dictionary<string, object?> {
             ["ctes"] = ctes,
@@ -1304,6 +1304,21 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["output"] = BuildOutputClause(spec.OutputClause),
             ["outputInto"] = BuildOutputIntoClause(spec.OutputIntoClause),
         });
+    }
+
+    /// <summary>
+    /// The WHERE of an UPDATE or DELETE: a search condition, or WHERE CURRENT OF cursor —
+    /// the row a cursor is on. Dropping the latter would update or delete every row.
+    /// </summary>
+    private static SqlNode? BuildDmlWhere(WhereClause? where) {
+        if (where == null) return null;
+        if (where.Cursor != null) {
+            return Node("CurrentOfCursor", where, new Dictionary<string, object?> {
+                ["name"] = QuotedName(where.Cursor.Name),
+                ["global"] = where.Cursor.IsGlobal ? (object?)true : null,
+            });
+        }
+        return BuildBooleanExpression(where.SearchCondition);
     }
 
     private static SqlNode BuildSetClause(SetClause sc) => sc switch {
@@ -1330,7 +1345,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ?.Select(c => (object?)BuildCte(c)).ToList();
         var target = BuildTableReference(spec.Target);
         var fromClause = spec.FromClause != null ? BuildFromClause(spec.FromClause) : null;
-        var whereClause = spec.WhereClause != null ? BuildBooleanExpression(spec.WhereClause.SearchCondition) : null;
+        var whereClause = BuildDmlWhere(spec.WhereClause);
 
         return Node("DeleteStatement", del, new Dictionary<string, object?> {
             ["ctes"] = ctes,

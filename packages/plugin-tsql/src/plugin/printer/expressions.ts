@@ -961,6 +961,13 @@ export function printWindowClause(defs: SqlNode[], opts: Options, printFn: Print
 
 export function printBoolExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     switch (node.type) {
+        // UPDATE / DELETE ... WHERE CURRENT OF [GLOBAL] cursor
+        case 'CurrentOfCursor':
+            return [
+                keyword('CURRENT OF', opts),
+                propBool(node, 'global') ? [' ', keyword('GLOBAL', opts)] : '',
+                ' ', propStr(node, 'name') ?? '',
+            ];
         case 'BooleanComparison':
             return printBoolComparison(node, opts, printFn);
         case 'BooleanBinary':
