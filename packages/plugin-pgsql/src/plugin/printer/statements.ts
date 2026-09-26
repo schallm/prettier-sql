@@ -16,7 +16,7 @@ import {
     line,
 } from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName } from './helpers.js';
-import { printExpression, printWindowDef } from './expressions.js';
+import { printExpression, printWindowDef, printOperand, PREC } from './expressions.js';
 
 // ---------------------------------------------------------------------------
 // Script root
@@ -232,10 +232,11 @@ function printBoolClause(kw: string, where: SqlNode, opts: Options, printNode: P
     if (density === 'compact' && isMulti) {
         const op = propStr(where, 'op') ?? 'AND';
         const args = propArr(where, 'args');
-        const fillParts: Doc[] = [printNode(args[0]!)];
+        const prec = op === 'OR' ? PREC.OR : PREC.AND;
+        const fillParts: Doc[] = [printOperand(args[0]!, prec, printNode)];
         for (let i = 1; i < args.length; i++) {
             fillParts.push(line);
-            fillParts.push([makeKeyword(op), ' ', printNode(args[i]!)]);
+            fillParts.push([makeKeyword(op), ' ', printOperand(args[i]!, prec, printNode)]);
         }
         return [makeKeyword(kw), group([indent([line, fill(fillParts)])])];
     }

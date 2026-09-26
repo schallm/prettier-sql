@@ -69,20 +69,124 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
 }
 
 // ---------------------------------------------------------------------------
+// Operator precedence
+//
+// libpg_query's AST has no node for parentheses, so the printer has to put them
+// back wherever an operand binds more loosely than its parent operator —
+// otherwise `(a + b) * c` would print as `a + b * c`. Levels follow the
+// PostgreSQL operator precedence table; higher binds tighter.
+// ---------------------------------------------------------------------------
+
+export const PREC = {
+    OR: 1,
+    AND: 2,
+    NOT: 3,
+    IS: 4,          // IS NULL, IS TRUE, IS DISTINCT FROM, …
+    COMPARISON: 5,  // = <> < > <= >=
+    LIKE: 6,        // LIKE ILIKE SIMILAR TO BETWEEN IN
+    OTHER: 7,       // any other operator: || -> @> ~ …
+    ADD: 8,         // + -
+    MUL: 9,         // * / %
+    EXP: 10,        // ^
+    AT: 11,         // AT TIME ZONE
+    UNARY: 12,      // unary minus / plus
+    CAST: 13,       // ::
+    ATOM: 14,       // column refs, literals, function calls, parenthesized forms
+} as const;
+
+// Operators PostgreSQL declares %nonassoc: `a = b = c` is a syntax error, so an
+// operand at the same level always needs parentheses, on either side.
+const NONASSOC = new Set<number>([PREC.IS, PREC.COMPARISON, PREC.LIKE]);
+
+function binaryOpPrec(op: string): number {
+    switch (op.toUpperCase()) {
+        case '=': case '<': case '>': case '<=': case '>=': case '<>': case '!=':
+            return PREC.COMPARISON;
+        case 'LIKE': case 'NOT LIKE': case 'ILIKE': case 'NOT ILIKE':
+        case 'SIMILAR TO': case 'NOT SIMILAR TO':
+            return PREC.LIKE;
+        case 'IS DISTINCT FROM': case 'IS NOT DISTINCT FROM':
+            return PREC.IS;
+        case '+': case '-': return PREC.ADD;
+        case '*': case '/': case '%': return PREC.MUL;
+        case '^': return PREC.EXP;
+        default: return PREC.OTHER;
+    }
+}
+
+function precedence(node: SqlNode): number {
+    switch (node.type) {
+        case 'BoolExpr': {
+            const op = propStr(node, 'op') ?? 'AND';
+            return op === 'OR' ? PREC.OR : op === 'NOT' ? PREC.NOT : PREC.AND;
+        }
+        case 'NullTest':
+        case 'BooleanTest':
+            return PREC.IS;
+        case 'BinaryExpr':
+            return prop(node, 'left') ? binaryOpPrec(propStr(node, 'op') ?? '') : PREC.UNARY;
+        case 'InExpr':
+        case 'BetweenExpr':
+            return PREC.LIKE;
+        case 'QuantifiedExpr':
+            return binaryOpPrec(propStr(node, 'op') ?? '=');
+        case 'SubLink': {
+            const type = propStr(node, 'type') ?? 'SCALAR';
+            if (type !== 'ANY' && type !== 'ALL') return PREC.ATOM;
+            const op = propStr(node, 'op') ?? '=';
+            // `= ANY (subquery)` prints as IN
+            return type === 'ANY' && op === '=' ? PREC.LIKE : binaryOpPrec(op);
+        }
+        case 'Cast':
+            return PREC.CAST;
+        case 'Literal':
+            // A negative numeric constant reads as unary minus: `(-1)::int`, not `-1::int`
+            return node.text?.startsWith('-') ? PREC.UNARY : PREC.ATOM;
+        case 'FunctionCall':
+            return propStr(node, 'name') === 'pg_catalog.timezone' ? PREC.AT : PREC.ATOM;
+        default:
+            return PREC.ATOM;
+    }
+}
+
+/**
+ * Print `child` as an operand that must bind at least as tightly as `minPrec`,
+ * wrapping it in parentheses otherwise. A wrapped AND/OR goes on its own
+ * indented lines, matching how boolean clauses print elsewhere.
+ */
+export function printOperand(child: SqlNode, minPrec: number, printNode: PrintFn): Doc {
+    const doc = printNode(child);
+    if (precedence(child) >= minPrec) return doc;
+    if (child.type === 'BoolExpr' && propStr(child, 'op') !== 'NOT') {
+        return ['(', indent([hardline, doc]), hardline, ')'];
+    }
+    return ['(', doc, ')'];
+}
+
+/** Minimum operand precedences for a binary operator at level `prec`. */
+function operandPrecs(prec: number): { left: number; right: number } {
+    // Left-associative: `a - b - c` is `(a - b) - c`, so only the right side
+    // needs parentheses at the same level.
+    return NONASSOC.has(prec) ? { left: prec + 1, right: prec + 1 } : { left: prec, right: prec + 1 };
+}
+
+// ---------------------------------------------------------------------------
 // Expressions
 // ---------------------------------------------------------------------------
 
 const CONCAT_OPS = new Set(['+', '||']);
 
-// Flatten a left-recursive string-concatenation chain into leaf terms.
-function collectConcatChain(node: SqlNode, printNode: PrintFn): Doc[] {
-    const op = propStr(node, 'op');
-    if (node.type !== 'BinaryExpr' || !CONCAT_OPS.has(op ?? '')) {
-        return [printNode(node)];
-    }
+// Flatten a left-recursive chain of the same concatenation operator into its
+// terms, parenthesizing any term that binds more loosely than the operator.
+function collectConcatChain(node: SqlNode, op: string, printNode: PrintFn): Doc[] {
+    const { left: leftPrec, right: rightPrec } = operandPrecs(binaryOpPrec(op));
     const left  = prop(node, 'left');
     const right = prop(node, 'right');
-    return [...(left ? collectConcatChain(left, printNode) : []), ...(right ? [printNode(right)] : [])];
+    const leftTerms: Doc[] = !left ? []
+        : left.type === 'BinaryExpr' && propStr(left, 'op') === op && prop(left, 'left')
+            ? collectConcatChain(left, op, printNode)
+            : [printOperand(left, leftPrec, printNode)];
+    return [...leftTerms, ...(right ? [printOperand(right, rightPrec, printNode)] : [])];
 }
 
 function printBinaryExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -90,11 +194,17 @@ function printBinaryExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
     const right = prop(node, 'right');
     const op    = propStr(node, 'op') ?? '?';
 
+    // Unary prefix operator: -x, +x. A nested unary or negative literal gets
+    // parentheses so `-(-x)` never prints as `--x`, which is a comment.
+    if (!left) {
+        return [op, right ? printOperand(right, PREC.UNARY + 1, printNode) : ''];
+    }
+
     // For + / || chains: flatten and fill with indented continuation lines.
     // Flat: "a || b || c". Wrapping: "a || b\n    || c || d".
     if (CONCAT_OPS.has(op)) {
         const opStr = op === '||' ? '|| ' : '+ ';
-        const terms = collectConcatChain(node, printNode);
+        const terms = collectConcatChain(node, op, printNode);
         const parts: Doc[] = [terms[0]!];
         for (let i = 1; i < terms.length; i++) {
             parts.push(indent([line, opStr]));
@@ -104,7 +214,8 @@ function printBinaryExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
     }
 
     const opDoc: Doc = /^[A-Z]/.test(op) ? keyword(op, opts) : op;
-    return [left ? printNode(left) : '', ' ', opDoc, ' ', right ? printNode(right) : ''];
+    const { left: leftPrec, right: rightPrec } = operandPrecs(binaryOpPrec(op));
+    return [printOperand(left, leftPrec, printNode), ' ', opDoc, ' ', right ? printOperand(right, rightPrec, printNode) : ''];
 }
 
 function printBoolExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -114,10 +225,13 @@ function printBoolExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 
     if (op === 'NOT') {
         const arg = args[0];
-        return [makeKeyword('NOT'), ' ', arg ? printNode(arg) : ''];
+        return [makeKeyword('NOT'), ' ', arg ? printOperand(arg, PREC.NOT, printNode) : ''];
     }
 
-    return join([hardline, makeKeyword(op), ' '], args.map(printNode));
+    // AND/OR are associative, so an operand only needs parentheses when it
+    // binds more loosely: an OR inside an AND.
+    const prec = op === 'OR' ? PREC.OR : PREC.AND;
+    return join([hardline, makeKeyword(op), ' '], args.map((a) => printOperand(a, prec, printNode)));
 }
 
 function printFunctionCall(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -215,7 +329,11 @@ function printPositionForm(args: SqlNode[], opts: Options, printNode: PrintFn): 
 function printAtTimeZoneForm(args: SqlNode[], opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (kw: string) => keyword(kw, opts);
     const [tz, ts] = args;  // pg_catalog.timezone(zone, timestamp)
-    return [ts ? printNode(ts) : '', ' ', makeKeyword('AT TIME ZONE'), ' ', tz ? printNode(tz) : ''];
+    const { left: leftPrec, right: rightPrec } = operandPrecs(PREC.AT);
+    return [
+        ts ? printOperand(ts, leftPrec, printNode) : '', ' ', makeKeyword('AT TIME ZONE'), ' ',
+        tz ? printOperand(tz, rightPrec, printNode) : '',
+    ];
 }
 
 // OVERLAY(str PLACING sub FROM pos FOR len)
@@ -271,7 +389,7 @@ export function printWindowDef(node: SqlNode, opts: Options, printNode: PrintFn)
 function printCast(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const arg = prop(node, 'arg');
     const typeName = propStr(node, 'typeName') ?? '';
-    return [arg ? printNode(arg) : '', '::', keyword(typeName, opts)];
+    return [arg ? printOperand(arg, PREC.CAST, printNode) : '', '::', keyword(typeName, opts)];
 }
 
 function printSubLink(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -305,7 +423,7 @@ function printSubLink(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
         ]);
     }
 
-    const lhs: Doc = testexpr ? [printNode(testexpr), ' '] : '';
+    const lhs: Doc = testexpr ? [printOperand(testexpr, precedence(node) + 1, printNode), ' '] : '';
     if (type === 'ANY') {
         // = ANY is SQL's IN
         return op === '=' ? [lhs, makeKeyword('IN'), ' ', subDoc]
@@ -339,14 +457,14 @@ function printNullTest(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (kw: string) => keyword(kw, opts);
     const arg = prop(node, 'arg');
     const isNull = propBool(node, 'isNull');
-    return [arg ? printNode(arg) : '', ' ', isNull ? makeKeyword('IS NULL') : makeKeyword('IS NOT NULL')];
+    return [arg ? printOperand(arg, PREC.IS + 1, printNode) : '', ' ', isNull ? makeKeyword('IS NULL') : makeKeyword('IS NOT NULL')];
 }
 
 function printBooleanTest(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (kw: string) => keyword(kw, opts);
     const arg = prop(node, 'arg');
     const test = propStr(node, 'test') ?? '';
-    return [arg ? printNode(arg) : '', ' ', makeKeyword('IS'), ' ', makeKeyword(test.replace(/_/g, ' '))];
+    return [arg ? printOperand(arg, PREC.IS + 1, printNode) : '', ' ', makeKeyword('IS'), ' ', makeKeyword(test.replace(/_/g, ' '))];
 }
 
 function printResTarget(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -573,7 +691,7 @@ function printInExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 
     // values is an ExprList node; its items are the IN list
     const items  = values ? propArr(values, 'items').map(printNode) : [];
-    return [left ? printNode(left) : '', ' ', keywordDoc, ' (', join(', ', items), ')'];
+    return [left ? printOperand(left, PREC.LIKE + 1, printNode) : '', ' ', keywordDoc, ' (', join(', ', items), ')'];
 }
 
 function printBetweenExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -589,11 +707,11 @@ function printBetweenExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc
         : (symmetric ? makeKeyword('BETWEEN SYMMETRIC')     : makeKeyword('BETWEEN'));
 
     return [
-        arg  ? printNode(arg)  : '',
+        arg  ? printOperand(arg,  PREC.LIKE + 1, printNode) : '',
         ' ', keywordDoc, ' ',
-        low  ? printNode(low)  : '',
+        low  ? printOperand(low,  PREC.LIKE + 1, printNode) : '',
         ' ', makeKeyword('AND'), ' ',
-        high ? printNode(high) : '',
+        high ? printOperand(high, PREC.LIKE + 1, printNode) : '',
     ];
 }
 
@@ -604,7 +722,8 @@ function printQuantifiedExpr(node: SqlNode, opts: Options, printNode: PrintFn): 
     const op         = propStr(node, 'op') ?? '=';
     const quantifier = propStr(node, 'quantifier') ?? 'ANY';
     // right is typically an array literal or subquery
-    return [left ? printNode(left) : '', ' ', op, ' ', makeKeyword(quantifier), '(', right ? printNode(right) : '', ')'];
+    const leftDoc = left ? printOperand(left, binaryOpPrec(op) + 1, printNode) : '';
+    return [leftDoc, ' ', op, ' ', makeKeyword(quantifier), '(', right ? printNode(right) : '', ')'];
 }
 
 function printIntervalLiteral(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -642,7 +761,11 @@ function printTableLikeClause(node: SqlNode, opts: Options): Doc {
 function printSubscript(node: SqlNode, _opts: Options, printNode: PrintFn): Doc {
     const arg = prop(node, 'arg');
     const subscripts = propArr(node, 'subscripts');
-    const base: Doc = arg ? printNode(arg) : '';
+    // Only a plain column or parameter can take a subscript directly: `f(x)[1]`
+    // is a syntax error, and `(t.col).field` must not print as `t.col.field`,
+    // which names a different column.
+    const bare = (arg?.type === 'ColumnRef' || arg?.type === 'ParamRef') && subscripts[0]?.type !== 'FieldAccess';
+    const base: Doc = !arg ? '' : bare || arg.type === 'Subscript' ? printNode(arg) : ['(', printNode(arg), ')'];
     const parts: Doc[] = subscripts.map((s): Doc => {
         if (s.type === 'SubscriptIndex') {
             const index = prop(s, 'index');
