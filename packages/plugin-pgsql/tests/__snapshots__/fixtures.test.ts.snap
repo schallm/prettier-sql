@@ -460,7 +460,7 @@ create schema myschema authorization alice;
 -- CREATE EXTENSION
 create extension "uuid-ossp";
 
-create extension if not exists "pgcrypto";
+create extension if not exists pgcrypto;
 "
 `;
 
@@ -1895,6 +1895,78 @@ from t;
 "
 `;
 
+exports[`fixtures > select/quoted-identifiers.sql 1`] = `
+"-- Identifiers that need double quotes must keep them: mixed case, spaces, keywords
+select
+  "Col A",
+  t."B",
+  "Sch"."Fn"(1),
+  "MixedCase"(2),
+  left(x, 2),
+  "left",
+  "select"
+from
+  "My Table" as t
+  join "S"."T" as u on u."Id" = t."Id";
+
+select
+  a as "Total Amount",
+  "a""b",
+  x::"MyType",
+  x::public."MyType",
+  "Arr"[1],
+  (t."Rec")."Field"
+from t;
+
+with
+  "Cte" as (
+    select 1
+  )
+select count(*) over "W"
+from "Cte"
+window
+  "W" as (order by "X");
+
+select f("Named Arg" => 1)
+from
+  t
+  join u using ("Id", id2);
+
+insert into "T" ("A", "b c")
+values (1, 2);
+
+update "T"
+set "A" = 1
+where "B" = 2;
+
+delete from "S"."T"
+using "U"
+where "T"."Id" = "U"."Id";
+
+create table "T" (
+  "Id" integer primary key,
+  "Name" text constraint "Nm_Chk" check ("Name" <> ''),
+  foreign key ("Id") references "Other" ("Id")
+);
+
+create index "Ix" on "T" ("Col", lower("Name"));
+
+alter table "T" rename column "A" to "B";
+
+create function "Fn"("P" integer)
+returns integer
+language sql
+as $$ select 1 $$;
+
+drop table "T", "S"."U";
+
+grant select on table "T"
+to "Role Name";
+
+create schema "My Schema";
+"
+`;
+
 exports[`fixtures > select/select-into.sql 1`] = `
 "select
   id,
@@ -1947,7 +2019,7 @@ from emp;
 exports[`fixtures > select/xml-functions.sql 1`] = `
 "select xmlelement(name foo, 'bar');
 
-select xmlelement(name order, xmlattributes(o.orderid), o.ordername)
+select xmlelement(name "order", xmlattributes(o.orderid), o.ordername)
 from orders as o;
 
 select xmlforest(title, author as written_by)

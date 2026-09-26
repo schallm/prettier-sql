@@ -28,9 +28,14 @@ export type PrintFn = (node: SqlNode) => Doc;
  */
 export function keyword(kw: string, opts: Options): Doc {
     const { sqlKeywordCase } = sqlOpts(opts);
-    if (sqlKeywordCase === 'lower') return kw.toLowerCase();
     if (sqlKeywordCase === 'preserve') return kw;
-    return kw.toUpperCase();
+    const recase = sqlKeywordCase === 'lower'
+        ? (s: string) => s.toLowerCase()
+        : (s: string) => s.toUpperCase();
+    // Names passed through here (function and type names) may contain double-quoted
+    // identifiers, which are case-sensitive: recase only the text outside quotes.
+    if (!kw.includes('"')) return recase(kw);
+    return kw.replace(/("(?:[^"]|"")*")|[^"]+/g, (m, quoted) => (quoted ? m : recase(m)));
 }
 
 export function getDensity(opts: Options): 'compact' | 'standard' | 'spacious' {

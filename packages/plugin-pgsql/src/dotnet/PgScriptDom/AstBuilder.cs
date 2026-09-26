@@ -323,12 +323,12 @@ public class AstBuilder {
                 .Select(n => {
                     if (n.NodeCase == Node.NodeOneofCase.PartitionElem) {
                         var pe = n.PartitionElem;
-                        if (!string.IsNullOrEmpty(pe.Name)) return pe.Name;
+                        if (!string.IsNullOrEmpty(pe.Name)) return Ident.Quote(pe.Name);
                         // Expression-based partition element: extract ColumnRef name
                         if (pe.Expr?.NodeCase == Node.NodeOneofCase.ColumnRef) {
                             var fields = pe.Expr.ColumnRef.Fields;
                             if (fields.Count > 0 && fields[0].NodeCase == Node.NodeOneofCase.String)
-                                return fields[0].String.Sval;
+                                return Ident.Quote(fields[0].String.Sval);
                         }
                     }
                     return null;
@@ -428,7 +428,7 @@ public class AstBuilder {
             .Where(n => n.NodeCase != Node.NodeOneofCase.FunctionParameter ||
                         n.FunctionParameter.Mode != FunctionParameterMode.FuncParamTable);
         return new SqlNode("CreateFunctionStatement", start, end, null, BuildProps(
-            ("name",         s.Funcname.Count > 0 ? string.Join(".", s.Funcname.Select(n => n.String.Sval)) : null),
+            ("name",         s.Funcname.Count > 0 ? Ident.QualifiedFunc(s.Funcname.Select(n => n.String.Sval)) : null),
             ("parameters",   MapList(regularParams, BuildFunctionParam)),
             ("returnType",   tableParams.Count == 0 && s.ReturnType != null ? BuildPgTypeName(s.ReturnType) : null),
             ("returnsTable", MaybeList(tableParams)),
@@ -439,7 +439,7 @@ public class AstBuilder {
 
     private SqlNode BuildCreateIndex(IndexStmt s, int start, int end) =>
         new("CreateIndexStatement", start, end, null, BuildProps(
-            ("indexName",    s.Idxname),
+            ("indexName",    Ident.QuoteOpt(s.Idxname)),
             ("relation",     BuildRangeVar(s.Relation)),
             ("columns",      MapList(s.IndexParams, BuildIndexElem)),
             ("including",    MapList(s.IndexIncludingParams, BuildIndexElem)),
@@ -457,15 +457,16 @@ public class AstBuilder {
             // OPERATOR CLASS/FAMILY wrap TypeName items here instead of String items —
             // fail loudly rather than silently filtering them out to an empty name.
             Node.NodeOneofCase.List => string.Join(".", o.List.Items.Select(n => n.NodeCase switch {
-                Node.NodeOneofCase.String => n.String.Sval,
+                Node.NodeOneofCase.String => Ident.Quote(n.String.Sval),
                 _ => throw NotSupported($"DROP {objectType} name part ({n.NodeCase})", TryGetLocation(GetOneofValue(n))),
             })),
             Node.NodeOneofCase.ObjectWithArgs => OwaName(o.ObjectWithArgs.Objname),
             Node.NodeOneofCase.TypeName => string.Join(".", o.TypeName.Names
                 .Where(n => n.NodeCase == Node.NodeOneofCase.String)
                 .Select(n => n.String.Sval)
-                .Where(v => v != "pg_catalog")),
-            Node.NodeOneofCase.String => o.String.Sval,
+                .Where(v => v != "pg_catalog")
+                .Select(Ident.QuoteFunc)),
+            Node.NodeOneofCase.String => Ident.Quote(o.String.Sval),
             _ => throw NotSupported($"DROP {objectType} object ({o.NodeCase})", TryGetLocation(GetOneofValue(o))),
         }).Where(n => !string.IsNullOrEmpty(n)).ToList();
         return new SqlNode("DropStatement", start, end, null, BuildProps(
@@ -561,7 +562,7 @@ public class AstBuilder {
 
     private static SqlNode BuildColumnRef(ColumnRef c) {
         var parts = c.Fields.Select(f => f.NodeCase switch {
-            Node.NodeOneofCase.String => f.String.Sval,
+            Node.NodeOneofCase.String => Ident.Quote(f.String.Sval),
             Node.NodeOneofCase.AStar => "*",
             _ => "",
         });
@@ -684,7 +685,7 @@ public class AstBuilder {
     }
 
     private SqlNode BuildFuncCall(FuncCall f) {
-        var name = string.Join(".", f.Funcname.Select(n => n.String.Sval));
+        var name = Ident.QualifiedFunc(f.Funcname.Select(n => n.String.Sval));
         return new SqlNode("FunctionCall", 0, 0, null, BuildProps(
             ("name",     name),
             ("args",     MapList(f.Args, BuildExpr)),
@@ -696,7 +697,7 @@ public class AstBuilder {
             ("over",     f.Over != null
                 ? (!string.IsNullOrEmpty(f.Over.Name) && f.Over.PartitionClause.Count == 0
                     && f.Over.OrderClause.Count == 0 && (f.Over.FrameOptions & 0x00001) == 0
-                    ? new SqlNode("WindowRef", 0, 0, f.Over.Name, null)
+                    ? new SqlNode("WindowRef", 0, 0, Ident.Quote(f.Over.Name), null)
                     : BuildWindowDef(f.Over))
                 : null)
         ));
@@ -757,8 +758,8 @@ public class AstBuilder {
         }
 
         return new SqlNode("WindowDef", 0, 0, null, BuildProps(
-            ("name",         string.IsNullOrEmpty(w.Name)    ? null : w.Name),
-            ("refname",      string.IsNullOrEmpty(w.Refname) ? null : w.Refname),
+            ("name",         string.IsNullOrEmpty(w.Name)    ? null : Ident.Quote(w.Name)),
+            ("refname",      string.IsNullOrEmpty(w.Refname) ? null : Ident.Quote(w.Refname)),
             ("partitionBy",  MapList(w.PartitionClause, BuildExpr)),
             ("orderBy",      MapList(w.OrderClause, BuildExpr)),
             ("frameMode",    frameMode),
@@ -886,7 +887,7 @@ public class AstBuilder {
 
     private SqlNode BuildResTarget(ResTarget r) =>
         new("ResTarget", 0, 0, null, BuildProps(
-            ("name", r.Name),
+            ("name", Ident.QuoteOpt(r.Name)),
             ("val", r.Val != null ? BuildExpr(r.Val) : null)
         ));
 
@@ -922,9 +923,9 @@ public class AstBuilder {
     private static SqlNode BuildRangeVar(RangeVar? r) {
         if (r == null) return new SqlNode("RangeVar", 0, 0, null, null);
         return new SqlNode("RangeVar", 0, 0, null, BuildProps(
-            ("schema", r.Schemaname),
-            ("name", r.Relname),
-            ("alias", r.Alias?.Aliasname)
+            ("schema", Ident.QuoteOpt(r.Schemaname)),
+            ("name", Ident.QuoteOpt(r.Relname)),
+            ("alias", Ident.QuoteOpt(r.Alias?.Aliasname))
         ));
     }
 
@@ -952,7 +953,7 @@ public class AstBuilder {
             ("using",    j.UsingClause.Count > 0
                 ? (object?)j.UsingClause
                     .Where(n => n.NodeCase == Node.NodeOneofCase.String)
-                    .Select(n => n.String.Sval).ToList()
+                    .Select(n => Ident.Quote(n.String.Sval)).ToList()
                 : null)
         ));
     }
@@ -963,7 +964,7 @@ public class AstBuilder {
             : null;
         return new SqlNode("Subquery", 0, 0, null, BuildProps(
             ("subquery", subquery),
-            ("alias",    r.Alias?.Aliasname),
+            ("alias",    Ident.QuoteOpt(r.Alias?.Aliasname)),
             ("lateral",  r.Lateral ? true : null)
         ));
     }
@@ -971,7 +972,7 @@ public class AstBuilder {
     private SqlNode BuildRangeFunction(RangeFunction r) =>
         new("RangeFunction", 0, 0, null, BuildProps(
             ("functions", MapList(r.Functions, BuildExpr)),
-            ("alias", r.Alias?.Aliasname)
+            ("alias", Ident.QuoteOpt(r.Alias?.Aliasname))
         ));
 
     // -------------------------------------------------------------------------
@@ -995,12 +996,12 @@ public class AstBuilder {
                             && c.ColumnRef.Fields[0].NodeCase == Node.NodeOneofCase.String
                             ? c.ColumnRef.Fields[0].String.Sval : null)
                     .Where(s => !string.IsNullOrEmpty(s))
-                    .Cast<string>()
+                    .Select(s => Ident.Quote(s!))
                     .ToList();
                 search = new SqlNode("CTESearch", 0, 0, null, BuildProps(
                     ("breadthFirst", sc.SearchBreadthFirst ? true : null),
                     ("columns",      MaybeList(cols)),
-                    ("seqColumn",    string.IsNullOrEmpty(sc.SearchSeqColumn) ? null : sc.SearchSeqColumn)
+                    ("seqColumn",    Ident.QuoteOpt(sc.SearchSeqColumn))
                 ));
             }
 
@@ -1013,17 +1014,17 @@ public class AstBuilder {
                             && c.ColumnRef.Fields[0].NodeCase == Node.NodeOneofCase.String
                             ? c.ColumnRef.Fields[0].String.Sval : null)
                     .Where(s => !string.IsNullOrEmpty(s))
-                    .Cast<string>()
+                    .Select(s => Ident.Quote(s!))
                     .ToList();
                 cycle = new SqlNode("CTECycle", 0, 0, null, BuildProps(
                     ("columns",    MaybeList(cols)),
-                    ("markColumn", string.IsNullOrEmpty(cc.CycleMarkColumn) ? null : cc.CycleMarkColumn),
-                    ("pathColumn", string.IsNullOrEmpty(cc.CyclePathColumn) ? null : cc.CyclePathColumn)
+                    ("markColumn", Ident.QuoteOpt(cc.CycleMarkColumn)),
+                    ("pathColumn", Ident.QuoteOpt(cc.CyclePathColumn))
                 ));
             }
 
             return new SqlNode("CTE", 0, 0, null, BuildProps(
-                ("name",   cte.Ctename),
+                ("name",   Ident.Quote(cte.Ctename)),
                 ("query",  query),
                 ("search", search),
                 ("cycle",  cycle)
@@ -1056,7 +1057,7 @@ public class AstBuilder {
     private SqlNode BuildInferClause(InferClause i) =>
         new("InferClause", 0, 0, null, BuildProps(
             ("columns",    MapList(i.IndexElems, BuildIndexElem)),
-            ("constraint", i.Conname)
+            ("constraint", Ident.QuoteOpt(i.Conname))
         ));
 
     // -------------------------------------------------------------------------
@@ -1096,7 +1097,7 @@ public class AstBuilder {
 
     private SqlNode BuildColumnDef(ColumnDef columnDef) =>
         new("ColumnDef", 0, 0, null, BuildProps(
-            ("name",        columnDef.Colname),
+            ("name",        Ident.QuoteOpt(columnDef.Colname)),
             ("typeName",    columnDef.TypeName != null ? BuildPgTypeName(columnDef.TypeName) : null),
             ("constraints", columnDef.Constraints.Count > 0
                 ? (object?)columnDef.Constraints
@@ -1136,20 +1137,20 @@ public class AstBuilder {
 
         // Keys list (PRIMARY KEY / UNIQUE column list at table level)
         var keys = constraint.Keys.Count > 0
-            ? (object?)constraint.Keys.Select(k => k.NodeCase == Node.NodeOneofCase.String ? k.String.Sval : "").ToList()
+            ? (object?)constraint.Keys.Select(k => k.NodeCase == Node.NodeOneofCase.String ? Ident.Quote(k.String.Sval) : "").ToList()
             : null;
 
         // FK columns
         var fkAttrs = constraint.FkAttrs.Count > 0
-            ? (object?)constraint.FkAttrs.Select(k => k.String.Sval).ToList()
+            ? (object?)constraint.FkAttrs.Select(k => Ident.Quote(k.String.Sval)).ToList()
             : null;
         var pkAttrs = constraint.PkAttrs.Count > 0
-            ? (object?)constraint.PkAttrs.Select(k => k.String.Sval).ToList()
+            ? (object?)constraint.PkAttrs.Select(k => Ident.Quote(k.String.Sval)).ToList()
             : null;
 
         return new SqlNode("Constraint", 0, 0, null, BuildProps(
             ("contype",          contype),
-            ("name",             string.IsNullOrEmpty(constraint.Conname) ? null : constraint.Conname),
+            ("name",             Ident.QuoteOpt(constraint.Conname)),
             ("expr",             constraint.RawExpr != null ? BuildExpr(constraint.RawExpr) : null),
             ("keys",             keys),
             ("nullsNotDistinct", constraint.NullsNotDistinct ? true : null),
@@ -1188,7 +1189,7 @@ public class AstBuilder {
 
         return new SqlNode("AlterCmd", 0, 0, null, BuildProps(
             ("subtype", subtype),
-            ("name",    string.IsNullOrEmpty(cmd.Name) ? null : cmd.Name),
+            ("name",    Ident.QuoteOpt(cmd.Name)),
             ("newType", newType),
             ("expr",    cmd.Subtype == AlterTableType.AtColumnDefault && cmd.Def != null ? BuildExpr(cmd.Def) : null),
             ("def",     cmd.Subtype == AlterTableType.AtAddColumn && cmd.Def?.NodeCase == Node.NodeOneofCase.ColumnDef
@@ -1210,7 +1211,7 @@ public class AstBuilder {
             _                                        => null,
         };
         return new SqlNode("FunctionParam", 0, 0, null, BuildProps(
-            ("name",     p.Name),
+            ("name",     Ident.QuoteOpt(p.Name)),
             ("typeName", p.ArgType != null ? BuildPgTypeName(p.ArgType) : null),
             ("mode",     mode)
         ));
@@ -1227,7 +1228,7 @@ public class AstBuilder {
         // expr is set for expression indexes (e.g. lower(email)); name for simple column refs
         SqlNode? expr = ie.Expr != null ? BuildExpr(ie.Expr) : null;
         return new SqlNode("IndexElem", 0, 0, null, BuildProps(
-            ("name", string.IsNullOrEmpty(ie.Name) ? null : ie.Name),
+            ("name", Ident.QuoteOpt(ie.Name)),
             ("expr", expr),
             ("direction", dir)
         ));
@@ -1262,7 +1263,8 @@ public class AstBuilder {
 
     private static string BuildPgTypeName(TypeName t) {
         var raw = string.Join(".", t.Names.Select(n => n.String.Sval).Where(s => s != "pg_catalog"));
-        var name = _typeAliases.TryGetValue(raw, out var alias) ? alias : raw;
+        var name = _typeAliases.TryGetValue(raw, out var alias) ? alias
+            : string.Join(".", t.Names.Select(n => n.String.Sval).Where(s => s != "pg_catalog").Select(Ident.QuoteFunc));
 
         // Special handling for INTERVAL: typmods encode the field range as a bitmask
         if (raw == "interval" && t.Typmods.Count > 0) {
@@ -1320,7 +1322,7 @@ public class AstBuilder {
                               ("upper", idx.Uidx?.NodeCase != Node.NodeOneofCase.None ? BuildExpr(idx.Uidx) : null)));
                 }
                 if (n.NodeCase == Node.NodeOneofCase.String)
-                    return new SqlNode("FieldAccess", 0, 0, n.String.Sval, null);
+                    return new SqlNode("FieldAccess", 0, 0, Ident.Quote(n.String.Sval), null);
                 return null;
             })
             .OfType<SqlNode>()
@@ -1333,7 +1335,7 @@ public class AstBuilder {
 
     private SqlNode BuildNamedArgExpr(NamedArgExpr n) =>
         new("NamedArg", 0, 0, null, BuildProps(
-            ("name", n.Name),
+            ("name", Ident.Quote(n.Name)),
             ("arg",  BuildExpr(n.Arg))
         ));
 
@@ -1443,7 +1445,7 @@ public class AstBuilder {
 
         return new SqlNode("TransactionStatement", start, end, null, BuildProps(
             ("kind",      kind),
-            ("savepoint", string.IsNullOrEmpty(t.SavepointName) ? null : t.SavepointName),
+            ("savepoint", Ident.QuoteOpt(t.SavepointName)),
             ("gid",       string.IsNullOrEmpty(t.Gid) ? null : t.Gid),
             ("options",   MaybeList(options))
         ));
@@ -1523,14 +1525,14 @@ public class AstBuilder {
 
         var objects = g.Objects.Select(o => o.NodeCase switch {
             Node.NodeOneofCase.RangeVar       => BuildRangeVar(o.RangeVar),
-            Node.NodeOneofCase.String         => new SqlNode("Literal", 0, 0, o.String.Sval, null),
+            Node.NodeOneofCase.String         => new SqlNode("Literal", 0, 0, Ident.Quote(o.String.Sval), null),
             Node.NodeOneofCase.ObjectWithArgs => new SqlNode("Literal", 0, 0,
                 OwaName(o.ObjectWithArgs.Objname), null),
             _ => null,
         }).OfType<SqlNode>().ToList();
 
         var grantees = g.Grantees.Select(gr => gr.NodeCase == Node.NodeOneofCase.RoleSpec
-            ? (gr.RoleSpec.Roletype == RoleSpecType.RolespecPublic ? "PUBLIC" : gr.RoleSpec.Rolename)
+            ? (gr.RoleSpec.Roletype == RoleSpecType.RolespecPublic ? "PUBLIC" : Ident.QuoteOpt(gr.RoleSpec.Rolename))
             : null).OfType<string>().ToList();
 
         return new SqlNode(g.IsGrant ? "GrantStatement" : "RevokeStatement", start, end, null, BuildProps(
@@ -1551,14 +1553,14 @@ public class AstBuilder {
         };
         return new SqlNode("CreateRoleStatement", start, end, null, BuildProps(
             ("stmtType", stmtType),
-            ("name",     c.Role),
+            ("name",     Ident.QuoteOpt(c.Role)),
             ("options",  ParseRoleOptions(c.Options) is { Count: > 0 } options ? (object?)options : null)
         ));
     }
 
     private static SqlNode BuildAlterRole(AlterRoleStmt ar, int start, int end) =>
         new("AlterRoleStatement", start, end, null, BuildProps(
-            ("name",    ar.Role?.Rolename ?? ""),
+            ("name",    Ident.QuoteOpt(ar.Role?.Rolename) ?? ""),
             ("options", ParseRoleOptions(ar.Options) is { Count: > 0 } options ? (object?)options : null)
         ));
 
@@ -1621,15 +1623,16 @@ public class AstBuilder {
             ("relation",    r.Relation != null ? BuildRangeVar(r.Relation) : null),
             ("objName",     objName),
             ("objArgTypes", objArgTypes != null ? MaybeList(objArgTypes) : null),
-            ("oldName",     string.IsNullOrEmpty(r.Subname) ? null : r.Subname),
-            ("newName",     r.Newname)
+            ("oldName",     Ident.QuoteOpt(r.Subname)),
+            ("newName",     Ident.QuoteOpt(r.Newname))
         ));
     }
 
     private SqlNode BuildCreateCompositeType(CompositeTypeStmt ct, int start, int end) =>
         new("CreateTypeStatement", start, end, null, BuildProps(
             ("kind",     "COMPOSITE"),
-            ("typeName", ct.Typevar?.Relname),
+            ("typeName", ct.Typevar == null ? null
+                : Ident.Qualified(new[] { ct.Typevar.Schemaname, ct.Typevar.Relname }.Where(p => !string.IsNullOrEmpty(p)))),
             ("columns",  ct.Coldeflist.Count > 0
                 ? (object?)ct.Coldeflist
                     .Where(n => n.NodeCase == Node.NodeOneofCase.ColumnDef)
@@ -1639,7 +1642,7 @@ public class AstBuilder {
         ));
 
     private static SqlNode BuildCreateEnumType(CreateEnumStmt ce, int start, int end) {
-        var typeName = string.Join(".", ce.TypeName.Select(n => n.String.Sval));
+        var typeName = Ident.Qualified(ce.TypeName.Select(n => n.String.Sval));
         var vals = ce.Vals.Select(n => n.String?.Sval).OfType<string>().ToList();
         return new SqlNode("CreateTypeStatement", start, end, null, BuildProps(
             ("kind",     "ENUM"),
@@ -1650,7 +1653,7 @@ public class AstBuilder {
 
     private static SqlNode BuildAlterEnum(AlterEnumStmt ae, int start, int end) =>
         new("AlterTypeStatement", start, end, null, BuildProps(
-            ("typeName",    string.Join(".", ae.TypeName.Select(n => n.String.Sval))),
+            ("typeName",    Ident.Qualified(ae.TypeName.Select(n => n.String.Sval))),
             ("newVal",      ae.NewVal),
             ("neighbor",    string.IsNullOrEmpty(ae.NewValNeighbor) ? null : ae.NewValNeighbor),
             ("isAfter",     ae.NewValIsAfter ? true : null),
@@ -1681,8 +1684,8 @@ public class AstBuilder {
     private SqlNode BuildCreateSeq(CreateSeqStmt seq, int start, int end) {
         var options = ParseSeqOptions(seq.Options);
         return new SqlNode("CreateSequenceStatement", start, end, null, BuildProps(
-            ("name",        seq.Sequence?.Relname),
-            ("schema",      string.IsNullOrEmpty(seq.Sequence?.Schemaname) ? null : seq.Sequence.Schemaname),
+            ("name",        Ident.QuoteOpt(seq.Sequence?.Relname)),
+            ("schema",      Ident.QuoteOpt(seq.Sequence?.Schemaname)),
             ("ifNotExists", seq.IfNotExists ? true : null),
             ("options",     MaybeList(options))
         ));
@@ -1691,16 +1694,16 @@ public class AstBuilder {
     private SqlNode BuildAlterSeq(AlterSeqStmt seq, int start, int end) {
         var options = ParseSeqOptions(seq.Options);
         return new SqlNode("AlterSequenceStatement", start, end, null, BuildProps(
-            ("name",    seq.Sequence?.Relname),
-            ("schema",  string.IsNullOrEmpty(seq.Sequence?.Schemaname) ? null : seq.Sequence.Schemaname),
+            ("name",    Ident.QuoteOpt(seq.Sequence?.Relname)),
+            ("schema",  Ident.QuoteOpt(seq.Sequence?.Schemaname)),
             ("options", MaybeList(options))
         ));
     }
 
     private static SqlNode BuildCreateSchema(CreateSchemaStmt cs, int start, int end) =>
         new("CreateSchemaStatement", start, end, null, BuildProps(
-            ("name",        cs.Schemaname),
-            ("authRole",    cs.Authrole?.Rolename),
+            ("name",        Ident.QuoteOpt(cs.Schemaname)),
+            ("authRole",    Ident.QuoteOpt(cs.Authrole?.Rolename)),
             ("ifNotExists", cs.IfNotExists ? true : null)
         ));
 
@@ -1713,16 +1716,16 @@ public class AstBuilder {
             if (defElem.Defname == "new_version" && defElem.Arg?.NodeCase == Node.NodeOneofCase.String) version = defElem.Arg.String.Sval;
         }
         return new SqlNode("CreateExtensionStatement", start, end, null, BuildProps(
-            ("name", ce.Extname), ("ifNotExists", ce.IfNotExists ? true : null),
-            ("schema", schema), ("version", version)
+            ("name", Ident.Quote(ce.Extname)), ("ifNotExists", ce.IfNotExists ? true : null),
+            ("schema", Ident.QuoteOpt(schema)), ("version", version)
         ));
     }
 
     private SqlNode BuildCreateTableAs(CreateTableAsStmt cta, int start, int end) {
         bool isMV = cta.Objtype == ObjectType.ObjectMatview;
         return new SqlNode(isMV ? "CreateMatViewStatement" : "CreateTableAsStatement", start, end, null, BuildProps(
-            ("name",        cta.Into?.Rel?.Relname),
-            ("schema",      string.IsNullOrEmpty(cta.Into?.Rel?.Schemaname) ? null : cta.Into!.Rel!.Schemaname),
+            ("name",        Ident.QuoteOpt(cta.Into?.Rel?.Relname)),
+            ("schema",      Ident.QuoteOpt(cta.Into?.Rel?.Schemaname)),
             ("ifNotExists", cta.IfNotExists ? true : null),
             ("query",       cta.Query != null ? BuildExpr(cta.Query) : null)
         ));
@@ -1736,12 +1739,12 @@ public class AstBuilder {
         if ((t.Events & 16) != 0) events.Add("UPDATE");
         if ((t.Events & 32) != 0) events.Add("TRUNCATE");
         return new SqlNode("CreateTriggerStatement", start, end, null, BuildProps(
-            ("name",      t.Trigname),
+            ("name",      Ident.Quote(t.Trigname)),
             ("timing",    timing),
             ("events",    (object?)events),
             ("relation",  BuildRangeVar(t.Relation)),
             ("forEach",   t.Row ? "ROW" : "STATEMENT"),
-            ("funcName",  string.Join(".", t.Funcname.Select(n => n.String?.Sval))),
+            ("funcName",  Ident.QualifiedFunc(t.Funcname.Select(n => n.String.Sval))),
             ("when",      t.WhenClause != null ? BuildExpr(t.WhenClause) : null)
         ));
     }
@@ -1749,13 +1752,14 @@ public class AstBuilder {
     private SqlNode BuildComment(CommentStmt cm, int start, int end) {
         var objtype = ObjectTypeKw(cm.Objtype);
         string? objectName = cm.Object?.NodeCase switch {
-            Node.NodeOneofCase.List           => string.Join(".", cm.Object.List.Items.Select(n => n.String?.Sval).OfType<string>()),
+            Node.NodeOneofCase.List           => Ident.Qualified(cm.Object.List.Items.Select(n => n.String?.Sval).OfType<string>()),
             Node.NodeOneofCase.ObjectWithArgs => OwaName(cm.Object.ObjectWithArgs.Objname),
-            Node.NodeOneofCase.String         => cm.Object.String.Sval,
+            Node.NodeOneofCase.String         => Ident.Quote(cm.Object.String.Sval),
             Node.NodeOneofCase.TypeName       => string.Join(".", cm.Object.TypeName.Names
                 .Where(n => n.NodeCase == Node.NodeOneofCase.String)
                 .Select(n => n.String.Sval)
-                .Where(v => v != "pg_catalog")),
+                .Where(v => v != "pg_catalog")
+                .Select(Ident.QuoteFunc)),
             _ => null,
         };
         return new SqlNode("CommentStatement", start, end, null, BuildProps(
@@ -1835,7 +1839,7 @@ public class AstBuilder {
 
         // Build the function name from ObjectWithArgs
         var funcName = s.Func != null
-            ? string.Join(".", s.Func.Objname.Select(n => n.NodeCase == Node.NodeOneofCase.String ? n.String.Sval : ""))
+            ? Ident.QualifiedFunc(s.Func.Objname.Select(n => n.NodeCase == Node.NodeOneofCase.String ? n.String.Sval : ""))
             : null;
 
         // Build arg types
@@ -1848,7 +1852,7 @@ public class AstBuilder {
         var setOptions = new List<object?>();
         foreach (var (key, value) in actions) {
             if (key == "rename") {
-                rename = value;
+                rename = Ident.QuoteOpt(value);
             } else if (value != null) {
                 setOptions.Add(new Dictionary<string, object?> { ["name"] = key, ["value"] = value });
             } else {
@@ -1866,7 +1870,7 @@ public class AstBuilder {
     }
 
     private static SqlNode BuildAlterOwner(AlterOwnerStmt s, int start, int end) {
-        var newOwner = s.Newowner?.Roletype == RoleSpecType.RolespecPublic ? "PUBLIC" : s.Newowner?.Rolename;
+        var newOwner = s.Newowner?.Roletype == RoleSpecType.RolespecPublic ? "PUBLIC" : Ident.QuoteOpt(s.Newowner?.Rolename);
         return new SqlNode("AlterOwnerStatement", start, end, null, BuildProps(
             ("objType",  ObjectTypeKw(s.ObjectType)),
             ("name",     NodeObjName(s.Object)),
@@ -1878,7 +1882,7 @@ public class AstBuilder {
         new("AlterObjectSchemaStatement", start, end, null, BuildProps(
             ("objType",   ObjectTypeKw(s.ObjectType)),
             ("name",      NodeObjName(s.Object)),
-            ("newSchema", s.Newschema)
+            ("newSchema", Ident.QuoteOpt(s.Newschema))
         ));
 
     private static SqlNode BuildRefreshMatView(RefreshMatViewStmt s, int start, int end) =>
@@ -1896,7 +1900,7 @@ public class AstBuilder {
             _                 => s.Event.ToString(),
         };
         return new SqlNode("RuleStatement", start, end, null, BuildProps(
-            ("ruleName", s.Rulename),
+            ("ruleName", Ident.QuoteOpt(s.Rulename)),
             ("relation", BuildRangeVar(s.Relation)),
             ("event",    eventName),
             ("instead",  s.Instead ? true : null),
@@ -1913,7 +1917,7 @@ public class AstBuilder {
 
     private SqlNode BuildCreatePolicy(CreatePolicyStmt s, int start, int end) =>
         new("CreatePolicyStatement", start, end, null, BuildProps(
-            ("policyName",  s.PolicyName),
+            ("policyName",  Ident.QuoteOpt(s.PolicyName)),
             ("table",       BuildRangeVar(s.Table)),
             ("cmdName",     string.IsNullOrEmpty(s.CmdName) ? null : s.CmdName.ToUpper()),
             ("restrictive", !s.Permissive ? (object?)true : null),
@@ -1923,7 +1927,7 @@ public class AstBuilder {
 
     private SqlNode BuildAlterPolicy(AlterPolicyStmt s, int start, int end) =>
         new("AlterPolicyStatement", start, end, null, BuildProps(
-            ("policyName", s.PolicyName),
+            ("policyName", Ident.QuoteOpt(s.PolicyName)),
             ("table",      BuildRangeVar(s.Table)),
             ("using",      BuildExpr(s.Qual)),
             ("withCheck",  BuildExpr(s.WithCheck))
@@ -1939,7 +1943,7 @@ public class AstBuilder {
         var query = s.Query != null ? BuildExpr(s.Query) : null;
 
         return new SqlNode("DeclareCursorStatement", start, end, null, BuildProps(
-            ("name",        s.Portalname),
+            ("name",        Ident.QuoteOpt(s.Portalname)),
             ("scroll",      scroll     ? true : null),
             ("noScroll",    noScroll   ? true : null),
             ("insensitive", insensitive ? true : null),
@@ -2001,20 +2005,20 @@ public class AstBuilder {
         return new SqlNode("FetchStatement", start, end, null, BuildProps(
             ("direction", direction),
             ("count",     count),
-            ("cursor",    s.Portalname),
+            ("cursor",    Ident.QuoteOpt(s.Portalname)),
             ("isMove",    s.Ismove ? true : null)
         ));
     }
 
     private static SqlNode BuildClosePortal(ClosePortalStmt s, int start, int end) =>
         new("ClosePortalStatement", start, end, null, BuildProps(
-            ("cursor", string.IsNullOrEmpty(s.Portalname) ? null : s.Portalname)
+            ("cursor", Ident.QuoteOpt(s.Portalname))
         ));
 
     private SqlNode BuildCopy(CopyStmt s, int start, int end) {
         // Build column list from attlist (String nodes)
         var columns = s.Attlist.Count > 0
-            ? (object?)s.Attlist.Select(n => n.NodeCase == Node.NodeOneofCase.String ? n.String.Sval : "").ToList()
+            ? (object?)s.Attlist.Select(n => n.NodeCase == Node.NodeOneofCase.String ? Ident.Quote(n.String.Sval) : "").ToList()
             : null;
 
         // Build options from DefElem list
@@ -2088,7 +2092,7 @@ public class AstBuilder {
             : null;
 
         return new SqlNode("PrepareStatement", start, end, null, BuildProps(
-            ("name",     s.Name),
+            ("name",     Ident.QuoteOpt(s.Name)),
             ("argTypes", argTypes),
             ("query",    query)
         ));
@@ -2096,28 +2100,28 @@ public class AstBuilder {
 
     private SqlNode BuildExecute(ExecuteStmt s, int start, int end) =>
         new("ExecuteStatement", start, end, null, BuildProps(
-            ("name",   s.Name),
+            ("name",   Ident.QuoteOpt(s.Name)),
             ("params", MapList(s.Params, BuildExpr))
         ));
 
     private static SqlNode BuildDeallocate(DeallocateStmt s, int start, int end) =>
         new("DeallocateStatement", start, end, null, BuildProps(
-            ("name", string.IsNullOrEmpty(s.Name) ? null : s.Name)
+            ("name", Ident.QuoteOpt(s.Name))
         ));
 
     private static SqlNode BuildListen(ListenStmt s, int start, int end) =>
         new("ListenStatement", start, end, null, BuildProps(
-            ("channel", s.Conditionname)
+            ("channel", Ident.QuoteOpt(s.Conditionname))
         ));
 
     private static SqlNode BuildUnlisten(UnlistenStmt s, int start, int end) =>
         new("UnlistenStatement", start, end, null, BuildProps(
-            ("channel", string.IsNullOrEmpty(s.Conditionname) ? null : s.Conditionname)
+            ("channel", Ident.QuoteOpt(s.Conditionname))
         ));
 
     private static SqlNode BuildNotify(NotifyStmt s, int start, int end) =>
         new("NotifyStatement", start, end, null, BuildProps(
-            ("channel", s.Conditionname),
+            ("channel", Ident.QuoteOpt(s.Conditionname)),
             ("payload", string.IsNullOrEmpty(s.Payload) ? null : s.Payload)
         ));
 
@@ -2166,7 +2170,7 @@ public class AstBuilder {
             n.NodeCase == Node.NodeOneofCase.ResTarget ? BuildResTarget(n.ResTarget) : BuildExpr(n));
         return new SqlNode("XmlExpr", 0, 0, null, BuildProps(
             ("op",        op),
-            ("name",      string.IsNullOrEmpty(xe.Name) ? null : xe.Name),
+            ("name",      Ident.QuoteOpt(xe.Name)),
             ("args",      MapList(xe.Args, BuildExpr)),
             ("namedArgs", namedArgs)
         ));
@@ -2294,7 +2298,7 @@ public class AstBuilder {
     private static SqlNode BuildCluster(ClusterStmt s, int start, int end) =>
         new("ClusterStatement", start, end, null, BuildProps(
             ("relation",  s.Relation != null ? BuildRangeVar(s.Relation) : null),
-            ("indexName", string.IsNullOrEmpty(s.Indexname) ? null : s.Indexname)
+            ("indexName", Ident.QuoteOpt(s.Indexname))
         ));
 
     private static SqlNode BuildReindex(ReindexStmt s, int start, int end) {
@@ -2347,8 +2351,8 @@ public class AstBuilder {
     private static SqlNode BuildCreateForeignServer(CreateForeignServerStmt s, int start, int end) {
         var options = BuildDefElemOptions(s.Options);
         return new SqlNode("CreateForeignServerStatement", start, end, null, BuildProps(
-            ("name",    s.Servername),
-            ("fdwName", s.Fdwname),
+            ("name",    Ident.QuoteOpt(s.Servername)),
+            ("fdwName", Ident.QuoteOpt(s.Fdwname)),
             ("options", OptionsToObject(options))
         ));
     }
@@ -2359,7 +2363,7 @@ public class AstBuilder {
         return new SqlNode("CreateForeignTableStatement", start, end, null, BuildProps(
             ("name",       s.BaseStmt?.Relation != null ? BuildRangeVar(s.BaseStmt.Relation) : null),
             ("columns",    columns),
-            ("serverName", s.Servername),
+            ("serverName", Ident.QuoteOpt(s.Servername)),
             ("options",    OptionsToObject(options))
         ));
     }
@@ -2370,21 +2374,21 @@ public class AstBuilder {
             RoleSpecType.RolespecCurrentRole  => "current_role",
             RoleSpecType.RolespecSessionUser  => "session_user",
             RoleSpecType.RolespecPublic       => "public",
-            _                                 => s.User?.Rolename ?? "current_user",
+            _                                 => Ident.QuoteOpt(s.User?.Rolename) ?? "current_user",
         };
         var options = BuildDefElemOptions(s.Options);
         return new SqlNode("CreateUserMappingStatement", start, end, null, BuildProps(
             ("user",       roleText),
-            ("serverName", s.Servername),
+            ("serverName", Ident.QuoteOpt(s.Servername)),
             ("options",    OptionsToObject(options))
         ));
     }
 
     private static SqlNode BuildImportForeignSchema(ImportForeignSchemaStmt s, int start, int end) =>
         new("ImportForeignSchemaStatement", start, end, null, BuildProps(
-            ("remoteSchema", s.RemoteSchema),
-            ("serverName",   s.ServerName),
-            ("localSchema",  s.LocalSchema)
+            ("remoteSchema", Ident.QuoteOpt(s.RemoteSchema)),
+            ("serverName",   Ident.QuoteOpt(s.ServerName)),
+            ("localSchema",  Ident.QuoteOpt(s.LocalSchema))
         ));
 
     // -------------------------------------------------------------------------
@@ -2398,7 +2402,7 @@ public class AstBuilder {
             .Select(n => BuildRangeVar(n.PublicationObjSpec.Pubtable?.Relation))
             .ToList();
         return new SqlNode("CreatePublicationStatement", start, end, null, BuildProps(
-            ("name",        s.Pubname),
+            ("name",        Ident.QuoteOpt(s.Pubname)),
             ("forAllTables", s.ForAllTables ? true : null),
             ("tables",      MaybeList(tables))
         ));
@@ -2406,16 +2410,16 @@ public class AstBuilder {
 
     private static SqlNode BuildAlterPublication(AlterPublicationStmt s, int start, int end) =>
         new("AlterPublicationStatement", start, end, null, BuildProps(
-            ("name", s.Pubname)
+            ("name", Ident.QuoteOpt(s.Pubname))
         ));
 
     private static SqlNode BuildCreateSubscription(CreateSubscriptionStmt s, int start, int end) {
         var publications = s.Publication
             .Where(n => n.NodeCase == Node.NodeOneofCase.String)
-            .Select(n => n.String.Sval)
+            .Select(n => Ident.Quote(n.String.Sval))
             .ToList();
         return new SqlNode("CreateSubscriptionStatement", start, end, null, BuildProps(
-            ("name",         s.Subname),
+            ("name",         Ident.QuoteOpt(s.Subname)),
             ("conninfo",     s.Conninfo),
             ("publications", MaybeList(publications))
         ));
@@ -2423,12 +2427,12 @@ public class AstBuilder {
 
     private static SqlNode BuildAlterSubscription(AlterSubscriptionStmt s, int start, int end) =>
         new("AlterSubscriptionStatement", start, end, null, BuildProps(
-            ("name", s.Subname)
+            ("name", Ident.QuoteOpt(s.Subname))
         ));
 
     private static SqlNode BuildDropSubscription(DropSubscriptionStmt s, int start, int end) =>
         new("DropSubscriptionStatement", start, end, null, BuildProps(
-            ("name",     s.Subname),
+            ("name",     Ident.QuoteOpt(s.Subname)),
             ("ifExists", s.MissingOk ? true : null)
         ));
 
@@ -2437,9 +2441,12 @@ public class AstBuilder {
     // -------------------------------------------------------------------------
 
     private SqlNode BuildDefine(DefineStmt s, int start, int end) {
-        var name = string.Join(".", s.Defnames.Select(n => n.NodeCase == Node.NodeOneofCase.String
+        var nameParts = s.Defnames.Select(n => n.NodeCase == Node.NodeOneofCase.String
             ? n.String.Sval
-            : n.NodeCase.ToString()));
+            : n.NodeCase.ToString());
+        var name = s.Kind == ObjectType.ObjectOperator
+            ? Ident.QualifiedObj(nameParts)
+            : Ident.QualifiedFunc(nameParts);
 
         var defList = s.Definition
             .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
@@ -2482,7 +2489,7 @@ public class AstBuilder {
                     var fromVal = GetFromDefElemCollationName(fromDef.DefElem);
                     return new SqlNode("CreateCollationStatement", start, end, null, BuildProps(
                         ("name",     name),
-                        ("fromName", fromVal)
+                        ("fromName", Ident.QuoteOpt(fromVal))
                     ));
                 }
                 return new SqlNode("CreateCollationStatement", start, end, null, BuildProps(
@@ -2530,12 +2537,11 @@ public class AstBuilder {
 
         string? objName = null;
         if (s.Object?.NodeCase == Node.NodeOneofCase.List) {
-            objName = string.Join(".", s.Object.List.Items
+            objName = Ident.Qualified(s.Object.List.Items
                 .Where(n => n.NodeCase == Node.NodeOneofCase.String)
                 .Select(n => n.String.Sval));
         } else if (s.Object?.NodeCase == Node.NodeOneofCase.RangeVar) {
-            var rv = s.Object.RangeVar;
-            objName = string.IsNullOrEmpty(rv.Schemaname) ? rv.Relname : $"{rv.Schemaname}.{rv.Relname}";
+            objName = RangeVarQualifiedName(s.Object.RangeVar);
         }
 
         return new SqlNode("SecurityLabelStatement", start, end, null, BuildProps(
@@ -2557,11 +2563,11 @@ public class AstBuilder {
                 var col = n.RangeTableFuncCol;
                 if (col.ForOrdinality) {
                     return new SqlNode("XmlTableOrdinalityCol", 0, 0, null, BuildProps(
-                        ("name", col.Colname)
+                        ("name", Ident.QuoteOpt(col.Colname))
                     ));
                 }
                 return new SqlNode("XmlTableCol", 0, 0, null, BuildProps(
-                    ("name",     col.Colname),
+                    ("name",     Ident.QuoteOpt(col.Colname)),
                     ("typeName", col.TypeName != null ? BuildPgTypeName(col.TypeName) : null),
                     ("path",     col.Colexpr    != null ? BuildExpr(col.Colexpr)    : null),
                     ("default",  col.Coldefexpr != null ? BuildExpr(col.Coldefexpr) : null),
@@ -2574,7 +2580,7 @@ public class AstBuilder {
             ("rowExpr", BuildExpr(r.Rowexpr)),
             ("docExpr", BuildExpr(r.Docexpr)),
             ("columns", MaybeList(columns)),
-            ("alias",   r.Alias?.Aliasname),
+            ("alias",   Ident.QuoteOpt(r.Alias?.Aliasname)),
             ("lateral", r.Lateral ? true : null)
         ));
     }
@@ -2582,7 +2588,7 @@ public class AstBuilder {
     private SqlNode BuildJsonTable(JsonTable jt) {
         var context  = jt.ContextItem != null ? BuildExpr(jt.ContextItem.RawExpr) : null;
         var path     = jt.Pathspec?.String != null ? BuildExpr(jt.Pathspec.String) : null;
-        var pathName = !string.IsNullOrEmpty(jt.Pathspec?.Name) ? jt.Pathspec!.Name : null;
+        var pathName = Ident.QuoteOpt(jt.Pathspec?.Name);
         var columns  = BuildJsonTableColumns(jt.Columns);
         var onError  = BuildJsonBehavior(jt.OnError);
 
@@ -2592,7 +2598,7 @@ public class AstBuilder {
             ("pathName", pathName),
             ("columns",  MaybeList(columns)),
             ("onError",  onError),
-            ("alias",    jt.Alias?.Aliasname),
+            ("alias",    Ident.QuoteOpt(jt.Alias?.Aliasname)),
             ("lateral",  jt.Lateral ? true : null)
         ));
     }
@@ -2610,13 +2616,13 @@ public class AstBuilder {
                     _                                    => "REGULAR",
                 };
                 var path     = col.Pathspec?.String != null ? BuildExpr(col.Pathspec.String) : null;
-                var pathName = !string.IsNullOrEmpty(col.Pathspec?.Name) ? col.Pathspec!.Name : null;
+                var pathName = Ident.QuoteOpt(col.Pathspec?.Name);
                 var nested   = col.Columns.Count > 0
                     ? (object?)BuildJsonTableColumns(col.Columns)
                     : null;
                 return new SqlNode("JsonTableColumn", 0, 0, null, BuildProps(
                     ("coltype",  coltype),
-                    ("name",     string.IsNullOrEmpty(col.Name) ? null : col.Name),
+                    ("name",     Ident.QuoteOpt(col.Name)),
                     ("typeName", col.TypeName != null ? BuildPgTypeName(col.TypeName) : null),
                     ("path",     path),
                     ("pathName", pathName),
@@ -2687,7 +2693,7 @@ public class AstBuilder {
         RoleSpecType.RolespecCurrentRole => "current_role",
         RoleSpecType.RolespecSessionUser => "session_user",
         RoleSpecType.RolespecPublic      => "public",
-        _                                => r?.Rolename ?? "",
+        _                                => Ident.QuoteOpt(r?.Rolename) ?? "",
     };
 
     private static SqlNode BuildReassignOwned(ReassignOwnedStmt s, int start, int end) {
@@ -2716,14 +2722,14 @@ public class AstBuilder {
 
     private static SqlNode BuildCreateTableSpace(CreateTableSpaceStmt s, int start, int end) =>
         new("CreateTableSpaceStatement", start, end, null, BuildProps(
-            ("name",     s.Tablespacename),
+            ("name",     Ident.QuoteOpt(s.Tablespacename)),
             ("location", s.Location),
-            ("owner",    string.IsNullOrEmpty(s.Owner?.Rolename) ? null : s.Owner.Rolename)
+            ("owner",    Ident.QuoteOpt(s.Owner?.Rolename))
         ));
 
     private static SqlNode BuildDropTableSpace(DropTableSpaceStmt s, int start, int end) =>
         new("DropTableSpaceStatement", start, end, null, BuildProps(
-            ("name",     s.Tablespacename),
+            ("name",     Ident.QuoteOpt(s.Tablespacename)),
             ("ifExists", s.MissingOk ? true : null)
         ));
 
@@ -2783,18 +2789,25 @@ public class AstBuilder {
         _                          => t.ToString().Replace("Object", "").ToUpper(),
     };
 
-    /// <summary>Extracts a dotted name from an ObjectWithArgs.Objname list.</summary>
+    /// <summary>
+    /// Extracts a dotted name from an ObjectWithArgs.Objname list — a function,
+    /// aggregate or procedure name, or an operator symbol, which is never quoted.
+    /// </summary>
     private static string OwaName(Google.Protobuf.Collections.RepeatedField<Node> objname) =>
-        string.Join(".", objname.Select(n => n.String.Sval));
+        Ident.QualifiedObj(objname.Select(n => n.String.Sval));
+
+    /// <summary>Formats a RangeVar as a quoted, possibly schema-qualified name.</summary>
+    private static string RangeVarQualifiedName(RangeVar rv) =>
+        Ident.Qualified(new[] { rv.Schemaname, rv.Relname }.Where(p => !string.IsNullOrEmpty(p)));
 
     /// <summary>Extracts a dotted name from a Node (RangeVar, ObjectWithArgs, List of strings, or String).</summary>
     private static string? NodeObjName(Node? node) => node?.NodeCase switch {
-        Node.NodeOneofCase.RangeVar       => node.RangeVar.Relname,
+        Node.NodeOneofCase.RangeVar       => RangeVarQualifiedName(node.RangeVar),
         Node.NodeOneofCase.ObjectWithArgs => OwaName(node.ObjectWithArgs.Objname),
-        Node.NodeOneofCase.List           => string.Join(".", node.List.Items
+        Node.NodeOneofCase.List           => Ident.Qualified(node.List.Items
             .Where(n => n.NodeCase == Node.NodeOneofCase.String)
             .Select(n => n.String.Sval)),
-        Node.NodeOneofCase.String         => node.String.Sval,
+        Node.NodeOneofCase.String         => Ident.Quote(node.String.Sval),
         _                                 => null,
     };
 

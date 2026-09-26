@@ -1013,7 +1013,7 @@ function printCreateExtension(node: SqlNode, opts: Options): Doc {
     const ifNotExistsDoc: Doc     = ifNotExists ? [makeKeyword('IF NOT EXISTS'), ' '] : '';
     const schemaDoc: Doc = schema  ? [hardline, makeKeyword('SCHEMA'), ' ', schema]  : '';
     const versionDoc: Doc = version ? [hardline, makeKeyword('VERSION'), ' ', `'${version}'`] : '';
-    return [[makeKeyword('CREATE EXTENSION'), ' ', ifNotExistsDoc, `"${name}"`, schemaDoc, versionDoc], ';'];
+    return [[makeKeyword('CREATE EXTENSION'), ' ', ifNotExistsDoc, name, schemaDoc, versionDoc], ';'];
 }
 
 // ---------------------------------------------------------------------------
@@ -1879,7 +1879,7 @@ function printCreateCollation(node: SqlNode, opts: Options): Doc {
     const options  = propArr(node, 'options');
 
     if (fromName) {
-        return [[makeKeyword('CREATE COLLATION'), ' ', name, ' ', makeKeyword('FROM'), ' ', `"${fromName}"`], ';'];
+        return [[makeKeyword('CREATE COLLATION'), ' ', name, ' ', makeKeyword('FROM'), ' ', fromName], ';'];
     }
 
     return [
