@@ -61,7 +61,8 @@ public static class TsqlParser {
     /// positions or token streams, plus the comment texts in order (comments aren't
     /// part of the tree). Identifiers are compared by value, so [name] and name match,
     /// parentheses are unwrapped, so (a) and a match, and an unspecified sort order is
-    /// ascending, as it sorts. Built-in type and function names compare case-insensitively,
+    /// ascending, as it sorts; a multi-variable DECLARE is one DECLARE per variable. Built-in
+    /// type and function names compare case-insensitively,
     /// as SQL Server resolves them (<see cref="IsCaseInsensitiveName"/>).
     /// Returns null when the SQL doesn't parse.
     /// </summary>
@@ -163,7 +164,19 @@ public static class TsqlParser {
             }
             case System.Collections.IEnumerable list: {
                 var arr = new System.Text.Json.Nodes.JsonArray();
-                foreach (var item in list) arr.Add(CanonicalNode(item, caseInsensitive));
+                foreach (var item in list) {
+                    // DECLARE @a int, @b int declares the same as one DECLARE per variable,
+                    // which is how it's printed
+                    if (item is DeclareVariableStatement { Declarations.Count: > 1 } declare) {
+                        foreach (var d in declare.Declarations) {
+                            var single = new DeclareVariableStatement();
+                            single.Declarations.Add(d);
+                            arr.Add(CanonicalNode(single, caseInsensitive));
+                        }
+                        continue;
+                    }
+                    arr.Add(CanonicalNode(item, caseInsensitive));
+                }
                 return arr.Count > 0 ? arr : null;
             }
             default:
