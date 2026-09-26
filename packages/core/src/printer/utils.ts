@@ -21,14 +21,46 @@ function sqlOpts(opts: Options): SqlOptions {
 /** Function type for recursively printing a SqlNode to a Doc. */
 export type PrintFn = (node: SqlNode) => Doc;
 
+// Keywords common enough to show which case a file is written in.
+const STYLE_KEYWORDS = new Set([
+    'select', 'from', 'where', 'and', 'or', 'not', 'null', 'is', 'in', 'as', 'on', 'join',
+    'inner', 'left', 'right', 'outer', 'group', 'by', 'order', 'having', 'insert', 'into',
+    'values', 'update', 'set', 'delete', 'create', 'alter', 'drop', 'table', 'view', 'index',
+    'with', 'case', 'when', 'then', 'else', 'end', 'begin', 'declare', 'exec', 'execute',
+    'return', 'if', 'exists', 'union', 'all', 'distinct', 'between', 'like', 'limit', 'top',
+]);
+
+let styleCache: { text: string; style: 'upper' | 'lower' } | undefined;
+
+/**
+ * The keyword case a file is written in, for sqlKeywordCase: 'preserve'. Keywords are
+ * rebuilt from constants when printing, so the source spelling of each one isn't
+ * available — instead, count how the common keywords in the input are written
+ * (outside comments, strings and quoted names) and use the majority case throughout.
+ */
+function keywordStyleOf(text: string): 'upper' | 'lower' {
+    if (styleCache?.text === text) return styleCache.style;
+    const code = text.replace(/--[^\n]*|\/\*[\s\S]*?\*\/|'(?:[^']|'')*'|"(?:[^"]|"")*"|\[[^\]]*\]/g, ' ');
+    let upper = 0;
+    let lower = 0;
+    for (const word of code.match(/\b[A-Za-z_]+\b/g) ?? []) {
+        if (!STYLE_KEYWORDS.has(word.toLowerCase())) continue;
+        if (word === word.toUpperCase()) upper++;
+        else if (word === word.toLowerCase()) lower++;
+    }
+    const style = upper > lower ? 'upper' : 'lower';
+    styleCache = { text, style };
+    return style;
+}
+
 /**
  * Apply the sqlKeywordCase option to a keyword string.
  * Prettier supplies the default value ('lower') from options.ts, so the
  * final toUpperCase() branch is only reached if the option is explicitly absent.
  */
 export function keyword(kw: string, opts: Options): Doc {
-    const { sqlKeywordCase } = sqlOpts(opts);
-    if (sqlKeywordCase === 'preserve') return kw;
+    let { sqlKeywordCase } = sqlOpts(opts);
+    if (sqlKeywordCase === 'preserve') sqlKeywordCase = keywordStyleOf(opts.originalText ?? '');
     const recase = sqlKeywordCase === 'lower'
         ? (s: string) => s.toLowerCase()
         : (s: string) => s.toUpperCase();

@@ -23,6 +23,17 @@ registerFixtureTests({
 const OPTION_SQL = `select id, title, price from books where in_stock = true and price < 50 order by price asc limit 10;`;
 
 describe('options', () => {
+    // preserve: keywords are rebuilt when printing, so match the input's dominant case
+    it('sqlKeywordCase: preserve follows an upper-case input', async () => {
+        const out = await fmt(`SELECT id FROM books WHERE price < 50 -- select from where`, { sqlKeywordCase: 'preserve' });
+        expect(out).toContain('SELECT id\nFROM books\nWHERE price < 50');
+    });
+
+    it('sqlKeywordCase: preserve follows a lower-case input', async () => {
+        const out = await fmt(`select id from books where title = 'SELECT FROM WHERE'`, { sqlKeywordCase: 'preserve' });
+        expect(out).toContain("select id\nfrom books\nwhere title = 'SELECT FROM WHERE'");
+    });
+
     it('sqlKeywordCase: upper', async () => {
         expect(await fmt(OPTION_SQL, { sqlKeywordCase: 'upper' })).toMatchSnapshot();
     });

@@ -81,7 +81,7 @@
                     "enumDescriptions": [
                         "lowercase — select, from, where  (recommended)",
                         "UPPERCASE — SELECT, FROM, WHERE",
-                        "Preserve — leave keywords exactly as written in the source"
+                        "Preserve — match the file: UPPERCASE if its keywords are mostly upper case, otherwise lowercase"
                     ]
                 },
                 "prettierSql.sqlDensity": {

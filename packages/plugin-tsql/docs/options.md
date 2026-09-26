@@ -12,7 +12,7 @@ Controls the casing of SQL keywords (`select`, `from`, `where`, `join`, data typ
 | ---------- | ------------------------------- | ------- |
 | `lower`    | lowercase keywords              | ✓       |
 | `upper`    | UPPERCASE keywords              |         |
-| `preserve` | Keep original casing from input |         |
+| `preserve` | Match the input: upper if its keywords are mostly upper case, otherwise lower |         |
 
 ### Examples
 

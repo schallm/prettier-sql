@@ -9,7 +9,7 @@ export const options: Record<string, SupportOption> = {
         choices: [
             { value: 'upper', description: 'UPPERCASE keywords' },
             { value: 'lower', description: 'lowercase keywords' },
-            { value: 'preserve', description: 'Preserve original casing' },
+            { value: 'preserve', description: "Match the input's keyword casing (whichever of upper or lower it mostly uses)" },
         ],
     } satisfies SupportOption,
     sqlDensity: {

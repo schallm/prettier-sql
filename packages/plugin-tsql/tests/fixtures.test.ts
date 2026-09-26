@@ -52,6 +52,17 @@ describe('filtered index', () => {
 const OPTION_SQL = `select b.BookId, b.Title, b.Price from Books as b inner join Authors as a on b.AuthorId = a.Id where b.InStock = 1 order by b.Title asc`;
 
 describe('options', () => {
+    // preserve: keywords are rebuilt when printing, so match the input's dominant case
+    it('sqlKeywordCase: preserve follows an upper-case input', async () => {
+        const out = await fmt(`SELECT id FROM books WHERE price < 50 -- select from where`, { sqlKeywordCase: 'preserve' });
+        expect(out).toContain('SELECT id\nFROM books\nWHERE price < 50');
+    });
+
+    it('sqlKeywordCase: preserve follows a lower-case input', async () => {
+        const out = await fmt(`select id from books where title = 'SELECT FROM WHERE'`, { sqlKeywordCase: 'preserve' });
+        expect(out).toContain("select id\nfrom books\nwhere title = 'SELECT FROM WHERE'");
+    });
+
     it('sqlKeywordCase: upper', async () => {
         expect(await fmt(OPTION_SQL, { sqlKeywordCase: 'upper' })).toMatchSnapshot();
     });
