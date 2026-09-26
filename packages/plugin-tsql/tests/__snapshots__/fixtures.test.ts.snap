@@ -196,9 +196,7 @@ add period for system_time (vf, vt);
 
 alter table t
 add
-  vf datetime2 generated always as row start hidden default sysutcdatetime(
-
-  ) not null,
+  vf datetime2 generated always as row start hidden default sysutcdatetime() not null,
   vt datetime2 generated always as row end hidden default '9999-12-31' not null,
   period for system_time (vf, vt);
 
@@ -206,7 +204,7 @@ alter table t
 add index ix nonclustered (a asc);
 
 alter table t
-add CONSTRAINT df DEFAULT 0 FOR a WITH VALUES;
+add constraint df default 0 for a with values;
 
 alter table t
 alter column s add masked with (function = 'partial(1,"XX",0)');

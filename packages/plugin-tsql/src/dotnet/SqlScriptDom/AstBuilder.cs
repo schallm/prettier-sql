@@ -1906,6 +1906,13 @@ public class AstBuilder : TSqlFragmentVisitor {
                     ["updateAction"] = fk.UpdateAction == DeleteUpdateAction.NotSpecified ? null : fk.UpdateAction.ToString(),
                     ["notForReplication"] = fk.NotForReplication ? (object?)true : null,
                 }),
+            // CONSTRAINT df DEFAULT 0 FOR col [WITH VALUES] (ALTER TABLE ... ADD)
+            DefaultConstraintDefinition def => Node("DefaultConstraint", def, new Dictionary<string, object?> {
+                ["constraintName"] = name,
+                ["expression"] = BuildScalarExpression(def.Expression),
+                ["column"] = QuotedName(def.Column),
+                ["withValues"] = def.WithValues ? (object?)true : null,
+            }),
             _ => Leaf("TableConstraint", c, RawText(c)),
         };
     }

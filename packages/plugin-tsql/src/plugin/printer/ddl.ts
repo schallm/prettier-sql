@@ -399,6 +399,14 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
                 : '';
             return group([namePrefix, indent([softline, kw, ' ', clusteredKw, colsDoc]), withPart, storageClause(node.props, opts)]);
         }
+        case 'DefaultConstraint': {
+            const expr = prop(node, 'expression');
+            return [
+                namePrefix, keyword('DEFAULT', opts), ' ', expr ? printNode(expr, opts) : '',
+                ' ', keyword('FOR', opts), ' ', propStr(node, 'column') ?? '',
+                propBool(node, 'withValues') ? [' ', keyword('WITH VALUES', opts)] : '',
+            ];
+        }
         case 'CheckConstraint': {
             const expr = prop(node, 'expression');
             const nfr = propBool(node, 'notForReplication');

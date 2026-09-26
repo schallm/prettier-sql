@@ -313,12 +313,13 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
     // schema-qualified), so only it gets keyword casing. Anything with a call target keeps
     // its name as written: CLR/xml methods (h.GetAncestor, x.value) are case-sensitive.
     const nameDoc: Doc = callTargetPrefix ? name : keyword(name, opts);
+    const hasArgs = args.length > 0 || distinctDoc.length > 0 || nullClause !== '';
     const argsDoc = group([
         callTargetPrefix,
         nameDoc,
         '(',
-        indent([softline, ...distinctDoc, argsListDoc, nullClause]),
-        softline,
+        // f(): nothing to wrap, so no line breaks inside the parentheses
+        hasArgs ? [indent([softline, ...distinctDoc, argsListDoc, nullClause]), softline] : '',
         ')',
     ]);
 
