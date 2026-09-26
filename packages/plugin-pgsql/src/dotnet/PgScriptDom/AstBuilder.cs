@@ -1980,43 +1980,19 @@ public class AstBuilder {
     // -------------------------------------------------------------------------
 
     private SqlNode BuildAlterFunction(AlterFunctionStmt s, int start, int end) {
-        // Extract actions from the DefElem list
-        var actions = new List<(string key, string? value)>();
+        string? rename = null;
+        var attributes = new List<string>();
         foreach (var n in s.Actions) {
             if (n.NodeCase != Node.NodeOneofCase.DefElem) continue;
-            var defElem = n.DefElem;
-            actions.Add((defElem.Defname, BuildDefElemValue(defElem)?.ToString()));
+            if (n.DefElem.Defname == "rename") rename = Ident.QuoteOpt(BuildDefElemValue(n.DefElem)?.ToString());
+            else attributes.Add(FunctionAttribute(n.DefElem));
         }
-
-        // Build the function name from ObjectWithArgs
-        var funcName = s.Func != null
-            ? Ident.QualifiedFunc(s.Func.Objname.Select(n => n.NodeCase == Node.NodeOneofCase.String ? n.String.Sval : ""))
-            : null;
-
-        // Build arg types
-        var argTypes = s.Func != null && !s.Func.ArgsUnspecified
-            ? (object?)s.Func.Objargs.Select(n => n.NodeCase == Node.NodeOneofCase.TypeName ? BuildPgTypeName(n.TypeName) : "").ToList()
-            : null;
-
-        // Determine action kind
-        string? rename = null;
-        var setOptions = new List<object?>();
-        foreach (var (key, value) in actions) {
-            if (key == "rename") {
-                rename = Ident.QuoteOpt(value);
-            } else if (value != null) {
-                setOptions.Add(new Dictionary<string, object?> { ["name"] = key, ["value"] = value });
-            } else {
-                // No-value option like SET VOLATILE (just the name)
-                setOptions.Add(new Dictionary<string, object?> { ["name"] = key });
-            }
-        }
-
         return new SqlNode("AlterFunctionStatement", start, end, null, BuildProps(
-            ("name",     funcName),
-            ("argTypes", argTypes),
-            ("rename",   rename),
-            ("options",  MaybeList(setOptions))
+            ("objType",    s.Objtype == ObjectType.ObjectProcedure ? "PROCEDURE" : "FUNCTION"),
+            // Name plus argument types; no list at all means "the only function named f"
+            ("name",       s.Func != null ? OwaSignature(s.Func) : null),
+            ("rename",     rename),
+            ("attributes", MaybeList(attributes))
         ));
     }
 

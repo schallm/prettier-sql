@@ -28,6 +28,35 @@ alter function get_count(integer) set schema reporting;
 "
 `;
 
+exports[`fixtures > ddl/alter-function-attributes.sql 1`] = `
+"-- SECURITY DEFINER must not flip to INVOKER; attributes print as written
+alter function f(integer)
+  security definer;
+
+alter function f(integer)
+  security invoker;
+
+alter function f
+  immutable
+  strict;
+
+alter function s.f(integer, text)
+  set search_path = 'MySchema', public;
+
+alter function f(integer)
+  reset all;
+
+alter function f()
+  cost 100
+  rows 10
+  parallel safe
+  leakproof;
+
+alter procedure p(integer)
+  security definer;
+"
+`;
+
 exports[`fixtures > ddl/alter-table-extended.sql 1`] = `
 "-- RENAME COLUMN
 alter table users rename column email to email_address;

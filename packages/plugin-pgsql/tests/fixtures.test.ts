@@ -98,6 +98,8 @@ describe('formatting preserves meaning', () => {
         'ddl/grant-options.sql',
         'ddl/create-function.sql',
         'ddl/function-attributes.sql',
+        'ddl/alter-function.sql',
+        'ddl/alter-function-attributes.sql',
     ];
     const variants = [
         {},

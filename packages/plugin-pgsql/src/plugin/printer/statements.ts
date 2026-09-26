@@ -1259,31 +1259,13 @@ function printMerge(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 function printAlterFunction(node: SqlNode, opts: Options): Doc {
-    const makeKeyword       = (k: string) => keyword(k, opts);
-    const name     = propStr(node, 'name') ?? '';
-    const argTypes = (node.props?.['argTypes'] as string[] | undefined) ?? [];
-    const rename   = propStr(node, 'rename');
-    const options  = (node.props?.['options'] as Array<{ name: string; value: string }> | undefined) ?? [];
+    const makeKeyword = (k: string) => keyword(k, opts);
+    const head: Doc = [makeKeyword(`ALTER ${propStr(node, 'objType') ?? 'FUNCTION'}`), ' ', propStr(node, 'name') ?? ''];
+    const rename = propStr(node, 'rename');
+    if (rename) return [[head, ' ', makeKeyword('RENAME TO'), ' ', rename], ';'];
 
-    const argList: Doc = argTypes.length > 0
-        ? ['(', join(', ', argTypes.map((t) => makeKeyword(t))), ')']
-        : '()';
-
-    if (rename) {
-        return [[makeKeyword('ALTER FUNCTION'), ' ', name, argList, ' ', makeKeyword('RENAME TO'), ' ', rename], ';'];
-    }
-
-    const optionDocs = options.map((o): Doc => {
-        switch (o.name) {
-            case 'volatility': return makeKeyword(o.value ?? '');
-            case 'cost':       return [makeKeyword('COST'), ' ', o.value ?? ''];
-            case 'rows':       return [makeKeyword('ROWS'), ' ', o.value ?? ''];
-            case 'called':     return makeKeyword(o.value === 'true' ? 'CALLED ON NULL INPUT' : 'STRICT');
-            case 'security':   return makeKeyword(o.value === 'true' ? 'SECURITY DEFINER' : 'SECURITY INVOKER');
-            default:           return [makeKeyword('SET'), ' ', o.name, ' = ', o.value ?? ''];
-        }
-    });
-    return [[makeKeyword('ALTER FUNCTION'), ' ', name, argList, indent([hardline, join(hardline, optionDocs)])], ';'];
+    const attributes = propStrArr(node, 'attributes');
+    return [[head, indent([hardline, join(hardline, attributes.map(makeKeyword))])], ';'];
 }
 
 // ---------------------------------------------------------------------------
