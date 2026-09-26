@@ -93,6 +93,7 @@ describe('formatting preserves meaning', () => {
         'dml/set-show.sql',
         'select/from-items.sql',
         'ddl/object-signatures.sql',
+        'ddl/create-table-options.sql',
     ];
     const variants = [
         {},

@@ -663,17 +663,45 @@ function printCreateTable(node: SqlNode, opts: Options): Doc {
     const columns  = propArr(node, 'columns');
     const partitionBy = prop(node, 'partitionBy');
 
+    const inherits = propArr(node, 'inherits');
     const partitionDoc: Doc = partitionBy
         ? [hardline, makeKeyword('PARTITION BY'), ' ', makeKeyword(propStr(partitionBy, 'strategy') ?? 'RANGE'),
            ' (', join(', ', propStrArr(partitionBy, 'columns')), ')']
         : '';
 
     return [
-        makeKeyword('CREATE TABLE'), ' ', rangeVarName(name), ' (',
+        createTableKeyword(node, opts), ' ', ifNotExistsDoc(node, opts), rangeVarName(name), ' (',
         indent([hardline, join([',', hardline], columns.map(printNode))]),
         hardline, ')',
+        inherits.length > 0 ? [hardline, makeKeyword('INHERITS'), ' (', join(', ', inherits.map(rangeVarName)), ')'] : '',
         partitionDoc,
+        tableStorageClauses(node, opts),
         ';',
+    ];
+}
+
+/** `CREATE [TEMPORARY | UNLOGGED] TABLE` */
+function createTableKeyword(node: SqlNode, opts: Options): Doc {
+    const persistence = propStr(node, 'persistence');
+    return keyword(persistence ? `CREATE ${persistence} TABLE` : 'CREATE TABLE', opts);
+}
+
+function ifNotExistsDoc(node: SqlNode, opts: Options): Doc {
+    return propBool(node, 'ifNotExists') ? [keyword('IF NOT EXISTS', opts), ' '] : '';
+}
+
+/** The trailing `USING method`, `WITH (…)`, `ON COMMIT …` and `TABLESPACE …` clauses. */
+function tableStorageClauses(node: SqlNode, opts: Options): Doc {
+    const makeKeyword  = (k: string) => keyword(k, opts);
+    const accessMethod = propStr(node, 'accessMethod');
+    const options      = propStrArr(node, 'options');
+    const onCommit     = propStr(node, 'onCommit');
+    const tablespace   = propStr(node, 'tablespace');
+    return [
+        accessMethod ? [hardline, makeKeyword('USING'), ' ', accessMethod] : '',
+        options.length > 0 ? [hardline, makeKeyword('WITH'), ' (', join(', ', options), ')'] : '',
+        onCommit ? [hardline, makeKeyword('ON COMMIT'), ' ', makeKeyword(onCommit)] : '',
+        tablespace ? [hardline, makeKeyword('TABLESPACE'), ' ', tablespace] : '',
     ];
 }
 
@@ -1036,14 +1064,18 @@ function printCreateAsQuery(node: SqlNode, opts: Options, kw: string): Doc {
     const makeKeyword          = (k: string) => keyword(k, opts);
     const schema      = propStr(node, 'schema');
     const name        = propStr(node, 'name') ?? '';
-    const ifNotExists = propBool(node, 'ifNotExists');
+    const columns     = propStrArr(node, 'columns');
     const query       = prop(node, 'query');
 
     const qname = qualifiedName(schema, name);
-    const ifNotExistsDoc: Doc = ifNotExists ? [makeKeyword('IF NOT EXISTS'), ' '] : '';
+    const createKw = kw === 'CREATE TABLE' ? createTableKeyword(node, opts) : makeKeyword(kw);
     return [
-        makeKeyword(kw), ' ', ifNotExistsDoc, qname, ' ', makeKeyword('AS'),
+        createKw, ' ', ifNotExistsDoc(node, opts), qname,
+        columns.length > 0 ? [' (', join(', ', columns), ')'] : '',
+        tableStorageClauses(node, opts),
+        ' ', makeKeyword('AS'),
         hardline, query ? printQueryExpr(query, opts) : '',
+        propBool(node, 'withNoData') ? [hardline, makeKeyword('WITH NO DATA')] : '',
         ';',
     ];
 }

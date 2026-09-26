@@ -343,11 +343,43 @@ public class AstBuilder {
         }
 
         return new SqlNode("CreateTableStatement", start, end, null, BuildProps(
-            ("name",        BuildRangeVar(s.Relation)),
-            ("columns",     MapList(s.TableElts, BuildTableElement)),
-            ("partitionBy", partitionBy)
+            ("persistence",  Persistence(s.Relation)),
+            ("ifNotExists",  s.IfNotExists ? true : null),
+            ("name",         BuildRangeVar(s.Relation)),
+            ("columns",      MapList(s.TableElts, BuildTableElement)),
+            ("inherits",     MapList(s.InhRelations, n => n.NodeCase == Node.NodeOneofCase.RangeVar ? BuildRangeVar(n.RangeVar) : null)),
+            ("partitionBy",  partitionBy),
+            ("accessMethod", string.IsNullOrEmpty(s.AccessMethod) ? null : Ident.Quote(s.AccessMethod)),
+            ("options",      StorageOptions(s.Options)),
+            ("onCommit",     OnCommit(s.Oncommit)),
+            ("tablespace",   Ident.QuoteOpt(s.Tablespacename))
         ));
     }
+
+    // TEMPORARY / UNLOGGED from a relation's relpersistence ('p' is a regular table).
+    private static string? Persistence(RangeVar? r) => r?.Relpersistence switch {
+        "t" => "TEMPORARY",
+        "u" => "UNLOGGED",
+        _   => null,
+    };
+
+    private static string? OnCommit(OnCommitAction a) => a switch {
+        OnCommitAction.OncommitPreserveRows => "PRESERVE ROWS",
+        OnCommitAction.OncommitDeleteRows   => "DELETE ROWS",
+        OnCommitAction.OncommitDrop         => "DROP",
+        _                                   => null,
+    };
+
+    // WITH (storage_parameter = value, ...) as ready-to-print "name = value" strings.
+    private static object? StorageOptions(IEnumerable<Node> options) => MaybeList(options
+        .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
+        .Select(n => {
+            var d = n.DefElem;
+            var name = string.IsNullOrEmpty(d.Defnamespace) ? d.Defname : $"{d.Defnamespace}.{d.Defname}";
+            var value = BuildDefElemValue(d);
+            return value == null ? name : $"{name} = {value}";
+        })
+        .ToList());
 
     private SqlNode? BuildPartitionBound(PartitionBoundSpec partitionBound) {
         if (partitionBound.IsDefault) {
@@ -1775,9 +1807,20 @@ public class AstBuilder {
 
     private SqlNode BuildCreateTableAs(CreateTableAsStmt cta, int start, int end) {
         bool isMV = cta.Objtype == ObjectType.ObjectMatview;
+        var into = cta.Into;
         return new SqlNode(isMV ? "CreateMatViewStatement" : "CreateTableAsStatement", start, end, null, BuildProps(
-            ("name",        Ident.QuoteOpt(cta.Into?.Rel?.Relname)),
-            ("schema",      Ident.QuoteOpt(cta.Into?.Rel?.Schemaname)),
+            ("persistence",  Persistence(into?.Rel)),
+            ("name",         Ident.QuoteOpt(into?.Rel?.Relname)),
+            ("schema",       Ident.QuoteOpt(into?.Rel?.Schemaname)),
+            ("columns",      into == null ? null : MaybeList(into.ColNames
+                .Where(n => n.NodeCase == Node.NodeOneofCase.String)
+                .Select(n => Ident.Quote(n.String.Sval))
+                .ToList())),
+            ("accessMethod", string.IsNullOrEmpty(into?.AccessMethod) ? null : Ident.Quote(into.AccessMethod)),
+            ("options",      into == null ? null : StorageOptions(into.Options)),
+            ("onCommit",     into == null ? null : OnCommit(into.OnCommit)),
+            ("tablespace",   Ident.QuoteOpt(into?.TableSpaceName)),
+            ("withNoData",   into?.SkipData == true ? true : null),
             ("ifNotExists", cta.IfNotExists ? true : null),
             ("query",       cta.Query != null ? BuildExpr(cta.Query) : null)
         ));
