@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { registerFixtureTests, makeFmt } from '../../core/tests/fixtures-harness.js';
+import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import plugin from '../src/plugin/index.js';
@@ -161,4 +162,24 @@ describe('options', () => {
         const sql = `create procedure test_proc as begin set nocount on; set xact_abort on; declare @x int = 0; declare @y int = 0; if @x > 0 begin set @x = 1; return; end update T set Col = @x where Id = 1; end`;
         expect(await fmt(sql, { sqlDensity: 'standard' })).toMatchSnapshot();
     });
+});
+
+// ---------------------------------------------------------------------------
+// Comments must survive every density: compact mode used to drop commented-out
+// predicates inside WHERE because it flattens the AND/OR chain.
+// ---------------------------------------------------------------------------
+
+describe('comments survive every density', () => {
+    const file = join(__dirname, 'fixtures', 'select', 'comments.sql');
+    const input = readFileSync(file, 'utf-8');
+    const commentsOf = (sql: string) => (sql.match(/--.*$/gm) ?? []).map((c) => c.trim()).sort();
+    for (const sqlDensity of ['compact', 'standard', 'spacious']) {
+        for (const printWidth of [40, 80]) {
+            it(`${sqlDensity} / ${printWidth}`, async () => {
+                const out = await fmt(input, { sqlDensity, printWidth });
+                expect(commentsOf(out)).toEqual(commentsOf(input));
+                expect(await fmt(out, { sqlDensity, printWidth })).toBe(out);
+            });
+        }
+    }
 });

@@ -1081,7 +1081,18 @@ function fillBoolChain(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const fillParts: Doc[] = [printBoolExpr(items[0]!.pred, opts, printFn)];
     for (let i = 1; i < items.length; i++) {
         const { op, pred } = items[i]!;
-        fillParts.push(line);
+        // A comment on the previous predicate's rightmost leaf sits between the two
+        // predicates in the source — typically a commented-out `--and x = 1`. Print it
+        // on its own lines, as printBoolBinary does; flattening the chain used to drop it.
+        const rp = rightmostPred(items[i - 1]!.pred);
+        const between = rp ? rightmostTrailingComment(rp, rp.endOffset) : undefined;
+        if (between) {
+            const commentLines: Doc[] = between.split('\n').flatMap((c): Doc[] => [hardline, c]);
+            fillParts[fillParts.length - 1] = [fillParts[fillParts.length - 1]!, ...commentLines];
+            fillParts.push(hardline);
+        } else {
+            fillParts.push(line);
+        }
         fillParts.push([keyword(op, opts), ' ', printBoolExpr(pred, opts, printFn)]);
     }
     return fill(fillParts);
