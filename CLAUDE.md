@@ -87,7 +87,8 @@ Each package versions independently. When changing user-facing behavior, add a c
 
 ```bash
 pnpm changeset          # interactive — select packages and bump type
-pnpm release            # cut a release: CI gate, merge Version Packages PR, stage, 2FA approve
+pnpm release            # cut a release: CI gate, merge Version Packages PR, stage, 2FA approve,
+                        # and optionally publish the VS Code extension
 ```
 
 `pnpm release` (`scripts/release.sh`) pushes, merges and publishes — the user runs it in

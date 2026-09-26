@@ -21,9 +21,23 @@ Release run that stages the new versions on npm. It finishes with the one step t
 can't be automated: approving each staged version (npm opens a browser tab for 2FA).
 Then it checks the versions are live and fast-forwards your local `main`.
 
+It also asks whether to publish the **VS Code extension** (`PickyCode.prettier-sql`),
+which bundles both plugins — its users only get plugin fixes once it's republished.
+If you say yes, the script adds a changeset for the extension (so its version bump and
+changelog ride in the same Version Packages PR), and after the npm approvals it builds
+the plugins, packages the extension with them bundled, and publishes it with `vsce`.
+
+The first time, it needs a one-time Marketplace setup (the script prints these steps
+and prompts for the token when `vsce` isn't logged in):
+
+1. Create the publisher `PickyCode` at <https://marketplace.visualstudio.com/manage>.
+2. Create a personal access token at <https://dev.azure.com> with organization
+   *All accessible organizations* and scope *Marketplace → Manage*.
+
 - `pnpm release --dry-run` shows what would happen and changes nothing.
 - If it's interrupted, run it again: it picks up from an open Version Packages PR, or
-  offers to approve versions that were staged but never approved.
+  offers to approve versions that were staged but never approved, or to publish an
+  extension version that isn't on the Marketplace yet.
 - Run it yourself, not through an AI agent: it pushes, merges and publishes, and the
   approvals need your 2FA.
 

@@ -134,7 +134,7 @@
         "compile": "tsc -p tsconfig.json",
         "watch": "tsc -p tsconfig.json --watch",
         "package": "node scripts/pack.mjs",
-        "publish": "node scripts/pack.mjs && vsce publish"
+        "publish": "node scripts/pack.mjs && vsce publish --packagePath prettier-sql-$npm_package_version.vsix"
     },
     "devDependencies": {
         "@types/node": "^26.6.2",
