@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options, PrintFn } from '@prettier-sql/core/printer/utils';
-import { keyword, join, indent, hardline, softline, group, fill, line, getDensity, aliasDoc } from '@prettier-sql/core/printer/utils';
+import { keyword, join, indent, hardline, softline, group, fill, line, getDensity, aliasDoc, parenList } from '@prettier-sql/core/printer/utils';
 import { printStatement, printQueryExpr } from './statements.js';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, onlyPrefix } from './helpers.js';
 
@@ -50,7 +50,7 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'ExprList': return join(', ', propArr(node, 'items').map(printNode));
         case 'ArrayExpr': return printArrayExpr(node, opts, printNode);
         case 'Coalesce': return printCoalesce(node, opts, printNode);
-        case 'RowExpr': return ['(', join(', ', propArr(node, 'args').map(printNode)), ')'];
+        case 'RowExpr': return [propBool(node, 'explicit') ? keyword('ROW', opts) : '', '(', join(', ', propArr(node, 'args').map(printNode)), ')'];
         case 'ParamRef': return node.text ?? '$?';
         case 'SqlvalueFunction': return keyword(node.text ?? '', opts);
         case 'CTE': return printCteInline(node, opts, printNode);
@@ -63,6 +63,11 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'GroupingSet':    return printGroupingSet(node, opts, printNode);
         case 'GroupingFunc':     return printGroupingFunc(node, opts, printNode);
         case 'IntervalLiteral':  return printIntervalLiteral(node, opts, printNode);
+        // value FORMAT JSON — a JSON constructor argument that is already JSON text
+        case 'JsonFormatted': {
+            const expr = prop(node, 'expr');
+            return [expr ? printNode(expr) : '', ' ', keyword(propStr(node, 'format') ?? 'FORMAT JSON', opts)];
+        }
         case 'RangeTableSample': return printRangeTableSample(node, opts, printNode);
         case 'TableLikeClause':  return printTableLikeClause(node, opts);
         case 'XmlExpr':          return printXmlExpr(node, opts, printNode);
@@ -254,11 +259,9 @@ function printFunctionCall(node: SqlNode, opts: Options, printNode: PrintFn): Do
     const star     = propBool(node, 'star');
     const distinct = propBool(node, 'distinct');
     const aggOrder = propArr(node, 'aggOrder');
-    const filter   = prop(node, 'filter');
-    const over     = prop(node, 'over');
 
     // SQL standard keyword-form functions — reconstruct readable syntax
-    if (rawName.startsWith('pg_catalog.')) {
+    if (propBool(node, 'sqlSyntax') && rawName.startsWith('pg_catalog.')) {
         const local = rawName.slice('pg_catalog.'.length);
         switch (local) {
             case 'substring': return printSubstringForm(args, opts, printNode);
@@ -272,8 +275,11 @@ function printFunctionCall(node: SqlNode, opts: Options, printNode: PrintFn): Do
         }
     }
 
-    // Strip pg_catalog. schema prefix — it's an implementation detail, not user-facing
-    const name = rawName.startsWith('pg_catalog.') ? rawName.slice('pg_catalog.'.length) : rawName;
+    // SQL syntax without a keyword form above maps to a pg_catalog function; print that
+    // bare. A pg_catalog. prefix the user wrote stays: it bypasses the search path.
+    const name = propBool(node, 'sqlSyntax') && rawName.startsWith('pg_catalog.')
+        ? rawName.slice('pg_catalog.'.length)
+        : rawName;
 
     const argDocs: Doc[] = star ? [makeKeyword('*')] : args.map(printNode);
     const distinctPrefix: Doc = distinct ? [makeKeyword('DISTINCT'), ' '] : '';
@@ -288,6 +294,14 @@ function printFunctionCall(node: SqlNode, opts: Options, printNode: PrintFn): Do
     let callDoc: Doc = [makeKeyword(name), '(', innerDoc, ')'];
     if (withinGroup) callDoc = [callDoc, ' ', makeKeyword('WITHIN GROUP'), ' (', orderByDoc, ')'];
 
+    return printAggregateTail(callDoc, node, opts, printNode);
+}
+
+/** An aggregate call followed by its FILTER (WHERE ...) and OVER (...) clauses. */
+function printAggregateTail(callDoc: Doc, node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const makeKeyword = (kw: string) => keyword(kw, opts);
+    const filter = prop(node, 'filter');
+    const over = prop(node, 'over');
     // FILTER (WHERE ...) after the call, before OVER
     if (filter) {
         callDoc = [callDoc, ' ', makeKeyword('FILTER'), ' (', makeKeyword('WHERE'), ' ', printNode(filter), ')'];
@@ -326,9 +340,11 @@ function printTrimForm(args: SqlNode[], direction: string, opts: Options, printN
     const makeKeyword = (kw: string) => keyword(kw, opts);
     const [str, chars] = args;
     if (!chars) {
-        // 1-arg: trim spaces — use directional shorthand
-        const fnName = direction === 'LEADING' ? 'LTRIM' : direction === 'TRAILING' ? 'RTRIM' : 'TRIM';
-        return [makeKeyword(fnName), '(', str ? printNode(str) : '', ')'];
+        // 1-arg: trim spaces. TRIM(x) trims both ends; ltrim(x) would be a plain
+        // function call, not this syntax, so keep LEADING/TRAILING in keyword form.
+        return direction === 'BOTH'
+            ? [makeKeyword('TRIM'), '(', str ? printNode(str) : '', ')']
+            : [makeKeyword('TRIM'), '(', makeKeyword(direction), ' ', makeKeyword('FROM'), ' ', str ? printNode(str) : '', ')'];
     }
     return [makeKeyword('TRIM'), '(', makeKeyword(direction), ' ', printNode(chars), ' ', makeKeyword('FROM'), ' ', printNode(str!), ')'];
 }
@@ -418,7 +434,7 @@ function printSubLink(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const type     = propStr(node, 'type') ?? 'SCALAR';
     const subquery = prop(node, 'subquery');
     const testexpr = prop(node, 'testexpr');
-    const op       = propStr(node, 'op') ?? '=';
+    const op       = propStr(node, 'op');
     const inner    = subquery ? printNode(subquery) : '';
     const subDoc: Doc = ['(', indent([hardline, inner]), hardline, ')'];
 
@@ -446,11 +462,13 @@ function printSubLink(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 
     const lhs: Doc = testexpr ? [printOperand(testexpr, precedence(node) + 1, printNode), ' '] : '';
     if (type === 'ANY') {
-        // = ANY is SQL's IN
-        return op === '=' ? [lhs, makeKeyword('IN'), ' ', subDoc]
-                          : [lhs, op, ' ', makeKeyword('ANY'), ' ', subDoc];
+        // IN (subquery) parses as an ANY sublink with no operator; = ANY names it
+        return op ? [lhs, op, ' ', makeKeyword('ANY'), ' ', subDoc] : [lhs, makeKeyword('IN'), ' ', subDoc];
     }
-    if (type === 'ALL') return [lhs, op, ' ', makeKeyword('ALL'), ' ', subDoc];
+    if (type === 'ALL') return [lhs, op ?? '=', ' ', makeKeyword('ALL'), ' ', subDoc];
+    // (a, b) < (SELECT x, y): a row comparison with a single-row subquery
+    if (type === 'ROWCOMPARE') return [lhs, op ?? '=', ' ', subDoc];
+    if (type === 'ARRAY') return [makeKeyword('ARRAY'), subDoc];
     return subDoc;
 }
 
@@ -605,67 +623,99 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
     const contype = propStr(node, 'contype') ?? '';
     const name = propStr(node, 'name');
     const expr = prop(node, 'expr');
-    const pktable = prop(node, 'pktable');
-    const fkAttrs = propStrArr(node, 'fkAttrs');
-    const pkAttrs = propStrArr(node, 'pkAttrs');
-    const keys    = propStrArr(node, 'keys');
-    const fkUpdAction = propStr(node, 'fkUpdAction');
-    const fkDelAction = propStr(node, 'fkDelAction');
-    const generatedWhen = propStr(node, 'generatedWhen');
-    const nullsNotDistinct = propBool(node, 'nullsNotDistinct');
-    const deferrable = propBool(node, 'deferrable');
-    const initDeferred = propBool(node, 'initDeferred');
+    const keys = propStrArr(node, 'keys');
+    const indexName = propStr(node, 'indexName');
 
     const namePrefix: Doc = name ? [makeKeyword('CONSTRAINT'), ' ', name, ' '] : '';
+    const colList = (cols: string[]): Doc => (cols.length > 0 ? [' (', cols.join(', '), ')'] : '');
+
+    // PRIMARY KEY / UNIQUE / EXCLUDE: INCLUDE (...) WITH (...) USING INDEX TABLESPACE ts
+    const including = propStrArr(node, 'including');
+    const indexOptions = propStrArr(node, 'indexOptions');
+    const indexSpace = propStr(node, 'indexSpace');
+    const indexParams: Doc = [
+        including.length > 0 ? [' ', makeKeyword('INCLUDE'), colList(including)] : '',
+        indexOptions.length > 0 ? [' ', makeKeyword('WITH'), ' (', indexOptions.join(', '), ')'] : '',
+        indexSpace ? [' ', makeKeyword('USING INDEX TABLESPACE'), ' ', indexSpace] : '',
+    ];
+    // ADD PRIMARY KEY USING INDEX i takes the index in place of a column list
+    const keyTarget: Doc = indexName ? [' ', makeKeyword('USING INDEX'), ' ', indexName] : [colList(keys), indexParams];
+
+    // Constraint attributes: table-level constraints carry these as flags (column-level
+    // ones arrive as separate DEFERRABLE / INITIALLY ... constraints)
+    const attributes: Doc = [
+        propBool(node, 'deferrable') ? [' ', makeKeyword('DEFERRABLE')] : '',
+        propBool(node, 'initDeferred') ? [' ', makeKeyword('INITIALLY DEFERRED')] : '',
+        propBool(node, 'notValid') ? [' ', makeKeyword('NOT VALID')] : '',
+        propBool(node, 'noInherit') ? [' ', makeKeyword('NO INHERIT')] : '',
+    ];
 
     switch (contype) {
         case 'NULL':     return [namePrefix, makeKeyword('NULL')];
-        case 'NOT NULL': return [namePrefix, makeKeyword('NOT NULL')];
+        case 'NOT NULL': return [namePrefix, makeKeyword('NOT NULL'), attributes];
 
         case 'DEFAULT':
             return [namePrefix, makeKeyword('DEFAULT'), expr ? [' ', printNode(expr)] : ''];
 
         case 'CHECK':
-            return [namePrefix, makeKeyword('CHECK'), ' (', expr ? printNode(expr) : '', ')'];
+            return [namePrefix, makeKeyword('CHECK'), ' (', expr ? printNode(expr) : '', ')', attributes];
 
-        case 'PRIMARY KEY': {
-            const colList: Doc = keys.length > 0 ? [' (', keys.join(', '), ')'] : '';
-            return [namePrefix, makeKeyword('PRIMARY KEY'), colList];
-        }
+        case 'PRIMARY KEY':
+            return [namePrefix, makeKeyword('PRIMARY KEY'), keyTarget, attributes];
 
         case 'UNIQUE': {
-            const colList: Doc = keys.length > 0 ? [' (', keys.join(', '), ')'] : '';
-            const nnd: Doc = nullsNotDistinct ? [' ', makeKeyword('NULLS NOT DISTINCT')] : '';
-            return [namePrefix, makeKeyword('UNIQUE'), nnd, colList];
+            const nnd: Doc = propBool(node, 'nullsNotDistinct') ? [' ', makeKeyword('NULLS NOT DISTINCT')] : '';
+            return [namePrefix, makeKeyword('UNIQUE'), nnd, keyTarget, attributes];
+        }
+
+        case 'EXCLUDE': {
+            // EXCLUDE USING gist (room WITH =, during WITH &&) ... WHERE (pred)
+            const elems = propArr(node, 'exclusions').map((e): Doc => {
+                const elem = prop(e, 'elem');
+                return [elem ? printNode(elem) : '', ' ', makeKeyword('WITH'), ' ', propStr(e, 'op') ?? ''];
+            });
+            const method = propStr(node, 'accessMethod');
+            const where = prop(node, 'where');
+            return [
+                namePrefix, makeKeyword('EXCLUDE'),
+                method ? [' ', makeKeyword('USING'), ' ', method] : '',
+                ' ', parenList(elems), indexParams,
+                where ? [' ', makeKeyword('WHERE'), ' (', printNode(where), ')'] : '',
+                attributes,
+            ];
         }
 
         case 'FOREIGN KEY': {
-            // Column-level: REFERENCES table [(col, ...)] [ON UPDATE x] [ON DELETE y]
-            // Table-level:  FOREIGN KEY (fkAttrs) REFERENCES table [(pkAttrs)]
-            const fkColList: Doc = fkAttrs.length > 0 ? [' (', fkAttrs.join(', '), ')'] : '';
-            const pkColList: Doc = pkAttrs.length > 0 ? [' (', pkAttrs.join(', '), ')'] : '';
-            const pktableDoc: Doc = pktable ? printRangeVar(pktable, opts) : '';
-            const onUpdate: Doc = fkUpdAction ? [' ', makeKeyword('ON UPDATE'), ' ', makeKeyword(fkUpdAction)] : '';
-            const onDelete: Doc = fkDelAction ? [' ', makeKeyword('ON DELETE'), ' ', makeKeyword(fkDelAction)] : '';
-            const deferrableDoc: Doc = deferrable
-                ? [' ', makeKeyword('DEFERRABLE'), initDeferred ? [' ', makeKeyword('INITIALLY DEFERRED')] : [' ', makeKeyword('INITIALLY IMMEDIATE')]]
-                : '';
-            if (fkAttrs.length > 0) {
-                // table-level
-                return [namePrefix, makeKeyword('FOREIGN KEY'), fkColList, ' ', makeKeyword('REFERENCES'), ' ', pktableDoc, pkColList, onUpdate, onDelete, deferrableDoc];
-            }
-            // column-level
-            return [namePrefix, makeKeyword('REFERENCES'), ' ', pktableDoc, pkColList, onUpdate, onDelete, deferrableDoc];
+            // Column-level: REFERENCES table [(col, ...)] ...
+            // Table-level:  FOREIGN KEY (fkAttrs) REFERENCES table [(pkAttrs)] ...
+            const fkAttrs = propStrArr(node, 'fkAttrs');
+            const pktable = prop(node, 'pktable');
+            const fkMatch = propStr(node, 'fkMatch');
+            const fkUpdAction = propStr(node, 'fkUpdAction');
+            const fkDelAction = propStr(node, 'fkDelAction');
+            const fkDelSetCols = propStrArr(node, 'fkDelSetCols');
+            const references: Doc = [
+                makeKeyword('REFERENCES'), ' ', pktable ? printRangeVar(pktable, opts) : '', colList(propStrArr(node, 'pkAttrs')),
+                fkMatch ? [' ', makeKeyword('MATCH'), ' ', makeKeyword(fkMatch)] : '',
+                fkUpdAction ? [' ', makeKeyword('ON UPDATE'), ' ', makeKeyword(fkUpdAction)] : '',
+                fkDelAction ? [' ', makeKeyword('ON DELETE'), ' ', makeKeyword(fkDelAction), colList(fkDelSetCols)] : '',
+            ];
+            return fkAttrs.length > 0
+                ? [namePrefix, makeKeyword('FOREIGN KEY'), colList(fkAttrs), ' ', references, attributes]
+                : [namePrefix, references, attributes];
         }
 
         case 'IDENTITY': {
-            const when: Doc = generatedWhen ? makeKeyword(generatedWhen) : makeKeyword('BY DEFAULT');
-            return [namePrefix, makeKeyword('GENERATED'), ' ', when, ' ', makeKeyword('AS IDENTITY')];
+            const when = propStr(node, 'generatedWhen') ?? 'BY DEFAULT';
+            const seqOptions = propStrArr(node, 'identityOptions');
+            return [
+                namePrefix, makeKeyword('GENERATED'), ' ', makeKeyword(when), ' ', makeKeyword('AS IDENTITY'),
+                seqOptions.length > 0 ? [' (', join(' ', seqOptions.map((o) => keyword(o, opts))), ')'] : '',
+            ];
         }
 
-        case 'GENERATED': {
+        case 'GENERATED':
             return [namePrefix, makeKeyword('GENERATED ALWAYS AS'), ' (', expr ? printNode(expr) : '', ') ', makeKeyword('STORED')];
-        }
 
         default:
             return [namePrefix, makeKeyword(contype)];
@@ -695,8 +745,13 @@ function printAlterCmd(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
             return [makeKeyword('DROP CONSTRAINT'), ' ', ifExists, name, cascade];
         case 'ADD CONSTRAINT':
             return [makeKeyword('ADD'), ' ', def ? printNode(def) : name];
-        case 'ALTER COLUMN TYPE':
-            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('TYPE'), ' ', newType ? makeKeyword(newType) : ''];
+        case 'ALTER COLUMN TYPE': {
+            const using = prop(node, 'using');
+            return [
+                makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('TYPE'), ' ', newType ? makeKeyword(newType) : '',
+                using ? [' ', makeKeyword('USING'), ' ', printNode(using)] : '',
+            ];
+        }
         case 'SET DEFAULT':
             return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('SET DEFAULT'), ' ', expr ? printNode(expr) : ''];
         case 'DROP DEFAULT':
@@ -939,86 +994,95 @@ function printJsonFuncExpr(node: SqlNode, opts: Options, printNode: PrintFn): Do
     const path      = prop(node, 'path');
     const returning = propStr(node, 'returning');
 
+    const contextFormat = propStr(node, 'contextFormat');
     const parts: Doc[] = [
         context ? printNode(context) : '',
+        contextFormat ? [' ', makeKeyword(contextFormat)] : '',
         ', ',
         path ? printNode(path) : '',
+        printJsonPassing(node, opts, printNode),
     ];
-    if (returning) parts.push(' ', makeKeyword('RETURNING'), ' ', returning);
+    if (returning) parts.push(' ', makeKeyword('RETURNING'), ' ', makeKeyword(returning));
+    parts.push(printJsonQueryOptions(node, opts, printNode));
     return [makeKeyword(op), '(', ...parts, ')'];
+}
+
+/** PASSING value AS name, ... */
+function printJsonPassing(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const args = propArr(node, 'passing');
+    if (args.length === 0) return '';
+    return [' ', keyword('PASSING', opts), ' ', join(', ', args.map((a): Doc => {
+        const value = prop(a, 'value');
+        return [value ? printNode(value) : '', ' ', keyword('AS', opts), ' ', propStr(a, 'name') ?? ''];
+    }))];
+}
+
+/** WITH WRAPPER, KEEP QUOTES, <behavior> ON EMPTY, <behavior> ON ERROR — in the order SQL requires. */
+function printJsonQueryOptions(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const wrapper = propStr(node, 'wrapper');
+    const quotes = propStr(node, 'quotes');
+    return [
+        wrapper ? [' ', keyword(wrapper, opts)] : '',
+        quotes ? [' ', keyword(quotes, opts)] : '',
+        printJsonBehavior(prop(node, 'onEmpty'), 'ON EMPTY', opts, printNode),
+        printJsonBehavior(prop(node, 'onError'), 'ON ERROR', opts, printNode),
+    ];
+}
+
+function printJsonBehavior(b: SqlNode | null | undefined, on: string, opts: Options, printNode: PrintFn): Doc {
+    if (!b) return '';
+    const expr = prop(b, 'expr');
+    return [' ', keyword(propStr(b, 'kind') ?? 'NULL', opts), expr ? [' ', printNode(expr)] : '', ' ', keyword(on, opts)];
 }
 
 // ---------------------------------------------------------------------------
 // SQL/JSON constructors — PostgreSQL 16+
 // ---------------------------------------------------------------------------
 
-function printJsonReturning(returning: string | null | undefined, opts: Options): Doc {
-    return returning ? [' ', keyword('RETURNING', opts), ' ', keyword(returning, opts)] : '';
+/**
+ * The clauses that end a SQL/JSON constructor call, in the order SQL requires:
+ * ORDER BY (arrayagg), ON NULL, WITH UNIQUE KEYS, RETURNING.
+ */
+function printJsonConstructorTail(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const aggOrder = propArr(node, 'aggOrder');
+    const onNull = propStr(node, 'onNull');
+    const returning = propStr(node, 'returning');
+    return [
+        aggOrder.length > 0 ? [' ', keyword('ORDER BY', opts), ' ', join(', ', aggOrder.map(printNode))] : '',
+        onNull ? [' ', keyword(onNull, opts)] : '',
+        propBool(node, 'unique') ? [' ', keyword('WITH UNIQUE KEYS', opts)] : '',
+        returning ? [' ', keyword('RETURNING', opts), ' ', keyword(returning, opts)] : '',
+    ];
 }
 
 function printJsonObjectConstructor(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const pairs = propArr(node, 'pairs');
-    const absentOnNull = propBool(node, 'absentOnNull');
-    const unique = propBool(node, 'unique');
-    const returning = propStr(node, 'returning');
-
-    const pairDocs = pairs.map((p): Doc => {
+    const pairDocs = propArr(node, 'pairs').map((p): Doc => {
         const keyDoc = prop(p, 'key') ? printNode(prop(p, 'key')!) : '';
         const valDoc = prop(p, 'value') ? printNode(prop(p, 'value')!) : '';
         return [keyDoc, ': ', valDoc];
     });
-
-    // ABSENT ON NULL / WITH UNIQUE KEYS / RETURNING are trailing clauses — no comma before them
-    const trailing: Doc[] = [];
-    if (absentOnNull) trailing.push([' ', keyword('ABSENT ON NULL', opts)]);
-    if (unique) trailing.push([' ', keyword('WITH UNIQUE KEYS', opts)]);
-    const returningDoc = printJsonReturning(returning, opts);
-    if (returningDoc) trailing.push(returningDoc);
-
-    return [keyword('json_object', opts), '(', join(', ', pairDocs), ...trailing, ')'];
+    return [keyword('json_object', opts), '(', join(', ', pairDocs), printJsonConstructorTail(node, opts, printNode), ')'];
 }
 
 function printJsonArrayConstructor(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const items = propArr(node, 'items');
-    const absentOnNull = propBool(node, 'absentOnNull');
-    const returning = propStr(node, 'returning');
-
-    const itemDocs = items.map((n) => printNode(n));
-    const trailing: Doc[] = [];
-    if (absentOnNull) trailing.push([' ', keyword('ABSENT ON NULL', opts)]);
-    const returningDoc = printJsonReturning(returning, opts);
-    if (returningDoc) trailing.push(returningDoc);
-
-    return [keyword('json_array', opts), '(', join(', ', itemDocs), ...trailing, ')'];
+    const itemDocs = propArr(node, 'items').map((n) => printNode(n));
+    return [keyword('json_array', opts), '(', join(', ', itemDocs), printJsonConstructorTail(node, opts, printNode), ')'];
 }
 
 function printJsonObjectAgg(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const keyNode = prop(node, 'key');
     const valNode = prop(node, 'value');
-    const absentOnNull = propBool(node, 'absentOnNull');
-    const unique = propBool(node, 'unique');
-    const returning = propStr(node, 'returning');
-
-    const trailing: Doc[] = [];
-    if (absentOnNull) trailing.push([' ', keyword('ABSENT ON NULL', opts)]);
-    if (unique) trailing.push([' ', keyword('WITH UNIQUE KEYS', opts)]);
-    const returningDoc = printJsonReturning(returning, opts);
-    if (returningDoc) trailing.push(returningDoc);
-
-    return [keyword('json_objectagg', opts), '(', keyNode ? printNode(keyNode) : '', ': ', valNode ? printNode(valNode) : '', ...trailing, ')'];
+    const call: Doc = [
+        keyword('json_objectagg', opts), '(', keyNode ? printNode(keyNode) : '', ': ', valNode ? printNode(valNode) : '',
+        printJsonConstructorTail(node, opts, printNode), ')',
+    ];
+    return printAggregateTail(call, node, opts, printNode);
 }
 
 function printJsonArrayAgg(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const argNode = prop(node, 'arg');
-    const absentOnNull = propBool(node, 'absentOnNull');
-    const returning = propStr(node, 'returning');
-
-    const trailing: Doc[] = [];
-    if (absentOnNull) trailing.push([' ', keyword('ABSENT ON NULL', opts)]);
-    const returningDoc = printJsonReturning(returning, opts);
-    if (returningDoc) trailing.push(returningDoc);
-
-    return [keyword('json_arrayagg', opts), '(', argNode ? printNode(argNode) : '', ...trailing, ')'];
+    const call: Doc = [keyword('json_arrayagg', opts), '(', argNode ? printNode(argNode) : '', printJsonConstructorTail(node, opts, printNode), ')'];
+    return printAggregateTail(call, node, opts, printNode);
 }
 
 // ---------------------------------------------------------------------------
@@ -1069,7 +1133,6 @@ function printJsonTable(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const path     = prop(node, 'path');
     const pathName = propStr(node, 'pathName');
     const columns  = propArr(node, 'columns');
-    const onError  = propStr(node, 'onError');
     const alias    = propStr(node, 'alias');
 
     const colDocs = buildJsonTableColumnDocs(columns, opts, printNode);
@@ -1079,10 +1142,11 @@ function printJsonTable(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
         ',',
         hardline, path ? printNode(path) : '',
         pathName ? [' ', makeKeyword('AS'), ' ', pathName] : '',
+        printJsonPassing(node, opts, printNode),
         hardline, makeKeyword('COLUMNS'), ' (',
         indent(colDocs.map((c) => [hardline, c])),
         hardline, ')',
-        onError ? [hardline, makeKeyword('ON ERROR'), ' ', makeKeyword(onError)] : '',
+        printJsonBehavior(prop(node, 'onError'), 'ON ERROR', opts, printNode),
     ]);
 
     return [makeKeyword('JSON_TABLE'), '(', inner, hardline, ')', aliasDoc(alias, opts)];
@@ -1096,8 +1160,7 @@ function buildJsonTableColumnDocs(columns: SqlNode[], opts: Options, printNode: 
         const name         = propStr(col, 'name') ?? '';
         const typeName     = propStr(col, 'typeName') ?? '';
         const path         = prop(col, 'path');
-        const onEmpty      = propStr(col, 'onEmpty');
-        const onError      = propStr(col, 'onError');
+        const pathName     = propStr(col, 'pathName');
         const nested       = propArr(col, 'columns');
 
         if (coltype === 'FOR_ORDINALITY') {
@@ -1108,6 +1171,7 @@ function buildJsonTableColumnDocs(columns: SqlNode[], opts: Options, printNode: 
             const nestedDocs = buildJsonTableColumnDocs(nested, opts, printNode);
             return [
                 makeKeyword('NESTED PATH'), ' ', path ? printNode(path) : '',
+                pathName ? [' ', makeKeyword('AS'), ' ', pathName] : '',
                 ' ', makeKeyword('COLUMNS'), ' (',
                 indent(nestedDocs.map((c) => [hardline, c])),
                 hardline, ')', comma,
@@ -1118,12 +1182,13 @@ function buildJsonTableColumnDocs(columns: SqlNode[], opts: Options, printNode: 
         if (coltype === 'EXISTS') {
             parts.push(' ', makeKeyword('EXISTS PATH'), ' ', path ? printNode(path) : '');
         } else if (coltype === 'FORMATTED') {
-            parts.push(' ', makeKeyword('FORMAT JSON PATH'), ' ', path ? printNode(path) : '');
+            parts.push(' ', makeKeyword(propStr(col, 'format') ?? 'FORMAT JSON'));
+            if (path) parts.push(' ', makeKeyword('PATH'), ' ', printNode(path));
         } else if (path) {
             parts.push(' ', makeKeyword('PATH'), ' ', printNode(path));
         }
-        if (onEmpty) parts.push(' ', makeKeyword('ON EMPTY'), ' ', makeKeyword(onEmpty));
-        if (onError) parts.push(' ', makeKeyword('ON ERROR'), ' ', makeKeyword(onError));
+        // An EXISTS column carries an implicit WITHOUT WRAPPER it can't be written with
+        parts.push(printJsonQueryOptions(coltype === 'EXISTS' ? { ...col, props: { ...col.props, wrapper: null, quotes: null } } : col, opts, printNode));
         parts.push(comma);
         return parts as Doc;
     });

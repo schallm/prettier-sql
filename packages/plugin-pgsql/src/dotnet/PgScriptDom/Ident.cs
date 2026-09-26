@@ -32,6 +32,22 @@ public static class Ident {
         "notnull", "outer", "overlaps", "right", "similar", "tablesample", "verbose",
     };
 
+    // COL_NAME_KEYWORD entries: usable bare as a column name, but not as a function or
+    // type name — as a type, `char` or `int` means the SQL-standard type, so a type
+    // actually named "char" must stay quoted.
+    private static readonly HashSet<string> ColName = new(StringComparer.Ordinal) {
+        "between", "bigint", "bit", "boolean", "char", "character", "coalesce", "dec",
+        "decimal", "exists", "extract", "float", "greatest", "grouping", "inout", "int",
+        "integer", "interval", "json", "json_array", "json_arrayagg", "json_exists",
+        "json_object", "json_objectagg", "json_query", "json_scalar", "json_serialize",
+        "json_table", "json_value", "least", "merge_action", "national", "nchar", "none",
+        "normalize", "nullif", "numeric", "out", "overlay", "position", "precision", "real",
+        "row", "setof", "smallint", "substring", "time", "timestamp", "treat", "trim",
+        "values", "varchar", "xmlattributes", "xmlconcat", "xmlelement", "xmlexists",
+        "xmlforest", "xmlnamespaces", "xmlparse", "xmlpi", "xmlroot", "xmlserialize",
+        "xmltable",
+    };
+
     private static bool IsSafeBare(string name) {
         if (name.Length == 0 || !(name[0] is (>= 'a' and <= 'z') or '_')) return false;
         foreach (var c in name) {
@@ -54,6 +70,17 @@ public static class Ident {
         IsSafeBare(name) && !Reserved.Contains(name)
             ? name
             : "\"" + name.Replace("\"", "\"\"") + "\"";
+
+    /// <summary>
+    /// Quotes a type name part. Like <see cref="QuoteFunc"/>, and COL_NAME keywords are
+    /// quoted too: bare, <c>char</c> is the SQL type <c>bpchar(1)</c>, not <c>"char"</c>.
+    /// </summary>
+    public static string QuoteType(string name) =>
+        ColName.Contains(name) ? "\"" + name + "\"" : QuoteFunc(name);
+
+    /// <summary>A possibly qualified type name, with the last part quoted as a type.</summary>
+    public static string QualifiedType(IReadOnlyList<string> parts) =>
+        string.Join(".", parts.Select((p, i) => i == parts.Count - 1 ? QuoteType(p) : Quote(p)));
 
     /// <summary>Null-propagating <see cref="Quote"/> for optional names.</summary>
     public static string? QuoteOpt(string? name) => string.IsNullOrEmpty(name) ? name : Quote(name);

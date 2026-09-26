@@ -6,7 +6,7 @@ import { loadDotnetDll, type DotnetHandle } from '@prettier-sql/core/parser';
 // ---------------------------------------------------------------------------
 
 interface PgsqlDotnet extends DotnetHandle {
-    PrettierPgsql: { PgsqlParser: { Parse(sql: string): string } };
+    PrettierPgsql: { PgsqlParser: { Parse(sql: string): string; Canonical(sql: string): string | null } };
 }
 
 let dotnetModule: PgsqlDotnet | null = null;
@@ -47,6 +47,15 @@ export function parse(text: string): SqlNode {
     }
 
     return result.ast;
+}
+
+/**
+ * The SQL's meaning in canonical form — libpg_query's parse tree without source
+ * positions, plus its comments — or null if it doesn't parse. Formatting must leave
+ * this unchanged; the tests compare it before and after.
+ */
+export function canonical(text: string): string | null {
+    return loadDotnet().PrettierPgsql.PgsqlParser.Canonical(text) ?? null;
 }
 
 // ---------------------------------------------------------------------------

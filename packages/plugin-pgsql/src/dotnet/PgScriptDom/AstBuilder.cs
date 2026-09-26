@@ -170,12 +170,14 @@ public class AstBuilder {
                 SetOperation.SetopExcept    => "EXCEPT",
                 _                           => s.Op.ToString(),
             };
-            return new SqlNode("SetOpStatement", start, end, null, BuildProps(
+            var setOpProps = BuildProps(
                 ("op",  opName),
                 ("all", s.All ? true : null),
                 ("lhs", s.Larg != null ? BuildSelect(s.Larg, start, end) : null),
                 ("rhs", s.Rarg != null ? BuildSelect(s.Rarg, start, end) : null)
-            ));
+            );
+            AddQueryClauses(setOpProps, s);
+            return new SqlNode("SetOpStatement", start, end, null, setOpProps);
         }
 
         // VALUES
@@ -185,9 +187,9 @@ public class AstBuilder {
                     ? (SqlNode?)new SqlNode("ExprList", 0, 0, null, BuildProps(("items", MapList(r.List.Items, BuildExpr))))
                     : null)
                 .Where(n => n != null).Cast<SqlNode>().ToList();
-            return new SqlNode("ValuesStatement", start, end, null, BuildProps(
-                ("rows", MaybeList(rows))
-            ));
+            var valuesProps = BuildProps(("rows", MaybeList(rows)));
+            AddQueryClauses(valuesProps, s);
+            return new SqlNode("ValuesStatement", start, end, null, valuesProps);
         }
 
         // SELECT INTO
@@ -230,14 +232,9 @@ public class AstBuilder {
             ("groupBy",       MapList(s.GroupClause, BuildExpr)),
             ("groupDistinct", s.GroupDistinct ? true : null),
             ("having",        BuildExpr(s.HavingClause)),
-            ("orderBy",       MapList(s.SortClause, BuildExpr)),
-            ("limit",         BuildExpr(s.LimitCount)),
-            ("offset",        BuildExpr(s.LimitOffset)),
-            ("ctes",          s.WithClause != null ? BuildWithClause(s.WithClause) : null),
             ("distinct",      distinctFlag),
             ("distinctOn",    distinctOn),
             ("all",           s.All ? true : null),
-            ("locking",       MapList(s.LockingClause, BuildLockingClause)),
             ("windowClauses", s.WindowClause.Count > 0
                 ? (object?)s.WindowClause
                     .Where(n => n.NodeCase == Node.NodeOneofCase.WindowDef)
@@ -245,7 +242,24 @@ public class AstBuilder {
                     .ToList()
                 : null)
         );
+        AddQueryClauses(props, s);
         return new SqlNode("SelectStatement", start, end, null, props);
+    }
+
+    /// <summary>
+    /// The clauses any query can carry — WITH before it; ORDER BY, LIMIT/OFFSET and
+    /// locking after — whether it's a plain SELECT, a set operation, where they apply
+    /// to the combined result, or VALUES.
+    /// </summary>
+    private void AddQueryClauses(Dictionary<string, object?> props, SelectStmt s) {
+        void Add(string key, object? value) { if (value != null) props[key] = value; }
+        Add("ctes",     s.WithClause != null ? BuildWithClause(s.WithClause) : null);
+        Add("orderBy",  MapList(s.SortClause, BuildExpr));
+        Add("limit",    BuildExpr(s.LimitCount));
+        Add("offset",   BuildExpr(s.LimitOffset));
+        // FETCH FIRST n ROWS WITH TIES: also returns rows tied with the last one
+        Add("withTies", s.LimitOption == LimitOption.WithTies ? true : null);
+        Add("locking",  MapList(s.LockingClause, BuildLockingClause));
     }
 
     private SqlNode BuildInsert(InsertStmt s, int start, int end) {
@@ -423,6 +437,8 @@ public class AstBuilder {
         new("AlterTableStatement", start, end, null, BuildProps(
             // ALTER TABLE / VIEW / INDEX / SEQUENCE / MATERIALIZED VIEW / FOREIGN TABLE all parse here
             ("objType",  ObjectTypeKw(s.Objtype)),
+            // ALTER TYPE t ADD / DROP / ALTER ATTRIBUTE: a composite type's column commands
+            ("attributes", s.Objtype == ObjectType.ObjectType ? true : null),
             ("name",     BuildRangeVar(s.Relation)),
             ("ifExists", s.MissingOk ? true : null),
             ("commands", MapList(s.Cmds, BuildAlterCmd))
@@ -547,6 +563,48 @@ public class AstBuilder {
 
     private SqlNode BuildDrop(DropStmt s, int start, int end) {
         var objectType = ObjectTypeKw(s.RemoveType);
+        var first = s.Objects.FirstOrDefault();
+        List<string>? parts = first?.NodeCase == Node.NodeOneofCase.List && first.List.Items.All(i => i.NodeCase == Node.NodeOneofCase.String)
+            ? first.List.Items.Select(i => i.String.Sval).ToList()
+            : null;
+        (string key, object? value)[] target = s.RemoveType switch {
+            // DROP TRIGGER tr ON s.t: the list is the table's name, then the trigger's
+            ObjectType.ObjectTrigger or ObjectType.ObjectPolicy or ObjectType.ObjectRule when parts is { Count: >= 2 } =>
+                new (string, object?)[] {
+                    ("names",   new List<string> { Ident.Quote(parts[^1]) }),
+                    ("onTable", Ident.Qualified(parts.Take(parts.Count - 1))),
+                },
+            // DROP OPERATOR CLASS oc USING btree: the access method comes first
+            ObjectType.ObjectOpclass or ObjectType.ObjectOpfamily when parts is { Count: >= 2 } =>
+                new (string, object?)[] {
+                    ("names", new List<string> { Ident.Qualified(parts.Skip(1)) }),
+                    ("using", Ident.Quote(parts[0])),
+                },
+            // DROP CAST (source AS target)
+            ObjectType.ObjectCast when first?.List?.Items is { Count: 2 } cast =>
+                new (string, object?)[] {
+                    ("castSource", BuildPgTypeName(cast[0].TypeName)),
+                    ("castTarget", BuildPgTypeName(cast[1].TypeName)),
+                },
+            // DROP TRANSFORM FOR type LANGUAGE lang
+            ObjectType.ObjectTransform when first?.List?.Items is { Count: 2 } tr =>
+                new (string, object?)[] {
+                    ("transformType",     BuildPgTypeName(tr[0].TypeName)),
+                    ("transformLanguage", Ident.Quote(tr[1].String.Sval)),
+                },
+            _ => new (string, object?)[] { ("names", DropNames(s, objectType)) },
+        };
+        var props = BuildProps(
+            ("objectType", objectType),
+            ("ifExists",   s.MissingOk ? true : null),
+            ("concurrent", s.Concurrent ? true : null),
+            ("cascade",    s.Behavior == DropBehavior.DropCascade ? true : null)
+        );
+        foreach (var (key, value) in target) if (value != null) props[key] = value;
+        return new SqlNode("DropStatement", start, end, null, props);
+    }
+
+    private object? DropNames(DropStmt s, string objectType) {
         var names = s.Objects.Select(o => o.NodeCase switch {
             // Usually a dotted-identifier list (schema.name), but DROP CAST / DROP
             // OPERATOR CLASS/FAMILY wrap TypeName items here instead of String items —
@@ -555,22 +613,16 @@ public class AstBuilder {
                 Node.NodeOneofCase.String => Ident.Quote(n.String.Sval),
                 _ => throw NotSupported($"DROP {objectType} name part ({n.NodeCase})", TryGetLocation(GetOneofValue(n))),
             })),
+            // DROP AGGREGATE a(*): an aggregate over no arguments
+            Node.NodeOneofCase.ObjectWithArgs when s.RemoveType == ObjectType.ObjectAggregate
+                && o.ObjectWithArgs is { ArgsUnspecified: false, Objargs.Count: 0 } agg => $"{OwaName(agg.Objname)}(*)",
             Node.NodeOneofCase.ObjectWithArgs => OwaSignature(o.ObjectWithArgs),
-            Node.NodeOneofCase.TypeName => string.Join(".", o.TypeName.Names
-                .Where(n => n.NodeCase == Node.NodeOneofCase.String)
-                .Select(n => n.String.Sval)
-                .Where(v => v != "pg_catalog")
-                .Select(Ident.QuoteFunc)),
+            // DROP TYPE / DOMAIN: a type name, printed as types are everywhere else
+            Node.NodeOneofCase.TypeName => BuildPgTypeName(o.TypeName),
             Node.NodeOneofCase.String => Ident.Quote(o.String.Sval),
             _ => throw NotSupported($"DROP {objectType} object ({o.NodeCase})", TryGetLocation(GetOneofValue(o))),
         }).Where(n => !string.IsNullOrEmpty(n)).ToList();
-        return new SqlNode("DropStatement", start, end, null, BuildProps(
-            ("objectType", objectType),
-            ("names",      MaybeList(names)),
-            ("ifExists",   s.MissingOk ? true : null),
-            ("concurrent", s.Concurrent ? true : null),
-            ("cascade",    s.Behavior == DropBehavior.DropCascade ? true : null)
-        ));
+        return MaybeList(names);
     }
 
     // -------------------------------------------------------------------------
@@ -666,7 +718,13 @@ public class AstBuilder {
     }
 
     private SqlNode BuildAExpr(A_Expr e) {
-        var op = e.Name.Count > 0 ? e.Name[0].String.Sval : "?";
+        // A schema-qualified operator is written OPERATOR(pg_catalog.+); it also takes
+        // the generic operator precedence, which the printer gives any unknown op
+        var op = e.Name.Count switch {
+            0 => "?",
+            1 => e.Name[0].String.Sval,
+            _ => $"OPERATOR({string.Join(".", e.Name.SkipLast(1).Select(n => Ident.Quote(n.String.Sval)).Append(e.Name[^1].String.Sval))})",
+        };
 
         return e.Kind switch {
             // LIKE / NOT LIKE
@@ -786,6 +844,9 @@ public class AstBuilder {
         var name = Ident.QualifiedFunc(f.Funcname.Select(n => n.String.Sval));
         return new SqlNode("FunctionCall", 0, 0, null, BuildProps(
             ("name",     name),
+            // Written in SQL-standard syntax (TRIM(LEADING FROM x), EXTRACT(...), ...)
+            // rather than as a call to the pg_catalog function it maps to
+            ("sqlSyntax", f.Funcformat == CoercionForm.CoerceSqlSyntax ? true : null),
             ("args",     MapList(f.Args, BuildExpr)),
             ("star",     f.AggStar     ? true : null),
             ("distinct", f.AggDistinct ? true : null),
@@ -793,13 +854,7 @@ public class AstBuilder {
             // percentile_cont(0.5) WITHIN GROUP (ORDER BY x): aggOrder is the WITHIN GROUP order
             ("withinGroup", f.AggWithinGroup ? true : null),
             ("filter",   f.AggFilter != null ? BuildExpr(f.AggFilter) : null),
-            // Named window reference: OVER w — Name is set but no partition/order/frame
-            ("over",     f.Over != null
-                ? (!string.IsNullOrEmpty(f.Over.Name) && f.Over.PartitionClause.Count == 0
-                    && f.Over.OrderClause.Count == 0 && (f.Over.FrameOptions & 0x00001) == 0
-                    ? new SqlNode("WindowRef", 0, 0, Ident.Quote(f.Over.Name), null)
-                    : BuildWindowDef(f.Over))
-                : null)
+            ("over",     BuildOver(f.Over))
         ));
     }
 
@@ -822,8 +877,24 @@ public class AstBuilder {
             SQLValueFunctionOp.SvfopCurrentSchema     => "CURRENT_SCHEMA",
             _                                         => "CURRENT_TIMESTAMP",
         };
-        return new SqlNode("SqlvalueFunction", 0, 0, name, null);
+        // current_timestamp(0), localtime(3): the _N forms carry a precision
+        return new SqlNode("SqlvalueFunction", 0, 0, f.Typmod >= 0 ? $"{name}({f.Typmod})" : name, null);
     }
+
+    // OVER (...) — or a named window reference, OVER w: Name set, no partition/order/frame
+    private SqlNode? BuildOver(WindowDef? over) =>
+        over == null ? null
+        : !string.IsNullOrEmpty(over.Name) && over.PartitionClause.Count == 0
+            && over.OrderClause.Count == 0 && (over.FrameOptions & 0x00001) == 0
+            ? new SqlNode("WindowRef", 0, 0, Ident.Quote(over.Name), null)
+            : BuildWindowDef(over);
+
+    // Clauses shared by the SQL/JSON constructors. `onNull` is set only when it differs
+    // from the constructor's default: NULL ON NULL for objects, ABSENT ON NULL for arrays.
+    private (string, object?)[] JsonConstructorProps(JsonOutput? output, bool absentOnNull, bool absentByDefault) => new (string, object?)[] {
+        ("returning", output?.TypeName != null ? BuildPgTypeName(output.TypeName) + JsonFormatClause(output.Returning?.Format) : null),
+        ("onNull",    absentOnNull == absentByDefault ? null : absentOnNull ? "ABSENT ON NULL" : "NULL ON NULL"),
+    };
 
     private SqlNode BuildWindowDef(WindowDef w) {
         var fo = w.FrameOptions;
@@ -882,8 +953,12 @@ public class AstBuilder {
         var typeName = t.TypeName != null ? BuildPgTypeName(t.TypeName) : null;
         var arg      = BuildExpr(t.Arg);
 
-        // INTERVAL 'value' or INTERVAL 'value' field_modifier
-        if (typeName != null && typeName.StartsWith("interval")) {
+        // INTERVAL 'value' or INTERVAL 'value' field_modifier — the typed-literal form
+        // only takes a string constant; anything else stays a cast, x::interval day
+        var isInterval = t.TypeName?.Names.Count == 2
+            && t.TypeName.Names[0].String?.Sval == "pg_catalog" && t.TypeName.Names[1].String?.Sval == "interval";
+        var isStringConst = t.Arg?.NodeCase == Node.NodeOneofCase.AConst && t.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval;
+        if (typeName != null && isInterval && isStringConst && (typeName == "interval" || typeName.StartsWith("interval "))) {
             // typeName may be "interval" or "interval YEAR TO MONTH" etc.
             var field = typeName == "interval" ? null : typeName.Substring("interval ".Length);
             return new SqlNode("IntervalLiteral", 0, 0, null, BuildProps(
@@ -905,6 +980,8 @@ public class AstBuilder {
             SubLinkType.AllSublink => "ALL",
             SubLinkType.AnySublink => "ANY",
             SubLinkType.ExprSublink => "SCALAR",
+            SubLinkType.ArraySublink => "ARRAY",
+            SubLinkType.RowcompareSublink => "ROWCOMPARE",
             _ => s.SubLinkType.ToString(),
         };
         var subquery = s.Subselect?.NodeCase == Node.NodeOneofCase.SelectStmt
@@ -959,7 +1036,9 @@ public class AstBuilder {
 
     private SqlNode BuildRowExpr(RowExpr r) =>
         new("RowExpr", 0, 0, null, BuildProps(
-            ("args", MapList(r.Args, BuildExpr))
+            ("args", MapList(r.Args, BuildExpr)),
+            // ROW(a, b) rather than (a, b) — and ROW(a) has no keyword-free form
+            ("explicit", r.RowFormat == CoercionForm.CoerceExplicitCall ? true : null)
         ));
 
     private SqlNode BuildExprList(List l) {
@@ -1222,6 +1301,8 @@ public class AstBuilder {
     private SqlNode BuildInferClause(InferClause i) =>
         new("InferClause", 0, 0, null, BuildProps(
             ("columns",    MapList(i.IndexElems, BuildIndexElem)),
+            // ON CONFLICT (col) WHERE pred: matches a partial unique index
+            ("where",      BuildExpr(i.WhereClause)),
             ("constraint", Ident.QuoteOpt(i.Conname))
         ));
 
@@ -1327,7 +1408,38 @@ public class AstBuilder {
             ("fkDelAction",      string.IsNullOrEmpty(constraint.FkDelAction) || constraint.FkDelAction == "a" ? null : FkAction(constraint.FkDelAction)),
             ("generatedWhen",    string.IsNullOrEmpty(constraint.GeneratedWhen) ? null : (constraint.GeneratedWhen == "a" ? "ALWAYS" : "BY DEFAULT")),
             ("deferrable",       constraint.Deferrable ? true : null),
-            ("initDeferred",     constraint.Initdeferred ? true : null)
+            ("initDeferred",     constraint.Initdeferred ? true : null),
+            ("notValid",         constraint.SkipValidation ? true : null),
+            ("noInherit",        constraint.IsNoInherit ? true : null),
+            // MATCH FULL / PARTIAL; 's' (SIMPLE) is the default
+            ("fkMatch",          constraint.FkMatchtype switch { "f" => "FULL", "p" => "PARTIAL", _ => null }),
+            // ON DELETE SET NULL (col, ...): only those columns are set
+            ("fkDelSetCols",     MaybeList(constraint.FkDelSetCols.Select(k => (object?)Ident.Quote(k.String.Sval)).ToList())),
+            // Index parameters of PRIMARY KEY / UNIQUE / EXCLUDE
+            ("including",        MaybeList(constraint.Including.Select(k => (object?)Ident.Quote(k.String.Sval)).ToList())),
+            ("indexOptions",     constraint.Contype == ConstrType.ConstrIdentity ? null : StorageOptions(constraint.Options)),
+            ("indexSpace",       Ident.QuoteOpt(constraint.Indexspace)),
+            // ADD PRIMARY KEY / UNIQUE USING INDEX existing_index
+            ("indexName",        Ident.QuoteOpt(constraint.Indexname)),
+            // GENERATED ... AS IDENTITY (START WITH 10 ...)
+            ("identityOptions",  constraint.Contype == ConstrType.ConstrIdentity && ParseSeqOptions(constraint.Options) is { Count: > 0 } seqOpts
+                ? seqOpts : null),
+            ("accessMethod",     constraint.Contype == ConstrType.ConstrExclusion ? constraint.AccessMethod : null),
+            ("exclusions",       MaybeList(constraint.Exclusions.Select(BuildExclusionElem).ToList())),
+            ("where",            BuildExpr(constraint.WhereClause))
+        ));
+    }
+
+    // EXCLUDE element: a (index element, operator) pair — (room WITH =, during WITH &&)
+    private object? BuildExclusionElem(Node n) {
+        var pair = n.List?.Items;
+        if (pair == null || pair.Count != 2 || pair[0].NodeCase != Node.NodeOneofCase.IndexElem)
+            throw NotSupported($"EXCLUDE element ({n.NodeCase})", null);
+        var op = pair[1].List.Items.Select(i => i.String.Sval).ToList();
+        return new SqlNode("ExclusionElem", 0, 0, null, BuildProps(
+            ("elem", BuildIndexElem(pair[0])),
+            // A schema-qualified operator needs the OPERATOR() syntax
+            ("op",   op.Count == 1 ? op[0] : $"OPERATOR({string.Join(".", op.Take(op.Count - 1).Select(Ident.Quote).Append(op[^1]))})")
         ));
     }
 
@@ -1359,6 +1471,9 @@ public class AstBuilder {
             ("subtype", subtype),
             ("name",    Ident.QuoteOpt(cmd.Name)),
             ("newType", newType),
+            // ALTER COLUMN a TYPE bigint USING a::bigint: how to convert existing values
+            ("using",   cmd.Subtype == AlterTableType.AtAlterColumnType && cmd.Def?.ColumnDef?.RawDefault != null
+                        ? BuildExpr(cmd.Def.ColumnDef.RawDefault) : null),
             ("expr",    cmd.Subtype == AlterTableType.AtColumnDefault && cmd.Def != null ? BuildExpr(cmd.Def) : null),
             ("def",     cmd.Subtype == AlterTableType.AtAddColumn && cmd.Def?.NodeCase == Node.NodeOneofCase.ColumnDef
                         ? BuildColumnDef(cmd.Def.ColumnDef)
@@ -1414,14 +1529,28 @@ public class AstBuilder {
         ));
     }
 
-    // pg_catalog internal names → user-visible SQL standard names
-    private static readonly Dictionary<string, string> _typeAliases = new() {
-        ["int2"]   = "smallint",
-        ["int4"]   = "integer",
-        ["int8"]   = "bigint",
-        ["float4"] = "real",
-        ["float8"] = "double precision",
-        ["bool"]   = "boolean",
+    // Types written with SQL keywords (`integer`, `double precision`, `char(3)`, …)
+    // parse to pg_catalog.<internal name>; print those back in keyword form. A bare
+    // internal name such as `int4` or `float8` has no pg_catalog prefix in the tree and
+    // is printed as written — rewriting it would resolve through a different path.
+    private static readonly Dictionary<string, string> _sqlTypeNames = new() {
+        ["int2"]        = "smallint",
+        ["int4"]        = "integer",
+        ["int8"]        = "bigint",
+        ["float4"]      = "real",
+        ["float8"]      = "double precision",
+        ["numeric"]     = "numeric",
+        ["bool"]        = "boolean",
+        ["bit"]         = "bit",
+        ["varbit"]      = "bit varying",
+        ["bpchar"]      = "char",
+        ["varchar"]     = "varchar",
+        ["timestamp"]   = "timestamp",
+        ["timestamptz"] = "timestamp with time zone",
+        ["time"]        = "time",
+        ["timetz"]      = "time with time zone",
+        ["interval"]    = "interval",
+        ["json"]        = "json",
     };
 
     // INTERVAL typmod bitmask → SQL standard field name (actual pgsqlparser values)
@@ -1441,50 +1570,42 @@ public class AstBuilder {
         [6144] = "MINUTE TO SECOND",
     };
 
-    private static string BuildPgTypeName(TypeName t) {
-        var raw = string.Join(".", t.Names.Select(n => n.String.Sval).Where(s => s != "pg_catalog"));
-        var name = _typeAliases.TryGetValue(raw, out var alias) ? alias
-            : string.Join(".", t.Names.Select(n => n.String.Sval).Where(s => s != "pg_catalog").Select(Ident.QuoteFunc));
+    private string BuildPgTypeName(TypeName t) {
+        var parts = t.Names.Select(n => n.String.Sval).ToList();
+        var isSqlType = parts.Count == 2 && parts[0] == "pg_catalog" && _sqlTypeNames.ContainsKey(parts[1]);
+        var baseName = isSqlType ? _sqlTypeNames[parts[1]] : Ident.QualifiedType(parts);
 
-        // Special handling for INTERVAL: typmods encode the field range as a bitmask
-        if (raw == "interval" && t.Typmods.Count > 0) {
-            var firstMod = t.Typmods[0];
-            int mask = firstMod.NodeCase switch {
-                Node.NodeOneofCase.Integer => firstMod.Integer.Ival,
-                Node.NodeOneofCase.AConst when firstMod.AConst.ValCase == A_Const.ValOneofCase.Ival => firstMod.AConst.Ival.Ival,
-                _ => 0,
-            };
-            if (mask > 0 && _intervalMasks.TryGetValue(mask, out var fieldName)) {
-                name = $"interval {fieldName}";
-            }
-            // Optional precision is second typmod
-            if (t.Typmods.Count > 1) {
-                var precMod = t.Typmods[1];
-                string? prec = precMod.NodeCase switch {
-                    Node.NodeOneofCase.Integer => precMod.Integer.Ival.ToString(),
-                    Node.NodeOneofCase.AConst when precMod.AConst.ValCase == A_Const.ValOneofCase.Ival => precMod.AConst.Ival.Ival.ToString(),
-                    _ => null,
-                };
-                if (prec != null) name += $"({prec})";
-            }
-            if (t.ArrayBounds.Count > 0) name += "[]";
-            return name;
+        var mods = t.Typmods
+            .Select(m => m.NodeCase switch {
+                Node.NodeOneofCase.Integer => m.Integer.Ival.ToString(),
+                Node.NodeOneofCase.AConst when m.AConst.ValCase == A_Const.ValOneofCase.Ival => m.AConst.Ival.Ival.ToString(),
+                Node.NodeOneofCase.AConst when m.AConst.ValCase == A_Const.ValOneofCase.Fval => m.AConst.Fval.Fval,
+                Node.NodeOneofCase.AConst when m.AConst.ValCase == A_Const.ValOneofCase.Sval => $"'{m.AConst.Sval.Sval.Replace("'", "''")}'",
+                Node.NodeOneofCase.ColumnRef => string.Join(".", m.ColumnRef.Fields.Select(f => Ident.Quote(f.String.Sval))),
+                _ => throw NotSupported($"type modifier ({m.NodeCase})", TryGetLocation(GetOneofValue(m))),
+            })
+            .ToList();
+
+        string name;
+        if (isSqlType && parts[1] == "interval" && mods.Count > 0) {
+            // INTERVAL typmods: a field-range bitmask (INTERVAL_FULL_RANGE, 32767, when no
+            // fields were given — interval(3)), then an optional precision
+            name = !int.TryParse(mods[0], out var mask) ? throw NotSupported($"interval fields ({mods[0]})", null)
+                : mask == 32767 ? "interval"
+                : _intervalMasks.TryGetValue(mask, out var fields) ? $"interval {fields}"
+                : throw NotSupported($"interval fields ({mods[0]})", null);
+            if (mods.Count > 1) name += $"({mods[1]})";
+        } else {
+            var modList = mods.Count > 0 ? $"({string.Join(", ", mods)})" : "";
+            // The precision goes before WITH TIME ZONE: timestamp(3) with time zone
+            name = isSqlType && baseName.EndsWith(" with time zone")
+                ? baseName.Replace(" with time zone", modList + " with time zone")
+                : baseName + modList;
         }
 
-        if (t.Typmods.Count > 0) {
-            var mods = t.Typmods
-                .Select(m => m.NodeCase switch {
-                    Node.NodeOneofCase.Integer => m.Integer.Ival.ToString(),
-                    Node.NodeOneofCase.AConst when m.AConst.ValCase == A_Const.ValOneofCase.Ival => m.AConst.Ival.Ival.ToString(),
-                    Node.NodeOneofCase.AConst when m.AConst.ValCase == A_Const.ValOneofCase.Fval => m.AConst.Fval.Fval,
-                    _ => null,
-                })
-                .OfType<string>()
-                .ToList();
-            if (mods.Count > 0) name += $"({string.Join(", ", mods)})";
-        }
-
-        if (t.ArrayBounds.Count > 0) name += "[]";
+        // Array bounds: -1 for an unsized dimension, `int[]`; otherwise `int[3]`
+        foreach (var b in t.ArrayBounds)
+            name += b.NodeCase == Node.NodeOneofCase.Integer && b.Integer.Ival >= 0 ? $"[{b.Integer.Ival}]" : "[]";
 
         // RETURNS SETOF t: a set-returning function, not one returning a single t
         return t.Setof ? $"setof {name}" : name;
@@ -1504,9 +1625,11 @@ public class AstBuilder {
                 }
                 if (n.NodeCase == Node.NodeOneofCase.String)
                     return new SqlNode("FieldAccess", 0, 0, Ident.Quote(n.String.Sval), null);
-                return null;
+                // (f(x)).*: every field of a composite value
+                if (n.NodeCase == Node.NodeOneofCase.AStar)
+                    return new SqlNode("FieldAccess", 0, 0, "*", null);
+                throw NotSupported($"indirection ({n.NodeCase})", TryGetLocation(GetOneofValue(n)));
             })
-            .OfType<SqlNode>()
             .ToList();
         return new SqlNode("Subscript", 0, 0, null, BuildProps(
             ("arg",        BuildExpr(a.Arg)),
@@ -1628,7 +1751,9 @@ public class AstBuilder {
             ("kind",      kind),
             ("savepoint", Ident.QuoteOpt(t.SavepointName)),
             ("gid",       string.IsNullOrEmpty(t.Gid) ? null : t.Gid),
-            ("options",   MaybeList(options))
+            ("options",   MaybeList(options)),
+            // COMMIT AND CHAIN: start a new transaction with the same characteristics
+            ("chain",     t.Chain ? true : null)
         ));
     }
 
@@ -1793,39 +1918,95 @@ public class AstBuilder {
         return result;
     }
 
+    // ALTER <kind> [IF EXISTS] <target> RENAME [COLUMN|CONSTRAINT|ATTRIBUTE old] TO new
     private SqlNode BuildRename(RenameStmt r, int start, int end) {
-        var renameType = r.RenameType switch {
-            ObjectType.ObjectColumn   => "RENAME COLUMN",
-            ObjectType.ObjectTable    => "RENAME TABLE",
-            ObjectType.ObjectIndex    => "RENAME INDEX",
-            ObjectType.ObjectSchema   => "RENAME SCHEMA",
-            ObjectType.ObjectView     => "RENAME VIEW",
-            ObjectType.ObjectMatview  => "RENAME MATERIALIZED VIEW",
-            ObjectType.ObjectSequence => "RENAME SEQUENCE",
-            ObjectType.ObjectType     => "RENAME TYPE",
-            ObjectType.ObjectFunction => "RENAME FUNCTION",
-            ObjectType.ObjectProcedure => "RENAME PROCEDURE",
-            ObjectType.ObjectTrigger  => "RENAME TRIGGER",
-            _                         => "RENAME",
-        };
-        // For function/procedure rename, extract name + arg types from ObjectWithArgs
-        string? objName = null;
-        List<string>? objArgTypes = null;
-        if (r.Object != null && r.Object.NodeCase == Node.NodeOneofCase.ObjectWithArgs) {
-            var owa = r.Object.ObjectWithArgs;
-            objName = OwaName(owa.Objname);
-            if (!owa.ArgsUnspecified && owa.Objargs.Count > 0)
-                objArgTypes = owa.Objargs
-                    .Select(n => n.NodeCase == Node.NodeOneofCase.TypeName ? BuildPgTypeName(n.TypeName) : null)
-                    .OfType<string>().ToList();
+        string kind;
+        string? target;
+        string? sub = null;
+        string? onTable = null;
+        string? usingMethod = null;
+        bool only = false;
+        var relation = r.Relation != null ? RangeVarQualifiedName(r.Relation) : null;
+
+        switch (r.RenameType) {
+            // Parts of a relation: ALTER TABLE t RENAME COLUMN a TO b, ... RENAME CONSTRAINT
+            case ObjectType.ObjectColumn:
+            case ObjectType.ObjectTabconstraint:
+                // RENAME CONSTRAINT leaves relationType unset: only ALTER TABLE has it
+                kind = r.RenameType == ObjectType.ObjectColumn ? ObjectTypeKw(r.RelationType) : "TABLE";
+                target = relation;
+                only = !r.Relation.Inh;
+                sub = r.RenameType == ObjectType.ObjectColumn ? "COLUMN" : "CONSTRAINT";
+                break;
+            // ALTER TYPE t RENAME ATTRIBUTE a TO b
+            case ObjectType.ObjectAttribute:
+                kind = "TYPE";
+                target = relation;
+                sub = "ATTRIBUTE";
+                break;
+            case ObjectType.ObjectDomconstraint:
+                kind = "DOMAIN";
+                target = NodeObjName(r.Object);
+                sub = "CONSTRAINT";
+                break;
+            // Named per table: ALTER TRIGGER tr ON t RENAME TO tr2
+            case ObjectType.ObjectTrigger:
+            case ObjectType.ObjectPolicy:
+            case ObjectType.ObjectRule:
+                kind = ObjectTypeKw(r.RenameType);
+                target = Ident.Quote(r.Subname);
+                onTable = relation;
+                break;
+            // Relations: ALTER TABLE [IF EXISTS] [ONLY] t RENAME TO u
+            case ObjectType.ObjectTable:
+            case ObjectType.ObjectForeignTable:
+            case ObjectType.ObjectIndex:
+            case ObjectType.ObjectView:
+            case ObjectType.ObjectMatview:
+            case ObjectType.ObjectSequence:
+                kind = ObjectTypeKw(r.RenameType);
+                target = relation;
+                only = !r.Relation.Inh;
+                break;
+            // Named by a bare identifier held in subname
+            case ObjectType.ObjectDatabase:
+            case ObjectType.ObjectRole:
+            case ObjectType.ObjectSchema:
+            case ObjectType.ObjectTablespace:
+                kind = ObjectTypeKw(r.RenameType);
+                target = Ident.Quote(r.Subname);
+                break;
+            // ALTER OPERATOR CLASS name USING method: the method comes first in the list
+            case ObjectType.ObjectOpclass:
+            case ObjectType.ObjectOpfamily: {
+                var parts = r.Object.List.Items.Select(i => i.String.Sval).ToList();
+                kind = ObjectTypeKw(r.RenameType);
+                target = Ident.Qualified(parts.Skip(1));
+                usingMethod = Ident.Quote(parts[0]);
+                break;
+            }
+            case ObjectType.ObjectAggregate when r.Object?.ObjectWithArgs is { ArgsUnspecified: false, Objargs.Count: 0 } agg:
+                kind = "AGGREGATE";
+                target = $"{OwaName(agg.Objname)}(*)";
+                break;
+            default:
+                kind = ObjectTypeKw(r.RenameType);
+                target = NodeObjName(r.Object) ?? throw NotSupported($"RENAME target ({r.RenameType})", null);
+                break;
         }
+
         return new SqlNode("RenameStatement", start, end, null, BuildProps(
-            ("renameType",  renameType),
-            ("relation",    r.Relation != null ? BuildRangeVar(r.Relation) : null),
-            ("objName",     objName),
-            ("objArgTypes", objArgTypes != null ? MaybeList(objArgTypes) : null),
-            ("oldName",     Ident.QuoteOpt(r.Subname)),
-            ("newName",     Ident.QuoteOpt(r.Newname))
+            ("kind",     kind),
+            ("ifExists", r.MissingOk ? true : null),
+            // ONLY: rename in this table, not its inheritance children
+            ("only",     only ? true : null),
+            ("target",   target),
+            ("onTable",  onTable),
+            ("using",    usingMethod),
+            ("sub",      sub),
+            ("oldName",  sub != null ? Ident.Quote(r.Subname) : null),
+            ("newName",  Ident.Quote(r.Newname)),
+            ("cascade",  r.Behavior == DropBehavior.DropCascade ? true : null)
         ));
     }
 
@@ -1856,6 +2037,8 @@ public class AstBuilder {
         new("AlterTypeStatement", start, end, null, BuildProps(
             ("typeName",    Ident.Qualified(ae.TypeName.Select(n => n.String.Sval))),
             ("newVal",      ae.NewVal),
+            // RENAME VALUE 'old' TO 'new' (otherwise ADD VALUE 'new')
+            ("oldVal",      string.IsNullOrEmpty(ae.OldVal) ? null : ae.OldVal),
             ("neighbor",    string.IsNullOrEmpty(ae.NewValNeighbor) ? null : ae.NewValNeighbor),
             ("isAfter",     ae.NewValIsAfter ? true : null),
             ("ifNotExists", ae.SkipIfNewValExists ? true : null)
@@ -2084,7 +2267,7 @@ public class AstBuilder {
         ));
     }
 
-    private static SqlNode BuildAlterOwner(AlterOwnerStmt s, int start, int end) {
+    private SqlNode BuildAlterOwner(AlterOwnerStmt s, int start, int end) {
         var newOwner = s.Newowner?.Roletype == RoleSpecType.RolespecPublic ? "PUBLIC" : Ident.QuoteOpt(s.Newowner?.Rolename);
         return new SqlNode("AlterOwnerStatement", start, end, null, BuildProps(
             ("objType",  ObjectTypeKw(s.ObjectType)),
@@ -2093,7 +2276,7 @@ public class AstBuilder {
         ));
     }
 
-    private static SqlNode BuildAlterObjectSchema(AlterObjectSchemaStmt s, int start, int end) =>
+    private SqlNode BuildAlterObjectSchema(AlterObjectSchemaStmt s, int start, int end) =>
         new("AlterObjectSchemaStatement", start, end, null, BuildProps(
             ("objType",   ObjectTypeKw(s.ObjectType)),
             // Tables, views, sequences and matviews carry their name in Relation, not Object
@@ -2414,14 +2597,53 @@ public class AstBuilder {
         var path    = je.Pathspec != null ? BuildExpr(je.Pathspec) : null;
         string? returning = null;
         if (je.Output?.TypeName != null)
-            returning = BuildPgTypeName(je.Output.TypeName);
+            returning = BuildPgTypeName(je.Output.TypeName) + JsonFormatClause(je.Output.Returning?.Format);
         return new SqlNode("JsonFuncExpr", 0, 0, null, BuildProps(
-            ("op",        op),
-            ("context",   context),
-            ("path",      path),
-            ("returning", returning)
+            ("op",            op),
+            ("context",       context),
+            ("contextFormat", JsonFormatClause(je.ContextItem?.Format) is { Length: > 0 } f ? f.Trim() : null),
+            ("path",          path),
+            ("passing",       MaybeList(BuildJsonPassing(je.Passing))),
+            ("returning",     returning),
+            ("wrapper",       JsonWrapperClause(je.Wrapper)),
+            ("quotes",        JsonQuotesClause(je.Quotes)),
+            ("onEmpty",       BuildJsonBehavior(je.OnEmpty)),
+            ("onError",       BuildJsonBehavior(je.OnError))
         ));
     }
+
+    // PASSING value AS name, ...: variables the JSON path can refer to as $name
+    private List<SqlNode> BuildJsonPassing(IEnumerable<Node> args) => args
+        .Where(n => n.NodeCase == Node.NodeOneofCase.JsonArgument)
+        .Select(n => new SqlNode("JsonPassingArg", 0, 0, null, BuildProps(
+            ("value", BuildExpr(n.JsonArgument.Val.RawExpr)),
+            ("name",  Ident.Quote(n.JsonArgument.Name)))))
+        .ToList();
+
+    // FORMAT JSON [ENCODING UTF8], when written — the default format prints nothing
+    private static string JsonFormatClause(JsonFormat? f) {
+        if (f == null || f.FormatType == JsonFormatType.JsFormatDefault) return "";
+        var format = f.FormatType == JsonFormatType.JsFormatJsonb ? " FORMAT JSONB" : " FORMAT JSON";
+        return format + f.Encoding switch {
+            JsonEncoding.JsEncUtf8  => " ENCODING UTF8",
+            JsonEncoding.JsEncUtf16 => " ENCODING UTF16",
+            JsonEncoding.JsEncUtf32 => " ENCODING UTF32",
+            _ => "",
+        };
+    }
+
+    private static string? JsonWrapperClause(JsonWrapper w) => w switch {
+        JsonWrapper.JswNone          => "WITHOUT WRAPPER",
+        JsonWrapper.JswConditional   => "WITH CONDITIONAL WRAPPER",
+        JsonWrapper.JswUnconditional => "WITH WRAPPER",
+        _ => null,
+    };
+
+    private static string? JsonQuotesClause(JsonQuotes q) => q switch {
+        JsonQuotes.JsQuotesKeep => "KEEP QUOTES",
+        JsonQuotes.JsQuotesOmit => "OMIT QUOTES",
+        _ => null,
+    };
 
     // -------------------------------------------------------------------------
     // SQL/JSON constructors — PostgreSQL 16+
@@ -2434,55 +2656,63 @@ public class AstBuilder {
                 var kv = n.JsonKeyValue;
                 return (object?)new SqlNode("JsonKeyValuePair", 0, 0, null, BuildProps(
                     ("key",   BuildExpr(kv.Key)),
-                    ("value", BuildExpr(kv.Value.RawExpr))
+                    ("value", BuildJsonValue(kv.Value))
                 ));
             })
             .ToList();
-        var returning = c.Output?.TypeName != null ? BuildPgTypeName(c.Output.TypeName) : null;
-        return new SqlNode("JsonObjectConstructor", 0, 0, null, BuildProps(
-            ("pairs",       pairs),
-            ("absentOnNull", c.AbsentOnNull ? true : null),
-            ("unique",      c.Unique ? true : null),
-            ("returning",   returning)
-        ));
+        var props = BuildProps(
+            ("pairs",  pairs),
+            ("unique", c.Unique ? true : null)
+        );
+        foreach (var (k, v) in JsonConstructorProps(c.Output, c.AbsentOnNull, absentByDefault: false)) if (v != null) props[k] = v;
+        return new SqlNode("JsonObjectConstructor", 0, 0, null, props);
     }
 
     // JSON_ARRAY(val, ...) constructor
     private SqlNode BuildJsonArrayConstructor(JsonArrayConstructor c) {
         var items = c.Exprs
-            .Select(n => BuildExpr(n.JsonValueExpr.RawExpr))
+            .Select(n => BuildJsonValue(n.JsonValueExpr))
             .ToList();
-        var returning = c.Output?.TypeName != null ? BuildPgTypeName(c.Output.TypeName) : null;
-        return new SqlNode("JsonArrayConstructor", 0, 0, null, BuildProps(
-            ("items",       items),
-            ("absentOnNull", c.AbsentOnNull ? true : null),
-            ("returning",   returning)
-        ));
+        var props = BuildProps(("items", items));
+        foreach (var (k, v) in JsonConstructorProps(c.Output, c.AbsentOnNull, absentByDefault: true)) if (v != null) props[k] = v;
+        return new SqlNode("JsonArrayConstructor", 0, 0, null, props);
+    }
+
+    // A JSON constructor argument: the expression, plus FORMAT JSON when written
+    private SqlNode? BuildJsonValue(JsonValueExpr v) {
+        var expr = BuildExpr(v.RawExpr);
+        var format = JsonFormatClause(v.Format);
+        return format.Length == 0 || expr == null ? expr
+            : new SqlNode("JsonFormatted", 0, 0, null, BuildProps(("expr", expr), ("format", format.Trim())));
     }
 
     // JSON_OBJECTAGG(key: value) aggregate
     private SqlNode BuildJsonObjectAgg(JsonObjectAgg a) {
         var kv = a.Arg;
-        var returning = a.Constructor?.Output?.TypeName != null
-            ? BuildPgTypeName(a.Constructor.Output.TypeName) : null;
-        return new SqlNode("JsonObjectAgg", 0, 0, null, BuildProps(
-            ("key",         BuildExpr(kv.Key)),
-            ("value",       BuildExpr(kv.Value.RawExpr)),
-            ("absentOnNull", a.AbsentOnNull ? true : null),
-            ("unique",      a.Unique ? true : null),
-            ("returning",   returning)
-        ));
+        var props = BuildProps(
+            ("key",    BuildExpr(kv.Key)),
+            ("value",  BuildJsonValue(kv.Value)),
+            ("unique", a.Unique ? true : null)
+        );
+        AddJsonAggProps(props, a.Constructor, a.AbsentOnNull, absentByDefault: false);
+        return new SqlNode("JsonObjectAgg", 0, 0, null, props);
     }
 
-    // JSON_ARRAYAGG(expr) aggregate
+    // JSON_ARRAYAGG(expr [ORDER BY ...]) aggregate
     private SqlNode BuildJsonArrayAgg(JsonArrayAgg a) {
-        var returning = a.Constructor?.Output?.TypeName != null
-            ? BuildPgTypeName(a.Constructor.Output.TypeName) : null;
-        return new SqlNode("JsonArrayAgg", 0, 0, null, BuildProps(
-            ("arg",         BuildExpr(a.Arg.RawExpr)),
-            ("absentOnNull", a.AbsentOnNull ? true : null),
-            ("returning",   returning)
-        ));
+        var props = BuildProps(
+            ("arg",      BuildJsonValue(a.Arg)),
+            ("aggOrder", MapList(a.Constructor?.AggOrder, BuildExpr))
+        );
+        AddJsonAggProps(props, a.Constructor, a.AbsentOnNull, absentByDefault: true);
+        return new SqlNode("JsonArrayAgg", 0, 0, null, props);
+    }
+
+    // RETURNING / ON NULL, and the aggregate's FILTER (WHERE ...) and OVER (...)
+    private void AddJsonAggProps(Dictionary<string, object?> props, JsonAggConstructor? c, bool absentOnNull, bool absentByDefault) {
+        foreach (var (k, v) in JsonConstructorProps(c?.Output, absentOnNull, absentByDefault)) if (v != null) props[k] = v;
+        if (c?.AggFilter != null) props["filter"] = BuildExpr(c.AggFilter);
+        if (BuildOver(c?.Over) is { } over) props["over"] = over;
     }
 
     // The value of a COPY / EXPLAIN option as SQL text, or null for a bare flag such as
@@ -2530,11 +2760,14 @@ public class AstBuilder {
     // P4: VACUUM / ANALYZE / CLUSTER / REINDEX
     // -------------------------------------------------------------------------
 
-    private static SqlNode BuildVacuum(VacuumStmt s, int start, int end) {
+    private SqlNode BuildVacuum(VacuumStmt s, int start, int end) {
         var isVacuum = s.IsVacuumcmd;
+        // PARALLEL 4, INDEX_CLEANUP off, …: the value is part of the option
         var options = s.Options
             .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
-            .Select(n => n.DefElem.Defname.ToUpper())
+            .Select(n => UtilityOptionValue(n.DefElem) is { } value
+                ? $"{n.DefElem.Defname.ToUpper()} {value}"
+                : n.DefElem.Defname.ToUpper())
             .ToList();
         var rels = s.Rels
             .Where(n => n.NodeCase == Node.NodeOneofCase.VacuumRelation)
@@ -2764,7 +2997,7 @@ public class AstBuilder {
         }
     }
 
-    private static string BuildDefElemStringValue(DefElem defElem) {
+    private string BuildDefElemStringValue(DefElem defElem) {
         if (defElem.Arg == null) return "";
         return defElem.Arg.NodeCase switch {
             Node.NodeOneofCase.String   => $"'{defElem.Arg.String.Sval.Replace("'", "''")}'",
@@ -2859,6 +3092,7 @@ public class AstBuilder {
             ("path",     path),
             ("pathName", pathName),
             ("columns",  MaybeList(columns)),
+            ("passing",  MaybeList(BuildJsonPassing(jt.Passing))),
             ("onError",  onError),
             ("alias",    Ident.QuoteOpt(jt.Alias?.Aliasname)),
             ("lateral",  jt.Lateral ? true : null)
@@ -2888,6 +3122,9 @@ public class AstBuilder {
                     ("typeName", col.TypeName != null ? BuildPgTypeName(col.TypeName) : null),
                     ("path",     path),
                     ("pathName", pathName),
+                    ("format",   JsonFormatClause(col.Format) is { Length: > 0 } f ? f.Trim() : null),
+                    ("wrapper",  JsonWrapperClause(col.Wrapper)),
+                    ("quotes",   JsonQuotesClause(col.Quotes)),
                     ("onEmpty",  BuildJsonBehavior(col.OnEmpty)),
                     ("onError",  BuildJsonBehavior(col.OnError)),
                     ("columns",  nested)
@@ -2895,9 +3132,10 @@ public class AstBuilder {
             })
             .ToList();
 
-    private static string? BuildJsonBehavior(JsonBehavior? b) {
+    // NULL / ERROR / DEFAULT expr / ... — the printer adds ON EMPTY or ON ERROR
+    private SqlNode? BuildJsonBehavior(JsonBehavior? b) {
         if (b == null) return null;
-        return b.Btype switch {
+        var kind = b.Btype switch {
             JsonBehaviorType.JsonBehaviorNull        => "NULL",
             JsonBehaviorType.JsonBehaviorError       => "ERROR",
             JsonBehaviorType.JsonBehaviorEmpty       => "EMPTY",
@@ -2906,8 +3144,12 @@ public class AstBuilder {
             JsonBehaviorType.JsonBehaviorDefault     => "DEFAULT",
             JsonBehaviorType.JsonBehaviorTrue        => "TRUE",
             JsonBehaviorType.JsonBehaviorFalse       => "FALSE",
-            _                                        => null,
+            JsonBehaviorType.JsonBehaviorUnknown     => "UNKNOWN",
+            _ => throw NotSupported($"JSON behavior ({b.Btype})", b.Location),
         };
+        return new SqlNode("JsonBehavior", 0, 0, null, BuildProps(
+            ("kind", kind),
+            ("expr", b.Btype == JsonBehaviorType.JsonBehaviorDefault ? BuildExpr(b.Expr) : null)));
     }
 
     // -------------------------------------------------------------------------
@@ -3025,6 +3267,30 @@ public class AstBuilder {
 
     /// <summary>Maps an ObjectType enum to its SQL keyword string.</summary>
     private static string ObjectTypeKw(ObjectType t) => t switch {
+        ObjectType.ObjectAccessMethod    => "ACCESS METHOD",
+        ObjectType.ObjectAggregate       => "AGGREGATE",
+        ObjectType.ObjectCast            => "CAST",
+        ObjectType.ObjectCollation       => "COLLATION",
+        ObjectType.ObjectConversion      => "CONVERSION",
+        ObjectType.ObjectEventTrigger    => "EVENT TRIGGER",
+        ObjectType.ObjectFdw             => "FOREIGN DATA WRAPPER",
+        ObjectType.ObjectForeignServer   => "SERVER",
+        ObjectType.ObjectLanguage        => "LANGUAGE",
+        ObjectType.ObjectLargeobject     => "LARGE OBJECT",
+        ObjectType.ObjectOpclass         => "OPERATOR CLASS",
+        ObjectType.ObjectOpfamily        => "OPERATOR FAMILY",
+        ObjectType.ObjectOperator        => "OPERATOR",
+        ObjectType.ObjectPublication     => "PUBLICATION",
+        ObjectType.ObjectRoutine         => "ROUTINE",
+        ObjectType.ObjectStatisticExt    => "STATISTICS",
+        ObjectType.ObjectSubscription    => "SUBSCRIPTION",
+        ObjectType.ObjectTablespace      => "TABLESPACE",
+        ObjectType.ObjectTransform       => "TRANSFORM",
+        ObjectType.ObjectTsconfiguration => "TEXT SEARCH CONFIGURATION",
+        ObjectType.ObjectTsdictionary    => "TEXT SEARCH DICTIONARY",
+        ObjectType.ObjectTsparser        => "TEXT SEARCH PARSER",
+        ObjectType.ObjectTstemplate      => "TEXT SEARCH TEMPLATE",
+        ObjectType.ObjectUserMapping     => "USER MAPPING",
         ObjectType.ObjectTable     => "TABLE",
         ObjectType.ObjectIndex     => "INDEX",
         ObjectType.ObjectView      => "VIEW",
@@ -3059,7 +3325,7 @@ public class AstBuilder {
     /// overload, and which an operator always requires. Just `f` when the SQL gave no
     /// argument list ("the only function named f").
     /// </summary>
-    private static string OwaSignature(ObjectWithArgs owa) {
+    private string OwaSignature(ObjectWithArgs owa) {
         var name = OwaName(owa.Objname);
         if (owa.ArgsUnspecified) return name;
         var args = owa.Objargs.Select(n => n.NodeCase == Node.NodeOneofCase.TypeName ? BuildPgTypeName(n.TypeName) : "none");
@@ -3072,7 +3338,7 @@ public class AstBuilder {
         Ident.Qualified(new[] { rv.Schemaname, rv.Relname }.Where(p => !string.IsNullOrEmpty(p)));
 
     /// <summary>Extracts a dotted name from a Node (RangeVar, ObjectWithArgs, List of strings, or String).</summary>
-    private static string? NodeObjName(Node? node) => node?.NodeCase switch {
+    private string? NodeObjName(Node? node) => node?.NodeCase switch {
         Node.NodeOneofCase.RangeVar       => RangeVarQualifiedName(node.RangeVar),
         Node.NodeOneofCase.ObjectWithArgs => OwaSignature(node.ObjectWithArgs),
         Node.NodeOneofCase.List           => Ident.Qualified(node.List.Items

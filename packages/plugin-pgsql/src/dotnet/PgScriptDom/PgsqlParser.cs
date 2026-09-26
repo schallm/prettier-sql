@@ -54,6 +54,58 @@ public static class PgsqlParser {
             JsonOptions);
     }
 
+    // Parse-tree fields that record where something was written, not what it means:
+    // location, stmt_location, name_location, …, and stmt_len.
+    private static bool IsPositionField(string key) => key == "stmt_len" || key.EndsWith("location");
+
+    /// <summary>
+    /// A canonical form of the SQL's meaning, for tests that check formatting didn't
+    /// change it: libpg_query's full parse tree as JSON with source positions removed,
+    /// plus the comment texts in order (comments aren't part of the tree). Two inputs
+    /// with the same result differ only in layout, case and optional quoting.
+    /// One equivalence is folded in: a boolean option value (the legacy
+    /// <c>COPY … WITH CSV HEADER</c> syntax stores <c>true</c>) equals the string
+    /// <c>'true'</c> of the modern syntax, as PostgreSQL's defGetBoolean reads both alike.
+    /// And a function's options (LANGUAGE, AS, STRICT, …) and a DO block's are unordered,
+    /// so they're sorted.
+    /// Returns null when the SQL doesn't parse.
+    /// </summary>
+    public static string? Canonical(string sql) {
+        var parseResult = Parser.Parse(sql);
+        if (!parseResult.IsSuccess || parseResult.Value == null) return null;
+        var tree = System.Text.Json.Nodes.JsonNode.Parse(Google.Protobuf.JsonFormatter.Default.Format(parseResult.Value));
+        StripPositions(tree);
+        var comments = ExtractComments(sql).Select(c => c.Text.Trim());
+        return JsonSerializer.Serialize(new { tree, comments }, new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    private static void SortUnordered(System.Text.Json.Nodes.JsonNode? list) {
+        if (list is not System.Text.Json.Nodes.JsonArray arr) return;
+        var sorted = arr.OrderBy(o => o!.ToJsonString(), StringComparer.Ordinal).Select(o => o!.DeepClone()).ToList();
+        arr.Clear();
+        foreach (var o in sorted) arr.Add(o);
+    }
+
+    private static void StripPositions(System.Text.Json.Nodes.JsonNode? node) {
+        switch (node) {
+            case System.Text.Json.Nodes.JsonObject obj:
+                foreach (var key in obj.Select(p => p.Key).Where(IsPositionField).ToList()) obj.Remove(key);
+                SortUnordered(obj["CreateFunctionStmt"]?["options"]);
+                SortUnordered(obj["DoStmt"]?["args"]);
+                if (obj["DefElem"]?["arg"]?["Boolean"] is System.Text.Json.Nodes.JsonObject b) {
+                    var value = b["boolval"]?.GetValue<bool>() == true ? "true" : "false";
+                    obj["DefElem"]!["arg"] = new System.Text.Json.Nodes.JsonObject {
+                        ["String"] = new System.Text.Json.Nodes.JsonObject { ["sval"] = value },
+                    };
+                }
+                foreach (var (_, child) in obj) StripPositions(child);
+                break;
+            case System.Text.Json.Nodes.JsonArray arr:
+                foreach (var child in arr) StripPositions(child);
+                break;
+        }
+    }
+
     private static List<CommentToken> ExtractComments(string sql) {
         var scanResult = Parser.Scan(sql);
         if (!scanResult.IsSuccess || scanResult.Value == null)

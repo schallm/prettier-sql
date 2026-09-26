@@ -328,9 +328,6 @@ function printSelectBody(node: SqlNode, opts: Options): Doc {
     const where     = prop(node, 'where');
     const groupBy   = propArr(node, 'groupBy');
     const having    = prop(node, 'having');
-    const orderBy   = propArr(node, 'orderBy');
-    const limit     = prop(node, 'limit');
-    const offset    = prop(node, 'offset');
 
     const parts: Doc[] = [];
 
@@ -366,23 +363,6 @@ function printSelectBody(node: SqlNode, opts: Options): Doc {
 
     if (having) parts.push(printBoolClause('HAVING', having, opts, printNode));
 
-    if (orderBy.length > 0) parts.push(printListClause('ORDER BY', orderBy, opts, printNode));
-
-    if (limit)  parts.push([makeKeyword('LIMIT'), ' ', printNode(limit)]);
-    if (offset) parts.push([makeKeyword('OFFSET'), ' ', printNode(offset)]);
-
-    const locking = propArr(node, 'locking');
-    for (const lc of locking) {
-        const strength   = propStr(lc, 'strength') ?? 'FOR UPDATE';
-        const tables     = propArr(lc, 'tables');
-        const waitPolicy = propStr(lc, 'waitPolicy');
-        const ofPart: Doc = tables.length > 0
-            ? [' ', makeKeyword('OF'), ' ', join(', ', tables.map((t) => rangeVarName(t)))]
-            : '';
-        const waitPart: Doc = waitPolicy ? [' ', makeKeyword(waitPolicy)] : '';
-        parts.push([makeKeyword(strength), ofPart, waitPart]);
-    }
-
     // Named WINDOW clauses: WINDOW w AS (PARTITION BY ... ORDER BY ...)
     const windowClauses = propArr(node, 'windowClauses');
     if (windowClauses.length > 0) {
@@ -393,6 +373,8 @@ function printSelectBody(node: SqlNode, opts: Options): Doc {
         });
         parts.push([makeKeyword('WINDOW'), indent([hardline, join(hardSep(opts), wDocs)])]);
     }
+
+    parts.push(...printQueryTail(node, opts, printNode));
 
     // compact: use line so clauses can collapse to one line when they fit (e.g. inside EXISTS)
     // standard/spacious: hardline always breaks between clauses
@@ -552,19 +534,80 @@ function printDelete(node: SqlNode, opts: Options): Doc {
 // SET operations (UNION / INTERSECT / EXCEPT)
 // ---------------------------------------------------------------------------
 
+/**
+ * ORDER BY, LIMIT/OFFSET (or FETCH FIRST … WITH TIES) and locking clauses, which end
+ * a SELECT, a set operation or VALUES.
+ */
+function printQueryTail(node: SqlNode, opts: Options, printNode: PrintFn): Doc[] {
+    const makeKeyword = (k: string) => keyword(k, opts);
+    const orderBy = propArr(node, 'orderBy');
+    const limit   = prop(node, 'limit');
+    const offset  = prop(node, 'offset');
+    const parts: Doc[] = [];
+
+    if (orderBy.length > 0) parts.push(printListClause('ORDER BY', orderBy, opts, printNode));
+
+    if (propBool(node, 'withTies')) {
+        // WITH TIES has no LIMIT spelling
+        if (offset) parts.push([makeKeyword('OFFSET'), ' ', printNode(offset), ' ', makeKeyword('ROWS')]);
+        if (limit) parts.push([makeKeyword('FETCH FIRST'), ' ', printNode(limit), ' ', makeKeyword('ROWS WITH TIES')]);
+    } else {
+        if (limit)  parts.push([makeKeyword('LIMIT'), ' ', printNode(limit)]);
+        if (offset) parts.push([makeKeyword('OFFSET'), ' ', printNode(offset)]);
+    }
+
+    for (const lc of propArr(node, 'locking')) {
+        const strength   = propStr(lc, 'strength') ?? 'FOR UPDATE';
+        const tables     = propArr(lc, 'tables');
+        const waitPolicy = propStr(lc, 'waitPolicy');
+        const ofPart: Doc = tables.length > 0
+            ? [' ', makeKeyword('OF'), ' ', join(', ', tables.map((t) => rangeVarName(t)))]
+            : '';
+        const waitPart: Doc = waitPolicy ? [' ', makeKeyword(waitPolicy)] : '';
+        parts.push([makeKeyword(strength), ofPart, waitPart]);
+    }
+    return parts;
+}
+
+/** True when a query has clauses of its own that, unparenthesized, would bind to an enclosing set operation. */
+function hasQueryClauses(node: SqlNode): boolean {
+    return !!prop(node, 'ctes') || propArr(node, 'orderBy').length > 0 || !!prop(node, 'limit')
+        || !!prop(node, 'offset') || propArr(node, 'locking').length > 0;
+}
+
+// INTERSECT binds tighter than UNION and EXCEPT
+const setOpPrecedence = (node: SqlNode): number => (propStr(node, 'op') === 'INTERSECT' ? 2 : 1);
+
 function printSetOpBody(node: SqlNode, opts: Options): Doc {
-    const makeKeyword    = (k: string) => keyword(k, opts);
+    const makeKeyword = (k: string) => keyword(k, opts);
+    const printNode   = printWith(opts);
     const op    = propStr(node, 'op') ?? 'UNION';
     const all   = propBool(node, 'all');
     const lhs   = prop(node, 'lhs');
     const rhs   = prop(node, 'rhs');
     const opKw  = all ? makeKeyword(`${op} ALL`) : makeKeyword(op);
 
-    return [
-        lhs ? printQueryExpr(lhs, opts) : '',
-        hardline, opKw, hardline,
-        rhs ? printQueryExpr(rhs, opts) : '',
-    ];
+    // An operand needs parentheses when its own ORDER BY/LIMIT/WITH would otherwise
+    // apply to the whole result, or when it's a set operation that wouldn't group
+    // this way unparenthesized: set operations associate left, and INTERSECT binds
+    // tighter than UNION/EXCEPT.
+    const operand = (child: SqlNode | null | undefined, side: 'lhs' | 'rhs'): Doc => {
+        if (!child) return '';
+        const isSetOp = child.type === 'SetOpStatement';
+        const needsParens = hasQueryClauses(child)
+            || (isSetOp && (side === 'rhs'
+                ? setOpPrecedence(child) <= setOpPrecedence(node)
+                : setOpPrecedence(child) < setOpPrecedence(node)));
+        const doc = printQueryExpr(child, opts);
+        return needsParens ? ['(', indent([hardline, doc]), hardline, ')'] : doc;
+    };
+
+    const parts: Doc[] = [];
+    const ctes = prop(node, 'ctes');
+    if (ctes) parts.push(...printCtes(ctes, opts, printNode));
+    parts.push([operand(lhs, 'lhs'), hardline, opKw, hardline, operand(rhs, 'rhs')]);
+    parts.push(...printQueryTail(node, opts, printNode));
+    return join(hardline, parts);
 }
 
 function printSetOp(node: SqlNode, opts: Options): Doc {
@@ -587,8 +630,11 @@ function printValuesRows(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
         return group(['(', indent([softline, join(softSep(opts), items)]), softline, ')']);
     });
 
+    // VALUES (1), (2) ORDER BY 1 LIMIT 1
+    const tail: Doc[] = printQueryTail(node, opts, printNode).map((d) => [hardline, d]);
+
     if (rowDocs.length === 1) {
-        return [hardline, makeKeyword('VALUES'), ' ', rowDocs[0]!];
+        return [hardline, makeKeyword('VALUES'), ' ', rowDocs[0]!, tail];
     }
 
     const density  = getDensity(opts);
@@ -598,11 +644,12 @@ function printValuesRows(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
     // standard + multi-column rows: one per line
     // spacious: always one per line
     const useFill = density === 'compact' || (density === 'standard' && colCount === 1);
-    return [hardline, makeKeyword('VALUES'), indent([hardline, useFill ? fillList(rowDocs, opts) : join(hardSep(opts), rowDocs)])];
+    return [hardline, makeKeyword('VALUES'), indent([hardline, useFill ? fillList(rowDocs, opts) : join(hardSep(opts), rowDocs)]), tail];
 }
 
 function printValues(node: SqlNode, opts: Options): Doc {
-    return [printValuesRows(node, opts, printWith(opts)), ';'];
+    // Standalone, without the line break it takes after INSERT INTO t
+    return [stripLeadingHardline(printValuesRows(node, opts, printWith(opts))), ';'];
 }
 
 // ---------------------------------------------------------------------------
@@ -623,7 +670,11 @@ function printOnConflict(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
         if (constraint) {
             targetDoc = [' ', makeKeyword('ON CONSTRAINT'), ' ', constraint];
         } else if (cols.length > 0) {
-            targetDoc = group([' (', indent([softline, join(softSep(opts), cols.map((c) => propStr(c, 'name') ?? ''))]), softline, ')']);
+            // Full index elements: an expression target such as (lower(email)) or a
+            // collation/opclass has to match the unique index being inferred
+            targetDoc = group([' (', indent([softline, join(softSep(opts), cols.map(printNode))]), softline, ')']);
+            const inferWhere = prop(target, 'where');
+            if (inferWhere) targetDoc = [targetDoc, ' ', makeKeyword('WHERE'), ' ', printNode(inferWhere)];
         }
     }
 
@@ -716,12 +767,35 @@ function printAlterTable(node: SqlNode, opts: Options): Doc {
     const commands = propArr(node, 'commands');
     const objType  = propStr(node, 'objType') ?? 'TABLE';
     const ifExists: Doc = propBool(node, 'ifExists') ? [makeKeyword('IF EXISTS'), ' '] : '';
+    // A composite type's column commands say ATTRIBUTE, and a type has no ONLY
+    const isType = propBool(node, 'attributes');
+    const printCmd = (cmd: SqlNode): Doc => (isType ? printAttributeCmd(cmd, opts, printNode) : printNode(cmd));
 
     return [
-        makeKeyword(`ALTER ${objType}`), ' ', ifExists, onlyPrefix(name, opts), rangeVarName(name),
-        indent([hardline, join([',', hardline], commands.map(printNode))]),
+        makeKeyword(`ALTER ${objType}`), ' ', ifExists, isType ? '' : onlyPrefix(name, opts), rangeVarName(name),
+        indent([hardline, join([',', hardline], commands.map(printCmd))]),
         ';',
     ];
+}
+
+/** ALTER TYPE t ADD / DROP / ALTER ATTRIBUTE — the composite-type forms of the column commands. */
+function printAttributeCmd(cmd: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const makeKeyword = (k: string) => keyword(k, opts);
+    const subtype = propStr(cmd, 'subtype');
+    const name = propStr(cmd, 'name') ?? '';
+    const ifExists: Doc = propBool(cmd, 'ifExists') ? [makeKeyword('IF EXISTS'), ' '] : '';
+    const cascade: Doc = propBool(cmd, 'cascade') ? [' ', makeKeyword('CASCADE')] : '';
+    const def = prop(cmd, 'def');
+    switch (subtype) {
+        case 'ADD COLUMN':
+            return [makeKeyword('ADD ATTRIBUTE'), ' ', def ? printNode(def) : name, cascade];
+        case 'DROP COLUMN':
+            return [makeKeyword('DROP ATTRIBUTE'), ' ', ifExists, name, cascade];
+        case 'ALTER COLUMN TYPE':
+            return [makeKeyword('ALTER ATTRIBUTE'), ' ', name, ' ', makeKeyword('TYPE'), ' ', keyword(propStr(cmd, 'newType') ?? '', opts), cascade];
+        default:
+            return printNode(cmd);
+    }
 }
 
 function printCreateView(node: SqlNode, opts: Options): Doc {
@@ -780,6 +854,11 @@ function printCreateFunction(node: SqlNode, opts: Options): Doc {
 }
 
 /** Dollar-quotes `text` with a tag that doesn't occur in it: $$…$$, else $body$…$body$, $body1$… */
+/** A single-quoted SQL string literal, with embedded quotes doubled. */
+function sqlString(text: string): string {
+    return `'${text.replace(/'/g, "''")}'`;
+}
+
 function dollarQuote(text: string): string {
     let tag = '$$';
     for (let i = 0; text.includes(tag); i++) tag = i === 0 ? '$body$' : `$body${i}$`;
@@ -837,12 +916,23 @@ function printDrop(node: SqlNode, opts: Options): Doc {
     const names      = propStrArr(node, 'names');
     const ifExists   = propBool(node, 'ifExists');
     const cascade    = propBool(node, 'cascade');
+    // DROP TRIGGER tr ON t, DROP OPERATOR CLASS oc USING btree, DROP CAST (a AS b), DROP TRANSFORM FOR t LANGUAGE l
+    const onTable       = propStr(node, 'onTable');
+    const using         = propStr(node, 'using');
+    const castSource    = propStr(node, 'castSource');
+    const transformType = propStr(node, 'transformType');
 
     return [
         makeKeyword('DROP'), ' ', makeKeyword(objectType),
         propBool(node, 'concurrent') ? [' ', makeKeyword('CONCURRENTLY')] : '',
         ifExists ? [' ', makeKeyword('IF EXISTS')] : '',
         names.length > 0 ? [' ', join(', ', names)] : '',
+        onTable ? [' ', makeKeyword('ON'), ' ', onTable] : '',
+        using ? [' ', makeKeyword('USING'), ' ', using] : '',
+        castSource ? [' (', keyword(castSource, opts), ' ', makeKeyword('AS'), ' ', keyword(propStr(node, 'castTarget') ?? '', opts), ')'] : '',
+        transformType
+            ? [' ', makeKeyword('FOR'), ' ', keyword(transformType, opts), ' ', makeKeyword('LANGUAGE'), ' ', propStr(node, 'transformLanguage') ?? '']
+            : '',
         cascade  ? [' ', makeKeyword('CASCADE')]   : '',
         ';',
     ];
@@ -956,29 +1046,23 @@ function printAlterRole(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 function printRename(node: SqlNode, opts: Options): Doc {
-    const makeKeyword         = (k: string) => keyword(k, opts);
-    const renameType = propStr(node, 'renameType') ?? 'RENAME TABLE';
-    const relation   = prop(node, 'relation');
-    const objName    = propStr(node, 'objName');
-    const oldName    = propStr(node, 'oldName');
-    const newName    = propStr(node, 'newName') ?? '';
-
-    if (renameType === 'RENAME TABLE') {
-        return [[makeKeyword('ALTER TABLE'), ' ', rangeVarName(relation), ' ', makeKeyword('RENAME TO'), ' ', newName], ';'];
-    }
-    if (renameType === 'RENAME COLUMN') {
-        return [[makeKeyword('ALTER TABLE'), ' ', rangeVarName(relation), ' ', makeKeyword('RENAME COLUMN'), ' ', oldName ?? '', ' ', makeKeyword('TO'), ' ', newName], ';'];
-    }
-    // FUNCTION, PROCEDURE — use objName + arg types
-    if (renameType === 'RENAME FUNCTION' || renameType === 'RENAME PROCEDURE') {
-        const objKw    = renameType.replace('RENAME ', '');
-        const argTypes = (node.props?.['objArgTypes'] as string[] | undefined) ?? [];
-        const argList: Doc = argTypes.length > 0 ? ['(', join(', ', argTypes.map((t) => makeKeyword(t))), ')'] : '()';
-        return [[makeKeyword(`ALTER ${objKw}`), ' ', objName ?? '', argList, ' ', makeKeyword('RENAME TO'), ' ', newName], ';'];
-    }
-    // INDEX, SCHEMA, VIEW, MATERIALIZED VIEW, SEQUENCE, TYPE, TRIGGER ...
-    const objKw = renameType.replace('RENAME ', '');
-    return [[makeKeyword(`ALTER ${objKw}`), ' ', objName ?? rangeVarName(relation) ?? oldName ?? '', ' ', makeKeyword('RENAME TO'), ' ', newName], ';'];
+    const makeKeyword = (k: string) => keyword(k, opts);
+    const sub = propStr(node, 'sub');
+    const onTable = propStr(node, 'onTable');
+    const using = propStr(node, 'using');
+    return [
+        makeKeyword('ALTER'), ' ', makeKeyword(propStr(node, 'kind') ?? 'TABLE'),
+        propBool(node, 'ifExists') ? [' ', makeKeyword('IF EXISTS')] : '',
+        propBool(node, 'only') ? [' ', makeKeyword('ONLY')] : '',
+        ' ', propStr(node, 'target') ?? '',
+        onTable ? [' ', makeKeyword('ON'), ' ', onTable] : '',
+        using ? [' ', makeKeyword('USING'), ' ', using] : '',
+        ' ', makeKeyword('RENAME'),
+        sub ? [' ', makeKeyword(sub), ' ', propStr(node, 'oldName') ?? ''] : '',
+        ' ', makeKeyword('TO'), ' ', propStr(node, 'newName') ?? '',
+        propBool(node, 'cascade') ? [' ', makeKeyword('CASCADE')] : '',
+        ';',
+    ];
 }
 
 // ---------------------------------------------------------------------------
@@ -995,7 +1079,7 @@ function printCreateType(node: SqlNode, opts: Options): Doc {
 
     if (kind === 'ENUM') {
         const valList: Doc = values.length > 0
-            ? ['(', indent([hardline, join([',', hardline], values.map((v) => `'${v}'`))]), hardline, ')']
+            ? ['(', indent([hardline, join([',', hardline], values.map(sqlString))]), hardline, ')']
             : '()';
         return [[makeKeyword('CREATE TYPE'), ' ', typeName, ' ', makeKeyword('AS ENUM'), ' ', valList], ';'];
     }
@@ -1018,10 +1102,14 @@ function printAlterType(node: SqlNode, opts: Options): Doc {
 
     const ifNotExistsDoc: Doc = ifNotExists ? [makeKeyword('IF NOT EXISTS'), ' '] : '';
     const placement: Doc = neighbor
-        ? [' ', isAfter ? makeKeyword('AFTER') : makeKeyword('BEFORE'), ' ', `'${neighbor}'`]
+        ? [' ', isAfter ? makeKeyword('AFTER') : makeKeyword('BEFORE'), ' ', sqlString(neighbor)]
         : '';
+    const oldVal = propStr(node, 'oldVal');
+    if (oldVal) {
+        return [[makeKeyword('ALTER TYPE'), ' ', typeName, ' ', makeKeyword('RENAME VALUE'), ' ', sqlString(oldVal), ' ', makeKeyword('TO'), ' ', sqlString(newVal)], ';'];
+    }
 
-    return [[makeKeyword('ALTER TYPE'), ' ', typeName, ' ', makeKeyword('ADD VALUE'), ' ', ifNotExistsDoc, `'${newVal}'`, placement], ';'];
+    return [[makeKeyword('ALTER TYPE'), ' ', typeName, ' ', makeKeyword('ADD VALUE'), ' ', ifNotExistsDoc, sqlString(newVal), placement], ';'];
 }
 
 // ---------------------------------------------------------------------------
@@ -1196,6 +1284,7 @@ function printTransaction(node: SqlNode, opts: Options): Doc {
     if (savepoint) parts.push(' ', savepoint);
     if (gid) parts.push(' ', `'${gid}'`);
     if (options.length > 0) parts.push(' ', join(', ', options.map((o) => makeKeyword(o))));
+    if (propBool(node, 'chain')) parts.push(' ', makeKeyword('AND CHAIN'));
 
     return [parts, ';'];
 }
@@ -1217,10 +1306,10 @@ function printCall(node: SqlNode, opts: Options): Doc {
 
 function printDo(node: SqlNode, opts: Options): Doc {
     const makeKeyword = (k: string) => keyword(k, opts);
-    const language = propStr(node, 'language') ?? 'plpgsql';
+    const language = propStr(node, 'language');
     const body = propStr(node, 'body') ?? '';
-    // Standard convention: body first, LANGUAGE after
-    return [[makeKeyword('DO'), ' ', dollarQuote(body), hardline, makeKeyword('LANGUAGE'), ' ', language], ';'];
+    // Standard convention: body first, LANGUAGE after (plpgsql when omitted)
+    return [[makeKeyword('DO'), ' ', dollarQuote(body), language ? [hardline, makeKeyword('LANGUAGE'), ' ', language] : ''], ';'];
 }
 
 // ---------------------------------------------------------------------------
@@ -1766,7 +1855,8 @@ function printVacuum(node: SqlNode, opts: Options): Doc {
         : '';
 
     if (!isVacuum) {
-        return [[makeKeyword('ANALYZE'), relDoc], ';'];
+        const optDoc: Doc = options.length > 0 ? [' (', join(', ', options.map((o) => makeKeyword(o.toLowerCase()))), ')'] : '';
+        return [[makeKeyword('ANALYZE'), optDoc, relDoc], ';'];
     }
 
     if (options.length === 0) {
