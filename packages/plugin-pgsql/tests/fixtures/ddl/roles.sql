@@ -8,3 +8,6 @@ create user bob nosuperuser nologin;
 alter role alice createdb;
 
 alter role bob connection limit 10;
+
+-- Password literals are never recased, and embedded quotes stay escaped
+create role carol login password 'MixedCase''Pwd';

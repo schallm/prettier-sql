@@ -82,7 +82,11 @@ function astOf(sql: string): string {
 }
 
 describe('formatting preserves meaning', () => {
-    const files = ['select/precedence.sql', 'select/quoted-identifiers.sql'];
+    const files = [
+        'select/precedence.sql',
+        'select/quoted-identifiers.sql',
+        'ddl/roles.sql',
+    ];
     const variants = [
         {},
         { sqlKeywordCase: 'upper' },

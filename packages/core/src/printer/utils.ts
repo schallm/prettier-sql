@@ -32,10 +32,11 @@ export function keyword(kw: string, opts: Options): Doc {
     const recase = sqlKeywordCase === 'lower'
         ? (s: string) => s.toLowerCase()
         : (s: string) => s.toUpperCase();
-    // Names passed through here (function and type names) may contain double-quoted
-    // identifiers, which are case-sensitive: recase only the text outside quotes.
-    if (!kw.includes('"')) return recase(kw);
-    return kw.replace(/("(?:[^"]|"")*")|[^"]+/g, (m, quoted) => (quoted ? m : recase(m)));
+    // Strings passed through here may embed case-sensitive parts: double-quoted
+    // identifiers in function and type names, and single-quoted literals in option
+    // strings such as `PASSWORD 'Secret'`. Recase only the text outside quotes.
+    if (!kw.includes('"') && !kw.includes("'")) return recase(kw);
+    return kw.replace(/("(?:[^"]|"")*"|'(?:[^']|'')*')|[^"']+/g, (m, quoted) => (quoted ? m : recase(m)));
 }
 
 export function getDensity(opts: Options): 'compact' | 'standard' | 'spacious' {

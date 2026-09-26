@@ -1582,7 +1582,7 @@ public class AstBuilder {
                     var pwd = defElem.Arg?.NodeCase == Node.NodeOneofCase.String ? defElem.Arg.String.Sval
                         : defElem.Arg?.NodeCase == Node.NodeOneofCase.AConst && defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval
                             ? defElem.Arg.AConst.Sval.Sval : null;
-                    result.Add(pwd != null ? $"PASSWORD '{pwd}'" : "PASSWORD NULL");
+                    result.Add(pwd != null ? $"PASSWORD '{pwd.Replace("'", "''")}'" : "PASSWORD NULL");
                     break;
                 case "connectionlimit":
                     result.Add($"CONNECTION LIMIT {defElem.Arg?.Integer?.Ival ?? -1}");
