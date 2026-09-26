@@ -5,7 +5,8 @@ exports[`fixtures > admin/alter-database.sql 1`] = `
 set automatic_index_compaction = on;
 
 alter database SalesDB
-set automatic_index_compaction = off;"
+set automatic_index_compaction = off;
+"
 `;
 
 exports[`fixtures > admin/backup-restore.sql 1`] = `
@@ -51,7 +52,8 @@ drop database Bookstore;
 
 drop database if exists Bookstore;
 
-drop database Bookstore, BookstoreDev;"
+drop database Bookstore, BookstoreDev;
+"
 `;
 
 exports[`fixtures > admin/create-database.sql 1`] = `
@@ -64,7 +66,8 @@ create database SalesSnap as snapshot of SalesDB;
 
 drop database SalesDB;
 
-drop database if exists SalesDB;"
+drop database if exists SalesDB;
+"
 `;
 
 exports[`fixtures > admin/create-database-filegroups.sql 1`] = `
@@ -74,7 +77,8 @@ on
    primary (name = 'TestDb', filename = 'C:\\data\\TestDb.mdf', size = 100mb)
 log on
   (name = 'TestDb_log', filename = 'C:\\data\\TestDb_log.ldf', size = 10mb)
-collate Latin1_General_CI_AS;"
+collate Latin1_General_CI_AS;
+"
 `;
 
 exports[`fixtures > admin/dbcc.sql 1`] = `
@@ -92,7 +96,8 @@ dbcc freeproccache;
 
 dbcc dropcleanbuffers;
 
-dbcc show_statistics('dbo.Orders', IX_Orders_CustId);"
+dbcc show_statistics('dbo.Orders', IX_Orders_CustId);
+"
 `;
 
 exports[`fixtures > admin/event-session.sql 1`] = `
@@ -100,7 +105,8 @@ exports[`fixtures > admin/event-session.sql 1`] = `
 go
 
 alter event session TraceDeadlocks on server state = stop;
-go"
+go
+"
 `;
 
 exports[`fixtures > admin/service-broker.sql 1`] = `
@@ -133,7 +139,8 @@ from dbo.OrderQueue;
 get conversation group @group_id from dbo.OrderQueue;
 
 -- MOVE CONVERSATION
-move conversation @handle to @group_id;"
+move conversation @handle to @group_id;
+"
 `;
 
 exports[`fixtures > admin/statistics.sql 1`] = `
@@ -162,14 +169,16 @@ with norecompute;
 drop statistics dbo.Orders.stat1;
 
 drop statistics dbo.Orders.stat1,
-dbo.Orders.stat2;"
+dbo.Orders.stat2;
+"
 `;
 
 exports[`fixtures > alter-table/add-column.sql 1`] = `
 "alter table Books
 add
   Isbn nvarchar(20) null,
-  Summary nvarchar(max) null;"
+  Summary nvarchar(max) null;
+"
 `;
 
 exports[`fixtures > alter-table/alter-column.sql 1`] = `
@@ -187,7 +196,8 @@ alter table dbo.T
 alter column Name nvarchar(200) collate Latin1_General_CI_AS null;
 
 alter table dbo.T
-alter column Code varchar(20) collate SQL_Latin1_General_CP1_CS_AS not null;"
+alter column Code varchar(20) collate SQL_Latin1_General_CP1_CS_AS not null;
+"
 `;
 
 exports[`fixtures > alter-table/constraints.sql 1`] = `
@@ -218,12 +228,14 @@ alter table Orders
 nocheck constraint FK_Orders_Customers;
 
 alter table Orders
-check constraint all;"
+check constraint all;
+"
 `;
 
 exports[`fixtures > alter-table/drop-column.sql 1`] = `
 "alter table Books
-drop column Isbn, Summary;"
+drop column Isbn, Summary;
+"
 `;
 
 exports[`fixtures > alter-table/drop-constraint-with.sql 1`] = `
@@ -237,7 +249,8 @@ drop constraint
   IX_Orders_Date with (ONLINE = ON, wait_at_low_priority (max_duration = 10 minutes, abort_after_wait = blockers));
 
 alter table dbo.BigTable
-drop constraint CL_BigTable with (ONLINE = ON, MAXDOP = 4);"
+drop constraint CL_BigTable with (ONLINE = ON, MAXDOP = 4);
+"
 `;
 
 exports[`fixtures > alter-table/set-rebuild-switch.sql 1`] = `
@@ -257,7 +270,8 @@ alter table Orders
 switch partition 3 to ArchivedOrders partition 1;
 
 alter table Orders
-switch to ArchivedOrders;"
+switch to ArchivedOrders;
+"
 `;
 
 exports[`fixtures > alter-table/switch-partition-wait.sql 1`] = `
@@ -269,7 +283,8 @@ alter table dbo.BigTable
 switch partition 5 to dbo.BigTableArchive partition 1 with (wait_at_low_priority (max_duration = 0 minutes, abort_after_wait = none));
 
 alter table dbo.BigTable
-switch partition 5 to dbo.BigTableArchive partition 1 with (wait_at_low_priority (max_duration = 30 minutes, abort_after_wait = blockers));"
+switch partition 5 to dbo.BigTableArchive partition 1 with (wait_at_low_priority (max_duration = 30 minutes, abort_after_wait = blockers));
+"
 `;
 
 exports[`fixtures > create-table/basic.sql 1`] = `
@@ -280,7 +295,8 @@ exports[`fixtures > create-table/basic.sql 1`] = `
   InStock bit default 1 not null,
   PublishedDate datetime2 default getdate() not null,
   constraint PK_Books primary key (Id)
-);"
+);
+"
 `;
 
 exports[`fixtures > create-table/collate-sparse.sql 1`] = `
@@ -302,7 +318,8 @@ create table dbo.Props (
 create table dbo.SparseDocs (
   Id int not null,
   Title nvarchar(200) collate SQL_Latin1_General_CP1_CI_AS sparse null
-);"
+);
+"
 `;
 
 exports[`fixtures > create-table/computed-columns.sql 1`] = `
@@ -328,7 +345,8 @@ create table dbo.Employees (
   FirstName nvarchar(50) not null,
   LastName nvarchar(50) not null,
   FullName as (FirstName + ' ' + LastName) persisted not null
-);"
+);
+"
 `;
 
 exports[`fixtures > create-table/filestream.sql 1`] = `
@@ -339,7 +357,8 @@ create table dbo.Documents (
   RowGuid uniqueidentifier rowguidcol default newid() not null unique
 )
 on DataFileGroup
-filestream_on FileStreamGroup;"
+filestream_on FileStreamGroup;
+"
 `;
 
 exports[`fixtures > create-table/graph-tables.sql 1`] = `
@@ -362,7 +381,8 @@ create table dbo.WorksAt (
 
 create table dbo.Knows (
   Weight float null
-) as edge;"
+) as edge;
+"
 `;
 
 exports[`fixtures > create-table/inline-fk-constraint-name.sql 1`] = `
@@ -374,7 +394,8 @@ create table dbo.LineItems (
   Quantity int not null constraint CHK_Qty check (Quantity > 0),
   UnitPrice decimal(10, 2) not null,
   constraint UQ_LineItems_OrderProduct unique (OrderId, ProductId)
-);"
+);
+"
 `;
 
 exports[`fixtures > create-table/temporal.sql 1`] = `
@@ -405,7 +426,8 @@ create table Employees (
   Name nvarchar(100) not null,
   Email nvarchar(200) masked with (function = 'email()') not null,
   Phone varchar(20) masked with (function = 'default()') null
-);"
+);
+"
 `;
 
 exports[`fixtures > create-table/with-constraints.sql 1`] = `
@@ -436,7 +458,8 @@ create table Events (
   EventType tinyint not null,
   constraint PK_Events primary key clustered (Id, OccurredAt desc),
   constraint UQ_Events unique nonclustered (EventType, Id)
-);"
+);
+"
 `;
 
 exports[`fixtures > create-table/with-indexes.sql 1`] = `
@@ -461,7 +484,8 @@ create table OrderItems (
     foreign key (ProductId) references Products (Id),
   index IX_OrderItems_OrderId nonclustered (OrderId asc),
   index IX_OrderItems_ProductId nonclustered (ProductId asc)
-);"
+);
+"
 `;
 
 exports[`fixtures > create-table/with-options.sql 1`] = `
@@ -478,7 +502,8 @@ create table BigData (
   Payload nvarchar(max) null,
   constraint PK_BigData primary key (Id)
 )
-with (data_compression = row, memory_optimized = off);"
+with (data_compression = row, memory_optimized = off);
+"
 `;
 
 exports[`fixtures > create-table/xml-schema-collection.sql 1`] = `
@@ -494,7 +519,8 @@ create table dbo.Documents (
   Content xml(content dbo.DocSchema) null,
   Doc xml(document dbo.StrictSchema) null,
   Untyped xml null
-);"
+);
+"
 `;
 
 exports[`fixtures > ddl/filtered-index.sql 1`] = `
@@ -510,7 +536,8 @@ create unique index UQ_Orders_Active
   )
   where
     Status <> 'Cancelled'
-    and Total > 0;"
+    and Total > 0;
+"
 `;
 
 exports[`fixtures > ddl/ledger-table.sql 1`] = `
@@ -525,7 +552,8 @@ create table dbo.NonLedger (
   Id int primary key,
   Name nvarchar(200) not null
 )
-with (ledger = off);"
+with (ledger = off);
+"
 `;
 
 exports[`fixtures > ddl/schema.sql 1`] = `
@@ -557,14 +585,16 @@ drop synonym MyAlias;
 go
 
 drop synonym if exists dbo.MyAlias;
-go"
+go
+"
 `;
 
 exports[`fixtures > delete/basic.sql 1`] = `
 "delete from Books
 where
   InStock = 0
-  and PublishedDate < dateadd(year, -10, getdate());"
+  and PublishedDate < dateadd(year, -10, getdate());
+"
 `;
 
 exports[`fixtures > delete/cte.sql 1`] = `
@@ -585,7 +615,8 @@ with
     from OrderItems
     where OrderId = 99
   )
-delete from old;"
+delete from old;
+"
 `;
 
 exports[`fixtures > dml/bulk-insert.sql 1`] = `
@@ -607,7 +638,8 @@ with (
   rowterminator = '\\n',
   firstrow = 2,
   maxerrors = 10
-);"
+);
+"
 `;
 
 exports[`fixtures > dml/dropped-clauses.sql 1`] = `
@@ -671,7 +703,8 @@ drop ck1, ck2, column c, d;
 -- Variables in hints keep their case
 select a
 from t
-option (optimize for (@MyParam = 1));"
+option (optimize for (@MyParam = 1));
+"
 `;
 
 exports[`fixtures > dml/insert-values.sql 1`] = `
@@ -691,7 +724,8 @@ values
 
 -- Single row: always inline regardless of density
 insert into Books (Title, AuthorId, Price)
-values ('Clean Code', 1, 39.99);"
+values ('Clean Code', 1, 39.99);
+"
 `;
 
 exports[`fixtures > dml/linked-database-names.sql 1`] = `
@@ -708,13 +742,15 @@ select
   g.Name as Genre
 from
   LibraryServer.BooksDb.dbo.Books as b
-  inner join LibraryServer.BooksDb..Genres as g on g.GenreId = b.GenreId;"
+  inner join LibraryServer.BooksDb..Genres as g on g.GenreId = b.GenreId;
+"
 `;
 
 exports[`fixtures > execute/dynamic-sql.sql 1`] = `
 "execute (@sql);
 
-execute (@sql1 + @sql2);"
+execute (@sql1 + @sql2);
+"
 `;
 
 exports[`fixtures > execute/execute-as.sql 1`] = `
@@ -753,7 +789,8 @@ begin
   select BookId
   from Books;
 end;
-go"
+go
+"
 `;
 
 exports[`fixtures > execute/proc-call.sql 1`] = `
@@ -767,7 +804,8 @@ execute dbo.UpdateBookPrice
   @NewPrice = 19.99;
 
 execute dbo.GetCount
-  @Result = @count output;"
+  @Result = @count output;
+"
 `;
 
 exports[`fixtures > execute/proc-variable.sql 1`] = `
@@ -775,7 +813,8 @@ exports[`fixtures > execute/proc-variable.sql 1`] = `
 
 execute @procName
   @param1,
-  @param2;"
+  @param2;
+"
 `;
 
 exports[`fixtures > function/clr-external-name.sql 1`] = `
@@ -793,7 +832,8 @@ go
 alter function dbo.FormatPhone(@phone nvarchar(20))
 returns nvarchar(20)
 as external name MyClrLib.[MyNamespace.MyClass].FormatPhone;
-go"
+go
+"
 `;
 
 exports[`fixtures > function/multi-statement-tvf.sql 1`] = `
@@ -816,7 +856,8 @@ begin
 
   return;
 end;
-go"
+go
+"
 `;
 
 exports[`fixtures > function/scalar.sql 1`] = `
@@ -829,7 +870,8 @@ as
 begin
   return @FirstName + ' ' + @LastName;
 end;
-go"
+go
+"
 `;
 
 exports[`fixtures > function/table-valued.sql 1`] = `
@@ -846,7 +888,8 @@ return (
     GenreId = @GenreId
     and InStock = 1
 );
-go"
+go
+"
 `;
 
 exports[`fixtures > function/trim.sql 1`] = `
@@ -856,7 +899,8 @@ as
 begin
   return trim(nchar(12288) from @str);
 end;
-go"
+go
+"
 `;
 
 exports[`fixtures > index/alter-index-partition.sql 1`] = `
@@ -864,7 +908,8 @@ exports[`fixtures > index/alter-index-partition.sql 1`] = `
 alter index IX_Orders on dbo.Orders rebuild partition = 3 with (data_compression = row, online = on);
 
 -- ALTER INDEX REBUILD with PARTITION ALL
-alter index IX_Orders on dbo.Orders rebuild partition = all with (data_compression = page);"
+alter index IX_Orders on dbo.Orders rebuild partition = all with (data_compression = page);
+"
 `;
 
 exports[`fixtures > index/basic.sql 1`] = `
@@ -916,7 +961,8 @@ alter index all on Books disable;
 
 drop index IX_Books_Title on Books;
 
-drop index if exists IX_Books_Title on Books;"
+drop index if exists IX_Books_Title on Books;
+"
 `;
 
 exports[`fixtures > index/columnstore.sql 1`] = `
@@ -929,7 +975,8 @@ on dbo.Orders (CustomerId, OrderDate, Total);
 create nonclustered columnstore index ncci_filtered
 on dbo.Orders (CustomerId, OrderDate)
 where Status = 'Closed'
-with (drop_existing = on);"
+with (drop_existing = on);
+"
 `;
 
 exports[`fixtures > index/vector-index.sql 1`] = `
@@ -946,7 +993,8 @@ with (metric = 'dot');
 -- TYPE option: DiskANN (default)
 create vector index IX_Embeddings_Full
   on Embeddings(Vec)
-with (metric = 'cosine', type = 'DiskANN');"
+with (metric = 'cosine', type = 'DiskANN');
+"
 `;
 
 exports[`fixtures > insert/cte.sql 1`] = `
@@ -961,7 +1009,8 @@ insert into Books (Id, Title)
 select
   Id,
   Title
-from src;"
+from src;
+"
 `;
 
 exports[`fixtures > insert/default-values.sql 1`] = `
@@ -969,7 +1018,8 @@ exports[`fixtures > insert/default-values.sql 1`] = `
 default values;
 
 insert into OrderAudit (EventType, EventDate)
-values ('manual', '2024-01-01');"
+values ('manual', '2024-01-01');
+"
 `;
 
 exports[`fixtures > insert/select-into.sql 1`] = `
@@ -979,7 +1029,8 @@ select
   Title,
   Price
 from Books
-where InStock = 0;"
+where InStock = 0;
+"
 `;
 
 exports[`fixtures > merge/basic.sql 1`] = `
@@ -1022,7 +1073,8 @@ when matched then
 when not matched by target then
   insert (Title, Price, InStock)
   values (src.Title, src.Price, src.InStock)
-output $action, inserted.Id, inserted.Title, deleted.Price;"
+output $action, inserted.Id, inserted.Title, deleted.Price;
+"
 `;
 
 exports[`fixtures > merge/with-top.sql 1`] = `
@@ -1032,7 +1084,8 @@ when matched then
   update set t.Name = s.Name
 when not matched then
   insert (Id, Name)
-  values (s.Id, s.Name);"
+  values (s.Id, s.Name);
+"
 `;
 
 exports[`fixtures > partition/basic.sql 1`] = `
@@ -1067,7 +1120,8 @@ truncate table dbo.Orders with (partitions (1, 2, 3));
 
 truncate table dbo.Orders with (partitions (1 to 3));
 
-truncate table dbo.Orders with (partitions (1, 5 to 10, 20));"
+truncate table dbo.Orders with (partitions (1, 5 to 10, 20));
+"
 `;
 
 exports[`fixtures > procedural/compound-assignment.sql 1`] = `
@@ -1080,7 +1134,8 @@ set @n /= 4;
 set @n %= 3;
 set @n &= 0xFF;
 set @n |= 0x01;
-set @n ^= 0xAA;"
+set @n ^= 0xAA;
+"
 `;
 
 exports[`fixtures > procedural/control-flow.sql 1`] = `
@@ -1128,7 +1183,8 @@ end catch
 goto Cleanup;
 Cleanup:
 print 'done';
-return;"
+return;
+"
 `;
 
 exports[`fixtures > procedural/cursors.sql 1`] = `
@@ -1196,7 +1252,8 @@ open @scrollCur;
 fetch first from @scrollCur into @bookId, @title;
 fetch last from @scrollCur into @bookId, @title;
 close @scrollCur;
-deallocate @scrollCur;"
+deallocate @scrollCur;
+"
 `;
 
 exports[`fixtures > procedural/operational.sql 1`] = `
@@ -1211,7 +1268,8 @@ kill 52 with statusonly;
 
 reconfigure;
 
-reconfigure with override;"
+reconfigure with override;
+"
 `;
 
 exports[`fixtures > procedural/standalone-begin-end.sql 1`] = `
@@ -1229,7 +1287,8 @@ begin
   begin
     print 'nested';
   end
-end"
+end
+"
 `;
 
 exports[`fixtures > procedural/transactions.sql 1`] = `
@@ -1270,7 +1329,8 @@ end catch
 
 set transaction isolation level read committed;
 set transaction isolation level serializable;
-set transaction isolation level snapshot;"
+set transaction isolation level snapshot;
+"
 `;
 
 exports[`fixtures > procedural/transactions-with-mark.sql 1`] = `
@@ -1300,14 +1360,16 @@ begin distributed transaction;
 go
 
 begin distributed transaction OrderTxn;
-go"
+go
+"
 `;
 
 exports[`fixtures > procedural/xml-method-set.sql 1`] = `
 "declare @xmlDoc xml = '<root><item id="1"><name>Widget</name></root>';
 set @xmlDoc.modify('insert <tag>val</tag> as last into (/root)[1]');
 set @xmlDoc.modify('delete (/root/item[@id=1])[1]');
-set @xmlDoc.modify('replace value of (/root/item/name/text())[1] with "Gadget"');"
+set @xmlDoc.modify('replace value of (/root/item/name/text())[1] with "Gadget"');
+"
 `;
 
 exports[`fixtures > security/alter-authorization.sql 1`] = `
@@ -1325,7 +1387,8 @@ to dbo;
 
 alter authorization
 on database::Bookstore
-to sa;"
+to sa;
+"
 `;
 
 exports[`fixtures > security/always-encrypted.sql 1`] = `
@@ -1345,7 +1408,8 @@ drop column master key CMK1;
 create table dbo.patients (
   id int not null,
   ssn char(9) collate Latin1_General_BIN2 encrypted with (column_encryption_key = CEK1, encryption_type = deterministic, algorithm = 'AEAD_AES_256_CBC_HMAC_SHA_256') not null
-);"
+);
+"
 `;
 
 exports[`fixtures > security/external-model.sql 1`] = `
@@ -1374,7 +1438,8 @@ alter external model m1 set (
   credential = c
 );
 
-drop external model m1;"
+drop external model m1;
+"
 `;
 
 exports[`fixtures > security/grants.sql 1`] = `
@@ -1445,7 +1510,8 @@ on schema::dbo
 to AppUser;
 grant control
 on database::AdventureWorks
-to AppUser;"
+to AppUser;
+"
 `;
 
 exports[`fixtures > security/users-roles.sql 1`] = `
@@ -1506,7 +1572,8 @@ to ReportUser;
 grant execute
 on dbo.GetAvailableBooks
 to AppUser
-with grant option;"
+with grant option;
+"
 `;
 
 exports[`fixtures > select/basic.sql 1`] = `
@@ -1518,7 +1585,8 @@ from
   Books
   inner join Authors on Books.AuthorId = Authors.Id
 where Books.InStock = 1
-order by Books.Title asc;"
+order by Books.Title asc;
+"
 `;
 
 exports[`fixtures > select/bracketed-identifiers.sql 1`] = `
@@ -1620,7 +1688,8 @@ create index ix
     a asc
   )
 on [primary];
-go"
+go
+"
 `;
 
 exports[`fixtures > select/change-tracking-context.sql 1`] = `
@@ -1636,7 +1705,8 @@ values ('New Row');
 
 with change_tracking_context (@ctx)
 delete from dbo.T
-where Id = 42;"
+where Id = 42;
+"
 `;
 
 exports[`fixtures > select/comments.sql 1`] = `
@@ -1677,7 +1747,8 @@ from
 
 select BookId
 from Books;
-/* end of queries */"
+/* end of queries */
+"
 `;
 
 exports[`fixtures > select/expressions.sql 1`] = `
@@ -1800,7 +1871,8 @@ select FirstName || ' ' || LastName as FullName
 from Employees;
 
 select a || b || c || d
-from t;"
+from t;
+"
 `;
 
 exports[`fixtures > select/for-xml-json.sql 1`] = `
@@ -1859,7 +1931,8 @@ select
   o.Id,
   o.Amount
 from dbo.Orders as o
-for xml path('Order'), root('Orders');"
+for xml path('Order'), root('Orders');
+"
 `;
 
 exports[`fixtures > select/full-text.sql 1`] = `
@@ -1901,7 +1974,8 @@ select
 from
   Books as b
   inner join freetexttable(Books, *, 'programming', 10) as ft on
-    b.BookId = ft.[key];"
+    b.BookId = ft.[key];
+"
 `;
 
 exports[`fixtures > select/graph-match.sql 1`] = `
@@ -1926,7 +2000,8 @@ from
   dbo.Person as p2
 where
   MATCH(p1-(k)->p2)
-  or MATCH(p2-(k)->p1);"
+  or MATCH(p2-(k)->p1);
+"
 `;
 
 exports[`fixtures > select/inline-values.sql 1`] = `
@@ -1942,7 +2017,8 @@ select
   p.ProductId,
   p.Price
 from (values (101, 9.99), (102, 14.99), (103, 4.99)) as p(ProductId, Price)
-where p.Price < 10;"
+where p.Price < 10;
+"
 `;
 
 exports[`fixtures > select/joins.sql 1`] = `
@@ -2062,7 +2138,8 @@ set InStock = 0
 from
   Books as b
   inner join Publishers as p on b.PublisherId = p.Id
-where p.Country = 'UK';"
+where p.Country = 'UK';
+"
 `;
 
 exports[`fixtures > select/json-constructors.sql 1`] = `
@@ -2095,7 +2172,8 @@ group by Name;
 
 select json_objectagg(Name: [Value] null on null)
 from Config
-group by Name;"
+group by Name;
+"
 `;
 
 exports[`fixtures > select/option-clause.sql 1`] = `
@@ -2124,7 +2202,8 @@ option (maxdop 4);
 
 select BookId
 from Books
-option (recompile, maxdop 4);"
+option (recompile, maxdop 4);
+"
 `;
 
 exports[`fixtures > select/pagination.sql 1`] = `
@@ -2173,7 +2252,8 @@ select
 from ArchivedBooks
 order by Title asc
 offset 0 rows
-fetch next 10 rows only;"
+fetch next 10 rows only;
+"
 `;
 
 exports[`fixtures > select/pivot-unpivot.sql 1`] = `
@@ -2205,7 +2285,8 @@ select *
 from PivotedSales
 unpivot (
   Amount for Quarter in (Q1, Q2, Q3, Q4)
-) as UnpivotTable;"
+) as UnpivotTable;
+"
 `;
 
 exports[`fixtures > select/quoted-identifiers.sql 1`] = `
@@ -2232,7 +2313,8 @@ select
   [My Table].[Book Title]
 from
   Books
-  inner join [My Table] on Books.Id = [My Table].[Book Id];"
+  inner join [My Table] on Books.Id = [My Table].[Book Id];
+"
 `;
 
 exports[`fixtures > select/regexp.sql 1`] = `
@@ -2283,7 +2365,8 @@ select Email
 from Customers
 where
   regexp_like(Email, '^[a-z]')
-  and IsActive = 1;"
+  and IsActive = 1;
+"
 `;
 
 exports[`fixtures > select/rowset-functions.sql 1`] = `
@@ -2353,7 +2436,8 @@ from generate_series(1, 100) as n;
 
 -- OPENQUERY
 select *
-from openquery(RemoteServer, 'SELECT Id, Name FROM dbo.Customers');"
+from openquery(RemoteServer, 'SELECT Id, Name FROM dbo.Customers');
+"
 `;
 
 exports[`fixtures > select/select-into.sql 1`] = `
@@ -2378,7 +2462,8 @@ select
   Name
 into dbo.Archive
 from Customers
-where IsActive = 0;"
+where IsActive = 0;
+"
 `;
 
 exports[`fixtures > select/subquery.sql 1`] = `
@@ -2396,7 +2481,8 @@ where
     select Id
     from Genres
     where Name = 'Fiction'
-  );"
+  );
+"
 `;
 
 exports[`fixtures > select/tablesample-temporal.sql 1`] = `
@@ -2432,7 +2518,8 @@ from dbo.Employee for system_time contained in ('2022-01-01', '2023-01-01');
 select
   Id,
   Name
-from dbo.Employee for system_time all;"
+from dbo.Employee for system_time all;
+"
 `;
 
 exports[`fixtures > select/vector.sql 1`] = `
@@ -2467,7 +2554,8 @@ from Embeddings;
 
 -- DECLARE with vector type
 declare @v vector(3);
-set @v = '[1.0, 2.0, 3.0]';"
+set @v = '[1.0, 2.0, 3.0]';
+"
 `;
 
 exports[`fixtures > select/window.sql 1`] = `
@@ -2484,7 +2572,8 @@ exports[`fixtures > select/window.sql 1`] = `
     order by Price desc
   ) as Rnk,
   sum(Price) over (partition by GenreId) as GenreTotal
-from Books;"
+from Books;
+"
 `;
 
 exports[`fixtures > select/window-advanced.sql 1`] = `
@@ -2509,7 +2598,8 @@ from Books
 window w as (
   partition by AuthorId
   order by PublishedDate asc
-);"
+);
+"
 `;
 
 exports[`fixtures > select/xml-methods.sql 1`] = `
@@ -2524,7 +2614,8 @@ from XmlDocs;
 select XmlDoc.value('(./Id)[1]', 'int') as Id
 from
   XmlDocs
-  cross apply Data.nodes('/root/item') as n;"
+  cross apply Data.nodes('/root/item') as n;
+"
 `;
 
 exports[`fixtures > sequence/basic.sql 1`] = `
@@ -2553,7 +2644,8 @@ drop sequence OrderSeq;
 
 drop sequence if exists OrderSeq;
 
-drop sequence dbo.InvoiceSeq, dbo.OrderSeq;"
+drop sequence dbo.InvoiceSeq, dbo.OrderSeq;
+"
 `;
 
 exports[`fixtures > stored-proc/basic.sql 1`] = `
@@ -2568,7 +2660,8 @@ begin
   where InStock = 1
   order by Title asc;
 end;
-go"
+go
+"
 `;
 
 exports[`fixtures > stored-proc/clr-external-name.sql 1`] = `
@@ -2583,7 +2676,8 @@ create procedure dbo.LogEvent
   @message nvarchar(max)
 with execute as owner
 as external name MyClrLib.[MyNamespace.Logger].Log;
-go"
+go
+"
 `;
 
 exports[`fixtures > stored-proc/comments.sql 1`] = `
@@ -2624,7 +2718,8 @@ begin
   from Books
   where BookId = @Id;
 end;
-go"
+go
+"
 `;
 
 exports[`fixtures > stored-proc/natively-compiled.sql 1`] = `
@@ -2644,7 +2739,8 @@ begin atomic with (
   from dbo.Orders
   where Id = @Id;
 end;
-go"
+go
+"
 `;
 
 exports[`fixtures > stored-proc/tvp-parameter.sql 1`] = `
@@ -2660,7 +2756,8 @@ begin
     Total
   from @Items;
 end;
-go"
+go
+"
 `;
 
 exports[`fixtures > stored-proc/with-params.sql 1`] = `
@@ -2682,7 +2779,8 @@ begin
       or @IncludeOutOfStock = 1
     );
 end;
-go"
+go
+"
 `;
 
 exports[`fixtures > trigger/after-insert.sql 1`] = `
@@ -2699,7 +2797,8 @@ begin
     getdate()
   from inserted;
 end;
-go"
+go
+"
 `;
 
 exports[`fixtures > trigger/database-scope.sql 1`] = `
@@ -2713,7 +2812,8 @@ begin
   insert into dbo.DDLAudit (EventData, LoginName)
   values (eventdata(), original_login());
 end;
-go"
+go
+"
 `;
 
 exports[`fixtures > trigger/enable-disable.sql 1`] = `
@@ -2733,7 +2833,8 @@ enable trigger all
 on database;
 
 disable trigger all
-on all server;"
+on all server;
+"
 `;
 
 exports[`fixtures > trigger/instead-of-delete.sql 1`] = `
@@ -2750,7 +2851,8 @@ begin
     from deleted
   );
 end;
-go"
+go
+"
 `;
 
 exports[`fixtures > type/basic.sql 1`] = `
@@ -2770,7 +2872,8 @@ create type dbo.OrderLineType as table (
   BookId int not null,
   Quantity int not null,
   UnitPrice decimal(10, 2) not null
-);"
+);
+"
 `;
 
 exports[`fixtures > type/table-types.sql 1`] = `
@@ -2792,14 +2895,16 @@ create type dbo.OrderLine as table (
 
 drop type dbo.IdList;
 
-drop type if exists dbo.NameValuePair;"
+drop type if exists dbo.NameValuePair;
+"
 `;
 
 exports[`fixtures > update/basic.sql 1`] = `
 "update Books
 set
   Title = 'Updated Title', Price = 29.99
-where Id = 42;"
+where Id = 42;
+"
 `;
 
 exports[`fixtures > update/cte.sql 1`] = `
@@ -2830,7 +2935,8 @@ with
   )
 update cte
 set Price = Price * 0.9
-where rn = 1;"
+where rn = 1;
+"
 `;
 
 exports[`fixtures > update/join-update.sql 1`] = `
@@ -2839,7 +2945,8 @@ set InStock = 0
 from
   Books
   inner join Publishers on Books.PublisherId = Publishers.Id
-where Publishers.Country = 'UK';"
+where Publishers.Country = 'UK';
+"
 `;
 
 exports[`fixtures > view/basic.sql 1`] = `
@@ -2854,7 +2961,8 @@ from
   Books as b
   inner join Authors as a on b.AuthorId = a.Id
 where b.InStock = 1;
-go"
+go
+"
 `;
 
 exports[`fixtures > view/check-option.sql 1`] = `
@@ -2869,7 +2977,8 @@ select
 from dbo.Orders
 where Status < 5
 with check option;
-go"
+go
+"
 `;
 
 exports[`fixtures > view/comments.sql 1`] = `
@@ -2895,7 +3004,8 @@ go
 create or alter view AuthorsView
 as
 select 2 as y;
-go"
+go
+"
 `;
 
 exports[`fixtures > view/schemabinding.sql 1`] = `
@@ -2907,7 +3017,8 @@ select
   b.Title,
   b.Price
 from dbo.Books as b;
-go"
+go
+"
 `;
 
 exports[`options > IF condition: multi-predicate continuation indented 1`] = `
@@ -2916,14 +3027,16 @@ exports[`options > IF condition: multi-predicate continuation indented 1`] = `
 begin
   raiserror ('bad date', 16, 1);
   return;
-end"
+end
+"
 `;
 
 exports[`options > INSERT VALUES: multi-column rows fill-pack in compact 1`] = `
 "insert into Books (Title, AuthorId, Price)
 values
   ('The Great Gatsby', 1, 9.99), ('To Kill a Mockingbird', 2, 12.99),
-  ('Of Mice and Men', 3, 7.99), ('The Catcher in the Rye', 4, 11.99);"
+  ('Of Mice and Men', 3, 7.99), ('The Catcher in the Rye', 4, 11.99);
+"
 `;
 
 exports[`options > INSERT VALUES: multi-column rows one-per-line in spacious 1`] = `
@@ -2931,14 +3044,16 @@ exports[`options > INSERT VALUES: multi-column rows one-per-line in spacious 1`]
 values
   ('The Great Gatsby', 1, 9.99),
   ('To Kill a Mockingbird', 2, 12.99),
-  ('Of Mice and Men', 3, 7.99);"
+  ('Of Mice and Men', 3, 7.99);
+"
 `;
 
 exports[`options > INSERT VALUES: single-column rows fill-pack in compact 1`] = `
 "insert into @moviesToAdd (Id)
 values
   (310000267), (310000488), (310000577), (310000552), (310000399), (310000576),
-  (310001689), (310000376), (310000623), (310000017);"
+  (310001689), (310000376), (310000623), (310000017);
+"
 `;
 
 exports[`options > UPDATE SET: fill-packs items in standard 1`] = `
@@ -2946,7 +3061,8 @@ exports[`options > UPDATE SET: fill-packs items in standard 1`] = `
 set
   StartDt = @NewStartDt, EndDt = @NewEndDt, EnteredBy = @EnteredBy,
   EnteredDt = @EnteredDt
-where Id = @Id;"
+where Id = @Id;
+"
 `;
 
 exports[`options > UPDATE SET: one-per-line in spacious 1`] = `
@@ -2956,7 +3072,8 @@ set
   EndDt = @NewEndDt,
   EnteredBy = @EnteredBy
 where
-  Id = @Id;"
+  Id = @Id;
+"
 `;
 
 exports[`options > procedure body: minor statements grouped without blank lines 1`] = `
@@ -2978,7 +3095,8 @@ begin
   set Col = @x
   where Id = 1;
 end;
-go"
+go
+"
 `;
 
 exports[`options > raiserror: long args fill-pack in compact 1`] = `
@@ -2989,7 +3107,8 @@ begin
     @expected, @rowsAdded
   );
   return;
-end"
+end
+"
 `;
 
 exports[`options > raiserror: long args wrap one-per-line in standard 1`] = `
@@ -3003,7 +3122,8 @@ begin
     @rowsAdded
   );
   return;
-end"
+end
+"
 `;
 
 exports[`options > sqlCommaStyle: leading 1`] = `
@@ -3014,7 +3134,8 @@ exports[`options > sqlCommaStyle: leading 1`] = `
   , AuthorId
   , InStock
 from Books
-where InStock = 1;"
+where InStock = 1;
+"
 `;
 
 exports[`options > sqlCommaStyle: trailing (default) 1`] = `
@@ -3025,7 +3146,8 @@ exports[`options > sqlCommaStyle: trailing (default) 1`] = `
   AuthorId,
   InStock
 from Books
-where InStock = 1;"
+where InStock = 1;
+"
 `;
 
 exports[`options > sqlDensity: compact (JOIN ON wraps to indented line) 1`] = `
@@ -3033,7 +3155,8 @@ exports[`options > sqlDensity: compact (JOIN ON wraps to indented line) 1`] = `
 from Books as b
   inner join Authors as author on
     author.AuthorId = b.AuthorId and author.IsActive = 1
-  inner join Genres as g on g.GenreId = b.GenreId;"
+  inner join Genres as g on g.GenreId = b.GenreId;
+"
 `;
 
 exports[`options > sqlDensity: compact (ORDER BY wraps with indent) 1`] = `
@@ -3043,7 +3166,8 @@ where InStock = 1
 group by AuthorId, GenreId
 order by
   TotalBookCount desc, AuthorId asc, GenreId asc, PublisherId asc,
-  PublishedYear desc;"
+  PublishedYear desc;
+"
 `;
 
 exports[`options > sqlDensity: compact (function args fill by width) 1`] = `
@@ -3052,24 +3176,30 @@ exports[`options > sqlDensity: compact (function args fill by width) 1`] = `
     PhoneNumber, ' / ', City, ', ', Country
   ) as ContactInfo
 from Authors
-where IsActive = 1;"
+where IsActive = 1;
+"
 `;
 
 exports[`options > sqlDensity: compact (group by wrapping) 1`] = `
 "select CustomerId, ProductCategoryId, RegionId, sum(TotalAmount) as Revenue,
   count(*) as OrderCount
 from Orders
-group by CustomerId, ProductCategoryId, RegionId;"
+group by CustomerId, ProductCategoryId, RegionId;
+"
 `;
 
 exports[`options > sqlDensity: compact (wrapping columns) 1`] = `
 "select OrderId, CustomerId, ProductId, Quantity, UnitPrice, TotalAmount,
   OrderDate, ShipDate
 from Orders
-where IsActive = 1;"
+where IsActive = 1;
+"
 `;
 
-exports[`options > sqlDensity: compact 1`] = `"select BookId from Books where InStock = 1;"`;
+exports[`options > sqlDensity: compact 1`] = `
+"select BookId from Books where InStock = 1;
+"
+`;
 
 exports[`options > sqlDensity: spacious 1`] = `
 "select
@@ -3083,7 +3213,8 @@ from
 where
   b.InStock = 1
 order by
-  b.Title asc;"
+  b.Title asc;
+"
 `;
 
 exports[`options > sqlKeywordCase: lower (default) 1`] = `
@@ -3095,7 +3226,8 @@ from
   Books as b
   inner join Authors as a on b.AuthorId = a.Id
 where b.InStock = 1
-order by b.Title asc;"
+order by b.Title asc;
+"
 `;
 
 exports[`options > sqlKeywordCase: upper 1`] = `
@@ -3107,7 +3239,8 @@ FROM
   Books AS b
   INNER JOIN Authors AS a ON b.AuthorId = a.Id
 WHERE b.InStock = 1
-ORDER BY b.Title ASC;"
+ORDER BY b.Title ASC;
+"
 `;
 
 exports[`shared fixtures > ddl/alter-table.sql 1`] = `
@@ -3134,7 +3267,8 @@ alter table books
 drop constraint uq_books_title;
 
 alter table books
-drop constraint fk_books_publisher;"
+drop constraint fk_books_publisher;
+"
 `;
 
 exports[`shared fixtures > ddl/create-index.sql 1`] = `
@@ -3163,7 +3297,8 @@ create index ix_books_in_stock
   on books (
     author_id asc
   )
-  where in_stock = 1;"
+  where in_stock = 1;
+"
 `;
 
 exports[`shared fixtures > ddl/create-table.sql 1`] = `
@@ -3194,7 +3329,8 @@ create table order_items (
   constraint pk_order_items primary key (order_id, book_id),
   constraint fk_order_items_order foreign key (order_id) references orders (id),
   constraint fk_order_items_book foreign key (book_id) references books (id)
-);"
+);
+"
 `;
 
 exports[`shared fixtures > ddl/create-view.sql 1`] = `
@@ -3206,7 +3342,8 @@ select
   price
 from books
 where in_stock = 1;
-go"
+go
+"
 `;
 
 exports[`shared fixtures > ddl/drop.sql 1`] = `
@@ -3216,7 +3353,8 @@ drop table if exists temp_log;
 
 drop view old_summary;
 
-drop view if exists old_summary;"
+drop view if exists old_summary;
+"
 `;
 
 exports[`shared fixtures > dml/delete.sql 1`] = `
@@ -3235,7 +3373,8 @@ where order_id in (
 delete from sessions
 where exists (
   select 1 from users where users.id = sessions.user_id and users.active = 0
-);"
+);
+"
 `;
 
 exports[`shared fixtures > dml/insert.sql 1`] = `
@@ -3259,10 +3398,14 @@ select
   title,
   price
 from books
-where in_stock = 0;"
+where in_stock = 0;
+"
 `;
 
-exports[`shared fixtures > dml/truncate.sql 1`] = `"truncate table sessions;"`;
+exports[`shared fixtures > dml/truncate.sql 1`] = `
+"truncate table sessions;
+"
+`;
 
 exports[`shared fixtures > dml/update.sql 1`] = `
 "update books
@@ -3286,7 +3429,8 @@ set price = (
   from books
   where author_id = 1
 )
-where author_id = 1;"
+where author_id = 1;
+"
 `;
 
 exports[`shared fixtures > select/aggregates.sql 1`] = `
@@ -3298,7 +3442,8 @@ from books
 where in_stock = 1
 group by author_id
 having count(*) > 5
-order by book_count desc;"
+order by book_count desc;
+"
 `;
 
 exports[`shared fixtures > select/basic.sql 1`] = `
@@ -3318,7 +3463,8 @@ from books
 where
   in_stock = 1
   and price < 50
-order by price desc;"
+order by price desc;
+"
 `;
 
 exports[`shared fixtures > select/case.sql 1`] = `
@@ -3338,7 +3484,8 @@ select
     when 2 then 'Non-Fiction'
     else 'Other'
   end as genre
-from books;"
+from books;
+"
 `;
 
 exports[`shared fixtures > select/cte.sql 1`] = `
@@ -3379,7 +3526,8 @@ select
   a.last_name
 from
   authors as a
-  inner join top_authors as t on a.id = t.author_id;"
+  inner join top_authors as t on a.id = t.author_id;
+"
 `;
 
 exports[`shared fixtures > select/distinct.sql 1`] = `
@@ -3390,7 +3538,8 @@ select distinct
   author_id,
   genre_id
 from books
-order by author_id asc;"
+order by author_id asc;
+"
 `;
 
 exports[`shared fixtures > select/expressions.sql 1`] = `
@@ -3439,7 +3588,8 @@ select
   first_name || ' ' || last_name || ' (' || email || ')' || ' — ' || city
     || ', ' || country as contact_info
 from authors
-where is_active = 1;"
+where is_active = 1;
+"
 `;
 
 exports[`shared fixtures > select/group-by-advanced.sql 1`] = `
@@ -3468,7 +3618,8 @@ select
   author_id,
   count(*) as book_count
 from books
-group by rollup(genre_id, author_id);"
+group by rollup(genre_id, author_id);
+"
 `;
 
 exports[`shared fixtures > select/joins.sql 1`] = `
@@ -3534,7 +3685,8 @@ from
 where b.in_stock = 1
 order by
   a.last_name asc,
-  b.title asc;"
+  b.title asc;
+"
 `;
 
 exports[`shared fixtures > select/predicates.sql 1`] = `
@@ -3640,7 +3792,8 @@ where deleted_at is distinct from current_timestamp;
 
 select id
 from books
-where deleted_at is not distinct from current_timestamp;"
+where deleted_at is not distinct from current_timestamp;
+"
 `;
 
 exports[`shared fixtures > select/regexp.sql 1`] = `
@@ -3661,7 +3814,8 @@ from customers;
 
 -- REGEXP_REPLACE — replace matched text (3-arg form, SQL Server 2025, PostgreSQL)
 select regexp_replace(phone, '[^0-9]', '') as digits_only
-from contacts;"
+from contacts;
+"
 `;
 
 exports[`shared fixtures > select/set-ops.sql 1`] = `
@@ -3742,7 +3896,8 @@ union all
 select
   id,
   name
-from archived_users;"
+from archived_users;
+"
 `;
 
 exports[`shared fixtures > select/subqueries.sql 1`] = `
@@ -3837,7 +3992,8 @@ from books
 where price = any (
   select price
   from featured_books
-);"
+);
+"
 `;
 
 exports[`shared fixtures > select/window.sql 1`] = `
@@ -3954,5 +4110,6 @@ select
     order by id asc
     rows between unbounded preceding and unbounded following
   ) as last_price
-from books;"
+from books;
+"
 `;

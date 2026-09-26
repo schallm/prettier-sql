@@ -267,6 +267,9 @@ export function printScript(node: SqlNode, opts: Options): Doc {
         const needsGo = batches.length > 1 || stmts.some((s) => BATCH_ISOLATING.has(s.type));
         if (needsGo) parts.push(hardline, go);
     }
+    // End the file with a newline, as Prettier's own printers and the pgsql plugin do;
+    // otherwise `prettier --write` strips the final newline editors add.
+    parts.push(hardline);
     return parts;
 }
 

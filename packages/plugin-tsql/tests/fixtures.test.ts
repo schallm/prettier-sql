@@ -23,25 +23,27 @@ describe('filtered index', () => {
     it('normalises WHERE predicate spacing', async () => {
         const sql = `CREATE INDEX IX_Books_InStock ON Books(Price) WHERE InStock=1`;
         expect(await fmt(sql)).toMatchInlineSnapshot(`
-"create index IX_Books_InStock
-  on Books (
-    Price asc
-  )
-  where InStock = 1;"
-`);
+          "create index IX_Books_InStock
+            on Books (
+              Price asc
+            )
+            where InStock = 1;
+          "
+        `);
     });
 
     it('normalises compound WHERE predicate', async () => {
         const sql = `CREATE UNIQUE INDEX UQ_Orders_Active ON Orders(CustomerId) WHERE Status<>'Cancelled' AND Total>0`;
         expect(await fmt(sql)).toMatchInlineSnapshot(`
-"create unique index UQ_Orders_Active
-  on Orders (
-    CustomerId asc
-  )
-  where
-    Status <> 'Cancelled'
-    and Total > 0;"
-`);
+          "create unique index UQ_Orders_Active
+            on Orders (
+              CustomerId asc
+            )
+            where
+              Status <> 'Cancelled'
+              and Total > 0;
+          "
+        `);
     });
 });
 
