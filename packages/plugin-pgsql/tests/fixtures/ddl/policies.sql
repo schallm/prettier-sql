@@ -18,3 +18,9 @@ create policy delete_own_sessions on sessions for delete using (user_id = curren
 create policy admin_all on orders as permissive for all to admin_role using (true);
 
 create policy restrict_sensitive on users as restrictive using (not is_internal);
+
+-- TO roles: quoted role names and pseudo-roles
+create policy auditors_read on orders for select to "Auditors", current_user using (true);
+
+-- ALTER POLICY: an explicit TO public is a change and must be kept
+alter policy admin_all on orders to public using (true);

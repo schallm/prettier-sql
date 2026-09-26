@@ -1921,6 +1921,7 @@ public class AstBuilder {
             ("table",       BuildRangeVar(s.Table)),
             ("cmdName",     string.IsNullOrEmpty(s.CmdName) ? null : s.CmdName.ToUpper()),
             ("restrictive", !s.Permissive ? (object?)true : null),
+            ("roles",       PolicyRoles(s.Roles)),
             ("using",       BuildExpr(s.Qual)),
             ("withCheck",   BuildExpr(s.WithCheck))
         ));
@@ -1929,9 +1930,18 @@ public class AstBuilder {
         new("AlterPolicyStatement", start, end, null, BuildProps(
             ("policyName", Ident.QuoteOpt(s.PolicyName)),
             ("table",      BuildRangeVar(s.Table)),
+            ("roles",      PolicyRoles(s.Roles)),
             ("using",      BuildExpr(s.Qual)),
             ("withCheck",  BuildExpr(s.WithCheck))
         ));
+
+    // The TO role list of CREATE / ALTER POLICY. CREATE POLICY without TO parses as
+    // `TO public`; ALTER POLICY without TO leaves the roles unchanged (empty list).
+    private static object? PolicyRoles(Google.Protobuf.Collections.RepeatedField<Node> roles) =>
+        MaybeList(roles
+            .Where(n => n.NodeCase == Node.NodeOneofCase.RoleSpec)
+            .Select(n => RoleSpecName(n.RoleSpec))
+            .ToList());
 
     private SqlNode BuildDeclareCursor(DeclareCursorStmt s, int start, int end) {
         // Options bitmask: SCROLL=2, NO_SCROLL=4, INSENSITIVE=8, BINARY=16

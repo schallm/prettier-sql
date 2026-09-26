@@ -1357,19 +1357,19 @@ function printCreatePolicy(node: SqlNode, opts: Options): Doc {
     const policyName = propStr(node, 'policyName') ?? '';
     const table    = prop(node, 'table');
     const cmdName  = propStr(node, 'cmdName');
-    const permissive = node.props?.['permissive'];  // false = RESTRICTIVE, null = PERMISSIVE (default)
+    const restrictive = propBool(node, 'restrictive');  // absent = PERMISSIVE (the default)
     const using    = prop(node, 'using');
     const withCheck = prop(node, 'withCheck');
 
     const parts: Doc[] = [];
     parts.push([makeKeyword('CREATE POLICY'), ' ', policyName]);
-
-    const onPart: Doc = permissive === false
-        ? [makeKeyword('AS'), ' ', makeKeyword('RESTRICTIVE'), ' ', makeKeyword('ON'), ' ', rangeVarName(table)]
-        : [makeKeyword('ON'), ' ', rangeVarName(table)];
-    parts.push(onPart);
+    parts.push([makeKeyword('ON'), ' ', rangeVarName(table)]);
+    if (restrictive) parts.push([makeKeyword('AS'), ' ', makeKeyword('RESTRICTIVE')]);
 
     if (cmdName) parts.push([makeKeyword('FOR'), ' ', makeKeyword(cmdName)]);
+    // `TO public` is CREATE POLICY's default, so leave it implicit
+    const roles = propStrArr(node, 'roles');
+    if (roles.length > 0 && !(roles.length === 1 && roles[0] === 'public')) parts.push(policyRolesDoc(roles, opts));
     if (using) parts.push([makeKeyword('USING'), ' (', printNode(using), ')']);
     if (withCheck) parts.push([makeKeyword('WITH CHECK'), ' (', printNode(withCheck), ')']);
 
@@ -1387,10 +1387,23 @@ function printAlterPolicy(node: SqlNode, opts: Options): Doc {
     const parts: Doc[] = [];
     parts.push([makeKeyword('ALTER POLICY'), ' ', policyName]);
     parts.push([makeKeyword('ON'), ' ', rangeVarName(table)]);
+    // Unlike CREATE POLICY, an explicit `TO public` here is a change and must stay
+    const roles = propStrArr(node, 'roles');
+    if (roles.length > 0) parts.push(policyRolesDoc(roles, opts));
     if (using) parts.push([makeKeyword('USING'), ' (', printNode(using), ')']);
     if (withCheck) parts.push([makeKeyword('WITH CHECK'), ' (', printNode(withCheck), ')']);
 
     return [join(hardline, parts), ';'];
+}
+
+// `TO role, …` for CREATE / ALTER POLICY. PUBLIC, CURRENT_USER etc. arrive as
+// lowercase pseudo-role names and print as keywords; real role names are
+// already quoted where needed.
+const PSEUDO_ROLES = new Set(['public', 'current_user', 'current_role', 'session_user']);
+
+function policyRolesDoc(roles: string[], opts: Options): Doc {
+    const roleDocs = roles.map((r): Doc => (PSEUDO_ROLES.has(r) ? keyword(r.toUpperCase(), opts) : r));
+    return [keyword('TO', opts), ' ', join(', ', roleDocs)];
 }
 
 // ---------------------------------------------------------------------------
