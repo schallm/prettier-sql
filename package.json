@@ -11,7 +11,7 @@
     "release": "npm whoami --registry https://registry.npmjs.org 2>/dev/null || npm login && changeset version && pnpm -r --sequential build && changeset publish"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.31.1",
+    "@changesets/cli": "^3.0.3",
     "@types/node": "^26.6.2",
     "prettier": "^3.9.9",
     "typescript": "^7.0.2",
