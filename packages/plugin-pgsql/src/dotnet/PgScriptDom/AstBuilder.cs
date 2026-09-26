@@ -837,7 +837,15 @@ public class AstBuilder {
     private SqlNode BuildBooleanTest(BooleanTest t) =>
         new("BooleanTest", 0, 0, null, BuildProps(
             ("arg", BuildExpr(t.Arg)),
-            ("test", t.Booltesttype.ToString())
+            ("test", t.Booltesttype switch {
+                BoolTestType.IsTrue       => "TRUE",
+                BoolTestType.IsNotTrue    => "NOT TRUE",
+                BoolTestType.IsFalse      => "FALSE",
+                BoolTestType.IsNotFalse   => "NOT FALSE",
+                BoolTestType.IsUnknown    => "UNKNOWN",
+                BoolTestType.IsNotUnknown => "NOT UNKNOWN",
+                _ => throw NotSupported($"boolean test ({t.Booltesttype})", t.Location),
+            })
         ));
 
     private SqlNode BuildRowExpr(RowExpr r) =>
