@@ -837,9 +837,10 @@ function printInsert(node: SqlNode, opts: Options): Doc {
                 ? [hardline, qexpr(source, opts)]
                 : '';
 
+    const topNode = prop(node, 'top');
     const parts: Doc[] = [
         ...ctesDocs,
-        keyword('INSERT INTO', opts),
+        topNode ? [keyword('INSERT', opts), ' ', renderTopFilter(topNode, opts), ' ', keyword('INTO', opts)] : keyword('INSERT INTO', opts),
         ' ',
         target ? printTable(target, opts) : '',
         colsPart,
@@ -908,10 +909,12 @@ function printSetClauseItem(sc: SqlNode, opts: Options): Doc {
     const variable = propStr(sc, 'variable');
     const opStr = assignmentOp(propStr(sc, 'operator') ?? 'Equals');
     let lhs: Doc;
-    if (col && variable) lhs = [printNode(col, opts), ' ', opStr, ' ', variable];
+    // SET @v = col = expr: the variable comes first (`col = @v = expr` doesn't parse)
+    if (col && variable) lhs = [variable, ' = ', printNode(col, opts)];
     else if (col) lhs = printNode(col, opts);
     else if (variable) lhs = variable;
-    else lhs = sc.text ?? '';
+    // Any other set clause (e.g. col.WRITE(...)) is kept verbatim: it has no `= value`
+    else return sc.text ?? '';
     return [lhs, ' ', opStr, ' ', val ? printNode(val, opts) : ''] as Doc;
 }
 
@@ -948,6 +951,10 @@ function printUpdate(node: SqlNode, opts: Options): Doc {
               : indent([hardline, fillList(setParts, opts)]),
     ];
 
+    // OUTPUT comes before FROM in UPDATE (and multi-table DELETE)
+    if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
+    else if (output) parts.push(hardline, printOutputClause(output, opts));
+
     if (from) {
         const tableRefs = propArr(from, 'tableReferences');
         parts.push(
@@ -962,9 +969,6 @@ function printUpdate(node: SqlNode, opts: Options): Doc {
             ]),
         );
     }
-
-    if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
-    else if (output) parts.push(hardline, printOutputClause(output, opts));
 
     if (where) parts.push(hardline, printBoolClause('WHERE', where, opts));
 
@@ -995,6 +999,10 @@ function printDelete(node: SqlNode, opts: Options): Doc {
         parts = [...ctesDocs, keyword('DELETE', opts), topDoc, ' ', keyword('FROM', opts), ' ', target ? printTable(target, opts) : ''];
     }
 
+    // OUTPUT follows the target and comes before any FROM
+    if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
+    else if (output) parts.push(hardline, printOutputClause(output, opts));
+
     if (from) {
         const tableRefs = propArr(from, 'tableReferences');
         parts.push(
@@ -1009,9 +1017,6 @@ function printDelete(node: SqlNode, opts: Options): Doc {
             ]),
         );
     }
-
-    if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
-    else if (output) parts.push(hardline, printOutputClause(output, opts));
 
     if (where) parts.push(hardline, printBoolClause('WHERE', where, opts));
 

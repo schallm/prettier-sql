@@ -33,10 +33,11 @@ export function keyword(kw: string, opts: Options): Doc {
         ? (s: string) => s.toLowerCase()
         : (s: string) => s.toUpperCase();
     // Strings passed through here may embed case-sensitive parts: double-quoted
-    // identifiers in function and type names, and single-quoted literals in option
-    // strings such as `PASSWORD 'Secret'`. Recase only the text outside quotes.
-    if (!kw.includes('"') && !kw.includes("'")) return recase(kw);
-    return kw.replace(/("(?:[^"]|"")*"|'(?:[^']|'')*')|[^"']+/g, (m, quoted) => (quoted ? m : recase(m)));
+    // identifiers in function and type names, single-quoted literals in option strings
+    // such as `PASSWORD 'Secret'`, and T-SQL @variables in hints such as
+    // `OPTIMIZE FOR (@p = 1)`. Recase only the text outside those.
+    if (!/["'@]/.test(kw)) return recase(kw);
+    return kw.replace(/("(?:[^"]|"")*"|'(?:[^']|'')*'|@[\w@#$]*)|[^"'@]+/g, (m, kept) => (kept ? m : recase(m)));
 }
 
 export function getDensity(opts: Options): 'compact' | 'standard' | 'spacious' {

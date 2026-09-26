@@ -200,6 +200,9 @@ public class AstBuilder : TSqlFragmentVisitor {
             return Leaf("WildcardColumn", col, "*");
 
         var parts = col.MultiPartIdentifier?.Identifiers.Select(i => QuotedName(i)).ToList();
+        // Pseudo-columns ($action, $IDENTITY, $ROWGUID, $node_id, ...) have no identifier
+        // parts; without this they printed as nothing at all.
+        if (parts == null || parts.Count == 0) parts = [RawText(col).Trim()];
         var colNode = new SqlNode(
             "ColumnReference",
             col.StartOffset,
@@ -814,6 +817,14 @@ public class AstBuilder : TSqlFragmentVisitor {
         var elements = gb.GroupingSpecifications?.Select(gs => (object?)BuildGroupingSpec(gs)).ToList();
         return Node("GroupByClause", gb, new Dictionary<string, object?> {
             ["elements"] = elements,
+            // GROUP BY ALL: include groups the WHERE clause filtered out
+            ["all"] = gb.All ? true : null,
+            // Legacy GROUP BY a WITH ROLLUP / WITH CUBE
+            ["withOption"] = gb.GroupByOption switch {
+                GroupByOption.Rollup => "WITH ROLLUP",
+                GroupByOption.Cube   => "WITH CUBE",
+                _                    => null,
+            },
         });
     }
 
@@ -1254,6 +1265,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["source"] = source,
             ["output"] = BuildOutputClause(spec.OutputClause),
             ["outputInto"] = BuildOutputIntoClause(spec.OutputIntoClause),
+            ["top"] = spec.TopRowFilter != null ? BuildTopRowFilter(spec.TopRowFilter) : null,
         });
     }
 
@@ -1483,6 +1495,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["linkedServer"] = linkedServer,
             ["parameters"] = parameters,
             ["withResultSets"] = withResultSets,
+            ["withRecompile"] = es.Options?.Any(o => o.OptionKind == ExecuteOptionKind.Recompile) == true ? true : null,
         });
     }
 
@@ -2409,7 +2422,14 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["parameter"] = RawTextOrNull(wf.Parameter),
         });
 
-    private static string SetOptionsToSql(SetOptions opt) => opt switch {
+    // SetOptions is a flags enum: SET NOCOUNT, XACT_ABORT ON arrives as one combined
+    // value, whose ToString() ("NoCount, XactAbort") matched none of the names below.
+    private static string SetOptionsToSql(SetOptions opt) =>
+        string.Join(", ", Enum.GetValues<SetOptions>()
+            .Where(f => f != 0 && opt.HasFlag(f))
+            .Select(SetOptionToSql));
+
+    private static string SetOptionToSql(SetOptions opt) => opt switch {
         SetOptions.NoCount => "NOCOUNT",
         SetOptions.QuotedIdentifier => "QUOTED_IDENTIFIER",
         SetOptions.AnsiNulls => "ANSI_NULLS",

@@ -667,9 +667,10 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
             const elemDocs = propArr(groupBy, 'elements').map((e) => printExpression(e, opts, printFn));
             parts.push(
                 line,
-                keyword('GROUP BY', opts),
+                groupByKeyword(groupBy, opts),
                 ' ',
                 indent(fill(elemDocs.flatMap((d, i) => (i === 0 ? [d] : [[',', line], d])))),
+                groupByWithOption(groupBy, opts),
             );
         }
 
@@ -729,9 +730,9 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
             const elems = propArr(groupBy, 'elements');
             const elemDocs = elems.map((e) => printExpression(e, opts, printFn));
             if (density === 'standard' && elems.length === 1) {
-                parts.push(hardline, keyword('GROUP BY', opts), ' ', elemDocs[0]!);
+                parts.push(hardline, groupByKeyword(groupBy, opts), ' ', elemDocs[0]!, groupByWithOption(groupBy, opts));
             } else {
-                parts.push(hardline, keyword('GROUP BY', opts), indent([hardline, join(hardSep(opts), elemDocs)]));
+                parts.push(hardline, groupByKeyword(groupBy, opts), indent([hardline, join(hardSep(opts), elemDocs)]), groupByWithOption(groupBy, opts));
             }
         }
 
@@ -1903,4 +1904,15 @@ function printUnpivotedTableRef(node: SqlNode, opts: Options, printFn: PrintFn):
         ')',
         aliasPart,
     ]);
+}
+
+/** `GROUP BY` or `GROUP BY ALL` (which also returns groups the WHERE clause filtered out). */
+function groupByKeyword(groupBy: SqlNode, opts: Options): Doc {
+    return keyword(propBool(groupBy, 'all') ? 'GROUP BY ALL' : 'GROUP BY', opts);
+}
+
+/** Legacy ` WITH ROLLUP` / ` WITH CUBE` after the GROUP BY list. */
+function groupByWithOption(groupBy: SqlNode, opts: Options): Doc {
+    const option = propStr(groupBy, 'withOption');
+    return option ? [' ', keyword(option, opts)] : '';
 }

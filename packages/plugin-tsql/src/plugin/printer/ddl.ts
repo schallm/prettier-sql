@@ -463,19 +463,23 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             ifExists: boolean;
             dropOptions?: string[];
         }>;
-        // All elements share the same IF EXISTS flag (SQL only allows one DROP per statement)
-        const ifExists = elements[0]?.ifExists ?? false;
-        const isConstraint = elements[0]?.elementType === 'Constraint';
-        const dropKw = isConstraint ? keyword('DROP CONSTRAINT', opts) : keyword('DROP COLUMN', opts);
-        const nameList: Doc = group([
-            indent([
-                softline,
-                join(
-                    [',', line],
-                    elements.map((e) => e.name),
-                ),
-            ]),
-        ]);
+        // One DROP can mix kinds — DROP CONSTRAINT a, COLUMN IF EXISTS b — and a bare name
+        // (NotSpecified) takes the kind of the name before it, or is a constraint when first.
+        // So print each keyword where it was written: printing only the first element's
+        // keyword turned `COLUMN IF EXISTS b` into a constraint named b.
+        const kindKw: Record<string, string> = { Constraint: 'CONSTRAINT', Column: 'COLUMN', Index: 'INDEX' };
+        const itemKw = (e: (typeof elements)[number]): string | null => {
+            const kw = kindKw[e.elementType];
+            return kw ? (e.ifExists ? `${kw} IF EXISTS` : kw) : null;
+        };
+        const itemDocs: Doc[] = elements.map((e, i) => {
+            const kw = itemKw(e);
+            // The first keyword stays on the DROP line
+            return kw && i > 0 ? [keyword(kw, opts), ' ', e.name] : e.name;
+        });
+        const firstKw = elements[0] ? itemKw(elements[0]) : null;
+        const dropKw = keyword(firstKw ? `DROP ${firstKw}` : 'DROP', opts);
+        const nameList: Doc = group([indent([softline, join([',', line], itemDocs)])]);
         // WITH (ONLINE = ON, WAIT_AT_LOW_PRIORITY ...) on DROP CLUSTERED CONSTRAINT
         const allDropOptions = elements.flatMap((e) => e.dropOptions ?? []);
         const withPart: Doc =
@@ -488,7 +492,6 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             name,
             hardline,
             dropKw,
-            ifExists ? [' ', keyword('IF EXISTS', opts)] : '',
             ' ',
             nameList,
             withPart,

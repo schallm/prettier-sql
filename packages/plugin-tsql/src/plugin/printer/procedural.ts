@@ -400,9 +400,11 @@ export function printExecute(node: SqlNode, opts: Options): Doc {
     const withResultSets = propStr(node, 'withResultSets');
     // withResultSets raw text is e.g. "WITH RESULT SETS ((Id int, Name nvarchar(100)))"
     // Re-emit the keyword cased, then the raw parenthesized definition verbatim.
+    const withRecompile = propBool(node, 'withRecompile');
     const withResultSetsPart: Doc = withResultSets
-        ? [' ', keyword('WITH RESULT SETS', opts), withResultSets.replace(/^with\s+result\s+sets\s*/i, ' ')]
-        : '';
+        ? [' ', keyword(withRecompile ? 'WITH RECOMPILE, RESULT SETS' : 'WITH RESULT SETS', opts),
+           withResultSets.replace(/^with\s+result\s+sets\s*/i, ' ')]
+        : withRecompile ? [' ', keyword('WITH RECOMPILE', opts)] : '';
 
     return group([
         keyword('EXECUTE', opts),
