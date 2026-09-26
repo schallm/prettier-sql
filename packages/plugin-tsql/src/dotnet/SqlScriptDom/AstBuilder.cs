@@ -2548,6 +2548,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["name"] = BuildSchemaObjectName(p.ProcedureReference?.Name),
             ["parameters"] = parms,
             ["options"] = BuildProcedureOptions(p.Options),
+            // FOR REPLICATION: a procedure only replication runs
+            ["forReplication"] = p.IsForReplication ? (object?)true : null,
             ["bodyStart"] = p.StatementList?.StartOffset,
             ["body"] = stmts,
             ["externalName"] = externalName,
@@ -2634,6 +2636,18 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["triggerType"] = trigger.TriggerType.ToString(),
             ["actions"] = actions,
             ["notForReplication"] = trigger.IsNotForReplication ? (object?)true : null,
+            // WITH EXECUTE AS ..., ENCRYPTION, NATIVE_COMPILATION, SCHEMABINDING
+            ["options"] = MapList(trigger.Options, o => (object?)(o is ExecuteAsTriggerOption execAs
+                ? Node("ExecuteAsOption", o, new Dictionary<string, object?> {
+                    ["kind"] = execAs.ExecuteAsClause?.ExecuteAsOption.ToString(),
+                    ["principal"] = execAs.ExecuteAsClause?.Literal?.Value,
+                })
+                : Leaf("TriggerOption", o, o.OptionKind switch {
+                    TriggerOptionKind.Encryption => "ENCRYPTION",
+                    TriggerOptionKind.NativeCompile => "NATIVE_COMPILATION",
+                    TriggerOptionKind.SchemaBinding => "SCHEMABINDING",
+                    _ => o.OptionKind.ToString().ToUpperInvariant(),
+                }))),
             ["body"] = stmts,
         });
     }

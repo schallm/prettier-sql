@@ -3244,6 +3244,67 @@ go
 "
 `;
 
+exports[`fixtures > trigger/module-options.sql 1`] = `
+"-- Trigger WITH options, procedure FOR REPLICATION, and EXECUTE AS principals with quotes
+create trigger tr
+on t
+with execute as caller
+instead of update
+not for replication
+as
+begin
+  select 1;
+end;
+go
+
+create trigger tr
+on t
+with encryption, execute as 'o''brien'
+after insert
+as
+begin
+  select 1;
+end;
+go
+
+create trigger tr
+on database
+with execute as self
+for create_table
+as
+begin
+  print 'x';
+end;
+go
+
+create procedure p
+  @a int = 1
+with encryption
+for replication
+as
+begin
+  select @a;
+end;
+go
+
+create procedure p
+with execute as 'it''s'
+as
+begin
+  select 1;
+end;
+go
+
+create procedure p
+for replication
+as
+begin
+  select 1;
+end;
+go
+"
+`;
+
 exports[`fixtures > type/basic.sql 1`] = `
 "create type dbo.BookTitle from nvarchar(200) not null;
 

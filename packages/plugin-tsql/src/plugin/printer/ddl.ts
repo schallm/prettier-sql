@@ -847,7 +847,7 @@ function printExecuteAsClause(optNode: SqlNode, opts: Options): Doc {
     const kind = propStr(optNode, 'kind') ?? 'Caller';
     const principal = propStr(optNode, 'principal');
     // String kind = EXECUTE AS 'username' (no USER/LOGIN qualifier)
-    if (kind === 'String') return [keyword('EXECUTE AS', opts), " '", principal ?? '', "'"];
+    if (kind === 'String') return [keyword('EXECUTE AS', opts), " '", (principal ?? '').replace(/'/g, "''"), "'"];
     const kindMap: Record<string, string> = {
         Caller: 'CALLER',
         Self: 'SELF',
@@ -856,7 +856,7 @@ function printExecuteAsClause(optNode: SqlNode, opts: Options): Doc {
         User: 'USER',
     };
     const kindKw = keyword(kindMap[kind] ?? kind.toUpperCase(), opts);
-    if (principal) return [keyword('EXECUTE AS', opts), ' ', kindKw, " = '", principal, "'"];
+    if (principal) return [keyword('EXECUTE AS', opts), ' ', kindKw, " = '", principal.replace(/'/g, "''"), "'"];
     return [keyword('EXECUTE AS', opts), ' ', kindKw];
 }
 
@@ -938,6 +938,8 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
         parameters.length > 0 ? indent([hardline, join([',', hardline], paramDocs)]) : '',
         postParam,
         printModuleOptions(node, opts),
+        // FOR REPLICATION: a procedure only replication runs
+        propBool(node, 'forReplication') ? [hardline, keyword('FOR REPLICATION', opts)] : '',
         hardline,
         keyword('AS', opts),
         hardline,
@@ -1163,6 +1165,7 @@ export function printCreateTrigger(node: SqlNode, opts: Options): Doc {
         keyword('ON', opts),
         ' ',
         onTarget,
+        printModuleOptions(node, opts),
         hardline,
         typeKw,
         ' ',
