@@ -35,11 +35,13 @@ Every push to `main` runs the release workflow:
   `CHANGELOG.md` entries, and deletes the consumed changeset files. It does *not*
   publish anything yet.
 - **When you merge that "Version Packages" PR**, the next workflow run finds no
-  pending changesets and instead runs `changeset publish` to actually publish to npm
-  (the workflow builds all packages first).
+  pending changesets and instead runs `scripts/stage-publish.mjs` (after building all
+  packages), which **stages** each new version on npm. Staged versions aren't public
+  until you approve them — see [Approving a staged release](#approving-a-staged-release).
 
 So day-to-day, publishing is just: write a changeset, merge your PR, then later merge
-the auto-generated "Version Packages" PR whenever you're ready to cut a release.
+the auto-generated "Version Packages" PR whenever you're ready to cut a release, and
+approve the staged versions on npm.
 
 ## The scripts (`package.json`)
 
@@ -50,26 +52,49 @@ the auto-generated "Version Packages" PR whenever you're ready to cut a release.
 | `pnpm release:publish` | Builds all packages, then `changeset publish` |
 | `pnpm release` | The full local one-shot: checks npm login (prompts `npm login` if needed) → `changeset version` → build → `changeset publish` |
 
-CI does not run `pnpm release` — it runs `changeset publish` directly after the Version
-Packages PR is merged. `pnpm release` is the manual fallback for publishing outside CI.
+CI does not run `pnpm release` or `changeset publish` — it runs
+`scripts/stage-publish.mjs` after the Version Packages PR is merged. The local scripts
+publish directly (not staged), using your own npm login and 2FA. `pnpm release` is the manual fallback for publishing outside CI.
 Since `@changesets/cli` 3.0, `changeset version` exits 1 when there are no pending
 changesets, so `pnpm release` stops right there if everything is already versioned. In
 that case (e.g. re-running after a failed publish) use `pnpm release:publish` instead.
 
-## ⚠️ Known gap: NPM_TOKEN is not configured
+## npm authentication: trusted publishing + staged releases
 
-`.github/workflows/release.yml` doesn't set `NODE_AUTH_TOKEN` (or any npm auth) for
-the publish step, and `gh secret list` shows no `NPM_TOKEN` secret exists in this repo.
-**This means the CI publish step will currently fail to authenticate with npm.**
+CI has no npm token. Both packages have an npm **trusted publisher** for
+`schallm/prettier-sql` / `release.yml`, so the workflow authenticates via GitHub OIDC
+(`id-token: write`). Those trusted publishers are **stage-only**: they allow
+`npm stage publish` but not `npm publish`, so a compromised CI run can't push a
+release live without a maintainer's 2FA.
 
-To fix:
+Check the configuration with (prompts for 2FA):
 
-1. Generate a Granular Access Token at npmjs.com (Account → Access Tokens),
-   scoped read+write to `prettier-plugin-tsql` and `prettier-plugin-postgresql`.
-2. Add it as a repo secret: Settings → Secrets and variables → Actions → `NPM_TOKEN`.
-3. Add `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` to the `changesets/action` step's
-   `env:` block in `.github/workflows/release.yml` (alongside the existing
-   `GITHUB_TOKEN`).
+```bash
+npm trust list prettier-plugin-tsql
+npm trust list prettier-plugin-postgresql
+```
 
-Until then, publishing only works via the manual `pnpm release` path, run locally
-after `npm login` with an account that has publish rights to both packages.
+Each should show one `github` entry for `schallm/prettier-sql`, `release.yml`, with
+`permissions: stage publish` only.
+
+### Approving a staged release
+
+After the Version Packages PR is merged and the workflow succeeds, the new versions
+are staged but **not public yet**. Approve each one with 2FA, either on the package's
+page on npmjs.com, or from the CLI:
+
+```bash
+npm stage list prettier-plugin-tsql
+npm stage approve <stage-id>
+```
+
+(`npm stage reject <stage-id>` discards one; `npm stage download <stage-id>` fetches
+the tarball for inspection.) The GitHub release and `name@version` git tag are created
+when the version is staged, before approval.
+
+### Re-running a failed release
+
+`scripts/stage-publish.mjs` skips versions already published to npm, but it can't
+tell whether a version is already *staged*. If a run staged one package and failed on
+the other, re-running it will fail on the already-staged one too. Either approve or
+reject the staged version first, or stage the remaining package by hand.

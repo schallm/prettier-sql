@@ -10,6 +10,7 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: write
       pull-requests: write
@@ -33,6 +34,10 @@ jobs:
         with:
           dotnet-version: 8.x
 
+      # `npm stage publish` and trusted publishing need a recent npm CLI.
+      - name: Update npm
+        run: npm install -g npm@latest
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -42,6 +47,6 @@ jobs:
       - name: Create release PR or publish
         uses: changesets/action@v1
         with:
-          publish: pnpm changeset publish
+          publish: node scripts/stage-publish.mjs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
