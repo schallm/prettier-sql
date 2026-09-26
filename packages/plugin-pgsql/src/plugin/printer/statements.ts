@@ -358,7 +358,9 @@ function printSelectBody(node: SqlNode, opts: Options): Doc {
 
     if (where) parts.push(printBoolClause('WHERE', where, opts, printNode));
 
-    if (groupBy.length > 0) parts.push(printListClause('GROUP BY', groupBy, opts, printNode));
+    // GROUP BY DISTINCT drops duplicate grouping sets (ROLLUP / CUBE / GROUPING SETS)
+    const groupByKw = propBool(node, 'groupDistinct') ? 'GROUP BY DISTINCT' : 'GROUP BY';
+    if (groupBy.length > 0) parts.push(printListClause(groupByKw, groupBy, opts, printNode));
 
     if (having) parts.push(printBoolClause('HAVING', having, opts, printNode));
 

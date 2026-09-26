@@ -228,6 +228,7 @@ public class AstBuilder {
             ("from",          MapList(s.FromClause, BuildFromItem)),
             ("where",         BuildExpr(s.WhereClause)),
             ("groupBy",       MapList(s.GroupClause, BuildExpr)),
+            ("groupDistinct", s.GroupDistinct ? true : null),
             ("having",        BuildExpr(s.HavingClause)),
             ("orderBy",       MapList(s.SortClause, BuildExpr)),
             ("limit",         BuildExpr(s.LimitCount)),
@@ -613,16 +614,16 @@ public class AstBuilder {
     private static object? GetOneofValue(Node node) =>
         typeof(Node).GetProperty(node.NodeCase.ToString())?.GetValue(node);
 
-    // libpg_query wraps the SIMILAR TO pattern in similar_to_escape(pattern, NULL);
-    // extract the first argument so the formatter emits the bare literal.
-    private SqlNode? UnwrapSimilarToEscape(Node? node) {
-        if (node?.NodeCase == Node.NodeOneofCase.FuncCall) {
-            var fc = node.FuncCall;
-            var fname = fc.Funcname.LastOrDefault()?.String?.Sval;
-            if (fname == "similar_to_escape" && fc.Args.Count > 0)
-                return BuildExpr(fc.Args[0]);
-        }
-        return BuildExpr(node);
+    // libpg_query represents `x LIKE p ESCAPE e` as `x LIKE like_escape(p, e)` and
+    // `x SIMILAR TO p [ESCAPE e]` as `x SIMILAR TO similar_to_escape(p[, e])`.
+    // Returns the bare pattern and puts the ESCAPE expression, if any, in `escape`.
+    private static Node? UnwrapEscape(Node? node, string wrapper, out Node? escape) {
+        escape = null;
+        if (node?.NodeCase != Node.NodeOneofCase.FuncCall) return node;
+        var fc = node.FuncCall;
+        if (fc.Funcname.LastOrDefault()?.String?.Sval != wrapper || fc.Args.Count == 0) return node;
+        if (fc.Args.Count > 1) escape = fc.Args[1];
+        return fc.Args[0];
     }
 
     private SqlNode BuildAConst(A_Const c) {
@@ -655,15 +656,17 @@ public class AstBuilder {
             // LIKE / NOT LIKE
             A_Expr_Kind.AexprLike or A_Expr_Kind.AexprIlike => new SqlNode("BinaryExpr", 0, 0, null, BuildProps(
                 ("op", op switch { "~~" => "LIKE", "!~~" => "NOT LIKE", "~~*" => "ILIKE", "!~~*" => "NOT ILIKE", _ => op }),
-                ("left",  BuildExpr(e.Lexpr)),
-                ("right", BuildExpr(e.Rexpr))
+                ("left",   BuildExpr(e.Lexpr)),
+                ("right",  BuildExpr(UnwrapEscape(e.Rexpr, "like_escape", out var likeEscape))),
+                ("escape", likeEscape != null ? BuildExpr(likeEscape) : null)
             )),
 
-            // SIMILAR TO — libpg_query wraps the RHS in similar_to_escape(); unwrap it
+            // SIMILAR TO — libpg_query always wraps the RHS in similar_to_escape(pattern[, escape])
             A_Expr_Kind.AexprSimilar => new SqlNode("BinaryExpr", 0, 0, null, BuildProps(
-                ("op",    op == "!~" ? "NOT SIMILAR TO" : "SIMILAR TO"),
-                ("left",  BuildExpr(e.Lexpr)),
-                ("right", UnwrapSimilarToEscape(e.Rexpr))
+                ("op",     op == "!~" ? "NOT SIMILAR TO" : "SIMILAR TO"),
+                ("left",   BuildExpr(e.Lexpr)),
+                ("right",  BuildExpr(UnwrapEscape(e.Rexpr, "similar_to_escape", out var similarEscape))),
+                ("escape", similarEscape != null ? BuildExpr(similarEscape) : null)
             )),
 
             // IS DISTINCT FROM / IS NOT DISTINCT FROM
@@ -771,6 +774,8 @@ public class AstBuilder {
             ("star",     f.AggStar     ? true : null),
             ("distinct", f.AggDistinct ? true : null),
             ("aggOrder", MapList(f.AggOrder, BuildExpr)),
+            // percentile_cont(0.5) WITHIN GROUP (ORDER BY x): aggOrder is the WITHIN GROUP order
+            ("withinGroup", f.AggWithinGroup ? true : null),
             ("filter",   f.AggFilter != null ? BuildExpr(f.AggFilter) : null),
             // Named window reference: OVER w — Name is set but no partition/order/frame
             ("over",     f.Over != null
@@ -836,6 +841,13 @@ public class AstBuilder {
             else if ((fo & 0x04000) != 0) frameEnd = "FOLLOWING";
         }
 
+        // EXCLUDE CURRENT ROW / GROUP / TIES
+        string? frameExclude =
+            (fo & 0x08000) != 0 ? "EXCLUDE CURRENT ROW"
+            : (fo & 0x10000) != 0 ? "EXCLUDE GROUP"
+            : (fo & 0x20000) != 0 ? "EXCLUDE TIES"
+            : null;
+
         return new SqlNode("WindowDef", 0, 0, null, BuildProps(
             ("name",         string.IsNullOrEmpty(w.Name)    ? null : Ident.Quote(w.Name)),
             ("refname",      string.IsNullOrEmpty(w.Refname) ? null : Ident.Quote(w.Refname)),
@@ -845,7 +857,8 @@ public class AstBuilder {
             ("frameStart",   frameStart),
             ("startOffset",  w.StartOffset != null ? BuildExpr(w.StartOffset) : null),
             ("frameEnd",     frameEnd),
-            ("endOffset",    w.EndOffset != null ? BuildExpr(w.EndOffset) : null)
+            ("endOffset",    w.EndOffset != null ? BuildExpr(w.EndOffset) : null),
+            ("frameExclude", frameExclude)
         ));
     }
 
@@ -960,6 +973,13 @@ public class AstBuilder {
             ("direction", s.SortbyDir switch {
                 SortByDir.SortbyAsc => "ASC",
                 SortByDir.SortbyDesc => "DESC",
+                // ORDER BY x USING <
+                SortByDir.SortbyUsing => $"USING {string.Join(".", s.UseOp.Select(o => o.String.Sval))}",
+                _ => null,
+            }),
+            ("nulls", s.SortbyNulls switch {
+                SortByNulls.First => "NULLS FIRST",
+                SortByNulls.Last  => "NULLS LAST",
                 _ => null,
             })
         ));
@@ -1014,7 +1034,13 @@ public class AstBuilder {
     private SqlNode BuildJoinExpr(JoinExpr j) {
         string joinType;
         if (j.IsNatural) {
-            joinType = "NATURAL";
+            // NATURAL LEFT JOIN is an outer join: keep the type, not just NATURAL
+            joinType = j.Jointype switch {
+                JoinType.JoinLeft  => "NATURAL LEFT",
+                JoinType.JoinRight => "NATURAL RIGHT",
+                JoinType.JoinFull  => "NATURAL FULL",
+                _                  => "NATURAL",
+            };
         } else if (j.Jointype == JoinType.JoinInner && j.Quals == null && j.UsingClause.Count == 0) {
             joinType = "CROSS";
         } else {
@@ -1036,7 +1062,12 @@ public class AstBuilder {
                 ? (object?)j.UsingClause
                     .Where(n => n.NodeCase == Node.NodeOneofCase.String)
                     .Select(n => Ident.Quote(n.String.Sval)).ToList()
-                : null)
+                : null),
+            // JOIN ... USING (id) AS j
+            ("usingAlias", Ident.QuoteOpt(j.JoinUsingAlias?.Aliasname)),
+            // (a JOIN b ...) AS j: an alias on the whole join
+            ("alias",        Ident.QuoteOpt(j.Alias?.Aliasname)),
+            ("aliasColumns", AliasColumns(j.Alias))
         ));
     }
 

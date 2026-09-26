@@ -215,7 +215,10 @@ function printBinaryExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
 
     const opDoc: Doc = /^[A-Z]/.test(op) ? keyword(op, opts) : op;
     const { left: leftPrec, right: rightPrec } = operandPrecs(binaryOpPrec(op));
-    return [printOperand(left, leftPrec, printNode), ' ', opDoc, ' ', right ? printOperand(right, rightPrec, printNode) : ''];
+    // LIKE / ILIKE / SIMILAR TO ... ESCAPE e
+    const escape = prop(node, 'escape');
+    const escapeDoc: Doc = escape ? [' ', keyword('ESCAPE', opts), ' ', printOperand(escape, rightPrec, printNode)] : '';
+    return [printOperand(left, leftPrec, printNode), ' ', opDoc, ' ', right ? printOperand(right, rightPrec, printNode) : '', escapeDoc];
 }
 
 function printBoolExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -265,13 +268,15 @@ function printFunctionCall(node: SqlNode, opts: Options, printNode: PrintFn): Do
     const argDocs: Doc[] = star ? [makeKeyword('*')] : args.map(printNode);
     const distinctPrefix: Doc = distinct ? [makeKeyword('DISTINCT'), ' '] : '';
 
-    // ORDER BY inside the aggregate call: array_agg(x ORDER BY x)
+    // ORDER BY inside the aggregate call: array_agg(x ORDER BY x) — or, for an
+    // ordered-set aggregate, after it: percentile_cont(0.5) WITHIN GROUP (ORDER BY x)
+    const orderByDoc: Doc = aggOrder.length > 0 ? [makeKeyword('ORDER BY'), ' ', join(', ', aggOrder.map(printNode))] : '';
+    const withinGroup = propBool(node, 'withinGroup');
     let innerDoc: Doc = [distinctPrefix, join(', ', argDocs)];
-    if (aggOrder.length > 0) {
-        innerDoc = [innerDoc, ' ', makeKeyword('ORDER BY'), ' ', join(', ', aggOrder.map(printNode))];
-    }
+    if (aggOrder.length > 0 && !withinGroup) innerDoc = [innerDoc, ' ', orderByDoc];
 
     let callDoc: Doc = [makeKeyword(name), '(', innerDoc, ')'];
+    if (withinGroup) callDoc = [callDoc, ' ', makeKeyword('WITHIN GROUP'), ' (', orderByDoc, ')'];
 
     // FILTER (WHERE ...) after the call, before OVER
     if (filter) {
@@ -361,8 +366,13 @@ export function printWindowDef(node: SqlNode, opts: Options, printNode: PrintFn)
     const startOffset = prop(node, 'startOffset');
     const endOffset   = prop(node, 'endOffset');
 
+    const refname     = propStr(node, 'refname');
+    const frameExclude = propStr(node, 'frameExclude');
+
     const parts: Doc[] = [];
 
+    // w2 AS (w ORDER BY b): inherits w's PARTITION BY (and ORDER BY)
+    if (refname) parts.push(refname);
     if (partitionBy.length > 0) {
         parts.push([makeKeyword('PARTITION BY'), ' ', join(', ', partitionBy.map(printNode))]);
     }
@@ -381,6 +391,7 @@ export function printWindowDef(node: SqlNode, opts: Options, printNode: PrintFn)
         } else {
             parts.push([makeKeyword(frameMode), ' ', startDoc]);
         }
+        if (frameExclude) parts.push(makeKeyword(frameExclude));
     }
 
     return join(' ', parts);
@@ -496,18 +507,26 @@ function printJoinExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const on      = prop(node, 'on');
     const using   = propStrArr(node, 'using');
 
+    const usingAlias = propStr(node, 'usingAlias');
+
     const joinKw: Doc =
         joinType === 'CROSS'   ? makeKeyword('CROSS JOIN')
         : joinType === 'INNER'   ? makeKeyword('JOIN')
-        : joinType === 'NATURAL' ? makeKeyword('NATURAL JOIN')
         : [makeKeyword(joinType), ' ', makeKeyword('JOIN')];
 
     const condition: Doc = joinType === 'CROSS' ? ''
         : on      ? [' ', makeKeyword('ON'), ' ', printNode(on)]
-        : using.length > 0 ? [' ', makeKeyword('USING'), ' (', join(', ', using), ')']
+        : using.length > 0 ? [' ', makeKeyword('USING'), ' (', join(', ', using), ')', aliasDoc(usingAlias, opts)]
         : '';
 
-    return [lhs ? printNode(lhs) : '', hardline, joinKw, ' ', rhs ? printNode(rhs) : '', condition];
+    // A join on the right-hand side must keep its parentheses: in
+    // `a JOIN (b JOIN c ON x) ON y` they decide which ON belongs to which join
+    const parenthesized = (doc: Doc): Doc => ['(', indent([hardline, doc]), hardline, ')'];
+    const rhsDoc: Doc = !rhs ? '' : rhs.type === 'JoinExpr' && !propStr(rhs, 'alias') ? parenthesized(printNode(rhs)) : printNode(rhs);
+    const joinDoc: Doc = [lhs ? printNode(lhs) : '', hardline, joinKw, ' ', rhsDoc, condition];
+
+    // (a JOIN b ...) AS j: an alias on the whole join needs the parentheses
+    return propStr(node, 'alias') ? [parenthesized(joinDoc), tableAliasDoc(node, opts)] : joinDoc;
 }
 
 function printSubquery(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -550,7 +569,8 @@ function printSortItem(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (kw: string) => keyword(kw, opts);
     const expr = prop(node, 'expr');
     const direction = propStr(node, 'direction');
-    return [expr ? printNode(expr) : '', direction ? [' ', makeKeyword(direction)] : ''];
+    const nulls = propStr(node, 'nulls');
+    return [expr ? printNode(expr) : '', direction ? [' ', makeKeyword(direction)] : '', nulls ? [' ', makeKeyword(nulls)] : ''];
 }
 
 // ---------------------------------------------------------------------------
