@@ -2084,7 +2084,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             FunctionOptionKind.ReturnsNullOnNullInput => "RETURNS NULL ON NULL INPUT",
             FunctionOptionKind.CalledOnNullInput => "CALLED ON NULL INPUT",
             FunctionOptionKind.NativeCompilation => "NATIVE_COMPILATION",
-            FunctionOptionKind.Inline => "INLINE",
+            // INLINE = ON | OFF: scalar UDF inlining; OFF must stay OFF
+            FunctionOptionKind.Inline => opt is InlineFunctionOption { OptionState: OptionState.Off } ? "INLINE = OFF" : "INLINE = ON",
             _ => opt.OptionKind.ToString().ToUpper(),
         };
         return Leaf("FunctionOption", opt, optText);
