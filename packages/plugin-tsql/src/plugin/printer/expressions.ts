@@ -653,6 +653,8 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const fetchNode = prop(node, 'fetch');
     // SELECT INTO target — injected by BuildSelectStatement into the QuerySpecification node
     const intoTarget = prop(node, 'into');
+    const intoOn = propStr(node, 'intoOn');
+    const intoOnDoc: Doc = intoOn ? [' ', keyword('ON', opts), ' ', intoOn] : '';
 
     const selectKw = uniqueRowFilter === 'Distinct' ? keyword('SELECT DISTINCT', opts) : keyword('SELECT', opts);
     const topDoc = top ? printTop(top, opts, printFn) : null;
@@ -666,7 +668,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
         const colList = indent(commaFill(colDocs));
         parts.push(' ', colList);
 
-        if (intoTarget) parts.push(line, keyword('INTO', opts), ' ', schemaObjectName(intoTarget));
+        if (intoTarget) parts.push(line, keyword('INTO', opts), ' ', schemaObjectName(intoTarget), intoOnDoc);
 
         if (from) {
             const fromDocs = propArr(from, 'tableReferences').map((tr) => printTableRef(tr, opts, printFn));
@@ -712,7 +714,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
         parts.push(colList);
 
         // SELECT INTO target appears after the column list and before the FROM clause
-        if (intoTarget) parts.push(hardline, keyword('INTO', opts), ' ', schemaObjectName(intoTarget));
+        if (intoTarget) parts.push(hardline, keyword('INTO', opts), ' ', schemaObjectName(intoTarget), intoOnDoc);
 
         if (from) {
             const tableRefs = propArr(from, 'tableReferences');

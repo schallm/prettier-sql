@@ -1196,8 +1196,11 @@ public class AstBuilder : TSqlFragmentVisitor {
 
         // SELECT INTO: inject the target table name into the QuerySpecification node so the
         // printer can place "INTO #target" between the column list and the FROM clause.
-        if (sel.Into != null && queryExpr?.Props != null)
+        if (sel.Into != null && queryExpr?.Props != null) {
             queryExpr.Props["into"] = BuildSchemaObjectName(sel.Into);
+            // SELECT ... INTO t ON filegroup: where the new table is created
+            queryExpr.Props["intoOn"] = QuotedName(sel.On);
+        }
 
         return Node("SelectStatement", sel, new Dictionary<string, object?> {
             ["ctes"] = ctes,

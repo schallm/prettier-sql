@@ -2910,6 +2910,21 @@ where IsActive = 0;
 "
 `;
 
+exports[`fixtures > select/select-into-on.sql 1`] = `
+"-- SELECT ... INTO a new table on a filegroup
+select
+  a,
+  b
+into dbo.newt on [PRIMARY]
+from t;
+
+select a
+into #t on fg2
+from t
+where a > 0;
+"
+`;
+
 exports[`fixtures > select/subquery.sql 1`] = `
 "select
   Id,
