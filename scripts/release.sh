@@ -241,6 +241,35 @@ planned_bumps() {
   ' "$PLAN_JSON" "$1"
 }
 
+# The bump type ("patch", "minor", "major") pending changesets give package $1.
+planned_type() {
+  node -e '
+    const status = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+    console.log((status.releases ?? []).find((r) => r.name === process.argv[2])?.type ?? "patch");
+  ' "$PLAN_JSON" "$1"
+}
+
+# Version $1 bumped by $2 (patch / minor / major).
+bump_version() {
+  node -p "const [a, b, c] = '$1'.split('.').map(Number);
+    ({ major: [a + 1, 0, 0], minor: [a, b + 1, 0], patch: [a, b, c + 1] })['$2'].join('.')"
+}
+
+# Asks for package $1's bump type, defaulting to $3; prints the choice.
+ask_bump() {
+  local name="$1" old="$2" default="$3" reply
+  while :; do
+    read -r -p "  ${name} ${old} -> patch $(bump_version "$old" patch) / minor $(bump_version "$old" minor) / major $(bump_version "$old" major)? [${default}] " reply || reply=""
+    reply="${reply:-$default}"
+    case "$reply" in
+      p|patch) echo patch; return ;;
+      m|minor) echo minor; return ;;
+      major)   echo major; return ;;
+    esac
+    echo "  Please answer patch, minor or major." >&2
+  done
+}
+
 NPM_PLAN="$(planned_bumps "$(publishable_packages | tr '\n' ' ')")"
 EXT_PLAN="$(planned_bumps "$EXT_PACKAGE")" # set when a pending changeset already bumps the extension
 DO_EXT=false
@@ -249,16 +278,27 @@ STAGED=""
 
 if [[ -n "$NPM_PLAN" ]]; then
   # ----- A new release -------------------------------------------------------
-  echo "Will release to npm:"
-  while read -r name old new; do
-    printf '  - %-28s %s -> \033[1m%s\033[0m\n' "$name" "$old" "$new"
-  done <<<"$NPM_PLAN"
-  echo
   echo "Changesets (full text in the Version Packages PR):"
   node -e '
     const status = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
     for (const cs of status.changesets ?? []) console.log(`  * ${cs.summary.trim().split("\n")[0].replace(/^- /, "")}`);
   ' "$PLAN_JSON"
+  echo
+
+  # Bump type per package. The default is what the changesets say; a different
+  # choice is written into the pending changesets and committed before the push.
+  # (Loops over names rather than reading NPM_PLAN on stdin, which the prompts use.)
+  echo "Version bump for each package (patch, minor or major):"
+  BUMP_OVERRIDES=""
+  CHOSEN_PLAN=""
+  for name in $(cut -d' ' -f1 <<<"$NPM_PLAN"); do
+    old="$(awk -v n="$name" '$1 == n { print $2 }' <<<"$NPM_PLAN")"
+    planned="$(planned_type "$name")"
+    choice="$(ask_bump "$name" "$old" "$planned")"
+    [[ "$choice" != "$planned" ]] && BUMP_OVERRIDES+="${name} ${choice}"$'\n'
+    CHOSEN_PLAN+="${name} ${old} $(bump_version "$old" "$choice")"$'\n'
+  done
+  NPM_PLAN="${CHOSEN_PLAN%$'\n'}"
   echo
 
   # The extension bundles the plugins, so its users only get these fixes once it's
@@ -276,6 +316,12 @@ if [[ -n "$NPM_PLAN" ]]; then
   fi
   echo
 
+  echo "Will release:"
+  while read -r name old new; do
+    printf '  - %-28s %s -> \033[1m%s\033[0m\n' "$name" "$old" "$new"
+  done <<<"$NPM_PLAN"
+  $DO_EXT && printf '  - %-28s %s -> \033[1m%s\033[0m (VS Code Marketplace)\n' "$EXT_ID" "$ext_old" "$ext_new"
+  echo
   (( AHEAD > 0 )) && info "Your local main is ${AHEAD} commit(s) ahead of origin; they'll be pushed first."
   info "Near the end, npm asks you to approve each version with 2FA in the browser."
   echo
@@ -336,6 +382,18 @@ if [[ -n "$NPM_PLAN" ]]; then
   # 3. Add the extension's changeset, push main and wait for CI
   # -------------------------------------------------------------------------
 
+  # Bump-type changes and the extension's changeset go in one commit before the push.
+  PREP_MSG=""
+  if [[ -n "$BUMP_OVERRIDES" ]]; then
+    while read -r name type; do
+      [[ -z "$name" ]] && continue
+      info "Releasing ${name} as a ${type} bump (updating its pending changesets)..."
+      $DRY_RUN || node scripts/set-changeset-bump.mjs "$name" "$type" >/dev/null
+      PREP_MSG+="${name} ${type}, "
+    done <<<"$BUMP_OVERRIDES"
+    PREP_MSG="release ${PREP_MSG%, }"
+  fi
+
   if $ADD_EXT_CHANGESET; then
     bundles="$(for d in packages/plugin-*; do
       name="$(pkg_field "$d" name)"
@@ -343,14 +401,18 @@ if [[ -n "$NPM_PLAN" ]]; then
       printf '%s %s, ' "$name" "${new:-$(pkg_field "$d" version)}"
     done)"
     changeset=".changeset/vscode-extension-${ext_new}.md"
-    echo
     info "Adding ${changeset} for the extension..."
+    $DRY_RUN || printf -- '---\n"%s": patch\n---\n\nBundles %s.\n' "$EXT_PACKAGE" "${bundles%, }" >"$changeset"
+    PREP_MSG="${PREP_MSG:+${PREP_MSG}; }add changeset for VS Code extension ${ext_new}"
+  fi
+
+  if [[ -n "$PREP_MSG" ]]; then
     if $DRY_RUN; then
-      printf '\033[35m[dry run]\033[0m would create %s and commit it\n' "$changeset"
+      printf '\033[35m[dry run]\033[0m would commit: chore: %s\n' "$PREP_MSG"
+      AHEAD=$((AHEAD + 1)) # so the dry run stops at the push, as the real run would push it
     else
-      printf -- '---\n"%s": patch\n---\n\nBundles %s.\n' "$EXT_PACKAGE" "${bundles%, }" >"$changeset"
-      git add "$changeset"
-      git commit --quiet -m "chore: add changeset for VS Code extension ${ext_new}"
+      git add .changeset
+      git commit --quiet -m "chore: ${PREP_MSG}"
       HEAD_SHA="$(git rev-parse HEAD)"
       AHEAD=$((AHEAD + 1))
     fi

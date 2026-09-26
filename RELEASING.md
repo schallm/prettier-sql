@@ -13,8 +13,9 @@ terminal:
 pnpm release
 ```
 
-It shows what would ship — each package's old and new version, and the changesets —
-and asks once whether to go ahead. Then it runs on its own: pushes `main` if needed,
+It lists the pending changesets, asks for each package's version bump (patch, minor or
+major — the default is what the changesets say; a different choice is written back into
+them), shows what would ship, and asks once more whether to go ahead. Then it runs on its own: pushes `main` if needed,
 waits for CI's tests, waits for the Release workflow to refresh the Version Packages
 PR, checks the PR bumps exactly what it showed you, merges it, and waits for the
 Release run that stages the new versions on npm. It finishes with the one step that
