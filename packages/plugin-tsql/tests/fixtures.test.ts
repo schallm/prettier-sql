@@ -54,6 +54,14 @@ describe('filtered index', () => {
 const OPTION_SQL = `select b.BookId, b.Title, b.Price from Books as b inner join Authors as a on b.AuthorId = a.Id where b.InStock = 1 order by b.Title asc`;
 
 describe('options', () => {
+    // xml and CLR type methods are case-sensitive: x.modify, never x.MODIFY
+    it('sqlKeywordCase: upper keeps method names as written', async () => {
+        const out = await fmt(`set @x.modify('delete /a'); select @x.value('.', 'int'), @g.STDistance(@p);`, { sqlKeywordCase: 'upper' });
+        expect(out).toContain('@x.modify(');
+        expect(out).toContain('@x.value(');
+        expect(out).toContain('@g.STDistance(');
+    });
+
     // preserve: keywords are rebuilt when printing, so match the input's dominant case
     it('sqlKeywordCase: preserve follows an upper-case input', async () => {
         const out = await fmt(`SELECT id FROM books WHERE price < 50 -- select from where`, { sqlKeywordCase: 'preserve' });
