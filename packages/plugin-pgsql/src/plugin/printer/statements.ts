@@ -181,6 +181,9 @@ export function printQueryExpr(node: SqlNode, opts: Options): Doc {
         case 'InsertStatement': return printInsertBody(node, opts);
         case 'UpdateStatement': return printUpdateBody(node, opts);
         case 'DeleteStatement': return printDeleteBody(node, opts);
+        // A nested VALUES list — `(values (1), (2)) as v(x)` — without the leading
+        // line break it takes after INSERT INTO t
+        case 'ValuesStatement': return stripLeadingHardline(printValuesRows(node, opts, printWith(opts)));
         // These statement kinds only ever appear nested (WITH cte AS (...), COPY
         // (...) TO ..., PREPARE ... AS ..., EXPLAIN ...) via their full top-level
         // printer, which always ends with a trailing ';' meant for the standalone
@@ -194,6 +197,10 @@ export function printQueryExpr(node: SqlNode, opts: Options): Doc {
         case 'ExecuteStatement':        return stripTrailingSemicolon(printExecute(node, opts));
         default:                return printSelectBody(node, opts);
     }
+}
+
+function stripLeadingHardline(doc: Doc): Doc {
+    return Array.isArray(doc) && doc[0] === hardline ? doc.slice(1) : doc;
 }
 
 /** Drops the trailing ';' a top-level statement printer always appends, for reuse
@@ -285,10 +292,11 @@ function printCtes(ctes: SqlNode, opts: Options, printNode: PrintFn): Doc[] {
     const cteKw     = recursive ? makeKeyword('WITH RECURSIVE') : makeKeyword('WITH');
     const cteDocs = cteList.map((cte) => {
         const name  = propStr(cte, 'name') ?? '';
+        const columns = propStrArr(cte, 'columns');
         const query = prop(cte, 'query');
         const search = prop(cte, 'search');
         const cycle  = prop(cte, 'cycle');
-        const parts: Doc[] = [name, ' ', makeKeyword('AS'), ' (', indent([hardline, query ? printNode(query) : '']), hardline, ')'];
+        const parts: Doc[] = [name, columns.length > 0 ? ['(', join(', ', columns), ')'] : '', ' ', makeKeyword('AS'), ' (', indent([hardline, query ? printNode(query) : '']), hardline, ')'];
         if (search) {
             const breadthFirst = propBool(search, 'breadthFirst');
             const cols = propStrArr(search, 'columns');

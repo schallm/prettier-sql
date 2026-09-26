@@ -479,7 +479,13 @@ function printResTarget(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 // ---------------------------------------------------------------------------
 
 function printRangeVar(node: SqlNode, opts: Options): Doc {
-    return [onlyPrefix(node, opts), rangeVarName(node), aliasDoc(propStr(node, 'alias'), opts)];
+    return [onlyPrefix(node, opts), rangeVarName(node), tableAliasDoc(node, opts)];
+}
+
+/** ` AS alias` plus the alias's column list when present: ` AS x(a, b)`. */
+function tableAliasDoc(node: SqlNode, opts: Options): Doc {
+    const columns = propStrArr(node, 'aliasColumns');
+    return [aliasDoc(propStr(node, 'alias'), opts), columns.length > 0 ? ['(', join(', ', columns), ')'] : ''];
 }
 
 function printJoinExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -509,11 +515,31 @@ function printSubquery(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const subquery = prop(node, 'subquery');
     const lateral  = propBool(node, 'lateral');
     const prefix: Doc = lateral ? [makeKeyword('LATERAL'), ' '] : '';
-    return [prefix, '(', indent([hardline, subquery ? printNode(subquery) : '']), hardline, ')', aliasDoc(propStr(node, 'alias'), opts)];
+    return [prefix, '(', indent([hardline, subquery ? printNode(subquery) : '']), hardline, ')', tableAliasDoc(node, opts)];
 }
 
+// A function in FROM:
+//   [LATERAL] f(x) [WITH ORDINALITY] [AS alias[(cols)] | AS [alias](col type, …)]
+//   [LATERAL] ROWS FROM (f(x) [AS (col type, …)], …) [WITH ORDINALITY] [AS alias[(cols)]]
 function printRangeFunction(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    return [join(', ', propArr(node, 'functions').map(printNode)), aliasDoc(propStr(node, 'alias'), opts)];
+    const makeKeyword = (kw: string) => keyword(kw, opts);
+    const columnDefsDoc = (defs: SqlNode[]): Doc => ['(', join(', ', defs.map(printNode)), ')'];
+    const items = propArr(node, 'functions').map((f): Doc => {
+        const call = prop(f, 'call');
+        const defs = propArr(f, 'columnDefs');
+        return [call ? printNode(call) : '', defs.length > 0 ? [' ', makeKeyword('AS'), ' ', columnDefsDoc(defs)] : ''];
+    });
+    const body: Doc = propBool(node, 'rowsFrom') ? [makeKeyword('ROWS FROM'), ' (', join(', ', items), ')'] : join(', ', items);
+    const lateral: Doc = propBool(node, 'lateral') ? [makeKeyword('LATERAL'), ' '] : '';
+    const ordinality: Doc = propBool(node, 'ordinality') ? [' ', makeKeyword('WITH ORDINALITY')] : '';
+
+    // A column definition list takes the place of the alias column list
+    const alias = propStr(node, 'alias');
+    const defs = propArr(node, 'columnDefs');
+    const aliasPart: Doc = defs.length > 0
+        ? [' ', makeKeyword('AS'), alias ? [' ', alias] : ' ', columnDefsDoc(defs)]
+        : tableAliasDoc(node, opts);
+    return [lateral, body, ordinality, aliasPart];
 }
 
 // ---------------------------------------------------------------------------
@@ -681,8 +707,12 @@ function printCoalesce(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 function printCteInline(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (kw: string) => keyword(kw, opts);
     const name = propStr(node, 'name') ?? '';
+    const columns = propStrArr(node, 'columns');
     const query = prop(node, 'query');
-    return [name, ' ', makeKeyword('AS'), ' (', indent([hardline, query ? printNode(query) : '']), hardline, ')'];
+    return [
+        name, columns.length > 0 ? ['(', join(', ', columns), ')'] : '',
+        ' ', makeKeyword('AS'), ' (', indent([hardline, query ? printNode(query) : '']), hardline, ')',
+    ];
 }
 
 // ---------------------------------------------------------------------------

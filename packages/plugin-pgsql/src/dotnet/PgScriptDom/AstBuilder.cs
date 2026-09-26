@@ -929,6 +929,7 @@ public class AstBuilder {
             ("schema", Ident.QuoteOpt(r.Schemaname)),
             ("name", Ident.QuoteOpt(r.Relname)),
             ("alias", Ident.QuoteOpt(r.Alias?.Aliasname)),
+            ("aliasColumns", AliasColumns(r.Alias)),
             // Inh is false only for `ONLY t`: exclude inheritance children / partitions
             ("only", r.Inh ? null : true)
         ));
@@ -970,15 +971,42 @@ public class AstBuilder {
         return new SqlNode("Subquery", 0, 0, null, BuildProps(
             ("subquery", subquery),
             ("alias",    Ident.QuoteOpt(r.Alias?.Aliasname)),
+            ("aliasColumns", AliasColumns(r.Alias)),
             ("lateral",  r.Lateral ? true : null)
         ));
     }
 
-    private SqlNode BuildRangeFunction(RangeFunction r) =>
-        new("RangeFunction", 0, 0, null, BuildProps(
-            ("functions", MapList(r.Functions, BuildExpr)),
-            ("alias", Ident.QuoteOpt(r.Alias?.Aliasname))
+    // A function in FROM. Functions holds one (call, column definition list) pair per
+    // function — several only for ROWS FROM (f(), g()); the per-function definition
+    // list is ROWS FROM's `f() AS (a int)`. Coldeflist is the single-function form,
+    // `f() AS r(a int)`.
+    private SqlNode BuildRangeFunction(RangeFunction r) {
+        var functions = MapList(r.Functions, n => {
+            var items = n.NodeCase == Node.NodeOneofCase.List ? n.List.Items.ToList() : new List<Node> { n };
+            if (items.Count == 0) return null;
+            var defs = items.Count > 1 && items[1].NodeCase == Node.NodeOneofCase.List ? items[1].List.Items : null;
+            return new SqlNode("RangeFunctionItem", 0, 0, null, BuildProps(
+                ("call",       BuildExpr(items[0])),
+                ("columnDefs", defs != null ? MapList(defs, BuildTableElement) : null)
+            ));
+        });
+        return new SqlNode("RangeFunction", 0, 0, null, BuildProps(
+            ("functions",    functions),
+            ("rowsFrom",     r.IsRowsfrom ? true : null),
+            ("ordinality",   r.Ordinality ? true : null),
+            ("lateral",      r.Lateral ? true : null),
+            ("alias",        Ident.QuoteOpt(r.Alias?.Aliasname)),
+            ("aliasColumns", AliasColumns(r.Alias)),
+            ("columnDefs",   MapList(r.Coldeflist, BuildTableElement))
         ));
+    }
+
+    // Column names of a table alias: the `(a, b)` of `AS x(a, b)`.
+    private static object? AliasColumns(Alias? alias) =>
+        alias == null ? null : MaybeList(alias.Colnames
+            .Where(n => n.NodeCase == Node.NodeOneofCase.String)
+            .Select(n => Ident.Quote(n.String.Sval))
+            .ToList());
 
     // -------------------------------------------------------------------------
     // WITH / CTEs
@@ -1030,6 +1058,10 @@ public class AstBuilder {
 
             return new SqlNode("CTE", 0, 0, null, BuildProps(
                 ("name",   Ident.Quote(cte.Ctename)),
+                ("columns", MaybeList(cte.Aliascolnames
+                    .Where(c => c.NodeCase == Node.NodeOneofCase.String)
+                    .Select(c => Ident.Quote(c.String.Sval))
+                    .ToList())),
                 ("query",  query),
                 ("search", search),
                 ("cycle",  cycle)

@@ -91,6 +91,7 @@ describe('formatting preserves meaning', () => {
         'ddl/alter-table-extended.sql',
         'ddl/alter-table-options.sql',
         'dml/set-show.sql',
+        'select/from-items.sql',
     ];
     const variants = [
         {},
