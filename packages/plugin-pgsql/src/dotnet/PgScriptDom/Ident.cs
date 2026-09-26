@@ -69,6 +69,9 @@ public static class Ident {
 
     private const string OperatorChars = "+-*/<>=~!@#%^&|`?";
 
+    /// <summary>True for an operator name such as <c>+</c> or <c>@@</c>.</summary>
+    public static bool IsOperatorSymbol(string name) => name.Length > 0 && name.All(c => OperatorChars.Contains(c));
+
     /// <summary>
     /// Like <see cref="QualifiedFunc"/>, but for names that may be either a function
     /// or an operator (DROP OPERATOR, COMMENT ON OPERATOR, …): an operator symbol such
@@ -78,7 +81,7 @@ public static class Ident {
         var list = parts.ToList();
         return string.Join(".", list.Select((p, i) =>
             i < list.Count - 1 ? Quote(p)
-            : p.Length > 0 && p.All(c => OperatorChars.Contains(c)) ? p
+            : IsOperatorSymbol(p) ? p
             : QuoteFunc(p)));
     }
 }

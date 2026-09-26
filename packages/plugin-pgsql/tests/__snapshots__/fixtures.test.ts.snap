@@ -22,9 +22,9 @@ alter function format_name(text, text)
 alter function get_count(integer) rename to count_items;
 
 -- OWNER TO
-alter function get_count owner to admin;
+alter function get_count(integer) owner to admin;
 -- SET SCHEMA
-alter function get_count set schema reporting;
+alter function get_count(integer) set schema reporting;
 "
 `;
 
@@ -200,7 +200,7 @@ comment on column books.title is 'The book''s title';
 -- COMMENT ON SCHEMA
 comment on schema public is 'Public schema';
 -- COMMENT ON FUNCTION
-comment on function get_count is 'Returns count for given id';
+comment on function get_count(integer) is 'Returns count for given id';
 -- Remove a comment (IS NULL)
 comment on table temp_data is null;
 -- COMMENT ON VIEW
@@ -318,9 +318,9 @@ drop index if exists idx_books_author;
 drop index if exists idx_large_table;
 
 -- DROP FUNCTION
-drop function get_count;
+drop function get_count(integer);
 
-drop function if exists get_count;
+drop function if exists get_count(integer);
 
 -- DROP TYPE
 drop type my_status;
@@ -347,7 +347,7 @@ to alice;
 grant select on all tables in schema public
 to alice;
 -- GRANT to public
-grant execute on function get_count
+grant execute on function get_count(integer)
 to PUBLIC;
 -- REVOKE
 revoke select on table books
@@ -359,6 +359,33 @@ cascade;
 grant select on table books
 to alice
 with grant option;
+"
+`;
+
+exports[`fixtures > ddl/object-signatures.sql 1`] = `
+"-- Argument types identify an overload, and an operator always needs them
+drop operator === (integer, integer);
+
+drop operator if exists @@ (text, none) cascade;
+
+drop operator ~~~ (none, integer);
+
+drop function f(integer, text);
+
+drop function f();
+
+drop function if exists s.f;
+
+drop function "MyFn"("MyType"), g(integer[]);
+
+alter function s.f(integer) owner to r;
+alter function f(integer) set schema x;
+comment on function f(integer) is 'x';
+
+drop aggregate my_agg(integer);
+
+grant execute on function f(integer, text)
+to r;
 "
 `;
 

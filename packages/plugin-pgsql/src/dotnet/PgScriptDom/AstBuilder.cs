@@ -463,7 +463,7 @@ public class AstBuilder {
                 Node.NodeOneofCase.String => Ident.Quote(n.String.Sval),
                 _ => throw NotSupported($"DROP {objectType} name part ({n.NodeCase})", TryGetLocation(GetOneofValue(n))),
             })),
-            Node.NodeOneofCase.ObjectWithArgs => OwaName(o.ObjectWithArgs.Objname),
+            Node.NodeOneofCase.ObjectWithArgs => OwaSignature(o.ObjectWithArgs),
             Node.NodeOneofCase.TypeName => string.Join(".", o.TypeName.Names
                 .Where(n => n.NodeCase == Node.NodeOneofCase.String)
                 .Select(n => n.String.Sval)
@@ -1579,7 +1579,7 @@ public class AstBuilder {
             Node.NodeOneofCase.RangeVar       => BuildRangeVar(o.RangeVar),
             Node.NodeOneofCase.String         => new SqlNode("Literal", 0, 0, Ident.Quote(o.String.Sval), null),
             Node.NodeOneofCase.ObjectWithArgs => new SqlNode("Literal", 0, 0,
-                OwaName(o.ObjectWithArgs.Objname), null),
+                OwaSignature(o.ObjectWithArgs), null),
             _ => null,
         }).OfType<SqlNode>().ToList();
 
@@ -1805,7 +1805,7 @@ public class AstBuilder {
         var objtype = ObjectTypeKw(cm.Objtype);
         string? objectName = cm.Object?.NodeCase switch {
             Node.NodeOneofCase.List           => Ident.Qualified(cm.Object.List.Items.Select(n => n.String?.Sval).OfType<string>()),
-            Node.NodeOneofCase.ObjectWithArgs => OwaName(cm.Object.ObjectWithArgs.Objname),
+            Node.NodeOneofCase.ObjectWithArgs => OwaSignature(cm.Object.ObjectWithArgs),
             Node.NodeOneofCase.String         => Ident.Quote(cm.Object.String.Sval),
             Node.NodeOneofCase.TypeName       => string.Join(".", cm.Object.TypeName.Names
                 .Where(n => n.NodeCase == Node.NodeOneofCase.String)
@@ -2855,6 +2855,20 @@ public class AstBuilder {
     private static string OwaName(Google.Protobuf.Collections.RepeatedField<Node> objname) =>
         Ident.QualifiedObj(objname.Select(n => n.String.Sval));
 
+    /// <summary>
+    /// A function, aggregate or operator name with its argument types — `f(integer, text)`,
+    /// `f()`, `=== (integer, integer)`, `@@ (text, none)` — which is what identifies one
+    /// overload, and which an operator always requires. Just `f` when the SQL gave no
+    /// argument list ("the only function named f").
+    /// </summary>
+    private static string OwaSignature(ObjectWithArgs owa) {
+        var name = OwaName(owa.Objname);
+        if (owa.ArgsUnspecified) return name;
+        var args = owa.Objargs.Select(n => n.NodeCase == Node.NodeOneofCase.TypeName ? BuildPgTypeName(n.TypeName) : "none");
+        var isOperator = Ident.IsOperatorSymbol(owa.Objname.LastOrDefault()?.String?.Sval ?? "");
+        return $"{name}{(isOperator ? " " : "")}({string.Join(", ", args)})";
+    }
+
     /// <summary>Formats a RangeVar as a quoted, possibly schema-qualified name.</summary>
     private static string RangeVarQualifiedName(RangeVar rv) =>
         Ident.Qualified(new[] { rv.Schemaname, rv.Relname }.Where(p => !string.IsNullOrEmpty(p)));
@@ -2862,7 +2876,7 @@ public class AstBuilder {
     /// <summary>Extracts a dotted name from a Node (RangeVar, ObjectWithArgs, List of strings, or String).</summary>
     private static string? NodeObjName(Node? node) => node?.NodeCase switch {
         Node.NodeOneofCase.RangeVar       => RangeVarQualifiedName(node.RangeVar),
-        Node.NodeOneofCase.ObjectWithArgs => OwaName(node.ObjectWithArgs.Objname),
+        Node.NodeOneofCase.ObjectWithArgs => OwaSignature(node.ObjectWithArgs),
         Node.NodeOneofCase.List           => Ident.Qualified(node.List.Items
             .Where(n => n.NodeCase == Node.NodeOneofCase.String)
             .Select(n => n.String.Sval)),
