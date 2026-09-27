@@ -1172,11 +1172,13 @@ function printCreateExtension(node: SqlNode, opts: Options): Doc {
     const ifNotExists = propBool(node, 'ifNotExists');
     const schema      = propStr(node, 'schema');
     const version     = propStr(node, 'version');
+    const cascade     = propBool(node, 'cascade');
 
     const ifNotExistsDoc: Doc     = ifNotExists ? [makeKeyword('IF NOT EXISTS'), ' '] : '';
     const schemaDoc: Doc = schema  ? [hardline, makeKeyword('SCHEMA'), ' ', schema]  : '';
     const versionDoc: Doc = version ? [hardline, makeKeyword('VERSION'), ' ', `'${version}'`] : '';
-    return [[makeKeyword('CREATE EXTENSION'), ' ', ifNotExistsDoc, name, schemaDoc, versionDoc], ';'];
+    const cascadeDoc: Doc = cascade ? [hardline, makeKeyword('CASCADE')] : '';
+    return [[makeKeyword('CREATE EXTENSION'), ' ', ifNotExistsDoc, name, schemaDoc, versionDoc, cascadeDoc], ';'];
 }
 
 // ---------------------------------------------------------------------------

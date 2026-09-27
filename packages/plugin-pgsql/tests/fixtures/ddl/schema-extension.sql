@@ -9,3 +9,5 @@ create schema myschema authorization alice;
 create extension "uuid-ossp";
 
 create extension if not exists "pgcrypto";
+
+create extension if not exists hstore with schema s version '1.0' cascade;

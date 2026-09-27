@@ -2129,15 +2129,17 @@ public class AstBuilder {
 
     private static SqlNode BuildCreateExtension(CreateExtensionStmt ce, int start, int end) {
         string? schema = null, version = null;
+        bool cascade = false;
         foreach (var o in ce.Options) {
             if (o.NodeCase != Node.NodeOneofCase.DefElem) continue;
             var defElem = o.DefElem;
             if (defElem.Defname == "schema" && defElem.Arg?.NodeCase == Node.NodeOneofCase.String) schema = defElem.Arg.String.Sval;
             if (defElem.Defname == "new_version" && defElem.Arg?.NodeCase == Node.NodeOneofCase.String) version = defElem.Arg.String.Sval;
+            if (defElem.Defname == "cascade" && defElem.Arg?.NodeCase == Node.NodeOneofCase.Boolean) cascade = defElem.Arg.Boolean.Boolval;
         }
         return new SqlNode("CreateExtensionStatement", start, end, null, BuildProps(
             ("name", Ident.Quote(ce.Extname)), ("ifNotExists", ce.IfNotExists ? true : null),
-            ("schema", Ident.QuoteOpt(schema)), ("version", version)
+            ("schema", Ident.QuoteOpt(schema)), ("version", version), ("cascade", cascade ? true : null)
         ));
     }
 
