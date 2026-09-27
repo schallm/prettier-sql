@@ -1092,6 +1092,10 @@ using orders
 where
   order_items.order_id = orders.id
   and orders.status = 'cancelled';
+
+-- DELETE with target alias, referenced from WHERE
+delete from sessions as s
+where s.expires_at < now();
 "
 `;
 
@@ -1545,6 +1549,13 @@ values (1, 10)
 on conflict (product_id) do update
 set quantity = inventory.quantity + excluded.quantity
 where inventory.quantity < 1000;
+
+-- target table alias, referenced from the DO UPDATE ... WHERE clause
+insert into t as x (a)
+values (1)
+on conflict (a) do update
+set a = excluded.a
+where x.a > 0;
 "
 `;
 
@@ -3114,6 +3125,11 @@ set status = (
   where code = users.status_code
 )
 where status_code is not null;
+
+-- UPDATE with target alias, referenced from WHERE
+update users as u
+set active = false
+where u.id = 1;
 "
 `;
 

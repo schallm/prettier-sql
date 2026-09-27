@@ -8,3 +8,6 @@ update employees set salary = salary * 1.1 from departments as d where employees
 
 -- UPDATE with subquery in SET
 update users set status = (select status from status_map where code = users.status_code) where status_code is not null;
+
+-- UPDATE with target alias, referenced from WHERE
+update users as u set active = false where u.id = 1;

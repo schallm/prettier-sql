@@ -16,7 +16,7 @@ import {
     line,
 } from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix } from './helpers.js';
-import { printExpression, printWindowDef, printOperand, PREC } from './expressions.js';
+import { printExpression, printWindowDef, printOperand, PREC, tableAliasDoc } from './expressions.js';
 
 // ---------------------------------------------------------------------------
 // Script root
@@ -420,7 +420,7 @@ function printInsertBody(node: SqlNode, opts: Options): Doc {
 
     const parts: Doc[] = [
         ...cteParts,
-        [makeKeyword('INSERT INTO'), ' ', rangeVarName(target), colsPart, overridePart, sourcePart],
+        [makeKeyword('INSERT INTO'), ' ', rangeVarName(target), target ? tableAliasDoc(target, opts) : '', colsPart, overridePart, sourcePart],
     ];
 
     if (onConflict) parts.push(printOnConflict(onConflict, opts, printNode));
@@ -470,7 +470,7 @@ function printUpdateBody(node: SqlNode, opts: Options): Doc {
 
     const parts: Doc[] = ctes ? printCtes(ctes, opts, printNode) : [];
     parts.push(
-        [makeKeyword('UPDATE'), ' ', onlyPrefix(target, opts), rangeVarName(target)],
+        [makeKeyword('UPDATE'), ' ', onlyPrefix(target, opts), rangeVarName(target), target ? tableAliasDoc(target, opts) : ''],
         [
             makeKeyword('SET'),
             density !== 'spacious' && setDocs.length === 1
@@ -513,7 +513,7 @@ function printDeleteBody(node: SqlNode, opts: Options): Doc {
     const returning = propArr(node, 'returning');
 
     const parts: Doc[] = ctes ? printCtes(ctes, opts, printNode) : [];
-    parts.push([makeKeyword('DELETE FROM'), ' ', onlyPrefix(target, opts), rangeVarName(target)]);
+    parts.push([makeKeyword('DELETE FROM'), ' ', onlyPrefix(target, opts), rangeVarName(target), target ? tableAliasDoc(target, opts) : '']);
 
     if (using.length > 0) parts.push(printListClause('USING', using, opts, printNode));
 

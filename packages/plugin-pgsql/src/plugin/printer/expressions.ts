@@ -531,7 +531,7 @@ function printRangeVar(node: SqlNode, opts: Options): Doc {
 }
 
 /** ` AS alias` plus the alias's column list when present: ` AS x(a, b)`. */
-function tableAliasDoc(node: SqlNode, opts: Options): Doc {
+export function tableAliasDoc(node: SqlNode, opts: Options): Doc {
     const columns = propStrArr(node, 'aliasColumns');
     return [aliasDoc(propStr(node, 'alias'), opts), columns.length > 0 ? ['(', join(', ', columns), ')'] : ''];
 }

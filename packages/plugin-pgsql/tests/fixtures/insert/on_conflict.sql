@@ -10,3 +10,6 @@ insert into products (id, name, price) values (1, 'Widget', 9.99) on conflict (i
 
 -- ON CONFLICT DO UPDATE with WHERE on SET (filter which rows update)
 insert into inventory (product_id, quantity) values (1, 10) on conflict (product_id) do update set quantity = inventory.quantity + excluded.quantity where inventory.quantity < 1000;
+
+-- target table alias, referenced from the DO UPDATE ... WHERE clause
+insert into t as x (a) values (1) on conflict (a) do update set a = excluded.a where x.a > 0;
