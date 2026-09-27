@@ -17,6 +17,7 @@ import {
     parenList,
     aliasDoc,
     commaFill,
+    hasLineSuffix,
 } from '@prettier-sql/core/printer/utils';
 import {
     prop, propArr, propStr, propStrArr, propBool, schemaObjectName, assignmentOp,
@@ -1446,6 +1447,13 @@ function printQualifiedJoin(node: SqlNode, opts: Options, printFn: PrintFn): Doc
     // standard/spacious: always new line before each JOIN keyword
     const joinBreak = density === 'compact' ? line : hardline;
 
+    const rightDoc: Doc = right ? printTableRef(right, opts, printFn) : '';
+    // A trailing `--` comment on the right table (e.g. `JOIN u -- j\n ON ...`) queues as
+    // a lineSuffix that only flushes at the next hardline — without one here it would
+    // flush past the ON condition, landing on the wrong line. Force a break so it lands
+    // right after the joined table, in place of the usual space before ON.
+    const onSep: Doc = hasLineSuffix(rightDoc) ? hardline : ' ';
+
     let onDoc: Doc = '';
     if (condition) {
         const isMultiple = condition.type === 'BooleanBinary';
@@ -1453,13 +1461,13 @@ function printQualifiedJoin(node: SqlNode, opts: Options, printFn: PrintFn): Doc
             // Try to keep ON + condition on the same line as JOIN.
             // If it overflows, the whole condition drops to an indented line as
             // a unit — keeping all predicates together on that line.
-            onDoc = [' ', keyword('ON', opts), group([indent([line, printBoolExpr(condition, opts, printFn)])])];
+            onDoc = [onSep, keyword('ON', opts), group([indent([line, printBoolExpr(condition, opts, printFn)])])];
         } else if (density === 'standard' && !isMultiple) {
             // single predicate: ON stays on join line, predicate wraps below if too long
-            onDoc = [' ', keyword('ON', opts), group([indent([line, printBoolExpr(condition, opts, printFn)])])];
+            onDoc = [onSep, keyword('ON', opts), group([indent([line, printBoolExpr(condition, opts, printFn)])])];
         } else {
             // standard (multiple) or spacious (always): ON on join line, predicates indented below
-            onDoc = [' ', keyword('ON', opts), indent([hardline, printBoolExpr(condition, opts, printFn)])];
+            onDoc = [onSep, keyword('ON', opts), indent([hardline, printBoolExpr(condition, opts, printFn)])];
         }
     }
 
@@ -1478,7 +1486,7 @@ function printQualifiedJoin(node: SqlNode, opts: Options, printFn: PrintFn): Doc
         separator,
         joinTypeKeyword(jt, opts, hint),
         ' ',
-        right ? printTableRef(right, opts, printFn) : '',
+        rightDoc,
         onDoc,
     ];
 }

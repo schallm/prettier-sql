@@ -2619,6 +2619,20 @@ where p.Price < 10;
 "
 `;
 
+exports[`fixtures > select/join-comments-idempotent.sql 1`] = `
+"-- A comment right after the joined table (before ON) must stay there, and formatting
+-- twice must produce the same output.
+select a
+from
+  t
+  inner join u -- j
+  on t.a = u.a
+  -- on
+  left join v on v.a = u.a;
+/* v */
+"
+`;
+
 exports[`fixtures > select/joins.sql 1`] = `
 "-- INNER JOIN (keyword form)
 select
