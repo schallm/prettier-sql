@@ -2482,9 +2482,12 @@ public class AstBuilder {
         ));
     }
 
+    // CLOSE ALL has an empty Portalname; QuoteOpt keeps "" as "" (it only maps null to
+    // null), and BuildProps only drops actual nulls, so an explicit check is needed
+    // here to end up with no "cursor" prop at all — meaning ALL — instead of "".
     private static SqlNode BuildClosePortal(ClosePortalStmt s, int start, int end) =>
         new("ClosePortalStatement", start, end, null, BuildProps(
-            ("cursor", Ident.QuoteOpt(s.Portalname))
+            ("cursor", string.IsNullOrEmpty(s.Portalname) ? null : Ident.Quote(s.Portalname))
         ));
 
     private SqlNode BuildCopy(CopyStmt s, int start, int end) {

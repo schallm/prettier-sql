@@ -17,3 +17,5 @@ fetch all from my_cursor;
 move prior from scroll_cursor;
 
 close my_cursor;
+
+close all;
