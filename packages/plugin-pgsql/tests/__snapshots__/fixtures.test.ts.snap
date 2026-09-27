@@ -2175,6 +2175,10 @@ select
   updated_at at time zone 'America/New_York'
 from events;
 
+-- AT LOCAL
+select created_at at local
+from events;
+
 -- OVERLAY
 select overlay(name placing 'XXX' from 2 for 3)
 from users;

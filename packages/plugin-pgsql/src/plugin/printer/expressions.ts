@@ -357,10 +357,15 @@ function printPositionForm(args: SqlNode[], opts: Options, printNode: PrintFn): 
 }
 
 // ts AT TIME ZONE tz  — pg_catalog.timezone(tz, ts) has reversed args
+// ts AT LOCAL — pg_catalog.timezone(ts), a single-arg call with no zone
 function printAtTimeZoneForm(args: SqlNode[], opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (kw: string) => keyword(kw, opts);
-    const [tz, ts] = args;  // pg_catalog.timezone(zone, timestamp)
     const { left: leftPrec, right: rightPrec } = operandPrecs(PREC.AT);
+    if (args.length === 1) {
+        const [ts] = args;
+        return [ts ? printOperand(ts, leftPrec, printNode) : '', ' ', makeKeyword('AT LOCAL')];
+    }
+    const [tz, ts] = args;  // pg_catalog.timezone(zone, timestamp)
     return [
         ts ? printOperand(ts, leftPrec, printNode) : '', ' ', makeKeyword('AT TIME ZONE'), ' ',
         tz ? printOperand(tz, rightPrec, printNode) : '',

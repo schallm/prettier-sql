@@ -19,6 +19,9 @@ SELECT POSITION('.' IN email) FROM users;
 -- AT TIME ZONE
 SELECT created_at AT TIME ZONE 'UTC', updated_at AT TIME ZONE 'America/New_York' FROM events;
 
+-- AT LOCAL
+SELECT created_at AT LOCAL FROM events;
+
 -- OVERLAY
 SELECT OVERLAY(name PLACING 'XXX' FROM 2 FOR 3) FROM users;
 
