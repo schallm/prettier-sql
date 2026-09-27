@@ -2808,6 +2808,12 @@ public class AstBuilder {
             Node.NodeOneofCase.AConst when defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival    => defElem.Arg.AConst.Ival.Ival.ToString(),
             Node.NodeOneofCase.AConst when defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Fval    => defElem.Arg.AConst.Fval.Fval,
             Node.NodeOneofCase.AConst when defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Boolval => defElem.Arg.AConst.Boolval.Boolval ? "true" : "false",
+            // A bare identifier value (e.g. WITH (fastupdate = off)) parses through
+            // def_arg's func_type alternative as a one-part TypeName, not a String —
+            // only ON is a reserved keyword and takes the String path.
+            Node.NodeOneofCase.TypeName when defElem.Arg.TypeName.Names.Count == 1
+                && defElem.Arg.TypeName.Names[0].NodeCase == Node.NodeOneofCase.String
+                => defElem.Arg.TypeName.Names[0].String.Sval,
             _ => null,
         };
     }

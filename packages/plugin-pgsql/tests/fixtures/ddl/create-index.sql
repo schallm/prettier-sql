@@ -14,3 +14,6 @@ create index concurrently idx_big_table_col on big_table (col);
 
 -- IF NOT EXISTS
 create index if not exists idx_books_author on books (author_id);
+
+-- WITH reloption value (bare identifier like on/off must keep its value)
+create index idx_events_gin on events using gin (data) with (fastupdate = off);
