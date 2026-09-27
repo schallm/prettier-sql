@@ -149,7 +149,9 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'CreateUserMappingStatement':     return printCreateUserMapping(node, opts);
         case 'ImportForeignSchemaStatement':   return printImportForeignSchema(node, opts);
         case 'CreatePublicationStatement':     return printCreatePublication(node, opts);
+        case 'AlterPublicationStatement':      return printAlterPublication(node, opts);
         case 'CreateSubscriptionStatement':    return printCreateSubscription(node, opts);
+        case 'AlterSubscriptionStatement':     return printAlterSubscription(node, opts);
         case 'DropSubscriptionStatement':      return printDropSubscription(node, opts);
         case 'CreateAggregateStatement':       return printCreateAggregate(node, opts);
         case 'CreateOperatorStatement':        return printCreateOperator(node, opts);
@@ -2012,9 +2014,36 @@ function printPublicationObject(node: SqlNode, opts: Options): Doc {
     return [makeKeyword('TABLES IN SCHEMA'), ' ', makeKeyword('CURRENT_SCHEMA')];
 }
 
+/**
+ * A `pubObjects` list as `TABLE a, b (c) WHERE (...), TABLES IN SCHEMA s, ...` — a run of
+ * consecutive TABLE objects shares one TABLE keyword, since PostgreSQL's grammar allows
+ * `FOR TABLE a, b (c) WHERE (...)`. Shared by CREATE PUBLICATION's FOR clause and ALTER
+ * PUBLICATION's ADD/SET/DROP.
+ */
+function printPublicationObjectList(pubObjects: SqlNode[], opts: Options): Doc {
+    const makeKeyword = (k: string) => keyword(k, opts);
+    const printNode = printWith(opts);
+    const segments: Doc[] = [];
+    let run: SqlNode[] = [];
+    const flushRun = () => {
+        if (run.length === 0) return;
+        segments.push([makeKeyword('TABLE'), ' ', join(', ', run.map((o) => printPublicationTableItem(o, opts, printNode)))]);
+        run = [];
+    };
+    for (const o of pubObjects) {
+        if ((propStr(o, 'kind') ?? 'TABLE') === 'TABLE') {
+            run.push(o);
+        } else {
+            flushRun();
+            segments.push(printPublicationObject(o, opts));
+        }
+    }
+    flushRun();
+    return join(', ', segments);
+}
+
 function printCreatePublication(node: SqlNode, opts: Options): Doc {
     const makeKeyword     = (k: string) => keyword(k, opts);
-    const printNode = printWith(opts);
     const name       = propStr(node, 'name') ?? '';
     const pubObjects = propArr(node, 'pubObjects');
     const forAll     = propBool(node, 'forAllTables');
@@ -2024,32 +2053,28 @@ function printCreatePublication(node: SqlNode, opts: Options): Doc {
     if (forAll) {
         forPart = [' ', makeKeyword('FOR ALL TABLES')];
     } else if (pubObjects.length > 0) {
-        // A run of consecutive TABLE objects shares one TABLE keyword — PostgreSQL's
-        // grammar allows `FOR TABLE a, b (c) WHERE (...)`, so `orders, users` prints as
-        // `TABLE orders, users` instead of repeating TABLE before every table.
-        const segments: Doc[] = [];
-        let run: SqlNode[] = [];
-        const flushRun = () => {
-            if (run.length === 0) return;
-            segments.push([makeKeyword('TABLE'), ' ', join(', ', run.map((o) => printPublicationTableItem(o, opts, printNode)))]);
-            run = [];
-        };
-        for (const o of pubObjects) {
-            if ((propStr(o, 'kind') ?? 'TABLE') === 'TABLE') {
-                run.push(o);
-            } else {
-                flushRun();
-                segments.push(printPublicationObject(o, opts));
-            }
-        }
-        flushRun();
-        forPart = [hardline, indent([makeKeyword('FOR'), ' ', join(', ', segments)])];
+        forPart = [hardline, indent([makeKeyword('FOR'), ' ', printPublicationObjectList(pubObjects, opts)])];
     } else {
         forPart = '';
     }
     const withPart: Doc = options.length > 0 ? [hardline, makeKeyword('WITH'), ' (', join(', ', options), ')'] : '';
 
     return [[makeKeyword('CREATE PUBLICATION'), ' ', name, forPart, withPart], ';'];
+}
+
+function printAlterPublication(node: SqlNode, opts: Options): Doc {
+    const makeKeyword = (k: string) => keyword(k, opts);
+    const name       = propStr(node, 'name') ?? '';
+    const action     = propStr(node, 'action');
+    const pubObjects = propArr(node, 'pubObjects');
+    const options    = propStrArr(node, 'options');
+    const head: Doc = [makeKeyword('ALTER PUBLICATION'), ' ', name];
+
+    if (action && pubObjects.length > 0) {
+        return [[head, ' ', makeKeyword(action), ' ', printPublicationObjectList(pubObjects, opts)], ';'];
+    }
+    // Reloption-only form: ALTER PUBLICATION name SET (publish = 'insert', ...)
+    return [[head, ' ', makeKeyword('SET'), ' (', join(', ', options), ')'], ';'];
 }
 
 function printCreateSubscription(node: SqlNode, opts: Options): Doc {
@@ -2062,20 +2087,59 @@ function printCreateSubscription(node: SqlNode, opts: Options): Doc {
 
     return [
         [makeKeyword('CREATE SUBSCRIPTION'), ' ', name, hardline,
-         indent([makeKeyword('CONNECTION'), " '", conninfo, "'"]), hardline,
+         indent([makeKeyword('CONNECTION'), ' ', sqlString(conninfo)]), hardline,
          indent([makeKeyword('PUBLICATION'), ' ', join(', ', publications)]),
          withPart],
         ';',
     ];
 }
 
+function printAlterSubscription(node: SqlNode, opts: Options): Doc {
+    const makeKeyword   = (k: string) => keyword(k, opts);
+    const name          = propStr(node, 'name') ?? '';
+    const kind          = propStr(node, 'kind') ?? '';
+    const conninfo      = propStr(node, 'conninfo');
+    const publications  = (node.props?.['publications'] as string[] | undefined) ?? [];
+    const enabled       = propBool(node, 'enabled');
+    const options       = propStrArr(node, 'options');
+    const head: Doc      = [makeKeyword('ALTER SUBSCRIPTION'), ' ', name];
+    const withPart: Doc  = options.length > 0 ? [' ', makeKeyword('WITH'), ' (', join(', ', options), ')'] : '';
+
+    switch (kind) {
+        case 'CONNECTION':
+            return [[head, ' ', makeKeyword('CONNECTION'), ' ', sqlString(conninfo ?? '')], ';'];
+        case 'SET PUBLICATION':
+            return [[head, ' ', makeKeyword('SET PUBLICATION'), ' ', join(', ', publications), withPart], ';'];
+        case 'ADD PUBLICATION':
+            return [[head, ' ', makeKeyword('ADD PUBLICATION'), ' ', join(', ', publications), withPart], ';'];
+        case 'DROP PUBLICATION':
+            return [[head, ' ', makeKeyword('DROP PUBLICATION'), ' ', join(', ', publications), withPart], ';'];
+        case 'REFRESH PUBLICATION':
+            return [[head, ' ', makeKeyword('REFRESH PUBLICATION'), withPart], ';'];
+        case 'ENABLED':
+            return [[head, ' ', makeKeyword(enabled ? 'ENABLE' : 'DISABLE')], ';'];
+        case 'SKIP':
+            return [[head, ' ', makeKeyword('SKIP'), ' (', join(', ', options), ')'], ';'];
+        case 'OPTIONS':
+        default:
+            return [[head, ' ', makeKeyword('SET'), ' (', join(', ', options), ')'], ';'];
+    }
+}
+
 function printDropSubscription(node: SqlNode, opts: Options): Doc {
     const makeKeyword       = (k: string) => keyword(k, opts);
     const name     = propStr(node, 'name') ?? '';
     const ifExists = propBool(node, 'ifExists');
+    const cascade  = propBool(node, 'cascade');
 
     return [
-        [makeKeyword('DROP SUBSCRIPTION'), ifExists ? [' ', makeKeyword('IF EXISTS')] : '', ' ', name],
+        [
+            makeKeyword('DROP SUBSCRIPTION'),
+            ifExists ? [' ', makeKeyword('IF EXISTS')] : '',
+            ' ',
+            name,
+            cascade ? [' ', makeKeyword('CASCADE')] : '',
+        ],
         ';',
     ];
 }

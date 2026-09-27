@@ -3065,10 +3065,26 @@ public class AstBuilder {
         ));
     }
 
-    private static SqlNode BuildAlterPublication(AlterPublicationStmt s, int start, int end) =>
-        new("AlterPublicationStatement", start, end, null, BuildProps(
-            ("name", Ident.QuoteOpt(s.Pubname))
+    private SqlNode BuildAlterPublication(AlterPublicationStmt s, int start, int end) {
+        var pubObjects = s.Pubobjects
+            .Where(n => n.NodeCase == Node.NodeOneofCase.PublicationObjSpec)
+            .Select(n => BuildPublicationObjSpec(n.PublicationObjSpec))
+            .ToList();
+        // Undefined action + no pubObjects: the reloption-only `SET (...)` form.
+        var action = s.Action switch {
+            AlterPublicationAction.ApAddObjects  => "ADD",
+            AlterPublicationAction.ApDropObjects => "DROP",
+            AlterPublicationAction.ApSetObjects  => "SET",
+            _                                    => null,
+        };
+        return new SqlNode("AlterPublicationStatement", start, end, null, BuildProps(
+            ("name",       Ident.QuoteOpt(s.Pubname)),
+            ("action",     action),
+            ("pubObjects", MaybeList(pubObjects)),
+            // WITH (publish = 'insert', ...) — reloption syntax, not OPTIONS (...)
+            ("options",    StorageOptions(s.Options))
         ));
+    }
 
     private static SqlNode BuildCreateSubscription(CreateSubscriptionStmt s, int start, int end) {
         var publications = s.Publication
@@ -3083,15 +3099,45 @@ public class AstBuilder {
         ));
     }
 
-    private static SqlNode BuildAlterSubscription(AlterSubscriptionStmt s, int start, int end) =>
-        new("AlterSubscriptionStatement", start, end, null, BuildProps(
-            ("name", Ident.QuoteOpt(s.Subname))
+    private SqlNode BuildAlterSubscription(AlterSubscriptionStmt s, int start, int end) {
+        var publications = s.Publication
+            .Where(n => n.NodeCase == Node.NodeOneofCase.String)
+            .Select(n => Ident.Quote(n.String.Sval))
+            .ToList();
+        var kind = s.Kind switch {
+            AlterSubscriptionType.AlterSubscriptionOptions       => "OPTIONS",
+            AlterSubscriptionType.AlterSubscriptionConnection    => "CONNECTION",
+            AlterSubscriptionType.AlterSubscriptionSetPublication => "SET PUBLICATION",
+            AlterSubscriptionType.AlterSubscriptionAddPublication => "ADD PUBLICATION",
+            AlterSubscriptionType.AlterSubscriptionDropPublication => "DROP PUBLICATION",
+            AlterSubscriptionType.AlterSubscriptionRefresh       => "REFRESH PUBLICATION",
+            AlterSubscriptionType.AlterSubscriptionEnabled       => "ENABLED",
+            AlterSubscriptionType.AlterSubscriptionSkip          => "SKIP",
+            _                                                    => throw NotSupported($"ALTER SUBSCRIPTION ({s.Kind})", 0),
+        };
+        // ENABLE and DISABLE both parse to AlterSubscriptionEnabled — the difference is
+        // an "enabled" boolean DefElem in Options, not part of Kind.
+        bool? enabled = s.Kind == AlterSubscriptionType.AlterSubscriptionEnabled
+            ? s.Options
+                .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem && n.DefElem.Defname == "enabled")
+                .Select(n => n.DefElem.Arg?.NodeCase == Node.NodeOneofCase.Boolean ? (bool?)n.DefElem.Arg.Boolean.Boolval : null)
+                .FirstOrDefault()
+            : null;
+        return new SqlNode("AlterSubscriptionStatement", start, end, null, BuildProps(
+            ("name",         Ident.QuoteOpt(s.Subname)),
+            ("kind",         kind),
+            ("conninfo",     s.Kind == AlterSubscriptionType.AlterSubscriptionConnection ? s.Conninfo : null),
+            ("publications", MaybeList(publications)),
+            ("enabled",      enabled),
+            ("options",      StorageOptions(s.Options))
         ));
+    }
 
     private static SqlNode BuildDropSubscription(DropSubscriptionStmt s, int start, int end) =>
         new("DropSubscriptionStatement", start, end, null, BuildProps(
             ("name",     Ident.QuoteOpt(s.Subname)),
-            ("ifExists", s.MissingOk ? true : null)
+            ("ifExists", s.MissingOk ? true : null),
+            ("cascade",  s.Behavior == DropBehavior.DropCascade ? true : null)
         ));
 
     // -------------------------------------------------------------------------

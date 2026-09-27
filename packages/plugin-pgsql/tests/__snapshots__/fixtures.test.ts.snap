@@ -1770,6 +1770,42 @@ publication my_pub
 with (enabled = false, slot_name = 'my_slot');
 
 drop subscription my_sub;
+
+drop subscription if exists my_sub2 cascade;
+
+-- ALTER PUBLICATION: object list forms and the reloption-only form
+alter publication my_pub add table t1, t2;
+
+alter publication my_pub set table t1 (a, b) where (a > 0);
+
+alter publication my_pub drop table t1;
+
+alter publication my_pub set (publish = 'insert, update');
+
+-- ALTER SUBSCRIPTION: every form
+alter subscription my_sub connection 'host=localhost dbname=mydb2';
+
+alter subscription my_sub set publication p1, p2 with (refresh = false);
+
+alter subscription my_sub add publication p3;
+
+alter subscription my_sub drop publication p3;
+
+alter subscription my_sub refresh publication;
+
+alter subscription my_sub refresh publication with (copy_data = false);
+
+alter subscription my_sub enable;
+
+alter subscription my_sub disable;
+
+alter subscription my_sub set (slot_name = 'none');
+
+alter subscription my_sub skip (lsn = '0/0');
+
+alter subscription my_sub rename to my_sub3;
+
+alter subscription my_sub owner to new_owner;
 "
 `;
 
