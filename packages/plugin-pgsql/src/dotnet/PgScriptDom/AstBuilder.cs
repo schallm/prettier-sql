@@ -1572,7 +1572,10 @@ public class AstBuilder {
 
     private string BuildPgTypeName(TypeName t) {
         var parts = t.Names.Select(n => n.String.Sval).ToList();
-        var isSqlType = parts.Count == 2 && parts[0] == "pg_catalog" && _sqlTypeNames.ContainsKey(parts[1]);
+        // `char` and `bit` written without a length mean length 1, so the unbounded
+        // pg_catalog.bpchar / pg_catalog.bit (no typmod) can't use the keyword form
+        var isSqlType = parts.Count == 2 && parts[0] == "pg_catalog" && _sqlTypeNames.ContainsKey(parts[1])
+            && !(parts[1] is "bpchar" or "bit" && t.Typmods.Count == 0);
         var baseName = isSqlType ? _sqlTypeNames[parts[1]] : Ident.QualifiedType(parts);
 
         var mods = t.Typmods

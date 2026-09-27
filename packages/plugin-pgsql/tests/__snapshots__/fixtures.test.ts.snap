@@ -2948,6 +2948,18 @@ create table t (
 "
 `;
 
+exports[`fixtures > select/type-names-unbounded.sql 1`] = `
+"-- Unbounded bpchar and bit keep their qualified names; char and bit alone mean length 1
+select
+  x::pg_catalog.bpchar,
+  y::pg_catalog."bit",
+  z::char(1),
+  w::char(3),
+  v::bit(1),
+  u::bit(4);
+"
+`;
+
 exports[`fixtures > select/window.sql 1`] = `
 "-- GROUPS frame (pgsql-specific frame mode)
 select
