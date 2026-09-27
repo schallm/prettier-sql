@@ -1807,6 +1807,11 @@ function printCreateTablePartitionOf(node: SqlNode, opts: Options): Doc {
     const name   = prop(node, 'name');
     const parent = prop(node, 'parent');
     const bound  = prop(node, 'bound');
+    const partitionBy = prop(node, 'partitionBy');
+    const partitionDoc: Doc = partitionBy
+        ? [hardline, makeKeyword('PARTITION BY'), ' ', makeKeyword(propStr(partitionBy, 'strategy') ?? 'RANGE'),
+           ' (', join(', ', propStrArr(partitionBy, 'columns')), ')']
+        : '';
 
     let boundDoc: Doc = '';
     if (bound) {
@@ -1837,6 +1842,7 @@ function printCreateTablePartitionOf(node: SqlNode, opts: Options): Doc {
         makeKeyword('CREATE TABLE'), ' ', rangeVarName(name), hardline,
         indent([makeKeyword('PARTITION OF'), ' ', rangeVarName(parent)]),
         boundDoc,
+        partitionDoc,
         ';',
     ];
 }

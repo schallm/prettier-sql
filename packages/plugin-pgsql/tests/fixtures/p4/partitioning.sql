@@ -37,3 +37,9 @@ create table events_1
 create table orders_eu
   partition of orders
   for values in ('DE', 'FR', 'UK');
+
+-- sub-partitioned: PARTITION OF ... PARTITION BY
+create table orders_apac
+  partition of orders
+  for values in ('AU', 'JP')
+  partition by range (region);

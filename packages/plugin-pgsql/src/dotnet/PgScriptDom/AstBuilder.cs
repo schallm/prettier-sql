@@ -319,43 +319,14 @@ public class AstBuilder {
                 : null;
             SqlNode? bound = BuildPartitionBound(s.Partbound);
             return new SqlNode("CreateTablePartitionOfStatement", start, end, null, BuildProps(
-                ("name",   BuildRangeVar(s.Relation)),
-                ("parent", parent),
-                ("bound",  bound)
+                ("name",        BuildRangeVar(s.Relation)),
+                ("parent",      parent),
+                ("bound",       bound),
+                ("partitionBy", BuildPartitionBy(s.Partspec))
             ));
         }
 
-        // PARTITION BY: table with partition strategy
-        SqlNode? partitionBy = null;
-        if (s.Partspec != null) {
-            var strategy = s.Partspec.Strategy switch {
-                PartitionStrategy.Range => "range",
-                PartitionStrategy.List  => "list",
-                PartitionStrategy.Hash  => "hash",
-                _                      => s.Partspec.Strategy.ToString().ToLower(),
-            };
-            var cols = s.Partspec.PartParams
-                .Select(n => {
-                    if (n.NodeCase == Node.NodeOneofCase.PartitionElem) {
-                        var pe = n.PartitionElem;
-                        if (!string.IsNullOrEmpty(pe.Name)) return Ident.Quote(pe.Name);
-                        // Expression-based partition element: extract ColumnRef name
-                        if (pe.Expr?.NodeCase == Node.NodeOneofCase.ColumnRef) {
-                            var fields = pe.Expr.ColumnRef.Fields;
-                            if (fields.Count > 0 && fields[0].NodeCase == Node.NodeOneofCase.String)
-                                return Ident.Quote(fields[0].String.Sval);
-                        }
-                    }
-                    return null;
-                })
-                .Where(c => !string.IsNullOrEmpty(c))
-                .Cast<string>()
-                .ToList();
-            partitionBy = new SqlNode("PartitionBy", 0, 0, null, BuildProps(
-                ("strategy", strategy),
-                ("columns",  MaybeList(cols))
-            ));
-        }
+        SqlNode? partitionBy = BuildPartitionBy(s.Partspec);
 
         return new SqlNode("CreateTableStatement", start, end, null, BuildProps(
             ("persistence",  Persistence(s.Relation)),
@@ -395,6 +366,39 @@ public class AstBuilder {
             return value == null ? name : $"{name} = {value}";
         })
         .ToList());
+
+    // PARTITION BY strategy (column list) — used by both plain CREATE TABLE and
+    // CREATE TABLE ... PARTITION OF, either of which can itself be further partitioned.
+    private static SqlNode? BuildPartitionBy(PartitionSpec? spec) {
+        if (spec == null) return null;
+        var strategy = spec.Strategy switch {
+            PartitionStrategy.Range => "range",
+            PartitionStrategy.List  => "list",
+            PartitionStrategy.Hash  => "hash",
+            _                      => spec.Strategy.ToString().ToLower(),
+        };
+        var cols = spec.PartParams
+            .Select(n => {
+                if (n.NodeCase == Node.NodeOneofCase.PartitionElem) {
+                    var pe = n.PartitionElem;
+                    if (!string.IsNullOrEmpty(pe.Name)) return Ident.Quote(pe.Name);
+                    // Expression-based partition element: extract ColumnRef name
+                    if (pe.Expr?.NodeCase == Node.NodeOneofCase.ColumnRef) {
+                        var fields = pe.Expr.ColumnRef.Fields;
+                        if (fields.Count > 0 && fields[0].NodeCase == Node.NodeOneofCase.String)
+                            return Ident.Quote(fields[0].String.Sval);
+                    }
+                }
+                return null;
+            })
+            .Where(c => !string.IsNullOrEmpty(c))
+            .Cast<string>()
+            .ToList();
+        return new SqlNode("PartitionBy", 0, 0, null, BuildProps(
+            ("strategy", strategy),
+            ("columns",  MaybeList(cols))
+        ));
+    }
 
     private SqlNode? BuildPartitionBound(PartitionBoundSpec partitionBound) {
         if (partitionBound.IsDefault) {
