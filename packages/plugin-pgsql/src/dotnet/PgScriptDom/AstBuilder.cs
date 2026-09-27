@@ -2317,7 +2317,8 @@ public class AstBuilder {
     private static SqlNode BuildRefreshMatView(RefreshMatViewStmt s, int start, int end) =>
         new("RefreshMatViewStatement", start, end, null, BuildProps(
             ("name",       BuildRangeVar(s.Relation)),
-            ("concurrent", s.Concurrent ? true : null)
+            ("concurrent", s.Concurrent ? true : null),
+            ("withNoData", s.SkipData ? true : null)
         ));
 
     private SqlNode BuildRule(RuleStmt s, int start, int end) {

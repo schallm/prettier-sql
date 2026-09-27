@@ -1425,11 +1425,13 @@ function printRefreshMatView(node: SqlNode, opts: Options): Doc {
     const makeKeyword         = (k: string) => keyword(k, opts);
     const name       = prop(node, 'name');
     const concurrent = propBool(node, 'concurrent');
+    const withNoData = propBool(node, 'withNoData');
 
     return [
         makeKeyword('REFRESH MATERIALIZED VIEW'),
         concurrent ? [' ', makeKeyword('CONCURRENTLY')] : '',
         ' ', rangeVarName(name),
+        withNoData ? [' ', makeKeyword('WITH NO DATA')] : '',
         ';',
     ];
 }
