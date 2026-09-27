@@ -15,7 +15,7 @@ import {
     fill,
     line,
 } from '@prettier-sql/core/printer/utils';
-import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions } from './helpers.js';
 import { printExpression, printWindowDef, printOperand, PREC, tableAliasDoc } from './expressions.js';
 
 // ---------------------------------------------------------------------------
@@ -1915,18 +1915,6 @@ function printReindex(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 // P4: Foreign Data Wrappers
 // ---------------------------------------------------------------------------
-
-function printFdwOptions(node: SqlNode, opts: Options): Doc {
-    const makeKeyword = (k: string) => keyword(k, opts);
-    const options = propArr(node, 'options');
-    if (options.length === 0) return '';
-    const pairs = options.map((o) => {
-        const key = propStr(o, 'key') ?? '';
-        const val = propStr(o, 'val') ?? '';
-        return [key, " '", val, "'"].join('') as Doc;
-    });
-    return [' ', makeKeyword('OPTIONS'), ' (', join(', ', pairs), ')'];
-}
 
 function printCreateForeignServer(node: SqlNode, opts: Options): Doc {
     const makeKeyword      = (k: string) => keyword(k, opts);

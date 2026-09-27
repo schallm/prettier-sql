@@ -1377,7 +1377,9 @@ public class AstBuilder {
                     .Where(n => n.NodeCase == Node.NodeOneofCase.Constraint)
                     .Select(n => BuildConstraint(n.Constraint))
                     .ToList()
-                : null)
+                : null),
+            // CREATE FOREIGN TABLE column-level OPTIONS (name 'value', ...)
+            ("options", OptionsToObject(BuildDefElemOptions(columnDef.Fdwoptions)))
         ));
 
     private SqlNode BuildConstraint(Constraint constraint) {
