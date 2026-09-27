@@ -458,6 +458,16 @@ create table dbo.Knows (
 "
 `;
 
+exports[`fixtures > create-table/hash-index-bucket-count.sql 1`] = `
+"-- BUCKET_COUNT on a memory-optimized table's hash index: the option name was
+-- being dropped, leaving only the value (e.g. "with (1024)"), which doesn't parse.
+create table t (
+  a int not null,
+  index ix nonclustered hash (a asc) with (bucket_count = 1024)
+);
+"
+`;
+
 exports[`fixtures > create-table/inline-fk-constraint-name.sql 1`] = `
 "-- Inline column-level FK with constraint name and FOREIGN KEY keywords must be preserved
 create table dbo.LineItems (

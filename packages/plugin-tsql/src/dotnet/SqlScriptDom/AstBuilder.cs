@@ -1659,6 +1659,14 @@ public class AstBuilder : TSqlFragmentVisitor {
                     : cdo.Expression != null ? RawText(cdo.Expression).Trim() : "0";
             return $"compression_delay = {val}{unit}";
         }
+        // BUCKET_COUNT (hash indexes on memory-optimized tables): like LogOn trigger
+        // actions, this option's own fragment doesn't carry offsets for its keyword,
+        // only its value, so RawText(opt) returns just the number.
+        if (opt is IndexExpressionOption { OptionKind: IndexOptionKind.BucketCount } beo) {
+            var val = beo.Expression is IntegerLiteral il2 ? il2.Value
+                    : beo.Expression != null ? RawText(beo.Expression).Trim() : "0";
+            return $"bucket_count = {val}";
+        }
         return RawText(opt).Trim();
     }
 
