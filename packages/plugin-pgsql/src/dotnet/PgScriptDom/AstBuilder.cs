@@ -2403,20 +2403,23 @@ public class AstBuilder {
             .ToList());
 
     private SqlNode BuildDeclareCursor(DeclareCursorStmt s, int start, int end) {
-        // Options bitmask: SCROLL=2, NO_SCROLL=4, INSENSITIVE=8, BINARY=16
-        bool scroll     = (s.Options & 2) != 0;
-        bool noScroll   = (s.Options & 4) != 0;
-        bool insensitive = (s.Options & 8) != 0;
-        bool binary     = (s.Options & 16) != 0;
+        // CursorOptions bitmask (utils/portal.h): BINARY=0x0001, SCROLL=0x0002,
+        // NO_SCROLL=0x0004, INSENSITIVE=0x0008, HOLD=0x0020.
+        bool binary     = (s.Options & 0x0001) != 0;
+        bool scroll     = (s.Options & 0x0002) != 0;
+        bool noScroll   = (s.Options & 0x0004) != 0;
+        bool insensitive = (s.Options & 0x0008) != 0;
+        bool withHold   = (s.Options & 0x0020) != 0;
 
         var query = s.Query != null ? BuildExpr(s.Query) : null;
 
         return new SqlNode("DeclareCursorStatement", start, end, null, BuildProps(
             ("name",        Ident.QuoteOpt(s.Portalname)),
+            ("binary",      binary     ? true : null),
             ("scroll",      scroll     ? true : null),
             ("noScroll",    noScroll   ? true : null),
             ("insensitive", insensitive ? true : null),
-            ("binary",      binary     ? true : null),
+            ("withHold",    withHold   ? true : null),
             ("query",       query)
         ));
     }

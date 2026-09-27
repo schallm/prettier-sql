@@ -1591,14 +1591,16 @@ function printDeclareCursor(node: SqlNode, opts: Options): Doc {
     const noScroll = propBool(node, 'noScroll');
     const insensitive = propBool(node, 'insensitive');
     const binary   = propBool(node, 'binary');
+    const withHold = propBool(node, 'withHold');
     const query    = prop(node, 'query');
 
     const scrollKw: Doc = noScroll ? [' ', makeKeyword('NO SCROLL')] : scroll ? [' ', makeKeyword('SCROLL')] : '';
     const binaryKw: Doc = binary ? [makeKeyword('BINARY'), ' '] : '';
     const insensKw: Doc = insensitive ? [makeKeyword('INSENSITIVE'), ' '] : '';
+    const holdKw: Doc = withHold ? [' ', makeKeyword('WITH HOLD')] : '';
 
     return [
-        [makeKeyword('DECLARE'), ' ', name, scrollKw, ' ', insensKw, binaryKw, makeKeyword('CURSOR'), ' ', makeKeyword('FOR')],
+        [makeKeyword('DECLARE'), ' ', name, scrollKw, ' ', insensKw, binaryKw, makeKeyword('CURSOR'), holdKw, ' ', makeKeyword('FOR')],
         hardline,
         query ? printQueryExpr(query, opts) : '',
         ';',
