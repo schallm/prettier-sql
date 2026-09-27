@@ -1163,10 +1163,10 @@ export function printCreateTrigger(node: SqlNode, opts: Options): Doc {
     const notForReplicationDoc: Doc = notForReplication ? [hardline, keyword('NOT FOR REPLICATION', opts)] : '';
     const triggerBody = unwrapBodyBlock(propArr(node, 'body'));
 
-    const triggerScope = propStr(node, 'triggerScope'); // 'Database' or 'Server' for DDL triggers
+    const triggerScope = propStr(node, 'triggerScope'); // 'Database' or 'AllServer' for DDL triggers
     const onTarget: Doc = triggerScope === 'Database'
         ? keyword('DATABASE', opts)
-        : triggerScope === 'Server'
+        : triggerScope === 'AllServer'
           ? keyword('ALL SERVER', opts)
           : schemaObjectName(prop(node, 'onName'));
 

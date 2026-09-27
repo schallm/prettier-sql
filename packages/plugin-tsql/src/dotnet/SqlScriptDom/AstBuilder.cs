@@ -2661,6 +2661,9 @@ public class AstBuilder : TSqlFragmentVisitor {
             TriggerActionType.Insert => "INSERT",
             TriggerActionType.Update => "UPDATE",
             TriggerActionType.Delete => "DELETE",
+            // LOGON (server-level logon trigger event): the action fragment carries no
+            // source offsets of its own, so RawText(action) returns "" for it.
+            TriggerActionType.LogOn => "LOGON",
             // DDL trigger events: TriggerActionType.ToString() returns "Event" for all DDL types;
             // use RawText to get the actual keyword (e.g. CREATE_TABLE, DDL_TABLE_EVENTS).
             _ => RawText(action).ToUpperInvariant().Trim(),
