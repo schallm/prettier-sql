@@ -2313,6 +2313,8 @@ public class AstBuilder : TSqlFragmentVisitor {
         Node("CreateSchemaStatement", stmt, new Dictionary<string, object?> {
             ["name"] = QuotedName(stmt.Name),
             ["owner"] = QuotedName(stmt.Owner),
+            // CREATE SCHEMA s CREATE TABLE ... GRANT ...: statements created within the schema
+            ["elements"] = stmt.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList(),
         });
 
     private static SqlNode BuildAlterSchema(AlterSchemaStatement stmt) =>

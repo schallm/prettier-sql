@@ -652,6 +652,34 @@ create table dbo.Documents (
 "
 `;
 
+exports[`fixtures > ddl/create-schema-elements.sql 1`] = `
+"-- CREATE SCHEMA with schema elements: one statement, no semicolons between elements
+create schema s authorization dbo
+  create table t (
+    a int
+  )
+  grant select
+  on t
+  to u;
+go
+
+create schema s
+  create view v
+  as
+  select 1 as a
+  create table t2 (
+    b int
+  )
+  deny select
+  on v
+  to u;
+go
+
+create schema s;
+go
+"
+`;
+
 exports[`fixtures > ddl/filtered-index.sql 1`] = `
 "create index IX_Books_InStock
   on Books (

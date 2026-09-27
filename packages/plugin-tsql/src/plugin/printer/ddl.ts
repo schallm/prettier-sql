@@ -16,7 +16,7 @@ import {
 import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, printDropSingleObject, withTrailingComment } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
-import { joinBodyStatements, printNode, printBool, printBoolClause, qexpr, printCtes } from './statements.js';
+import { joinBodyStatements, printNode, printBool, printBoolClause, qexpr, printCtes, printStatement } from './statements.js';
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -1384,7 +1384,27 @@ export function printCreateSchema(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name') ?? '';
     const owner = propStr(node, 'owner');
     const ownerPart: Doc = owner ? [' ', keyword('AUTHORIZATION', opts), ' ', owner] : '';
-    return [keyword('CREATE SCHEMA', opts), ' ', name, ownerPart, ';'];
+    // Schema elements are part of the one CREATE SCHEMA statement: no semicolons between
+    // them, or the first would end it and the rest would be separate statements
+    const elements = propArr(node, 'elements').map((e) => withoutSemicolon(printStatement(e, opts)));
+    return [
+        keyword('CREATE SCHEMA', opts), ' ', name, ownerPart,
+        elements.length > 0 ? indent(elements.map((e) => [hardline, e])) : '',
+        ';',
+    ];
+}
+
+/** A statement's doc without its final semicolon. */
+function withoutSemicolon(doc: Doc): Doc {
+    if (doc === ';') return '';
+    if (Array.isArray(doc)) {
+        const i = doc.length - 1;
+        return i < 0 ? doc : [...doc.slice(0, i), withoutSemicolon(doc[i]!)];
+    }
+    if (doc && typeof doc === 'object' && 'contents' in doc && (doc as { type: string }).type === 'group') {
+        return { ...doc, contents: withoutSemicolon((doc as { contents: Doc }).contents) } as Doc;
+    }
+    return doc;
 }
 
 export function printAlterSchema(node: SqlNode, opts: Options): Doc {
