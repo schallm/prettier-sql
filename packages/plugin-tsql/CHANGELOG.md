@@ -1,5 +1,20 @@
 # prettier-plugin-tsql
 
+## 0.9.2
+
+### Patch Changes
+
+- 83dbdd2: A hash index's `BUCKET_COUNT` option kept its value but dropped the option name (`WITH (1024)`), which doesn't parse.
+- c3d347f: A trailing comment on a `WHILE` or `IF` condition (or other standalone predicate, e.g. a `CHECK` constraint) is now printed right after the condition; it was claimed internally but never printed, so it moved to the end of the statement.
+- de9e263: A `FOREIGN KEY ... REFERENCES table` with no explicit referenced-column list no longer prints an empty `()`, which doesn't parse.
+- bafed5a: A comment right after a joined table and before its `ON` clause now stays there instead of drifting past the condition on reformat.
+- 93e14e3: `MERGE ... USING source -- comment` keeps the comment right after the source table instead of it drifting past `ON` onto the wrong line.
+- 0ffc250: Two comments that attach to the same node (e.g. one after each side of a `UNION ALL`) now print on separate lines instead of running together as a single comment.
+- 0c19794: A natively compiled `CREATE FUNCTION`'s `BEGIN ATOMIC WITH (...)` body no longer gets wrapped in an extra `BEGIN ... END`, and its option names (`TRANSACTION ISOLATION LEVEL`, `LANGUAGE`, ...) are keyword-cased per `sqlKeywordCase` instead of always printing uppercase.
+- 9358b6f: `CROSS APPLY t.x.nodes(...) AS n(x)` keeps the alias's column list; it was being dropped.
+- 4332e9c: Fix a non-idempotent trailing comment on `ORDER BY`: once `ASC` is spelled out on reformat, the comment attaches to the `ORDER BY` element instead of its sort expression, and used to be dropped.
+- 99335a6: `CREATE TRIGGER ... ON ALL SERVER ... FOR LOGON` keeps its `ALL SERVER` scope and `LOGON` event; both were dropped, producing unparseable output.
+
 ## 0.9.1
 
 ### Patch Changes
