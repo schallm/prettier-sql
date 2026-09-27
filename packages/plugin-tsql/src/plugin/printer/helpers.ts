@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
-import { keyword, ifExistsDoc, lineSuffix } from '@prettier-sql/core/printer/utils';
+import { keyword, ifExistsDoc, lineSuffix, hardline } from '@prettier-sql/core/printer/utils';
 import { builders } from 'prettier/doc';
 
 const { breakParent } = builders;
@@ -36,11 +36,27 @@ export function takeTrailingComment(node: SqlNode | null | undefined): string | 
     return node.trailingComment;
 }
 
-/** A doc followed by comments: line comments end at the next line break, block comments sit inline. */
+/**
+ * A doc followed by comments: line comments end at the next line break, block comments
+ * sit inline. A trailingComment can hold several comments joined by '\n' (attachment
+ * merges consecutive comments onto the same nearest node) — a line comment's content is
+ * only flushed at the *next* hardline in the surrounding doc, so back-to-back line
+ * comments with nothing but breakParent between them would flush together on the same
+ * line; a real hardline between them forces each onto its own line.
+ */
 export function appendComments(doc: Doc, comment: string | undefined): Doc {
     if (!comment) return doc;
+    let prevWasLineComment = false;
     return comment.split('\n').map((c) => c.trim()).reduce<Doc>(
-        (d, c) => (c.startsWith('--') ? [d, lineSuffix([' ', c]), breakParent] : [d, ' ', c]),
+        (d, c) => {
+            const lineSep = prevWasLineComment ? hardline : '';
+            if (c.startsWith('--')) {
+                prevWasLineComment = true;
+                return [d, lineSep, lineSuffix([' ', c]), breakParent];
+            }
+            prevWasLineComment = false;
+            return [d, lineSep || ' ', c];
+        },
         doc,
     );
 }
