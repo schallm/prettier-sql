@@ -14,6 +14,7 @@ import {
     parenList,
 } from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, printDropSingleObject, withTrailingComment } from './helpers.js';
+import { boolEndsWithPendingComment } from './expressions.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
 import { joinBodyStatements, printNode, printBool, printBoolClause, qexpr, printCtes, printStatement } from './statements.js';
@@ -285,7 +286,12 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
     if (checkConstraint) {
         const checkName = propStr(node, 'checkConstraintName');
         const checkPrefix: Doc = checkName ? [keyword('CONSTRAINT', opts), ' ', checkName, ' '] : '';
-        parts.push(' ', checkPrefix, keyword('CHECK', opts), ' (', printBool(checkConstraint, opts), ')');
+        // A trailing comment on the condition prints on its own new line with nothing
+        // to end it — without a break here, the closing `)` would land right after it,
+        // inside the comment, and the output wouldn't parse.
+        const needsBreak = boolEndsWithPendingComment(checkConstraint);
+        const checkDoc = printBool(checkConstraint, opts);
+        parts.push(' ', checkPrefix, keyword('CHECK', opts), ' (', checkDoc, needsBreak ? hardline : '', ')');
     }
 
     // Inline PRIMARY KEY / UNIQUE constraint (e.g. in table variable declarations)
@@ -410,12 +416,17 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
         case 'CheckConstraint': {
             const expr = prop(node, 'expression');
             const nfr = propBool(node, 'notForReplication');
+            // See the inline CHECK case above: a trailing comment on the condition
+            // must break before the closing `)`, or it swallows it.
+            const needsBreak = expr ? boolEndsWithPendingComment(expr) : false;
+            const exprDoc = expr ? printBool(expr, opts) : '';
             return [
                 namePrefix,
                 keyword('CHECK', opts),
                 nfr ? [' ', keyword('NOT FOR REPLICATION', opts)] : '',
                 ' (',
-                expr ? printBool(expr, opts) : '',
+                exprDoc,
+                needsBreak ? hardline : '',
                 ')',
             ];
         }

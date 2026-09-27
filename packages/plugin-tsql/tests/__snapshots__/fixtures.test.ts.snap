@@ -363,6 +363,25 @@ exports[`fixtures > create-table/basic.sql 1`] = `
 "
 `;
 
+exports[`fixtures > create-table/check-constraint-comment.sql 1`] = `
+"-- A trailing comment on a CHECK constraint's condition stays right after the
+-- condition, on its own line, and doesn't swallow the closing paren that follows it.
+create table t (
+  a int check (a > 0
+  -- c
+  ),
+  constraint ck2 check (a < 100
+  -- c2
+  )
+);
+
+alter table t
+add constraint ck3 check (a <> 0
+-- c3
+);
+"
+`;
+
 exports[`fixtures > create-table/collate-sparse.sql 1`] = `
 "-- COLLATE clause on column definition
 create table dbo.Translations (
@@ -1434,6 +1453,23 @@ when matched then
 when not matched then
   insert (a)
   values (s.a); -- ins
+"
+`;
+
+exports[`fixtures > merge/predicate-comment.sql 1`] = `
+"-- A trailing comment on a WHEN MATCHED/NOT MATCHED predicate stays right after the
+-- predicate, on its own line, and doesn't swallow the THEN that follows it.
+merge into t as target
+using s as source on target.id = source.id
+when matched and target.a = 1
+-- m
+then
+  delete
+when not matched and source.a = 2
+-- nm
+then
+  insert (a)
+  values (source.a);
 "
 `;
 

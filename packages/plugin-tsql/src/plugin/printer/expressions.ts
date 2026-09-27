@@ -1093,6 +1093,20 @@ export function boolWithTrailing(node: SqlNode, doc: Doc): Doc {
 }
 
 /**
+ * Peek whether printBool(node, opts) is about to emit a trailing comment of its own,
+ * appended on a new line after the predicate — without claiming/consuming it (safe to
+ * call before printBool). boolWithTrailing's appended line has nothing to end it, so a
+ * caller that prints more tokens right after printBool() on what would otherwise be the
+ * same line (a closing paren on a CHECK constraint, THEN in a MERGE clause) needs to
+ * force its own break first, or those tokens land inside the comment.
+ */
+export function boolEndsWithPendingComment(node: SqlNode): boolean {
+    const rp = rightmostPred(node);
+    const found = rp ? rightmostCommentNode(rp, rp.endOffset) : undefined;
+    return found?.trailingComment !== undefined;
+}
+
+/**
  * Flatten a left-recursive AND/OR tree into a flat list of predicates.
  * Only recurses into the LEFT child so the right-side units stay intact.
  * Mixed operators (AND/OR) are preserved via the `op` field of each item.

@@ -27,6 +27,7 @@ import {
     printOrderByClause,
     printQueryExpression,
     boolWithTrailing,
+    boolEndsWithPendingComment,
 } from './expressions.js';
 import {
     printCreateTable,
@@ -1169,13 +1170,19 @@ function printMergeClause(node: SqlNode, opts: Options): Doc {
                 ? keyword('WHEN NOT MATCHED', opts)
                 : keyword('WHEN NOT MATCHED BY SOURCE', opts);
 
-    const predPart: Doc = predicate ? [' ', keyword('AND', opts), ' ', printBool(predicate, opts)] : '';
+    // A trailing comment on the predicate prints on its own new line with nothing to
+    // end it — without a break here, `THEN` would land right after it, inside the
+    // comment, and the output wouldn't parse.
+    const needsBreak = predicate ? boolEndsWithPendingComment(predicate) : false;
+    const predDoc = predicate ? printBool(predicate, opts) : undefined;
+    const predPart: Doc = predDoc ? [' ', keyword('AND', opts), ' ', predDoc] : '';
     const actionDoc = action ? printMergeAction(action, opts) : '';
     const density = getDensity(opts);
+    const thenSep: Doc = needsBreak ? hardline : ' ';
     const thenAction: Doc =
         density === 'compact'
-            ? [' ', keyword('THEN', opts), ' ', actionDoc]
-            : [' ', keyword('THEN', opts), indent([hardline, actionDoc])];
+            ? [thenSep, keyword('THEN', opts), ' ', actionDoc]
+            : [thenSep, keyword('THEN', opts), indent([hardline, actionDoc])];
 
     return [condKw, predPart, thenAction];
 }
