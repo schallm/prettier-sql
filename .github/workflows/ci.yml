@@ -5,6 +5,16 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    # Skip the Version Packages PR (changesets/action): it only deletes changesets and
+    # bumps versions and changelogs. Opened by github-actions[bot], its run waits for
+    # approval, and `pnpm release` merges it first, so the run expired as a failure.
+    # A PR is skipped only when *every* changed file matches, so anything touching
+    # code, tests, workflows or the lockfile still runs here; a package.json-only PR is
+    # tested by the push run on main after merging, which `pnpm release` waits for.
+    paths-ignore:
+      - '.changeset/**'
+      - '**/CHANGELOG.md'
+      - '**/package.json'
 
 jobs:
   build-and-test:
