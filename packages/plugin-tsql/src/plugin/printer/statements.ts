@@ -181,7 +181,8 @@ export function printStatementWithComments(s: SqlNode, opts: Options): Doc {
     // Comments inside the statement that no part of it printed: keep them, after it
     const leftover = unprintedComments(s);
     const stmtDoc = leftover.length > 0 ? appendTrailingLines(printed, leftover.join('\n')) : printed;
-    const withTrailing = appendTrailingComment(stmtDoc, s.trailingComment);
+    // Taken (marked printed), so an enclosing statement's leftover check doesn't print it again
+    const withTrailing = appendTrailingComment(stmtDoc, takeTrailingComment(s));
     if (s.leadingComments?.length) {
         return [...s.leadingComments.flatMap((c): Doc[] => [c, hardline]), withTrailing] as Doc;
     }
