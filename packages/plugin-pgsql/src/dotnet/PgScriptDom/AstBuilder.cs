@@ -1942,10 +1942,37 @@ public class AstBuilder {
                 case "connectionlimit":
                     result.Add($"CONNECTION LIMIT {defElem.Arg?.Integer?.Ival ?? -1}");
                     break;
+                case "validUntil":
+                    var until = defElem.Arg?.NodeCase == Node.NodeOneofCase.String ? defElem.Arg.String.Sval : null;
+                    result.Add(until != null ? $"VALID UNTIL '{until.Replace("'", "''")}'" : "VALID UNTIL NULL");
+                    break;
+                case "sysid":
+                    if (defElem.Arg?.NodeCase == Node.NodeOneofCase.Integer)
+                        result.Add($"SYSID {defElem.Arg.Integer.Ival}");
+                    break;
+                // ROLE role_list — roles made members of this (new/altered) role
+                case "rolemembers":
+                    result.Add("ROLE " + RoleListText(defElem.Arg));
+                    break;
+                // ADMIN role_list — members added with admin option
+                case "adminmembers":
+                    result.Add("ADMIN " + RoleListText(defElem.Arg));
+                    break;
+                // IN ROLE / IN GROUP role_list — this role becomes a member of these
+                case "addroleto":
+                    result.Add("IN ROLE " + RoleListText(defElem.Arg));
+                    break;
             }
         }
         return result;
     }
+
+    private static string RoleListText(Node? arg) =>
+        arg?.NodeCase == Node.NodeOneofCase.List
+            ? string.Join(", ", arg.List.Items
+                .Where(n => n.NodeCase == Node.NodeOneofCase.RoleSpec)
+                .Select(n => RoleSpecName(n.RoleSpec)))
+            : "";
 
     // ALTER <kind> [IF EXISTS] <target> RENAME [COLUMN|CONSTRAINT|ATTRIBUTE old] TO new
     private SqlNode BuildRename(RenameStmt r, int start, int end) {
