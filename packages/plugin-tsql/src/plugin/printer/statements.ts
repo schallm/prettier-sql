@@ -26,6 +26,7 @@ import {
     printTableRef,
     printOrderByClause,
     printQueryExpression,
+    boolWithTrailing,
 } from './expressions.js';
 import {
     printCreateTable,
@@ -150,9 +151,17 @@ export function printNode(node: SqlNode, opts: Options): Doc {
     return printExpression(node, opts, (n) => printNode(n, opts));
 }
 
-/** Print a boolean expression node via the expression dispatcher. */
+/**
+ * Print a boolean expression node via the expression dispatcher, including any
+ * trailing comment on its rightmost predicate leaf — printBoolExpr's own
+ * claimPredicateComments() claims that comment (so a BooleanBinary's own parts don't
+ * print it too) on every call, even for a single, non-binary predicate that has no
+ * enclosing printer to take and print it back. Without this, such a comment (e.g. on
+ * a WHILE or IF condition) was claimed and then never printed inline — it only
+ * resurfaced via the statement-level unprintedComments fallback, at the very end.
+ */
 export function printBool(node: SqlNode, opts: Options): Doc {
-    return printBoolExpr(node, opts, (n) => printNode(n, opts));
+    return boolWithTrailing(node, printBoolExpr(node, opts, (n) => printNode(n, opts)));
 }
 
 /** Print a query expression node via the expression dispatcher. */

@@ -139,9 +139,14 @@ function attachLeadingAndPreBody(allStatements: SqlNode[], comments: CommentToke
             // bodyStart (added by AstBuilder) = StatementList.StartOffset, which
             // ScriptDom sets to the BEGIN keyword — the boundary between
             // "header / params" and "body".  For CREATE VIEW we fall back to
-            // the body node's own startOffset.
+            // the body node's own startOffset. Only statement types whose printer
+            // actually looks at preBodyComments/postParamComments (procedures,
+            // functions, views) get this treatment — other statements can also carry
+            // a single-node "body" prop (e.g. WhileStatement) that isn't a params/body
+            // boundary at all, and would otherwise swallow the comment silently.
             const bodyStartProp = container.props?.['bodyStart'];
-            const bodyProp = container.props?.['body'];
+            const isViewStatement = container.type.endsWith('ViewStatement');
+            const bodyProp = isViewStatement ? container.props?.['body'] : undefined;
             const bodyNode =
                 !Array.isArray(bodyProp) &&
                 bodyProp != null &&

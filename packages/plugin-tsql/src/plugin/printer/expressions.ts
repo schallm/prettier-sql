@@ -1085,7 +1085,7 @@ function rightmostPred(node: SqlNode | null | undefined): SqlNode | null {
 }
 
 // Append any trailing comment on the rightmost predicate leaf to the doc.
-function boolWithTrailing(node: SqlNode, doc: Doc): Doc {
+export function boolWithTrailing(node: SqlNode, doc: Doc): Doc {
     const rp = rightmostPred(node);
     const trailing = rp ? rightmostTrailingComment(rp, rp.endOffset) : undefined;
     return appendTrailingLines(doc, trailing);
