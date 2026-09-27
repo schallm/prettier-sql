@@ -2204,13 +2204,14 @@ function printCreateCollation(node: SqlNode, opts: Options): Doc {
 
 function printSecurityLabel(node: SqlNode, opts: Options): Doc {
     const makeKeyword      = (k: string) => keyword(k, opts);
-    const provider = propStr(node, 'provider') ?? '';
+    const provider = propStr(node, 'provider');
     const objType  = propStr(node, 'objType') ?? 'table';
     const objName  = propStr(node, 'objName') ?? '';
     const label    = propStr(node, 'label') ?? '';
 
     return [
-        [makeKeyword('SECURITY LABEL FOR'), ' ', provider, ' ', makeKeyword('ON'), ' ', makeKeyword(objType), ' ', objName, ' ', makeKeyword('IS'), ' ', sqlString(label)],
+        // FOR provider is optional: with a single label provider loaded, PostgreSQL uses it
+        [makeKeyword('SECURITY LABEL'), provider ? [' ', makeKeyword('FOR'), ' ', provider] : '', ' ', makeKeyword('ON'), ' ', makeKeyword(objType), ' ', objName, ' ', makeKeyword('IS'), ' ', sqlString(label)],
         ';',
     ];
 }
