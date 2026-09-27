@@ -632,9 +632,13 @@ function printValuesRows(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
 
     // VALUES (1), (2) ORDER BY 1 LIMIT 1
     const tail: Doc[] = printQueryTail(node, opts, printNode).map((d) => [hardline, d]);
+    // WITH c AS (...) VALUES (...): the CTEs come first
+    const ctes = prop(node, 'ctes');
+    // Flat, so the doc still starts with the hardline stripLeadingHardline removes
+    const head: Doc[] = ctes ? printCtes(ctes, opts, printNode).flatMap((d) => [hardline, d]) : [];
 
     if (rowDocs.length === 1) {
-        return [hardline, makeKeyword('VALUES'), ' ', rowDocs[0]!, tail];
+        return [...head, hardline, makeKeyword('VALUES'), ' ', rowDocs[0]!, tail];
     }
 
     const density  = getDensity(opts);
@@ -644,7 +648,7 @@ function printValuesRows(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
     // standard + multi-column rows: one per line
     // spacious: always one per line
     const useFill = density === 'compact' || (density === 'standard' && colCount === 1);
-    return [hardline, makeKeyword('VALUES'), indent([hardline, useFill ? fillList(rowDocs, opts) : join(hardSep(opts), rowDocs)]), tail];
+    return [...head, hardline, makeKeyword('VALUES'), indent([hardline, useFill ? fillList(rowDocs, opts) : join(hardSep(opts), rowDocs)]), tail];
 }
 
 function printValues(node: SqlNode, opts: Options): Doc {
