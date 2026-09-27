@@ -889,10 +889,10 @@ function printRangeTableSample(node: SqlNode, opts: Options, printNode: PrintFn)
 function printTableLikeClause(node: SqlNode, opts: Options): Doc {
     const makeKeyword        = (kw: string) => keyword(kw, opts);
     const relation  = prop(node, 'relation');
-    const including = propStrArr(node, 'including');
+    const clauses = propStrArr(node, 'clauses');
     return [
         makeKeyword('LIKE'), ' ', rangeVarName(relation),
-        ...including.map((opt) => [' ', makeKeyword('INCLUDING'), ' ', makeKeyword(opt)] as Doc),
+        ...clauses.map((clause) => [' ', makeKeyword(clause)] as Doc),
     ];
 }
 

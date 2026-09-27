@@ -421,6 +421,14 @@ create table if not exists t (
 );
 
 create table t (
+  like u including all excluding comments
+);
+
+create table t (
+  like u including comments including indexes
+);
+
+create table t (
   a integer
 )
 inherits (u, s.v);

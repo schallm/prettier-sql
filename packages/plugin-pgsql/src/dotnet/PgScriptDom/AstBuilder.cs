@@ -1322,27 +1322,44 @@ public class AstBuilder {
         _ => null,
     };
 
+    // TableLikeOption bits (parsenodes.h). The grammar folds a whole
+    // "INCLUDING x EXCLUDING y ..." clause list into one options mask — INCLUDING
+    // ORs the bit in, EXCLUDING ANDs it out (options = (options | inc) & ~exc) — so
+    // the mask alone doesn't remember the original clause sequence. We only need to
+    // reproduce that final mask, so we reconstruct *some* clause list that yields it:
+    // list each known bit that's set as its own INCLUDING, unless a bit outside the
+    // known set is set (only possible via INCLUDING ALL, which sets every bit,
+    // including ones this list doesn't know about) — then emit INCLUDING ALL plus
+    // EXCLUDING for each known bit that ended up cleared.
+    private static readonly (uint bit, string name)[] TableLikeOptions = {
+        (0x0001, "COMMENTS"),
+        (0x0002, "COMPRESSION"),
+        (0x0004, "CONSTRAINTS"),
+        (0x0008, "DEFAULTS"),
+        (0x0010, "GENERATED"),
+        (0x0020, "IDENTITY"),
+        (0x0040, "INDEXES"),
+        (0x0080, "STATISTICS"),
+        (0x0100, "STORAGE"),
+    };
+
     private static SqlNode BuildTableLikeClause(TableLikeClause t) {
-        var options = (int)t.Options;
-        List<string> including;
-        if (options == 0) {
-            including = new List<string>();
-        } else if (options > 0x01FF) {
-            including = new List<string> { "ALL" };
+        var options = (uint)t.Options;
+        uint knownMask = 0;
+        foreach (var (bit, _) in TableLikeOptions) knownMask |= bit;
+
+        var clauses = new List<string>();
+        if ((options & ~knownMask) != 0) {
+            clauses.Add("INCLUDING ALL");
+            foreach (var (bit, name) in TableLikeOptions)
+                if ((options & bit) == 0) clauses.Add("EXCLUDING " + name);
         } else {
-            including = new List<string>();
-            if ((options & 0x0001) != 0) including.Add("COMMENTS");
-            if ((options & 0x0004) != 0) including.Add("CONSTRAINTS");
-            if ((options & 0x0008) != 0) including.Add("DEFAULTS");
-            if ((options & 0x0010) != 0) including.Add("GENERATED");
-            if ((options & 0x0020) != 0) including.Add("IDENTITY");
-            if ((options & 0x0040) != 0) including.Add("INDEXES");
-            if ((options & 0x0080) != 0) including.Add("STATISTICS");
-            if ((options & 0x0100) != 0) including.Add("STORAGE");
+            foreach (var (bit, name) in TableLikeOptions)
+                if ((options & bit) != 0) clauses.Add("INCLUDING " + name);
         }
         return new SqlNode("TableLikeClause", 0, 0, null, BuildProps(
-            ("relation",  BuildRangeVar(t.Relation)),
-            ("including", MaybeList(including))
+            ("relation", BuildRangeVar(t.Relation)),
+            ("clauses",  MaybeList(clauses))
         ));
     }
 

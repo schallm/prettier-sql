@@ -3,6 +3,8 @@ create temp table t (a int) on commit drop;
 create temporary table if not exists t (a int) on commit delete rows;
 create unlogged table t (a int);
 create table if not exists t (like u including all);
+create table t (like u including all excluding comments);
+create table t (like u including comments including indexes);
 create table t (a int) inherits (u, s.v);
 create table t (a int) with (fillfactor = 70, toast.autovacuum_enabled = false) tablespace "Fast";
 create table t (a int) using heap;
