@@ -164,8 +164,10 @@ public class AstBuilder : TSqlFragmentVisitor {
         var node = BuildScalarExpressionCore(expr);
         // COLLATE can follow any primary expression — a literal, variable, function call,
         // CAST, CASE, subquery or parenthesized expression. (Column references carry
-        // theirs already: BuildColumnRef.)
-        if (expr is PrimaryExpression { Collation: not null } primary && expr is not ColumnReferenceExpression && node != null)
+        // theirs already: BuildColumnRef. An expression kept as raw text — the
+        // "ScalarExpression" fallback — already includes its COLLATE.)
+        if (expr is PrimaryExpression { Collation: not null } primary && expr is not ColumnReferenceExpression
+            && node != null && node.Type != "ScalarExpression")
             return new SqlNode("CollateExpression", expr.StartOffset, expr.StartOffset + expr.FragmentLength, null,
                 new Dictionary<string, object?> { ["expression"] = node, ["collation"] = primary.Collation.Value });
         return node;
