@@ -9,6 +9,8 @@ checkpoint;
 
 -- LOAD
 load 'my_extension';
+-- an embedded quote in the filename must round-trip escaped, or it doesn't parse
+load 'it''s.so';
 
 -- ALTER SYSTEM
 alter system set work_mem = '256MB';
@@ -27,6 +29,8 @@ drop owned by role1, role2 cascade;
 -- CREATE TABLESPACE
 create tablespace fastspace location '/ssd/data';
 create tablespace fastspace owner admin location '/ssd/data';
+-- an embedded quote in the location must round-trip escaped, or it doesn't parse
+create tablespace fastspace location '/ssd/it''s';
 
 -- DROP TABLESPACE
 drop tablespace fastspace;

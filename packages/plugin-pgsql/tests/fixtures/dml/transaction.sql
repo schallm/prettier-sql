@@ -30,3 +30,6 @@ prepare transaction 'txn-1234';
 commit prepared 'txn-1234';
 
 rollback prepared 'txn-1234';
+
+-- an embedded quote in the gid must round-trip escaped, or it doesn't parse
+commit prepared 'it''s';

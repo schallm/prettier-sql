@@ -1178,7 +1178,7 @@ function printCreateExtension(node: SqlNode, opts: Options): Doc {
 
     const ifNotExistsDoc: Doc     = ifNotExists ? [makeKeyword('IF NOT EXISTS'), ' '] : '';
     const schemaDoc: Doc = schema  ? [hardline, makeKeyword('SCHEMA'), ' ', schema]  : '';
-    const versionDoc: Doc = version ? [hardline, makeKeyword('VERSION'), ' ', `'${version}'`] : '';
+    const versionDoc: Doc = version ? [hardline, makeKeyword('VERSION'), ' ', sqlString(version)] : '';
     const cascadeDoc: Doc = cascade ? [hardline, makeKeyword('CASCADE')] : '';
     return [[makeKeyword('CREATE EXTENSION'), ' ', ifNotExistsDoc, name, schemaDoc, versionDoc, cascadeDoc], ';'];
 }
@@ -1290,7 +1290,7 @@ function printTransaction(node: SqlNode, opts: Options): Doc {
     if (kind === 'RELEASE') parts.push(' ', makeKeyword('SAVEPOINT'));
     if (kind === 'ROLLBACK TO') parts.push(' ', makeKeyword('SAVEPOINT'));
     if (savepoint) parts.push(' ', savepoint);
-    if (gid) parts.push(' ', `'${gid}'`);
+    if (gid) parts.push(' ', sqlString(gid));
     if (options.length > 0) parts.push(' ', join(', ', options.map((o) => makeKeyword(o))));
     if (propBool(node, 'chain')) parts.push(' ', makeKeyword('AND CHAIN'));
 
@@ -1669,9 +1669,9 @@ function printCopy(node: SqlNode, opts: Options): Doc {
     const dirKw = isFrom ? makeKeyword('FROM') : makeKeyword('TO');
     let dest: Doc;
     if (isProgram && filename) {
-        dest = [makeKeyword('PROGRAM'), ' ', `'${filename}'`];
+        dest = [makeKeyword('PROGRAM'), ' ', sqlString(filename)];
     } else if (filename) {
-        dest = `'${filename}'`;
+        dest = sqlString(filename);
     } else {
         dest = isFrom ? makeKeyword('STDIN') : makeKeyword('STDOUT');
     }
@@ -1789,7 +1789,7 @@ function printNotify(node: SqlNode, opts: Options): Doc {
     const makeKeyword      = (k: string) => keyword(k, opts);
     const channel = propStr(node, 'channel') ?? '';
     const payload = propStr(node, 'payload');
-    const payloadPart: Doc = payload ? [', ', `'${payload}'`] : '';
+    const payloadPart: Doc = payload ? [', ', sqlString(payload)] : '';
     return [[makeKeyword('NOTIFY'), ' ', channel, payloadPart], ';'];
 }
 
@@ -2210,7 +2210,7 @@ function printSecurityLabel(node: SqlNode, opts: Options): Doc {
     const label    = propStr(node, 'label') ?? '';
 
     return [
-        [makeKeyword('SECURITY LABEL FOR'), ' ', provider, ' ', makeKeyword('ON'), ' ', makeKeyword(objType), ' ', objName, ' ', makeKeyword('IS'), " '", label, "'"],
+        [makeKeyword('SECURITY LABEL FOR'), ' ', provider, ' ', makeKeyword('ON'), ' ', makeKeyword(objType), ' ', objName, ' ', makeKeyword('IS'), ' ', sqlString(label)],
         ';',
     ];
 }
@@ -2226,7 +2226,7 @@ function printDiscard(node: SqlNode, opts: Options): Doc {
 
 function printLoad(node: SqlNode, opts: Options): Doc {
     const filename = propStr(node, 'filename') ?? '';
-    return [[keyword('LOAD', opts), ` '${filename}'`], ';'];
+    return [[keyword('LOAD', opts), ' ', sqlString(filename)], ';'];
 }
 
 function printAlterSystem(node: SqlNode, opts: Options): Doc {
@@ -2265,7 +2265,7 @@ function printCreateTableSpace(node: SqlNode, opts: Options): Doc {
     const owner    = propStr(node, 'owner');
     const parts: Doc[] = [makeKeyword('CREATE TABLESPACE'), ' ', name];
     if (owner) parts.push(' ', makeKeyword('OWNER'), ' ', owner);
-    parts.push(hardline, indent([makeKeyword('LOCATION'), ' ', `'${location}'`]));
+    parts.push(hardline, indent([makeKeyword('LOCATION'), ' ', sqlString(location)]));
     return [parts, ';'];
 }
 

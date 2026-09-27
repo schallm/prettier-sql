@@ -13,6 +13,11 @@ create subscription my_sub
   connection 'host=localhost dbname=mydb'
   publication my_pub;
 
+-- an embedded quote in the conninfo must round-trip escaped, or it doesn't parse
+create subscription my_sub_quote
+  connection 'host=localhost application_name=it''s'
+  publication my_pub;
+
 create subscription my_sub2
   connection 'host=localhost dbname=mydb'
   publication my_pub

@@ -940,6 +940,10 @@ create extension if not exists hstore
 schema s
 version '1.0'
 cascade;
+
+-- an embedded quote in the version must round-trip escaped, or it doesn't parse
+create extension e
+version 'it''s';
 "
 `;
 
@@ -1167,6 +1171,11 @@ copy books from stdin;
 -- COPY TO STDOUT (no filename)
 copy books to stdout;
 
+-- an embedded quote in the filename must round-trip escaped, or it doesn't parse
+copy books to '/tmp/it''s.csv';
+
+copy books to program 'echo it''s';
+
 -- COPY with WHERE clause
 copy books from stdin
 where id > 100;
@@ -1276,6 +1285,9 @@ checkpoint;
 -- LOAD
 load 'my_extension';
 
+-- an embedded quote in the filename must round-trip escaped, or it doesn't parse
+load 'it''s.so';
+
 -- ALTER SYSTEM
 alter system set work_mem = '256MB';
 
@@ -1301,6 +1313,10 @@ location '/ssd/data';
 
 create tablespace fastspace owner admin
 location '/ssd/data';
+
+-- an embedded quote in the location must round-trip escaped, or it doesn't parse
+create tablespace fastspace
+location '/ssd/it''s';
 
 -- DROP TABLESPACE
 drop tablespace fastspace;
@@ -1344,6 +1360,8 @@ unlisten my_channel;
 unlisten *;
 notify my_channel;
 notify my_channel, 'payload text';
+-- an embedded quote in the payload must round-trip escaped, or it doesn't parse
+notify my_channel, 'it''s here';
 "
 `;
 
@@ -1515,6 +1533,8 @@ begin read only;
 prepare transaction 'txn-1234';
 commit prepared 'txn-1234';
 rollback prepared 'txn-1234';
+-- an embedded quote in the gid must round-trip escaped, or it doesn't parse
+commit prepared 'it''s';
 "
 `;
 
@@ -1764,6 +1784,11 @@ create subscription my_sub
 connection 'host=localhost dbname=mydb'
 publication my_pub;
 
+-- an embedded quote in the conninfo must round-trip escaped, or it doesn't parse
+create subscription my_sub_quote
+connection 'host=localhost application_name=it''s'
+publication my_pub;
+
 create subscription my_sub2
 connection 'host=localhost dbname=mydb'
 publication my_pub
@@ -1883,6 +1908,8 @@ from t;
 exports[`fixtures > p4/security-label.sql 1`] = `
 "security label for my_provider on table orders is 'sensitive';
 security label for my_provider on column orders.amount is 'pii';
+-- an embedded quote in the label must round-trip escaped, or it doesn't parse
+security label for my_provider on table orders is 'it''s sensitive';
 "
 `;
 

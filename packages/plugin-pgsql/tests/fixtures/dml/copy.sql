@@ -18,5 +18,9 @@ copy books from stdin;
 -- COPY TO STDOUT (no filename)
 copy books to stdout;
 
+-- an embedded quote in the filename must round-trip escaped, or it doesn't parse
+copy books to '/tmp/it''s.csv';
+copy books to program 'echo it''s';
+
 -- COPY with WHERE clause
 copy books from stdin where id > 100;
