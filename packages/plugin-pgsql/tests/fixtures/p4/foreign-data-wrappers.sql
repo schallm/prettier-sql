@@ -2,6 +2,11 @@ create server my_server
   foreign data wrapper postgres_fdw
   options (host 'localhost', port '5432');
 
+-- an embedded quote in an option value must round-trip escaped, or it doesn't parse
+create server quoting_server
+  foreign data wrapper postgres_fdw
+  options (host 'it''s');
+
 create foreign table remote_orders (
   id integer,
   amount numeric

@@ -34,7 +34,7 @@ export function printFdwOptions(node: SqlNode, opts: Options): Doc {
     const pairs = options.map((o) => {
         const key = propStr(o, 'key') ?? '';
         const val = propStr(o, 'val') ?? '';
-        return [key, " '", val, "'"].join('') as Doc;
+        return [key, " '", val.replace(/'/g, "''"), "'"].join('') as Doc;
     });
     return [' ', keyword('OPTIONS', opts), ' (', join(', ', pairs), ')'];
 }
