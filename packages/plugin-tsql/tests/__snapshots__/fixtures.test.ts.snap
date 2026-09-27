@@ -2815,6 +2815,16 @@ option (recompile, maxdop 4);
 "
 `;
 
+exports[`fixtures > select/order-by-offset-comments.sql 1`] = `
+"-- Idempotence: once ASC is spelled out, ORDER BY's own trailing comment moves
+-- from the sort expression to the ORDER BY element itself.
+select a
+from t
+order by a asc -- ord
+offset 1 rows; -- off
+"
+`;
+
 exports[`fixtures > select/pagination.sql 1`] = `
 "-- OFFSET/FETCH NEXT (keyset pagination)
 select

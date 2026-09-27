@@ -1752,7 +1752,11 @@ export function printOrderByClause(node: SqlNode, opts: Options, printFn: PrintF
         const expr = prop(e, 'expression');
         const sort = propStr(e, 'sortOrder');
         const sortDoc = sort === 'Descending' ? [' ', keyword('DESC', opts)] : [' ', keyword('ASC', opts)];
-        return [expr ? printExpression(expr, opts, printFn) : '', ...sortDoc] as Doc;
+        const base: Doc = [expr ? printExpression(expr, opts, printFn) : '', ...sortDoc];
+        // With an explicit ASC/DESC, the OrderByElement's own endOffset extends past its
+        // expression, so a trailing comment (e.g. `order by a -- c`, reparsed) attaches to
+        // the element itself rather than the expression — print that too.
+        return appendComments(base, takeTrailingComment(e));
     });
     // compact: fill-pack items; if they overflow, indent-wrap them
     if (density === 'compact') {
