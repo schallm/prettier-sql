@@ -1129,6 +1129,23 @@ go
 "
 `;
 
+exports[`fixtures > function/natively-compiled.sql 1`] = `
+"-- Natively compiled scalar function — BEGIN ATOMIC WITH (...) must be preserved
+-- without an extra BEGIN/END wrapping it.
+create function f()
+returns int
+with native_compilation, schemabinding
+as
+begin atomic with (
+  transaction isolation level = SNAPSHOT,
+  language = N'us_english'
+)
+  return 1;
+end;
+go
+"
+`;
+
 exports[`fixtures > function/options.sql 1`] = `
 "-- Function options: INLINE = ON | OFF keeps its value
 create function dbo.f(@a int)
@@ -3445,8 +3462,8 @@ create procedure dbo.usp_GetOrder
 with native_compilation, schemabinding, execute as owner
 as
 begin atomic with (
-  TRANSACTION ISOLATION LEVEL = SNAPSHOT,
-  LANGUAGE = N'English'
+  transaction isolation level = SNAPSHOT,
+  language = N'English'
 )
   select
     Id,

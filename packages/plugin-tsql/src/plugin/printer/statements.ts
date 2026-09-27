@@ -68,6 +68,7 @@ import {
     printCreateExternalModel,
     printAlterExternalModel,
     printDropExternalModel,
+    printAtomicOptions,
 } from './ddl.js';
 import {
     printBeginTransaction,
@@ -520,7 +521,7 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         }
 
         case 'BeginEndAtomicBlock': {
-            const atomicOptions = node.props?.['atomicOptions'] as string[] | undefined;
+            const atomicOptions = propArr(node, 'atomicOptions');
             const stmts = propArr(node, 'statements');
             const bodyDocs = stmts.map((s) => printStatementWithComments(s, opts));
             return [
@@ -530,7 +531,7 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
                 ' ',
                 keyword('WITH', opts),
                 ' (',
-                indent([hardline, join([',', hardline], atomicOptions ?? [])]),
+                indent([hardline, join([',', hardline], printAtomicOptions(atomicOptions, opts))]),
                 hardline,
                 ')',
                 indent([hardline, join([hardline, hardline], bodyDocs)]),

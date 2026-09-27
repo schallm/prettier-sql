@@ -1572,7 +1572,10 @@ public class AstBuilder : TSqlFragmentVisitor {
         });
     }
 
-    private static string AtomicOptionToSql(AtomicBlockOption opt) {
+    // Kept as separate kind/value fields (not one pre-joined string) so the printer can
+    // keyword()-case the option name per sqlKeywordCase — a plain string, like the old
+    // AtomicOptionToSql return, always prints as-is regardless of that option.
+    private static SqlNode AtomicOptionToNode(AtomicBlockOption opt) {
         var kindStr = opt.OptionKind switch {
             AtomicBlockOptionKind.IsolationLevel => "TRANSACTION ISOLATION LEVEL",
             AtomicBlockOptionKind.Language => "LANGUAGE",
@@ -1581,17 +1584,20 @@ public class AstBuilder : TSqlFragmentVisitor {
             AtomicBlockOptionKind.DelayedDurability => "DELAYED_DURABILITY",
             _ => opt.OptionKind.ToString().ToUpperInvariant(),
         };
-        if (opt is IdentifierAtomicBlockOption id)
-            return $"{kindStr} = {id.Value?.Value ?? RawText(opt).Trim()}";
-        if (opt is LiteralAtomicBlockOption lit)
-            return $"{kindStr} = {RawText(lit.Value)}";
-        if (opt is OnOffAtomicBlockOption oo)
-            return $"{kindStr} = {(oo.OptionState == OptionState.On ? "ON" : "OFF")}";
-        return $"{kindStr} = {RawText(opt).Trim()}";
+        var valueStr = opt switch {
+            IdentifierAtomicBlockOption id => id.Value?.Value ?? RawText(opt).Trim(),
+            LiteralAtomicBlockOption lit => RawText(lit.Value),
+            OnOffAtomicBlockOption oo => oo.OptionState == OptionState.On ? "ON" : "OFF",
+            _ => RawText(opt).Trim(),
+        };
+        return Node("AtomicOption", opt, new Dictionary<string, object?> {
+            ["kind"] = kindStr,
+            ["value"] = valueStr,
+        });
     }
 
     private static SqlNode BuildBeginEndAtomic(BeginEndAtomicBlockStatement atomic) {
-        var atomicOpts = atomic.Options?.Select(o => (object?)AtomicOptionToSql(o)).ToList();
+        var atomicOpts = atomic.Options?.Select(o => (object?)AtomicOptionToNode(o)).ToList();
         var stmts = atomic.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
         return Node("BeginEndAtomicBlock", atomic, new Dictionary<string, object?> {
             ["atomicOptions"] = atomicOpts,

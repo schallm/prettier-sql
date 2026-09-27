@@ -900,6 +900,16 @@ function printParameter(p: SqlNode, opts: Options): Doc {
     ];
 }
 
+/**
+ * BEGIN ATOMIC WITH (...) options — kind is a keyword (`TRANSACTION ISOLATION LEVEL`,
+ * `LANGUAGE`, ...), keyword-cased per sqlKeywordCase; value is printed verbatim (an
+ * identifier like SNAPSHOT, a literal, or ON/OFF). Shared by CREATE PROCEDURE's
+ * natively-compiled body and the standalone BeginEndAtomicBlock statement printer.
+ */
+export function printAtomicOptions(options: SqlNode[], opts: Options): Doc[] {
+    return options.map((o): Doc => [keyword(propStr(o, 'kind') ?? '', opts), ' = ', propStr(o, 'value') ?? '']);
+}
+
 export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
     const parameters = propArr(node, 'parameters');
     const body = propArr(node, 'body');
@@ -908,7 +918,7 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
 
     // Natively compiled procs have a single BEGIN ATOMIC WITH (...) body statement.
     const atomicBlock = body.length === 1 && body[0]?.type === 'BeginEndAtomicBlock' ? body[0] : null;
-    const atomicOptions = atomicBlock ? propStrArr(atomicBlock, 'atomicOptions') : [];
+    const atomicOptions = atomicBlock ? propArr(atomicBlock, 'atomicOptions') : [];
     const innerBody = atomicBlock ? propArr(atomicBlock, 'statements') : unwrapBodyBlock(body);
 
     const preBody = commentsBlock(node.preBodyComments);
@@ -963,7 +973,7 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
                   ' ',
                   keyword('WITH', opts),
                   ' (',
-                  indent([hardline, join([',', hardline], atomicOptions)]),
+                  indent([hardline, join([',', hardline], printAtomicOptions(atomicOptions, opts))]),
                   hardline,
                   ')',
               ]
@@ -1048,8 +1058,15 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
         ];
     }
 
-    // Scalar or multi-statement TVF — both use BEGIN...END
-    const stmts = Array.isArray(body) ? unwrapBodyBlock(body as SqlNode[]) : [];
+    // Scalar or multi-statement TVF — both use BEGIN...END.
+    // Natively compiled functions have a single BEGIN ATOMIC WITH (...) body statement,
+    // same as natively compiled procedures — print its options instead of nesting
+    // another BEGIN...END around it (printStatement's own BeginEndAtomicBlock case
+    // already prints BEGIN ATOMIC ... END, so wrapping it again duplicates BEGIN/END).
+    const bodyArr = Array.isArray(body) ? (body as SqlNode[]) : [];
+    const atomicBlock = bodyArr.length === 1 && bodyArr[0]?.type === 'BeginEndAtomicBlock' ? bodyArr[0] : null;
+    const atomicOptions = atomicBlock ? propArr(atomicBlock, 'atomicOptions') : [];
+    const stmts = atomicBlock ? propArr(atomicBlock, 'statements') : unwrapBodyBlock(bodyArr);
     const bodyDoc: Doc = joinBodyStatements(stmts, opts);
 
     let retTypePart: Doc;
@@ -1082,7 +1099,19 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
         hardline,
         keyword('AS', opts),
         hardline,
-        keyword('BEGIN', opts),
+        ...(atomicOptions.length
+            ? [
+                  keyword('BEGIN', opts),
+                  ' ',
+                  keyword('ATOMIC', opts),
+                  ' ',
+                  keyword('WITH', opts),
+                  ' (',
+                  indent([hardline, join([',', hardline], printAtomicOptions(atomicOptions, opts))]),
+                  hardline,
+                  ')',
+              ]
+            : [keyword('BEGIN', opts)]),
         indent([hardline, bodyDoc]),
         hardline,
         keyword('END', opts),
