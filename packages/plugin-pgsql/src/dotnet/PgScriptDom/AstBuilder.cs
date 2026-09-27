@@ -717,14 +717,18 @@ public class AstBuilder {
         return new SqlNode("ColumnRef", 0, 0, null, new() { ["name"] = string.Join(".", parts) });
     }
 
+    /// <summary>
+    /// An operator as written: `+`, or OPERATOR(pg_catalog.+) when schema-qualified —
+    /// which also takes the generic operator precedence, as the printer gives any
+    /// unknown operator.
+    /// </summary>
+    private static string OperatorName(IList<Node> name) =>
+        name.Count == 1
+            ? name[0].String.Sval
+            : $"OPERATOR({string.Join(".", name.SkipLast(1).Select(n => Ident.Quote(n.String.Sval)).Append(name[^1].String.Sval))})";
+
     private SqlNode BuildAExpr(A_Expr e) {
-        // A schema-qualified operator is written OPERATOR(pg_catalog.+); it also takes
-        // the generic operator precedence, which the printer gives any unknown op
-        var op = e.Name.Count switch {
-            0 => "?",
-            1 => e.Name[0].String.Sval,
-            _ => $"OPERATOR({string.Join(".", e.Name.SkipLast(1).Select(n => Ident.Quote(n.String.Sval)).Append(e.Name[^1].String.Sval))})",
-        };
+        var op = e.Name.Count > 0 ? OperatorName(e.Name) : "?";
 
         return e.Kind switch {
             // LIKE / NOT LIKE
@@ -988,8 +992,8 @@ public class AstBuilder {
             ? BuildSelect(s.Subselect.SelectStmt, 0, _sql.Length)
             : null;
         var testexpr = s.Testexpr != null ? BuildExpr(s.Testexpr) : null;
-        var op = s.OperName.Count > 0 && s.OperName[0].NodeCase == Node.NodeOneofCase.String
-            ? s.OperName[0].String.Sval : null;
+        // IN (subquery) has no operator; = ANY, < ALL, OPERATOR(s.=) ANY name theirs
+        var op = s.OperName.Count > 0 ? OperatorName(s.OperName) : null;
         return new SqlNode("SubLink", 0, 0, null, BuildProps(
             ("type",     type),
             ("testexpr", testexpr),

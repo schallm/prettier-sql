@@ -434,7 +434,10 @@ function printSubLink(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const type     = propStr(node, 'type') ?? 'SCALAR';
     const subquery = prop(node, 'subquery');
     const testexpr = prop(node, 'testexpr');
-    const op       = propStr(node, 'op');
+    const rawOp    = propStr(node, 'op');
+    // OPERATOR(pg_catalog.=) takes the keyword case like any other keyword; a bare
+    // symbol such as = or < is printed as is
+    const op: Doc | null = rawOp?.startsWith('OPERATOR(') ? makeKeyword(rawOp) : rawOp;
     const inner    = subquery ? printNode(subquery) : '';
     const subDoc: Doc = ['(', indent([hardline, inner]), hardline, ')'];
 
