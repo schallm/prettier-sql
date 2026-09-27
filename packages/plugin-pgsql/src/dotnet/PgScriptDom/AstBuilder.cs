@@ -2979,12 +2979,25 @@ public class AstBuilder {
         ));
     }
 
-    private static SqlNode BuildImportForeignSchema(ImportForeignSchemaStmt s, int start, int end) =>
-        new("ImportForeignSchemaStatement", start, end, null, BuildProps(
+    private static SqlNode BuildImportForeignSchema(ImportForeignSchemaStmt s, int start, int end) {
+        var tables = MaybeList(s.TableList
+            .Where(n => n.NodeCase == Node.NodeOneofCase.RangeVar)
+            .Select(n => RangeVarQualifiedName(n.RangeVar))
+            .ToList());
+        var options = BuildDefElemOptions(s.Options);
+        return new SqlNode("ImportForeignSchemaStatement", start, end, null, BuildProps(
             ("remoteSchema", Ident.QuoteOpt(s.RemoteSchema)),
             ("serverName",   Ident.QuoteOpt(s.ServerName)),
-            ("localSchema",  Ident.QuoteOpt(s.LocalSchema))
+            ("localSchema",  Ident.QuoteOpt(s.LocalSchema)),
+            ("listType",     s.ListType switch {
+                ImportForeignSchemaType.FdwImportSchemaLimitTo => "LIMIT TO",
+                ImportForeignSchemaType.FdwImportSchemaExcept  => "EXCEPT",
+                _                                               => null,
+            }),
+            ("tables",       tables),
+            ("options",      OptionsToObject(options))
         ));
+    }
 
     // -------------------------------------------------------------------------
     // P4: Logical Replication

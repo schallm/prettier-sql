@@ -24,3 +24,14 @@ create user mapping for current_user
 import foreign schema public
   from server my_server
   into local_schema;
+
+import foreign schema public
+  limit to (t1, t2)
+  from server my_server
+  into local_schema
+  options (import_default 'true');
+
+import foreign schema public
+  except (t3)
+  from server my_server
+  into local_schema;

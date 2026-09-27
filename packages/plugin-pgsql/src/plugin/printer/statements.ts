@@ -1964,11 +1964,16 @@ function printImportForeignSchema(node: SqlNode, opts: Options): Doc {
     const remoteSchema = propStr(node, 'remoteSchema') ?? '';
     const serverName   = propStr(node, 'serverName') ?? '';
     const localSchema  = propStr(node, 'localSchema') ?? '';
+    const listType      = propStr(node, 'listType');
+    const tables        = propStrArr(node, 'tables');
+
+    const listDoc: Doc = listType ? [' ', makeKeyword(listType), ' (', join(', ', tables), ')'] : '';
 
     return [
-        [makeKeyword('IMPORT FOREIGN SCHEMA'), ' ', remoteSchema, hardline,
+        [makeKeyword('IMPORT FOREIGN SCHEMA'), ' ', remoteSchema, listDoc, hardline,
          makeKeyword('FROM SERVER'), ' ', serverName, hardline,
-         makeKeyword('INTO'), ' ', localSchema],
+         makeKeyword('INTO'), ' ', localSchema,
+         printFdwOptions(node, opts)],
         ';',
     ];
 }
