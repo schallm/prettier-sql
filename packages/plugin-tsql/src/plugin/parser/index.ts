@@ -88,7 +88,7 @@ function attachComments(ast: SqlNode, comments: CommentToken[], text: string): v
 
     attachSameLineTrailing(batches, comments, text, used);
     attachLeadingAndPreBody(allStatements, comments, used);
-    attachIntraStatement(batches, comments, used);
+    attachIntraStatement(batches, comments, text, used);
 }
 
 // Pass 1: trailing line comments on the same source line as a statement.
@@ -190,7 +190,7 @@ function attachLeadingAndPreBody(allStatements: SqlNode[], comments: CommentToke
 }
 
 // Pass 3: intra-statement comments (e.g. commented-out WHERE predicates).
-function attachIntraStatement(batches: SqlNode[], comments: CommentToken[], used: Set<CommentToken>): void {
+function attachIntraStatement(batches: SqlNode[], comments: CommentToken[], text: string, used: Set<CommentToken>): void {
     for (const batch of batches) {
         const statements = propArr(batch, 'statements');
         for (const stmt of statements) {
@@ -203,6 +203,16 @@ function attachIntraStatement(batches: SqlNode[], comments: CommentToken[], used
             collectDescendants(stmt, descendants);
 
             for (const c of internal) {
+                // A comment on the same line as the end of a nested statement belongs to
+                // it — `SELECT 1; -- note` inside a block — even when another statement
+                // follows further on (the THROW in a CATCH after a TRY, say).
+                const sameLine = nestedStatementEndingOnLine(descendants, c, text);
+                if (sameLine) {
+                    sameLine.trailingComment = sameLine.trailingComment ? sameLine.trailingComment + '\n' + c.text : c.text;
+                    used.add(c);
+                    continue;
+                }
+
                 // Find the nearest backward neighbour (highest endOffset ≤ comment start)
                 // and the nearest forward neighbour (lowest startOffset ≥ comment end).
                 let best: SqlNode | null = null;
@@ -264,6 +274,21 @@ function collectDescendants(node: SqlNode, result: SqlNode[]): void {
  * Find a line comment (`-- ...`) that starts on the same source line as node
  * and has not already been consumed.
  */
+/**
+ * The nested statement that ends on the comment's line, with only whitespace or a
+ * semicolon between them — the last one, when several do.
+ */
+function nestedStatementEndingOnLine(descendants: SqlNode[], c: CommentToken, text: string): SqlNode | null {
+    let found: SqlNode | null = null;
+    for (const node of descendants) {
+        if (!node.type.endsWith('Statement') || node.endOffset > c.startOffset) continue;
+        if (!/^[\s;]*$/.test(text.substring(node.endOffset, c.startOffset))) continue;
+        if (text.substring(node.endOffset, c.startOffset).includes('\n')) continue;
+        if (!found || node.endOffset > found.endOffset) found = node;
+    }
+    return found;
+}
+
 function findTrailingLineComment(
     node: SqlNode,
     comments: CommentToken[],

@@ -1596,12 +1596,26 @@ begin
 end
 
 begin try
-  select 1;
+  select 1; -- inside try
 end try
 begin catch
-  -- inside try
   throw; -- rethrow
 end catch
+
+if @a = 1
+begin
+  set @b = 1;
+  set @c = 2; -- both set
+
+  if @b = 1
+  begin
+    print 'x'; -- inner
+  end
+
+  print 'y';
+end
+else
+  print 'z'; -- else branch
 "
 `;
 
