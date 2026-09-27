@@ -19,7 +19,7 @@ import {
     commaFill,
 } from '@prettier-sql/core/printer/utils';
 import {
-    prop, propArr, propStr, propBool, schemaObjectName, assignmentOp,
+    prop, propArr, propStr, propStrArr, propBool, schemaObjectName, assignmentOp,
     claimTrailingComment, isCommentClaimed, takeTrailingComment, withTrailingComment, appendComments,
 } from './helpers.js';
 
@@ -1555,11 +1555,15 @@ function derivedColumns(node: SqlNode): Doc {
 function printSchemaObjectFunctionTableRef(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const args = propArr(node, 'args');
     const alias = propStr(node, 'alias');
+    const aliasColumns = propStrArr(node, 'aliasColumns');
     const argsDoc: Doc = join(
         ', ',
         args.map((a) => printExpression(a, opts, printFn)),
     );
-    const aliasPart: Doc = aliasDoc(alias, opts);
+    // e.g. `t.x.nodes('/r') AS n(x)` — the alias's own column list (xml .nodes()).
+    const aliasPart: Doc = aliasColumns.length
+        ? [' ', keyword('AS', opts), ' ', alias ?? '', parenList(aliasColumns)]
+        : aliasDoc(alias, opts);
     return [schemaObjectName(prop(node, 'name')), '(', argsDoc, ')', aliasPart];
 }
 

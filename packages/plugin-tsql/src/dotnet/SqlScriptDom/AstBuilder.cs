@@ -753,10 +753,13 @@ public class AstBuilder : TSqlFragmentVisitor {
 
     private static SqlNode BuildSchemaObjectFunctionTableRef(SchemaObjectFunctionTableReference tvf) {
         var args = tvf.Parameters?.Select(p => (object?)BuildScalarExpression(p)).ToList();
+        // e.g. `t.x.nodes('/r') AS n(x)` — the alias's column list (for xml .nodes()).
+        var columns = tvf.Columns?.Select(c => (object?)QuotedName(c)).ToList();
         return Node("SchemaObjectFunctionTableReference", tvf, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(tvf.SchemaObject),
             ["args"] = args,
             ["alias"] = QuotedName(tvf.Alias),
+            ["aliasColumns"] = columns?.Count > 0 ? columns : null,
         });
     }
 

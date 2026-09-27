@@ -9,3 +9,6 @@ from XmlDocs
 select XmlDoc.value('(./Id)[1]', 'int') as Id
 from XmlDocs
 cross apply Data.nodes('/root/item') as n
+
+-- nodes() alias with a column list (n(x)) — the column list used to be dropped
+select x.query('.') from t cross apply t.x.nodes('/r') as n(x)
