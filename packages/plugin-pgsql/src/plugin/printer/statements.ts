@@ -1982,24 +1982,29 @@ function printImportForeignSchema(node: SqlNode, opts: Options): Doc {
 // P4: Logical Replication
 // ---------------------------------------------------------------------------
 
-function printPublicationObject(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+/** One `table_and_columns` entry — table name plus optional column list and WHERE — no
+ * leading TABLE keyword: printCreatePublication groups a run of these under one. */
+function printPublicationTableItem(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (k: string) => keyword(k, opts);
-    const kind     = propStr(node, 'kind') ?? 'TABLE';
     const relation = prop(node, 'relation');
     const columns  = propStrArr(node, 'columns');
     const where    = prop(node, 'where');
-    const schema   = propStr(node, 'schema');
+    return [
+        relation ? rangeVarName(relation) : '',
+        columns.length > 0 ? [' (', join(', ', columns), ')'] : '',
+        where ? [' ', makeKeyword('WHERE'), ' (', printNode(where), ')'] : '',
+    ];
+}
+
+function printPublicationObject(node: SqlNode, opts: Options): Doc {
+    const makeKeyword = (k: string) => keyword(k, opts);
+    const kind   = propStr(node, 'kind') ?? 'TABLE';
+    const schema = propStr(node, 'schema');
 
     if (kind === 'TABLES IN SCHEMA') return [makeKeyword('TABLES IN SCHEMA'), ' ', schema ?? ''];
     // CURRENT_SCHEMA here is the literal keyword-like token the grammar requires, not a
     // schema name to quote/case as an identifier.
-    if (kind === 'TABLES IN CURRENT SCHEMA') return [makeKeyword('TABLES IN SCHEMA'), ' ', makeKeyword('CURRENT_SCHEMA')];
-
-    return [
-        makeKeyword('TABLE'), ' ', relation ? rangeVarName(relation) : '',
-        columns.length > 0 ? [' (', join(', ', columns), ')'] : '',
-        where ? [' ', makeKeyword('WHERE'), ' (', printNode(where), ')'] : '',
-    ];
+    return [makeKeyword('TABLES IN SCHEMA'), ' ', makeKeyword('CURRENT_SCHEMA')];
 }
 
 function printCreatePublication(node: SqlNode, opts: Options): Doc {
@@ -2014,7 +2019,26 @@ function printCreatePublication(node: SqlNode, opts: Options): Doc {
     if (forAll) {
         forPart = [' ', makeKeyword('FOR ALL TABLES')];
     } else if (pubObjects.length > 0) {
-        forPart = [hardline, indent([makeKeyword('FOR'), ' ', join(', ', pubObjects.map((o) => printPublicationObject(o, opts, printNode)))])];
+        // A run of consecutive TABLE objects shares one TABLE keyword — PostgreSQL's
+        // grammar allows `FOR TABLE a, b (c) WHERE (...)`, so `orders, users` prints as
+        // `TABLE orders, users` instead of repeating TABLE before every table.
+        const segments: Doc[] = [];
+        let run: SqlNode[] = [];
+        const flushRun = () => {
+            if (run.length === 0) return;
+            segments.push([makeKeyword('TABLE'), ' ', join(', ', run.map((o) => printPublicationTableItem(o, opts, printNode)))]);
+            run = [];
+        };
+        for (const o of pubObjects) {
+            if ((propStr(o, 'kind') ?? 'TABLE') === 'TABLE') {
+                run.push(o);
+            } else {
+                flushRun();
+                segments.push(printPublicationObject(o, opts));
+            }
+        }
+        flushRun();
+        forPart = [hardline, indent([makeKeyword('FOR'), ' ', join(', ', segments)])];
     } else {
         forPart = '';
     }

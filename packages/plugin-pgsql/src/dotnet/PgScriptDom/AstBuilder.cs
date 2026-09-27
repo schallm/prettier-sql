@@ -2840,10 +2840,15 @@ public class AstBuilder {
     // form) as a SQL string literal: reloption WITH (...) clauses need this to round-trip
     // (an unquoted `publish = insert` reparses as a different node kind than the original
     // `publish = 'insert'`), but most other DefElem values — e.g. ALTER FUNCTION RENAME TO
-    // — want the bare text.
+    // — want the bare text. A value that's exactly a RESERVED_KEYWORD spelling (true,
+    // false, on, ...) stays bare either way: def_arg's grammar routes only reserved
+    // keywords through this same String-node path when written bare, and PostgreSQL's
+    // case-insensitive scanner always folds a bare occurrence back to that exact
+    // lowercase text, so printing it bare reparses identically — no need to requote it,
+    // and the user's original bare `true`/`off`/`on` spelling reads better than `'true'`.
     private static object? BuildDefElemValue(DefElem defElem, bool quoteStrings = false) {
         if (defElem.Arg == null) return null;
-        string Quote(string v) => quoteStrings ? $"'{v.Replace("'", "''")}'" : v;
+        string Quote(string v) => quoteStrings && !Ident.IsReservedKeyword(v) ? $"'{v.Replace("'", "''")}'" : v;
         return defElem.Arg.NodeCase switch {
             Node.NodeOneofCase.String  => Quote(defElem.Arg.String.Sval),
             Node.NodeOneofCase.Integer => defElem.Arg.Integer.Ival.ToString(),

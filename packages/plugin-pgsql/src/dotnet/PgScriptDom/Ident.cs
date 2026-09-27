@@ -56,6 +56,16 @@ public static class Ident {
         return true;
     }
 
+    /// <summary>
+    /// True for a RESERVED_KEYWORD such as <c>true</c>/<c>false</c>/<c>on</c> — the exact
+    /// (lowercase) spelling PostgreSQL's case-insensitive scanner folds a bare occurrence
+    /// to. Used where a value needs to stay bare only when printing it bare reparses to
+    /// the identical text, such as a generic option's def_arg (<c>WITH (x = on)</c>),
+    /// which routes only reserved keywords through the same String-node grammar path a
+    /// quoted 'string' takes.
+    /// </summary>
+    public static bool IsReservedKeyword(string name) => Reserved.Contains(name);
+
     /// <summary>Quotes a single identifier if it can't be written bare.</summary>
     public static string Quote(string name) =>
         IsSafeBare(name) && !Reserved.Contains(name) && !TypeFuncName.Contains(name)
