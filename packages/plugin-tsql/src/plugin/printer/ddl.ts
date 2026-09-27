@@ -436,7 +436,7 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
                     opts,
                 );
             const fkColsDoc = parenList(cols);
-            const refColsDoc = parenList(refCols);
+            const refColsDoc: Doc = refCols.length ? [' ', parenList(refCols)] : '';
             return [
                 group([
                     namePrefix,
@@ -446,7 +446,7 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
                             keyword('FOREIGN KEY', opts),
                             ' ',
                             fkColsDoc,
-                            indent([line, keyword('REFERENCES', opts), ' ', refName, ' ', refColsDoc]),
+                            indent([line, keyword('REFERENCES', opts), ' ', refName, refColsDoc]),
                         ]),
                         deleteAction ? [line, keyword('ON DELETE', opts), ' ', refActionKw(deleteAction)] : '',
                         updateAction ? [line, keyword('ON UPDATE', opts), ' ', refActionKw(updateAction)] : '',

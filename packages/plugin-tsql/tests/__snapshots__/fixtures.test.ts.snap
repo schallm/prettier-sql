@@ -287,6 +287,14 @@ drop constraint CL_BigTable with (ONLINE = ON, MAXDOP = 4);
 "
 `;
 
+exports[`fixtures > alter-table/fk-no-ref-columns.sql 1`] = `
+"-- REFERENCES with no explicit column list must not print an empty () (bug: unparseable)
+alter table t
+with nocheck
+add constraint fk foreign key (a) references u;
+"
+`;
+
 exports[`fixtures > alter-table/rebuild-switch.sql 1`] = `
 "-- ALTER TABLE REBUILD / SWITCH, with and without a partition
 alter table t
@@ -414,6 +422,15 @@ create table dbo.Documents (
 )
 on DataFileGroup
 filestream_on FileStreamGroup;
+"
+`;
+
+exports[`fixtures > create-table/fk-no-ref-columns.sql 1`] = `
+"-- REFERENCES with no explicit column list must not print an empty () (bug: unparseable)
+create table t (
+  a int references u (id),
+  foreign key (a) references u
+);
 "
 `;
 
