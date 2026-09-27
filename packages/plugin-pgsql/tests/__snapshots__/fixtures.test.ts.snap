@@ -442,6 +442,12 @@ create table t (
 with (fillfactor = 70, toast.autovacuum_enabled = false)
 tablespace "Fast";
 
+-- a bare reloption value that needs quoting to keep its case (would fold to lowercase otherwise)
+create table t (
+  a integer
+)
+with (x = "Off");
+
 create table t (
   a integer
 )

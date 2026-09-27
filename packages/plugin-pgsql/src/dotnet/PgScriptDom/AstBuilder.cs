@@ -2867,10 +2867,13 @@ public class AstBuilder {
             Node.NodeOneofCase.AConst when defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Boolval => defElem.Arg.AConst.Boolval.Boolval ? "true" : "false",
             // A bare identifier value (e.g. WITH (fastupdate = off)) parses through
             // def_arg's func_type alternative as a one-part TypeName, not a String —
-            // only ON is a reserved keyword and takes the String path.
+            // only ON is a reserved keyword and takes the String path. libpg_query hands
+            // back the identifier's real value (a quoted one verbatim, case preserved),
+            // so it must be re-quoted the same as any other identifier — printing it bare
+            // would fold e.g. "Off" to plain off on the next parse, changing its value.
             Node.NodeOneofCase.TypeName when defElem.Arg.TypeName.Names.Count == 1
                 && defElem.Arg.TypeName.Names[0].NodeCase == Node.NodeOneofCase.String
-                => defElem.Arg.TypeName.Names[0].String.Sval,
+                => Ident.Quote(defElem.Arg.TypeName.Names[0].String.Sval),
             _ => null,
         };
     }

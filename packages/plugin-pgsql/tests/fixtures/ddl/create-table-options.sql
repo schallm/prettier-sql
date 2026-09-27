@@ -7,6 +7,8 @@ create table t (like u including all excluding comments);
 create table t (like u including comments including indexes);
 create table t (a int) inherits (u, s.v);
 create table t (a int) with (fillfactor = 70, toast.autovacuum_enabled = false) tablespace "Fast";
+-- a bare reloption value that needs quoting to keep its case (would fold to lowercase otherwise)
+create table t (a int) with (x = "Off");
 create table t (a int) using heap;
 create temp table t as select 1;
 create unlogged table t (x, y) with (fillfactor = 50) as select 1, 2 with no data;
