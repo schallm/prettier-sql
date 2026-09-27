@@ -1,5 +1,32 @@
 # prettier-plugin-postgresql
 
+## 0.3.2
+
+### Patch Changes
+
+- 7210de2: `ALTER SUBSCRIPTION` no longer deletes the statement (it printed `/* unknown: AlterSubscriptionStatement */`); every form (`CONNECTION`, `SET`/`ADD`/`DROP PUBLICATION`, `REFRESH PUBLICATION`, `ENABLE`/`DISABLE`, `SET (...)`, `SKIP (...)`) now round-trips. `ALTER PUBLICATION`'s object-list and reloption forms, and `DROP SUBSCRIPTION ... CASCADE`, are also now printed correctly instead of being dropped or silently losing `CASCADE`.
+- 4a24cd1: `expr AT LOCAL` now prints correctly instead of the unparseable `AT TIME ZONE expr`.
+- 60bc1cc: `CLOSE ALL` no longer prints the unparseable `CLOSE ;`.
+- c5b810d: `CREATE EXTENSION ... CASCADE` no longer drops the `CASCADE` clause.
+- 4b08501: `DECLARE ... ASENSITIVE CURSOR` no longer drops the `ASENSITIVE` keyword.
+- 7d4a756: `DECLARE ... CURSOR WITH HOLD` no longer drops `WITH HOLD`; `BINARY` cursors were also silently dropped (the option bit checked didn't match the one PostgreSQL actually sets).
+- 10cb1df: A bare reloption/option identifier value (e.g. `WITH (x = "Off")`) is now re-quoted like any other identifier instead of printing bare, which was folding it to lowercase (`off`) on the next parse and changing its value.
+- 9f8411b: An FDW option value (`OPTIONS (...)` on a foreign server, table, or column) with an embedded `'` no longer prints unescaped, which didn't parse.
+- 9fad1fd: `CREATE FOREIGN TABLE` keeps per-column `OPTIONS (...)`; they were silently dropped.
+- e483cb3: `IMPORT FOREIGN SCHEMA` keeps `LIMIT TO (...)`, `EXCEPT (...)`, and `OPTIONS (...)`; all three were silently dropped.
+- 68ff776: `CREATE TABLE ... PARTITION OF ... PARTITION BY ...` keeps its trailing `PARTITION BY` clause instead of dropping it.
+- af039ea: `CREATE PUBLICATION` keeps its per-table column list, `WHERE` filter, `TABLES IN SCHEMA`/`TABLES IN SCHEMA CURRENT_SCHEMA`, and `WITH (...)` options — all were silently dropped. Fixed a related bug where a `WITH (...)` reloption's quoted string value (e.g. `publish = 'insert'`) printed without quotes, changing its meaning on reparse.
+- c2640db: `REFRESH MATERIALIZED VIEW ... WITH NO DATA` keeps the `WITH NO DATA` clause instead of silently dropping it.
+- 0445667: `CREATE ROLE`/`ALTER ROLE` keep `VALID UNTIL`, `IN ROLE`, `ROLE`, `ADMIN`, and `SYSID` — they were silently dropped.
+- a24d0dd: Keep `SECURITY LABEL ON ...` without a `FOR provider` clause parseable, instead of printing an empty `FOR`.
+- c21387d: Several printers built a `'...'` string literal from raw text without doubling an embedded `'`, producing unparseable output: `CREATE EXTENSION ... VERSION`, `COMMIT/ROLLBACK PREPARED`'s transaction id, `COPY ... TO`/`TO PROGRAM`'s filename, `NOTIFY`'s payload, `LOAD`'s filename, `CREATE TABLESPACE ... LOCATION`, and `SECURITY LABEL ... IS`.
+- 2a065c3: `CREATE SUBSCRIPTION ... WITH (...)` keeps its options; they were silently dropped.
+- b448c12: `LIKE ... INCLUDING ALL EXCLUDING x` in `CREATE TABLE` no longer drops the `EXCLUDING` clauses; the `COMPRESSION` option was also missing from the `INCLUDING`/`EXCLUDING` list.
+- 0930927: `INSERT INTO`, `UPDATE`, and `DELETE FROM` keep the target table's `AS alias` — it was silently dropped, breaking any qualified reference to it elsewhere in the statement (e.g. `ON CONFLICT ... DO UPDATE ... WHERE x.a > 0`).
+- fc0b8b6: A bare-identifier `WITH (...)` option value (e.g. `fastupdate = off`) no longer drops the value; it applies to every `WITH (...)` clause that shares the option-value builder (`CREATE TABLE`, `CREATE INDEX`, constraints, etc).
+- 4082f89: `XMLPARSE`, `XMLROOT`, and `XMLSERIALIZE` now print their SQL keyword forms (`XMLPARSE(DOCUMENT ...)`, `XMLROOT(x, VERSION ..., STANDALONE ...)`, `XMLSERIALIZE(DOCUMENT ... AS type)`) instead of unparseable positional-argument calls; `XMLSERIALIZE` was previously unsupported.
+- 25fce60: `XMLPARSE(... PRESERVE WHITESPACE)` no longer drops the `PRESERVE WHITESPACE` option, which changed the expression's meaning.
+
 ## 0.3.1
 
 ### Patch Changes
