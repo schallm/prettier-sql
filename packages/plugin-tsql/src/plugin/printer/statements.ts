@@ -1107,20 +1107,26 @@ function printMerge(node: SqlNode, opts: Options): Doc {
             : printTable(target, opts)
         : '';
 
+    const topDoc: Doc = topNode ? [renderTopFilter(topNode, opts), ' '] : '';
+    const sourceDoc: Doc = source ? printTable(source, opts) : '';
+    // A trailing `--` comment on the source (e.g. `USING s -- src`) queues as a
+    // lineSuffix that only flushes at the next hardline — without one here it would
+    // flush past `ON ...`, landing on the wrong line. Force a break so it lands right
+    // after the source, in place of the usual space before `ON`.
+    const sourceSep: Doc = hasLineSuffix(sourceDoc) ? hardline : ' ';
+
     const density = getDensity(opts);
     let onDoc: Doc = '';
     if (on) {
         const isMultiple = on.type === 'BooleanBinary';
         if (density === 'compact') {
-            onDoc = [' ', keyword('ON', opts), ' ', printBool(on, opts)];
+            onDoc = [sourceSep, keyword('ON', opts), ' ', printBool(on, opts)];
         } else if (density === 'standard' && !isMultiple) {
-            onDoc = [' ', keyword('ON', opts), group([indent([line, printBool(on, opts)])])];
+            onDoc = [sourceSep, keyword('ON', opts), group([indent([line, printBool(on, opts)])])];
         } else {
-            onDoc = [' ', keyword('ON', opts), indent([hardline, printBool(on, opts)])];
+            onDoc = [sourceSep, keyword('ON', opts), indent([hardline, printBool(on, opts)])];
         }
     }
-
-    const topDoc: Doc = topNode ? [renderTopFilter(topNode, opts), ' '] : '';
 
     const parts: Doc[] = [
         ...ctesDocs,
@@ -1133,7 +1139,7 @@ function printMerge(node: SqlNode, opts: Options): Doc {
         hardline,
         keyword('USING', opts),
         ' ',
-        source ? printTable(source, opts) : '',
+        sourceDoc,
         onDoc,
     ];
 
