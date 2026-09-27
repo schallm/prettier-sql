@@ -439,7 +439,7 @@ inherits (u, s.v);
 create table t (
   a integer
 )
-with (fillfactor = 70, toast.autovacuum_enabled = false)
+with (fillfactor = 70, toast.autovacuum_enabled = 'false')
 tablespace "Fast";
 
 create table t (
@@ -469,7 +469,7 @@ select 1;
 exports[`fixtures > ddl/ddl-options.sql 1`] = `
 "-- Views, index elements, column collations, sequence options, DROP CONCURRENTLY and CTE materialization
 create or replace view v (x, "Y")
-with (security_barrier = true)
+with (security_barrier = 'true')
 as
 select
   1,
@@ -1737,7 +1737,15 @@ select interval '5 years' year to month;
 
 exports[`fixtures > p4/logical-replication.sql 1`] = `
 "create publication my_pub
-for table orders, users;
+for table orders, table users;
+
+-- column list, WHERE, TABLES IN SCHEMA, and WITH options
+create publication p2
+for table t (a, b) where (a > 0), tables in schema s
+with (publish = 'insert');
+
+create publication p3
+for tables in schema current_schema;
 
 create subscription my_sub
 connection 'host=localhost dbname=mydb'

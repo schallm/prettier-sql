@@ -362,7 +362,7 @@ public class AstBuilder {
         .Select(n => {
             var d = n.DefElem;
             var name = string.IsNullOrEmpty(d.Defnamespace) ? d.Defname : $"{d.Defnamespace}.{d.Defname}";
-            var value = BuildDefElemValue(d);
+            var value = BuildDefElemValue(d, quoteStrings: true);
             return value == null ? name : $"{name} = {value}";
         })
         .ToList());
@@ -2835,14 +2835,20 @@ public class AstBuilder {
         };
     }
 
-    // Helper to extract a string or bool value from a DefElem Arg
-    private static object? BuildDefElemValue(DefElem defElem) {
+    // Helper to extract a string or bool value from a DefElem Arg. quoteStrings requotes
+    // a genuine Sconst (String/AConst.Sval — as opposed to the bare-identifier TypeName
+    // form) as a SQL string literal: reloption WITH (...) clauses need this to round-trip
+    // (an unquoted `publish = insert` reparses as a different node kind than the original
+    // `publish = 'insert'`), but most other DefElem values — e.g. ALTER FUNCTION RENAME TO
+    // — want the bare text.
+    private static object? BuildDefElemValue(DefElem defElem, bool quoteStrings = false) {
         if (defElem.Arg == null) return null;
+        string Quote(string v) => quoteStrings ? $"'{v.Replace("'", "''")}'" : v;
         return defElem.Arg.NodeCase switch {
-            Node.NodeOneofCase.String  => defElem.Arg.String.Sval,
+            Node.NodeOneofCase.String  => Quote(defElem.Arg.String.Sval),
             Node.NodeOneofCase.Integer => defElem.Arg.Integer.Ival.ToString(),
             Node.NodeOneofCase.Float   => defElem.Arg.Float.Fval,
-            Node.NodeOneofCase.AConst when defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval    => defElem.Arg.AConst.Sval.Sval,
+            Node.NodeOneofCase.AConst when defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval    => Quote(defElem.Arg.AConst.Sval.Sval),
             Node.NodeOneofCase.AConst when defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival    => defElem.Arg.AConst.Ival.Ival.ToString(),
             Node.NodeOneofCase.AConst when defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Fval    => defElem.Arg.AConst.Fval.Fval,
             Node.NodeOneofCase.AConst when defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Boolval => defElem.Arg.AConst.Boolval.Boolval ? "true" : "false",
@@ -3003,16 +3009,41 @@ public class AstBuilder {
     // P4: Logical Replication
     // -------------------------------------------------------------------------
 
-    private static SqlNode BuildCreatePublication(CreatePublicationStmt s, int start, int end) {
-        var tables = s.Pubobjects
-            .Where(n => n.NodeCase == Node.NodeOneofCase.PublicationObjSpec
-                && n.PublicationObjSpec.Pubobjtype == PublicationObjSpecType.PublicationobjTable)
-            .Select(n => BuildRangeVar(n.PublicationObjSpec.Pubtable?.Relation))
+    private SqlNode BuildCreatePublication(CreatePublicationStmt s, int start, int end) {
+        var pubObjects = s.Pubobjects
+            .Where(n => n.NodeCase == Node.NodeOneofCase.PublicationObjSpec)
+            .Select(n => BuildPublicationObjSpec(n.PublicationObjSpec))
             .ToList();
         return new SqlNode("CreatePublicationStatement", start, end, null, BuildProps(
-            ("name",        Ident.QuoteOpt(s.Pubname)),
+            ("name",         Ident.QuoteOpt(s.Pubname)),
             ("forAllTables", s.ForAllTables ? true : null),
-            ("tables",      MaybeList(tables))
+            ("pubObjects",   MaybeList(pubObjects)),
+            // WITH (publish = 'insert', ...) — reloption syntax, not OPTIONS (...)
+            ("options",      StorageOptions(s.Options))
+        ));
+    }
+
+    // FOR TABLE t (cols) WHERE (expr), TABLES IN SCHEMA s, TABLES IN CURRENT SCHEMA
+    private SqlNode BuildPublicationObjSpec(PublicationObjSpec spec) {
+        var kind = spec.Pubobjtype switch {
+            PublicationObjSpecType.PublicationobjTable               => "TABLE",
+            PublicationObjSpecType.PublicationobjTablesInSchema       => "TABLES IN SCHEMA",
+            PublicationObjSpecType.PublicationobjTablesInCurSchema    => "TABLES IN CURRENT SCHEMA",
+            _                                                          => spec.Pubobjtype.ToString(),
+        };
+        var table = spec.Pubtable;
+        var columns = table != null
+            ? MaybeList(table.Columns
+                .Where(n => n.NodeCase == Node.NodeOneofCase.String)
+                .Select(n => Ident.Quote(n.String.Sval))
+                .ToList())
+            : null;
+        return new SqlNode("PublicationObject", 0, 0, null, BuildProps(
+            ("kind",     kind),
+            ("relation", table?.Relation != null ? BuildRangeVar(table.Relation) : null),
+            ("columns",  columns),
+            ("where",    table?.WhereClause != null ? BuildExpr(table.WhereClause) : null),
+            ("schema",   kind == "TABLES IN SCHEMA" ? Ident.QuoteOpt(spec.Name) : null)
         ));
     }
 

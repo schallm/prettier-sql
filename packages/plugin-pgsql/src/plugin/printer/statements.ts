@@ -1982,22 +1982,45 @@ function printImportForeignSchema(node: SqlNode, opts: Options): Doc {
 // P4: Logical Replication
 // ---------------------------------------------------------------------------
 
+function printPublicationObject(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const makeKeyword = (k: string) => keyword(k, opts);
+    const kind     = propStr(node, 'kind') ?? 'TABLE';
+    const relation = prop(node, 'relation');
+    const columns  = propStrArr(node, 'columns');
+    const where    = prop(node, 'where');
+    const schema   = propStr(node, 'schema');
+
+    if (kind === 'TABLES IN SCHEMA') return [makeKeyword('TABLES IN SCHEMA'), ' ', schema ?? ''];
+    // CURRENT_SCHEMA here is the literal keyword-like token the grammar requires, not a
+    // schema name to quote/case as an identifier.
+    if (kind === 'TABLES IN CURRENT SCHEMA') return [makeKeyword('TABLES IN SCHEMA'), ' ', makeKeyword('CURRENT_SCHEMA')];
+
+    return [
+        makeKeyword('TABLE'), ' ', relation ? rangeVarName(relation) : '',
+        columns.length > 0 ? [' (', join(', ', columns), ')'] : '',
+        where ? [' ', makeKeyword('WHERE'), ' (', printNode(where), ')'] : '',
+    ];
+}
+
 function printCreatePublication(node: SqlNode, opts: Options): Doc {
     const makeKeyword     = (k: string) => keyword(k, opts);
-    const name   = propStr(node, 'name') ?? '';
-    const tables = propArr(node, 'tables');
-    const forAll = propBool(node, 'forAllTables');
+    const printNode = printWith(opts);
+    const name       = propStr(node, 'name') ?? '';
+    const pubObjects = propArr(node, 'pubObjects');
+    const forAll     = propBool(node, 'forAllTables');
+    const options    = propStrArr(node, 'options');
 
     let forPart: Doc;
     if (forAll) {
         forPart = [' ', makeKeyword('FOR ALL TABLES')];
-    } else if (tables.length > 0) {
-        forPart = [hardline, indent([makeKeyword('FOR TABLE'), ' ', join(', ', tables.map(rangeVarName))])];
+    } else if (pubObjects.length > 0) {
+        forPart = [hardline, indent([makeKeyword('FOR'), ' ', join(', ', pubObjects.map((o) => printPublicationObject(o, opts, printNode)))])];
     } else {
         forPart = '';
     }
+    const withPart: Doc = options.length > 0 ? [hardline, makeKeyword('WITH'), ' (', join(', ', options), ')'] : '';
 
-    return [[makeKeyword('CREATE PUBLICATION'), ' ', name, forPart], ';'];
+    return [[makeKeyword('CREATE PUBLICATION'), ' ', name, forPart, withPart], ';'];
 }
 
 function printCreateSubscription(node: SqlNode, opts: Options): Doc {
