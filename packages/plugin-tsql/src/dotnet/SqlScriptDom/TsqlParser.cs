@@ -97,6 +97,8 @@ public static class TsqlParser {
         // Keywords ScriptDom stores as identifiers: ABSENT ON NULL, IGNORE NULLS, PIVOT (SUM(...))
         (FunctionCall, "AbsentOrNullOnNull") => true,
         (FunctionCall, "IgnoreRespectNulls") => true,
+        // TRIM(BOTH/LEADING/TRAILING ... FROM ...): TrimOptions is a keyword, not an identifier
+        (FunctionCall, "TrimOptions") => true,
         (PivotedTableReference, "AggregateFunctionIdentifier") => true,
         // GRANT SELECT, EXECUTE, ...: permission names are keywords
         (Permission, "Identifiers") => true,
