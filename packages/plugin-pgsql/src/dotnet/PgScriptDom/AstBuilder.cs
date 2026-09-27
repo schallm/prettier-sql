@@ -3060,7 +3060,8 @@ public class AstBuilder {
         return new SqlNode("CreateSubscriptionStatement", start, end, null, BuildProps(
             ("name",         Ident.QuoteOpt(s.Subname)),
             ("conninfo",     s.Conninfo),
-            ("publications", MaybeList(publications))
+            ("publications", MaybeList(publications)),
+            ("options",      StorageOptions(s.Options))
         ));
     }
 

@@ -2028,11 +2028,14 @@ function printCreateSubscription(node: SqlNode, opts: Options): Doc {
     const name         = propStr(node, 'name') ?? '';
     const conninfo     = propStr(node, 'conninfo') ?? '';
     const publications = (node.props?.['publications'] as string[] | undefined) ?? [];
+    const options       = propStrArr(node, 'options');
+    const withPart: Doc = options.length > 0 ? [hardline, indent([makeKeyword('WITH'), ' (', join(', ', options), ')'])] : '';
 
     return [
         [makeKeyword('CREATE SUBSCRIPTION'), ' ', name, hardline,
          indent([makeKeyword('CONNECTION'), " '", conninfo, "'"]), hardline,
-         indent([makeKeyword('PUBLICATION'), ' ', join(', ', publications)])],
+         indent([makeKeyword('PUBLICATION'), ' ', join(', ', publications)]),
+         withPart],
         ';',
     ];
 }
