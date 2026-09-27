@@ -666,6 +666,7 @@ public class AstBuilder {
             Node.NodeOneofCase.Constraint   => BuildConstraint(node.Constraint),
             Node.NodeOneofCase.MergeWhenClause => BuildMergeWhen(node.MergeWhenClause),
             Node.NodeOneofCase.XmlExpr              => BuildXmlExpr(node.XmlExpr),
+            Node.NodeOneofCase.XmlSerialize         => BuildXmlSerialize(node.XmlSerialize),
             Node.NodeOneofCase.JsonFuncExpr         => BuildJsonFuncExpr(node.JsonFuncExpr),
             // JSON constructors — SQL/JSON (PostgreSQL 16+)
             Node.NodeOneofCase.JsonObjectConstructor => BuildJsonObjectConstructor(node.JsonObjectConstructor),
@@ -2585,11 +2586,38 @@ public class AstBuilder {
         // NamedArgs are ResTarget nodes (val + name) used in XMLELEMENT attributes / XMLFOREST cols
         var namedArgs = MapList(xe.NamedArgs, n =>
             n.NodeCase == Node.NodeOneofCase.ResTarget ? BuildResTarget(n.ResTarget) : BuildExpr(n));
+        // XMLPARSE(DOCUMENT|CONTENT expr) — the DOCUMENT/CONTENT keyword lives on
+        // xmloption, not in args (args[1] is an internal whitespace-handling flag
+        // PostgreSQL doesn't expose surface syntax for, so it's not round-tripped).
+        string? documentOrContent = xe.Op == XmlExprOp.IsXmlparse
+            ? xe.Xmloption switch {
+                XmlOptionType.XmloptionDocument => "DOCUMENT",
+                XmlOptionType.XmloptionContent  => "CONTENT",
+                _ => null,
+            }
+            : null;
         return new SqlNode("XmlExpr", 0, 0, null, BuildProps(
-            ("op",        op),
-            ("name",      Ident.QuoteOpt(xe.Name)),
-            ("args",      MapList(xe.Args, BuildExpr)),
-            ("namedArgs", namedArgs)
+            ("op",                op),
+            ("name",              Ident.QuoteOpt(xe.Name)),
+            ("args",              MapList(xe.Args, BuildExpr)),
+            ("namedArgs",         namedArgs),
+            ("documentOrContent", documentOrContent)
+        ));
+    }
+
+    // XMLSERIALIZE(DOCUMENT|CONTENT expr AS typeName [INDENT]) — a distinct raw-parse
+    // node from XmlExpr, unlike the other XML SQL functions.
+    private SqlNode BuildXmlSerialize(XmlSerialize xs) {
+        var documentOrContent = xs.Xmloption switch {
+            XmlOptionType.XmloptionDocument => "DOCUMENT",
+            XmlOptionType.XmloptionContent  => "CONTENT",
+            _ => (string?)null,
+        };
+        return new SqlNode("XmlSerialize", 0, 0, null, BuildProps(
+            ("documentOrContent", documentOrContent),
+            ("expr",              xs.Expr != null ? BuildExpr(xs.Expr) : null),
+            ("typeName",          xs.TypeName != null ? BuildPgTypeName(xs.TypeName) : null),
+            ("indent",            xs.Indent ? true : null)
         ));
     }
 

@@ -71,6 +71,7 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'RangeTableSample': return printRangeTableSample(node, opts, printNode);
         case 'TableLikeClause':  return printTableLikeClause(node, opts);
         case 'XmlExpr':          return printXmlExpr(node, opts, printNode);
+        case 'XmlSerialize':     return printXmlSerialize(node, opts, printNode);
         case 'JsonFuncExpr':          return printJsonFuncExpr(node, opts, printNode);
         case 'XmlTable':              return printXmlTable(node, opts, printNode);
         case 'JsonTable':             return printJsonTable(node, opts, printNode);
@@ -990,9 +991,50 @@ function printXmlExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
         if (args.length > 0) items.push(', ', printNode(args[0]!));
         return [makeKeyword('XMLPI'), '(', ...items, ')'];
     }
-    // XMLCONCAT, XMLPARSE, XMLROOT, XMLSERIALIZE — simple arg list
+    if (op === 'XMLPARSE') {
+        const documentOrContent = propStr(node, 'documentOrContent') ?? 'DOCUMENT';
+        const [content] = args;
+        return [makeKeyword('XMLPARSE'), '(', makeKeyword(documentOrContent), ' ', content ? printNode(content) : '', ')'];
+    }
+    if (op === 'XMLROOT') {
+        return printXmlRoot(args, opts, printNode);
+    }
+    // XMLCONCAT — simple arg list
     const allArgs = [...namedArgs, ...args].map(printNode);
     return [makeKeyword(op), '(', join(', ', allArgs), ')'];
+}
+
+// XMLROOT(x, VERSION v|NO VALUE, STANDALONE YES|NO|NO VALUE)
+// args: [data, version-or-null, standalone-code (0=YES,1=NO,2=NO VALUE,3=omitted)]
+function printXmlRoot(args: SqlNode[], opts: Options, printNode: PrintFn): Doc {
+    const makeKeyword = (kw: string) => keyword(kw, opts);
+    const [data, version, standalone] = args;
+    const parts: Doc[] = [makeKeyword('XMLROOT'), '(', data ? printNode(data) : '', ', ', makeKeyword('VERSION'), ' '];
+    const versionText = (version as any)?.text as string | undefined;
+    parts.push(!version || versionText === 'null' ? makeKeyword('NO VALUE') : printNode(version));
+
+    const standaloneCode = (standalone as any)?.text != null ? Number((standalone as any).text) : undefined;
+    if (standaloneCode !== undefined && standaloneCode !== 3) {
+        const standaloneKw = standaloneCode === 0 ? 'YES' : standaloneCode === 1 ? 'NO' : 'NO VALUE';
+        parts.push(', ', makeKeyword('STANDALONE'), ' ', makeKeyword(standaloneKw));
+    }
+    parts.push(')');
+    return parts;
+}
+
+// XMLSERIALIZE(DOCUMENT|CONTENT expr AS typeName [INDENT])
+function printXmlSerialize(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const makeKeyword = (kw: string) => keyword(kw, opts);
+    const documentOrContent = propStr(node, 'documentOrContent') ?? 'DOCUMENT';
+    const expr = prop(node, 'expr');
+    const typeName = propStr(node, 'typeName');
+    const indent = propBool(node, 'indent');
+    return [
+        makeKeyword('XMLSERIALIZE'), '(', makeKeyword(documentOrContent), ' ',
+        expr ? printNode(expr) : '', ' ', makeKeyword('AS'), ' ', typeName ?? '',
+        indent ? [' ', makeKeyword('INDENT')] : '',
+        ')',
+    ];
 }
 
 function printJsonFuncExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
