@@ -1249,6 +1249,9 @@ from orders;
 declare binary_cursor insensitive binary cursor for
 select id
 from orders;
+declare asensitive_cursor asensitive cursor for
+select id
+from orders;
 declare no_scroll_cursor no scroll cursor for
 select id
 from orders;

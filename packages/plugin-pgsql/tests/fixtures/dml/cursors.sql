@@ -6,6 +6,8 @@ declare held_cursor scroll cursor with hold for select id from orders;
 
 declare binary_cursor binary insensitive cursor for select id from orders;
 
+declare asensitive_cursor asensitive cursor for select id from orders;
+
 declare no_scroll_cursor no scroll cursor for select id from orders;
 
 fetch next from my_cursor;

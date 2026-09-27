@@ -1590,13 +1590,18 @@ function printDeclareCursor(node: SqlNode, opts: Options): Doc {
     const scroll   = propBool(node, 'scroll');
     const noScroll = propBool(node, 'noScroll');
     const insensitive = propBool(node, 'insensitive');
+    const asensitive = propBool(node, 'asensitive');
     const binary   = propBool(node, 'binary');
     const withHold = propBool(node, 'withHold');
     const query    = prop(node, 'query');
 
     const scrollKw: Doc = noScroll ? [' ', makeKeyword('NO SCROLL')] : scroll ? [' ', makeKeyword('SCROLL')] : '';
     const binaryKw: Doc = binary ? [makeKeyword('BINARY'), ' '] : '';
-    const insensKw: Doc = insensitive ? [makeKeyword('INSENSITIVE'), ' '] : '';
+    const insensKw: Doc = insensitive
+        ? [makeKeyword('INSENSITIVE'), ' ']
+        : asensitive
+          ? [makeKeyword('ASENSITIVE'), ' ']
+          : '';
     const holdKw: Doc = withHold ? [' ', makeKeyword('WITH HOLD')] : '';
 
     return [
