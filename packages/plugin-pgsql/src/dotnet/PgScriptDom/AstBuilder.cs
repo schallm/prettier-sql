@@ -2645,9 +2645,10 @@ public class AstBuilder {
         // NamedArgs are ResTarget nodes (val + name) used in XMLELEMENT attributes / XMLFOREST cols
         var namedArgs = MapList(xe.NamedArgs, n =>
             n.NodeCase == Node.NodeOneofCase.ResTarget ? BuildResTarget(n.ResTarget) : BuildExpr(n));
-        // XMLPARSE(DOCUMENT|CONTENT expr) — the DOCUMENT/CONTENT keyword lives on
-        // xmloption, not in args (args[1] is an internal whitespace-handling flag
-        // PostgreSQL doesn't expose surface syntax for, so it's not round-tripped).
+        // XMLPARSE(DOCUMENT|CONTENT expr [PRESERVE|STRIP WHITESPACE]) — the DOCUMENT/CONTENT
+        // keyword lives on xmloption, not in args. args[1] is the PRESERVE WHITESPACE (true) /
+        // STRIP WHITESPACE (false) option; STRIP is also what an absent option parses to, so
+        // the two can't be told apart — print nothing for false, matching the default.
         string? documentOrContent = xe.Op == XmlExprOp.IsXmlparse
             ? xe.Xmloption switch {
                 XmlOptionType.XmloptionDocument => "DOCUMENT",
@@ -2655,12 +2656,19 @@ public class AstBuilder {
                 _ => null,
             }
             : null;
+        bool? preserveWhitespace = xe.Op == XmlExprOp.IsXmlparse && xe.Args.Count > 1
+            && xe.Args[1].NodeCase == Node.NodeOneofCase.AConst
+            && xe.Args[1].AConst.ValCase == A_Const.ValOneofCase.Boolval
+            && xe.Args[1].AConst.Boolval.Boolval
+            ? true
+            : null;
         return new SqlNode("XmlExpr", 0, 0, null, BuildProps(
-            ("op",                op),
-            ("name",              Ident.QuoteOpt(xe.Name)),
-            ("args",              MapList(xe.Args, BuildExpr)),
-            ("namedArgs",         namedArgs),
-            ("documentOrContent", documentOrContent)
+            ("op",                 op),
+            ("name",               Ident.QuoteOpt(xe.Name)),
+            ("args",               MapList(xe.Op == XmlExprOp.IsXmlparse ? xe.Args.Take(1) : xe.Args, BuildExpr)),
+            ("namedArgs",          namedArgs),
+            ("documentOrContent",  documentOrContent),
+            ("preserveWhitespace", preserveWhitespace)
         ));
     }
 

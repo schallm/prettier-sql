@@ -3120,6 +3120,10 @@ select
   xmlparse(content '<a/>');
 
 select
+  xmlparse(document '<a/>' preserve whitespace),
+  xmlparse(content '<a/>');
+
+select
   xmlroot(x, version '1.0', standalone yes),
   xmlroot(x, version no value, standalone no value);
 

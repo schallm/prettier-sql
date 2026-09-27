@@ -995,7 +995,16 @@ function printXmlExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     if (op === 'XMLPARSE') {
         const documentOrContent = propStr(node, 'documentOrContent') ?? 'DOCUMENT';
         const [content] = args;
-        return [makeKeyword('XMLPARSE'), '(', makeKeyword(documentOrContent), ' ', content ? printNode(content) : '', ')'];
+        const preserveWhitespace = propBool(node, 'preserveWhitespace');
+        return [
+            makeKeyword('XMLPARSE'),
+            '(',
+            makeKeyword(documentOrContent),
+            ' ',
+            content ? printNode(content) : '',
+            preserveWhitespace ? [' ', makeKeyword('PRESERVE WHITESPACE')] : '',
+            ')',
+        ];
     }
     if (op === 'XMLROOT') {
         return printXmlRoot(args, opts, printNode);

@@ -13,6 +13,8 @@ from books;
 
 select xmlparse(document '<a/>'), xmlparse(content '<a/>');
 
+select xmlparse(document '<a/>' preserve whitespace), xmlparse(content '<a/>' strip whitespace);
+
 select xmlroot(x, version '1.0', standalone yes), xmlroot(x, version no value, standalone no value);
 
 select xmlserialize(document x as text), xmlserialize(content x as text indent);
