@@ -8,14 +8,17 @@ A [Prettier](https://prettier.io) plugin that formats T-SQL (SQL Server) using M
 
 ## Features
 
-Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Configurable keyword casing, layout density, and comma style. Preserves `--` and `/* */` comments — trailing, leading, inside procedure bodies, between parameters and `AS`. Emits `go` batch separators where required. Integrates with editor extensions that support Prettier (VS Code, etc.).
+Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Configurable keyword casing, layout density, and comma style. Preserves `--` and `/* */` comments — trailing, leading, inside procedure bodies, between parameters and `AS` — and never drops one. The test suite checks that formatting never changes what a statement means: every fixture's ScriptDom syntax tree must be the same before and after. Emits `go` batch separators where required. Integrates with editor extensions that support Prettier (VS Code, etc.).
 
 **DML**
 
 - [`SELECT`](docs/examples.md#select-with-joins-and-where), [`INSERT`](docs/examples.md#insert), [`UPDATE`](docs/examples.md#update-with-join), [`DELETE`](docs/examples.md#delete-with-join)
 - [`MERGE INTO … USING … ON … WHEN MATCHED/NOT MATCHED`](docs/examples.md#merge)
-- `OUTPUT` / `OUTPUT INTO` on `INSERT`, `UPDATE`, `DELETE`, and `MERGE` (including `$action`, `inserted.*`, `deleted.*`)
-- [CTEs](docs/examples.md#cte-with-window-function), `UNION`/`UNION ALL`, subqueries, derived tables
+- `OUTPUT` / `OUTPUT INTO` on `INSERT`, `UPDATE`, `DELETE`, and `MERGE` (including `$action`, `inserted.*`, `deleted.*`); `MERGE … INSERT DEFAULT VALUES`
+- `OPTION (…)` query hints on `SELECT`, `INSERT`, `UPDATE`, `DELETE`, and `MERGE`
+- `UPDATE` / `DELETE … WHERE CURRENT OF [GLOBAL] cursor`
+- [CTEs](docs/examples.md#cte-with-window-function), `UNION`/`UNION ALL`, subqueries, derived tables (with column lists: `(SELECT …) AS s (a, b)`)
+- `SELECT … INTO new_table [ON filegroup]`
 - [`EXISTS` / `NOT EXISTS`](docs/examples.md#exists), [`GROUP BY` / `HAVING`](docs/examples.md#group-by-and-having)
 - [`CASE` expressions](docs/examples.md#case-expression) (simple and searched), [`IN`/`NOT IN`](docs/examples.md#in--not-in) (value lists and subqueries), [`ANY`/`ALL` subquery predicates](docs/examples.md#any--all)
 - [Inline `VALUES(...)` derived tables](docs/examples.md#inline-values-derived-table) in `FROM`
@@ -28,6 +31,8 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - Table-valued functions (TVFs) in `FROM` clauses; table hints (`WITH (NOLOCK)`, etc.)
 - [Window functions](docs/examples.md#window-functions-with-over) with `OVER` clause — `PARTITION BY`, `ORDER BY`, full frame support (`ROWS`/`RANGE BETWEEN … AND …`, `UNBOUNDED PRECEDING/FOLLOWING`, `CURRENT ROW`); `IGNORE NULLS`/`RESPECT NULLS`; named window references; named `WINDOW` clause
 - Ordered set aggregates: `WITHIN GROUP (ORDER BY …)` for `STRING_AGG`, `PERCENTILE_CONT`/`PERCENTILE_DISC`, etc.
+- `COLLATE` after any expression — columns, literals, variables, function calls, `CAST`, `CASE`, subqueries
+- ODBC escapes: `{fn UCASE(…)}` function calls and `{d '…'}` / `{ts '…'}` literals
 - Expression functions: `CAST`, `CONVERT`, `TRY_CAST`, `TRY_CONVERT` (with full data type including length/precision), `IIF`, `COALESCE`, `NULLIF`, `AT TIME ZONE`, `IS [NOT] DISTINCT FROM`, `TRIM(LEADING|TRAILING|BOTH …)`, `TRIM(chars FROM str)`, `PARSE`, `TRY_PARSE`
 - Sequence expressions: `NEXT VALUE FOR sequence [OVER (…)]`
 - JSON functions: `JSON_OBJECT(key: value, …)`, `JSON_ARRAY(…)`, `JSON_ARRAYAGG(… ORDER BY …)` with `ABSENT|NULL ON NULL`
@@ -37,14 +42,15 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 
 **DDL**
 
-- [`CREATE TABLE`](docs/examples.md#create-table) (columns, constraints, computed columns `AS expr [PERSISTED]`, `WITH` options such as `DATA_COMPRESSION`, `MEMORY_OPTIMIZED`), [`ALTER TABLE`](docs/examples.md#alter-table) (ADD/DROP column, ADD/DROP/ENABLE/DISABLE constraint, ALTER COLUMN, SET, REBUILD, SWITCH), `CREATE INDEX` (UNIQUE/CLUSTERED/NONCLUSTERED, ASC/DESC, INCLUDE), `ALTER INDEX … REBUILD/REORGANIZE/DISABLE`
-- [`CREATE/ALTER/CREATE OR ALTER PROCEDURE`](docs/examples.md#create-procedure), `CREATE/ALTER/CREATE OR ALTER FUNCTION`, [`CREATE/ALTER/CREATE OR ALTER VIEW`](docs/examples.md#create-view)
-- `CREATE/ALTER TRIGGER` (DML triggers: AFTER/INSTEAD OF INSERT/UPDATE/DELETE)
+- [`CREATE TABLE`](docs/examples.md#create-table) (columns, constraints, computed columns `AS expr [PERSISTED]`, column- and table-level `INDEX` definitions, `WITH` options such as `DATA_COMPRESSION`, `MEMORY_OPTIMIZED`), [`ALTER TABLE`](docs/examples.md#alter-table) (ADD/DROP column, `DEFAULT … WITH VALUES`, ADD/DROP/ENABLE/DISABLE constraint, `DEFAULT … FOR` constraints, `ADD PERIOD FOR SYSTEM_TIME`, `ADD INDEX`, ALTER COLUMN, SET, REBUILD [PARTITION = n | ALL], SWITCH, partition numbers as variables), `CREATE INDEX` (UNIQUE/CLUSTERED/NONCLUSTERED, ASC/DESC, INCLUDE), `ALTER INDEX … REBUILD/REORGANIZE/DISABLE`, `DROP INDEX` (with `WITH (ONLINE = …, MOVE TO …)`, and the legacy `table.index` form)
+- Storage clauses on tables, indexes and constraints: `ON filegroup`, `ON scheme(column)`, `TEXTIMAGE_ON`, `FILESTREAM_ON`
+- [`CREATE/ALTER/CREATE OR ALTER PROCEDURE`](docs/examples.md#create-procedure) (including `FOR REPLICATION`), `CREATE/ALTER/CREATE OR ALTER FUNCTION` (parameter defaults, `READONLY` table parameters), [`CREATE/ALTER/CREATE OR ALTER VIEW`](docs/examples.md#create-view) (including bodies that start with `WITH` CTEs)
+- `CREATE/ALTER TRIGGER` — DML triggers (AFTER/INSTEAD OF INSERT/UPDATE/DELETE), DDL triggers `ON DATABASE` / `ON ALL SERVER`, `WITH` options (`EXECUTE AS`, `ENCRYPTION`, …), `NOT FOR REPLICATION`
 - `CREATE/ALTER/DROP SEQUENCE` with full options (START WITH, INCREMENT BY, MINVALUE/NO MINVALUE, MAXVALUE/NO MAXVALUE, CYCLE/NO CYCLE, CACHE/NO CACHE)
 - `BULK INSERT … FROM … WITH (options)`
-- `CREATE TYPE … FROM …` (scalar UDDTs) and `CREATE TYPE … AS TABLE (…)` (table-valued parameters)
+- `CREATE TYPE … FROM …` (scalar UDDTs) and `CREATE TYPE … AS TABLE (…)` (table-valued parameters, with `INDEX` definitions and `WITH (MEMORY_OPTIMIZED = ON)`)
 - `CREATE SYNONYM` / `DROP SYNONYM` (with `IF EXISTS`)
-- `CREATE SCHEMA` (with optional `AUTHORIZATION`), `ALTER SCHEMA … TRANSFER` (plain objects, `TYPE::`, `XML SCHEMA COLLECTION::`), `DROP SCHEMA` (with `IF EXISTS`)
+- `CREATE SCHEMA` (with optional `AUTHORIZATION`, and schema elements: `CREATE SCHEMA s CREATE TABLE … GRANT …`), `ALTER SCHEMA … TRANSFER` (plain objects, `TYPE::`, `XML SCHEMA COLLECTION::`), `DROP SCHEMA` (with `IF EXISTS`)
 - `CREATE PARTITION FUNCTION` (RANGE LEFT/RIGHT, boundary values), `ALTER PARTITION FUNCTION` (SPLIT/MERGE RANGE), `DROP PARTITION FUNCTION`
 - `CREATE PARTITION SCHEME` (AS PARTITION, ALL TO / TO filegroup list), `ALTER PARTITION SCHEME` (NEXT USED), `DROP PARTITION SCHEME`
 - `DROP TABLE/PROCEDURE/VIEW/FUNCTION/INDEX/TRIGGER/SEQUENCE/SYNONYM/SCHEMA` (with `IF EXISTS`)
@@ -60,13 +66,13 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 
 **Procedural / Control Flow**
 
-- `USE`, `SET NOCOUNT/ANSI_NULLS/QUOTED_IDENTIFIER/XACT_ABORT/…` ON/OFF, `SET IDENTITY_INSERT`, `SET TRANSACTION ISOLATION LEVEL`, `SET STATISTICS`, `WAITFOR DELAY/TIME`
-- [`DECLARE`, `SET @var`](docs/examples.md#declare-and-variables), `SET ROWCOUNT`, `PRINT`, `RETURN`, [`EXECUTE`](docs/examples.md#execute) (named proc, dynamic SQL, variable proc name), `TRUNCATE TABLE`
+- `USE`, `SET NOCOUNT/ANSI_NULLS/QUOTED_IDENTIFIER/XACT_ABORT/…` ON/OFF, `SET IDENTITY_INSERT`, `SET TRANSACTION ISOLATION LEVEL`, `SET STATISTICS`, `WAITFOR DELAY/TIME`, `WAITFOR (RECEIVE …)` / `(GET CONVERSATION GROUP …)` with `TIMEOUT`
+- [`DECLARE`, `SET @var`](docs/examples.md#declare-and-variables), `SET ROWCOUNT`, `PRINT`, `RETURN`, [`EXECUTE`](docs/examples.md#execute) (named or numbered proc, dynamic SQL, variable proc name, `AS USER`/`LOGIN`, `AT linked_server` with parameters, `WITH RECOMPILE`, `WITH RESULT SETS`), `TRUNCATE TABLE`
 - [`IF`/`ELSE`](docs/examples.md#if--else), `WHILE`, `BREAK`, `CONTINUE`, `GOTO`/label, `THROW`, `RAISERROR`, `TRY/CATCH`
-- `BEGIN`/`COMMIT`/`ROLLBACK TRANSACTION`
-- `DECLARE CURSOR` / `OPEN` / `FETCH NEXT/PRIOR/FIRST/LAST/ABSOLUTE/RELATIVE` / `CLOSE` / `DEALLOCATE`
+- `BEGIN`/`COMMIT`/`ROLLBACK`/`SAVE TRANSACTION` — names and savepoints (including variables), `WITH MARK`, `WITH (DELAYED_DURABILITY = …)`
+- `DECLARE CURSOR` (T-SQL and ISO `INSENSITIVE SCROLL CURSOR` forms) / `OPEN` / `FETCH NEXT/PRIOR/FIRST/LAST/ABSOLUTE/RELATIVE` / `CLOSE` / `DEALLOCATE`, with `GLOBAL` cursors
 - `EXECUTE AS` (CALLER / USER / LOGIN / SELF / OWNER, with `WITH NO REVERT`) / `REVERT`
-- `CREATE/ALTER PROCEDURE` and `CREATE/ALTER FUNCTION` `WITH` options: `ENCRYPTION`, `RECOMPILE`, `EXECUTE AS`
+- `CREATE/ALTER PROCEDURE` and `CREATE/ALTER FUNCTION` `WITH` options: `ENCRYPTION`, `RECOMPILE`, `EXECUTE AS`, `SCHEMABINDING`, `RETURNS NULL ON NULL INPUT`, `INLINE = ON | OFF`
 
 **Security**
 
