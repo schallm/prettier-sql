@@ -775,7 +775,7 @@ create table orders_partial (
 
 ### CREATE TABLE (standard)
 
-Column definitions include the full constraint set. Type names use SQL standard aliases (`integer` not `int4`, `bigint` not `int8`, etc.).
+Column definitions include the full constraint set. Types written with SQL keywords get their standard spelling (`int` becomes `integer`, `timestamp(3) with time zone` stays in that form). A type written by its internal name — `int4`, `float8`, `"char"` — is printed as written, since the keyword form can resolve to a different type (`"char"` is not `char`).
 
 ```sql
 create table orders (
@@ -1542,7 +1542,7 @@ call update_inventory(product_id => 42, delta => -5);
 
 ## DO
 
-Anonymous PL/pgSQL (or SQL) blocks. The body is preserved verbatim inside `$$` delimiters.
+Anonymous PL/pgSQL (or SQL) blocks. The body is preserved verbatim inside `$$` delimiters. `language` is printed only when it was written; without it the block is PL/pgSQL.
 
 ```sql
 do $$

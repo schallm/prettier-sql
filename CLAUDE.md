@@ -81,6 +81,26 @@ Standard SQL that both dialects must format identically:
 Each plugin's `tests/fixtures.test.ts` runs these under a `shared fixtures` describe block
 and also runs its own dialect-specific fixtures.
 
+### Meaning check
+
+Snapshots and idempotence can't catch output that is stable but means something else,
+so every fixture also has to keep its meaning. The harness
+(`packages/core/tests/fixtures-harness.ts`) takes a `canonical(sql)` function from each
+plugin, formats the fixture with the default options and four non-default option sets,
+and requires the canonical form of each output to equal the input's:
+
+- **PostgreSQL** — libpg_query's parse tree as JSON without source positions, plus the
+  comment texts (`PgsqlParser.Canonical`).
+- **T-SQL** — ScriptDom's syntax tree walked by reflection, without positions or token
+  streams, plus the comment texts (`TsqlParser.Canonical`).
+
+Each canonical form folds in only the differences the database itself ignores — bracket
+or quote style, parentheses, `ASC`, the case of built-in names, `INSERT` vs `INSERT INTO`,
+and so on; see the doc comment on each `Canonical`. A failure prints both trees: find the
+first differing node, and fix the builder or printer that dropped or changed it. Add a
+new equivalence to `Canonical` only when the database really treats the two forms as the
+same, with the reason in a comment — never to make a test pass. A fixture must parse.
+
 ## Versioning (Changesets)
 
 Each package versions independently. When changing user-facing behavior, add a changeset:

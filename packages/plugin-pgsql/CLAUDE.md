@@ -195,7 +195,10 @@ pnpm run test:watch   # vitest watch
 2. Add the `Node.NodeOneofCase.Xxx => BuildXxx(...)` case in `BuildExpr` or `BuildFromItem`
 3. Add a `case 'XxxNode': return printXxx(...)` in `expressions.ts` or `statements.ts`
 4. Add a fixture `.sql` file in `tests/fixtures/<category>/`
-5. Run `pnpm run test` — first run writes the snapshot, subsequent runs assert it
+5. Run `pnpm run test` — first run writes the snapshot, subsequent runs assert it. Each
+   fixture must also keep its meaning through formatting: its libpg_query parse tree
+   (without positions) has to match before and after, under several option sets. See
+   "Meaning check" in the root `CLAUDE.md`.
 
 Fixtures are auto-discovered; any `.sql` file under `tests/fixtures/` that doesn't end in
 `.output.sql` becomes a test case. Shared dialect-agnostic fixtures live in

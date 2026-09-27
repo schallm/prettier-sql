@@ -113,7 +113,21 @@ Remaining comments are sorted by offset. For each one:
 
 **Pass 3 — Intra-statement comments**
 
-Any comment still inside a statement's span (e.g. a commented-out WHERE predicate) is attached to the nearest surrounding AST descendant. The forward neighbour is preferred — if the next descendant is a statement node (e.g. the first statement inside a `BEGIN`/`END` block), the comment is stored as its `leadingComments`. Otherwise it is appended to the backward neighbour's `trailingComment`.
+Any comment still inside a statement's span (e.g. a commented-out WHERE predicate) is attached to the nearest surrounding AST descendant:
+
+- A comment on the same line as the end of a nested statement, with only whitespace or a semicolon between them (`SELECT 1; -- note` inside a block), becomes that statement's `trailingComment`.
+- Otherwise the forward neighbour is preferred — if the next descendant is a statement node (e.g. the first statement inside a `BEGIN`/`END` block), the comment is stored as its `leadingComments`.
+- Otherwise it is appended to the backward neighbour's `trailingComment`.
+
+**Printing: every comment exactly once**
+
+A trailing comment can land on any node — a table name, a column reference, a column definition — so the printer doesn't rely on each node's printer remembering to look (`printer/helpers.ts`):
+
+- The dispatchers (`printExpression`, `printBoolExpr`, `printTableRef`, `printQueryExpression`) print a node's own trailing comment after it (`withTrailingComment`).
+- A clause that lays a comment out itself — WHERE between predicates, a join between joins, a table reference after itself — *claims* the node before printing any of it, so the node doesn't print the comment too.
+- Printing a comment marks it printed (`takeTrailingComment`), so nothing prints it twice.
+- After a statement is printed, any comment inside it that nothing printed goes right after the statement (`unprintedComments`) — at worst misplaced, never dropped.
+- In fill-packed lists an item ending in a `--` comment always ends its line (`commaFill`), so the next item can't land inside the comment.
 
 > **Note:** For simple comparisons like `col = 1`, the parent predicate node and its rightmost scalar child share the same `endOffset`. Pass 3 may therefore land the `trailingComment` on the child (e.g. the literal `1`) rather than the predicate itself. The printer's `rightmostTrailingComment` helper accounts for this by walking into children whose `endOffset` matches the target, so between-predicate comments are emitted correctly regardless of which level they were attached to.
 

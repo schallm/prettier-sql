@@ -130,7 +130,10 @@ pnpm run test:watch   # vitest watch
 1. Add a `BuildXxx(...)` method in `AstBuilder.cs` and a `case XxxStatement x => BuildXxx(x),` arm in the `BuildStatement` switch (or wherever the relevant sub-dispatch lives)
 2. Add a `case 'XxxNode': return printXxx(...)` in the appropriate printer file
 3. Add a fixture `.sql` file in `tests/fixtures/<category>/`
-4. Run `pnpm run test` — first run writes the snapshot, subsequent runs assert it
+4. Run `pnpm run test` — first run writes the snapshot, subsequent runs assert it. Each
+   fixture must also keep its meaning through formatting: its ScriptDom syntax tree
+   (without positions) has to match before and after, under several option sets. See
+   "Meaning check" in the root `CLAUDE.md`.
 
 Fixtures are auto-discovered; any `.sql` file under `tests/fixtures/` that doesn't end in
 `.output.sql` becomes a test case.

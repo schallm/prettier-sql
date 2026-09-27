@@ -2470,6 +2470,8 @@ drop role if exists db_reader;
 
 ### Comments
 
+Comments are never dropped: each is printed once, next to the code it followed or preceded. The test suite checks this for every fixture.
+
 #### Trailing line comments
 
 Line comments at the end of a statement or VALUES row are kept on the same line:
