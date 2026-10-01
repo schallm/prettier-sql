@@ -66,6 +66,12 @@ function attachComments(ast: SqlNode, comments: CommentToken[]): void {
     const used = new Set<CommentToken>();
     const statements = (ast.props?.['statements'] ?? []) as SqlNode[];
 
+    // A script of nothing but comments has no statement to hang them on
+    if (statements.length === 0) {
+        ast.props = { ...ast.props, comments: comments.sort((a, b) => a.startOffset - b.startOffset).map((c) => c.text) };
+        return;
+    }
+
     for (const c of comments.sort((a, b) => a.startOffset - b.startOffset)) {
         const target = statements.find((s) => s.endOffset >= c.endOffset);
         if (target) {

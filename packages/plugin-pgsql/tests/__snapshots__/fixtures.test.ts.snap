@@ -2868,6 +2868,12 @@ set session characteristics as transaction isolation level serializable;
 "
 `;
 
+exports[`fixtures > p6/comments-only.sql 1`] = `
+"-- nothing but comments
+/* in a script */
+"
+`;
+
 exports[`fixtures > p6/partition-bound-expressions-identity-sequence.sql 1`] = `
 "create table p1
 partition of t
@@ -3441,6 +3447,48 @@ select
   a similar to b escape 'x',
   a not similar to b
 from t;
+"
+`;
+
+exports[`fixtures > p6/variadic-defelem-operators-pct-type.sql 1`] = `
+"select
+  f(variadic arr),
+  g(a, variadic b),
+  array_agg(x order by y)
+from t;
+
+create operator === (
+  leftarg = integer,
+  rightarg = integer,
+  function = f,
+  commutator = ===,
+  negator = OPERATOR(pg_catalog.<>),
+  restrict = eqsel,
+  hashes,
+  merges
+);
+
+create aggregate a (integer) (
+  sfunc = f,
+  stype = integer,
+  sortop = <,
+  initcond = '0',
+  finalfunc = s.g,
+  parallel = safe,
+  hypothetical
+);
+
+create collation c (locale = 'x', deterministic = 'false');
+
+create function f(c t.a%type)
+returns u.b%type
+language sql
+as $$select 1$$;
+
+create function f(c t.a%type)
+returns setof t.a%type
+language sql
+as $$select 1$$;
 "
 `;
 

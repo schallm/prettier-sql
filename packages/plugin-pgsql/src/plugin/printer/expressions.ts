@@ -316,7 +316,9 @@ function printFunctionCall(node: SqlNode, opts: Options, printNode: PrintFn): Do
         ? rawName.slice('pg_catalog.'.length)
         : rawName;
 
-    const argDocs: Doc[] = star ? [makeKeyword('*')] : args.map(printNode);
+    const variadic = propBool(node, 'variadic');
+    const argDocs: Doc[] = star ? [makeKeyword('*')]
+        : args.map((a, i) => (variadic && i === args.length - 1 ? [makeKeyword('VARIADIC'), ' ', printNode(a)] : printNode(a)));
     const distinctPrefix: Doc = distinct ? [makeKeyword('DISTINCT'), ' '] : '';
 
     // ORDER BY inside the aggregate call: array_agg(x ORDER BY x) — or, for an

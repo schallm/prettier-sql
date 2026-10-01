@@ -57,7 +57,10 @@ const MINOR_STATEMENT_TYPES = new Set([
 
 export function printScript(node: SqlNode, opts: Options): Doc {
     const statements = propArr(node, 'statements');
-    if (statements.length === 0) return '';
+    if (statements.length === 0) {
+        const comments = propStrArr(node, 'comments');
+        return comments.length > 0 ? [join(hardline, comments), hardline] : '';
+    }
     const docs = statements.map((s) => printStatementWithComments(s, opts));
     const parts: Doc[] = [];
     for (let i = 0; i < docs.length; i++) {
@@ -2235,7 +2238,10 @@ function printCreateCollation(node: SqlNode, opts: Options): Doc {
 
     return [
         makeKeyword('CREATE COLLATION'), ' ', name, ' (',
-        printDefOptions(options, opts),
+        join(', ', options.map((o) => {
+            const val = propStr(o, 'val');
+            return val ? `${propStr(o, 'key') ?? ''} = ${val}` : (propStr(o, 'key') ?? '');
+        })),
         ');',
     ];
 }

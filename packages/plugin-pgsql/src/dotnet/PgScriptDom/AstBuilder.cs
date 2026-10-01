@@ -921,6 +921,8 @@ public class AstBuilder {
             ("sqlSyntax", f.Funcformat == CoercionForm.CoerceSqlSyntax ? true : null),
             ("args",     MapList(f.Args, BuildExpr)),
             ("star",     f.AggStar     ? true : null),
+            // f(a, VARIADIC arr): the last argument is passed as the variadic array
+            ("variadic", f.FuncVariadic ? true : null),
             ("distinct", f.AggDistinct ? true : null),
             ("aggOrder", MapList(f.AggOrder, BuildExpr)),
             // percentile_cont(0.5) WITHIN GROUP (ORDER BY x): aggOrder is the WITHIN GROUP order
@@ -1866,6 +1868,9 @@ public class AstBuilder {
                 ? baseName.Replace(" with time zone", modList + " with time zone")
                 : baseName + modList;
         }
+
+        // t.a%TYPE: the type of a column
+        if (t.PctType) name += "%type";
 
         // Array bounds: -1 for an unsized dimension, `int[]`; otherwise `int[3]`
         foreach (var b in t.ArrayBounds)
@@ -3626,7 +3631,15 @@ public class AstBuilder {
                 => $"'{defElem.Arg.AConst.Sval.Sval.Replace("'", "''")}'",
             Node.NodeOneofCase.AConst when defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival
                 => defElem.Arg.AConst.Ival.Ival.ToString(),
-            _ => "",
+            Node.NodeOneofCase.Integer => defElem.Arg.Integer.Ival.ToString(),
+            Node.NodeOneofCase.Float   => defElem.Arg.Float.Fval,
+            // An operator: `<`, or OPERATOR(schema.<)
+            Node.NodeOneofCase.List when defElem.Arg.List.Items.All(i => i.NodeCase == Node.NodeOneofCase.String)
+                && defElem.Arg.List.Items.Count is 1 or 2
+                => defElem.Arg.List.Items.Count == 1
+                    ? defElem.Arg.List.Items[0].String.Sval
+                    : $"OPERATOR({Ident.Quote(defElem.Arg.List.Items[0].String.Sval)}.{defElem.Arg.List.Items[1].String.Sval})",
+            _ => throw NotSupported($"option value ({defElem.Defname}: {defElem.Arg.NodeCase})", defElem.Location),
         };
     }
 
