@@ -1227,6 +1227,16 @@ go
 "
 `;
 
+exports[`fixtures > ddl/at-sign-names.sql 1`] = `
+"create table [@@SCHEMA_NAME@@].[@@OBJECT_NAME@@] (
+  [@col] int not null primary key
+);
+
+select [@col] as [@alias]
+from [@@SCHEMA_NAME@@].[@@OBJECT_NAME@@];
+"
+`;
+
 exports[`fixtures > ddl/create-schema-elements.sql 1`] = `
 "-- CREATE SCHEMA with schema elements: one statement, no semicolons between elements
 create schema s authorization dbo

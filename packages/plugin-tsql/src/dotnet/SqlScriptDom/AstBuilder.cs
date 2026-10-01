@@ -142,8 +142,9 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static string? QuotedText(string? v) {
         if (string.IsNullOrEmpty(v)) return v;
         bool needsBrackets = _reservedWords.Contains(v) ||
-            !System.Text.RegularExpressions.Regex.IsMatch(v, @"^[A-Za-z_@#][A-Za-z0-9_@#$]*$");
+            !System.Text.RegularExpressions.Regex.IsMatch(v, @"^[A-Za-z_#][A-Za-z0-9_@#$]*$");
         // A ] inside the name is escaped by doubling it: [a]]b]
+        // (a name starting with @ stays in brackets: bare, it is a variable)
         return needsBrackets ? $"[{v.Replace("]", "]]")}]" : v;
     }
 
