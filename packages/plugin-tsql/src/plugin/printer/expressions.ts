@@ -20,7 +20,7 @@ import {
     hasLineSuffix,
 } from '@prettier-sql/core/printer/utils';
 import {
-    prop, propArr, propStr, propStrArr, propBool, schemaObjectName, assignmentOp,
+    prop, propArr, propStr, propStrArr, propBool, schemaObjectName, builtinTypeDoc, assignmentOp,
     claimTrailingComment, isCommentClaimed, takeTrailingComment, withTrailingComment, appendComments,
 } from './helpers.js';
 
@@ -477,7 +477,7 @@ function printCaseExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
 
 /** A data type: a keyword, unless it names a user-defined type (an identifier, whose case is kept). */
 function typeDoc(node: SqlNode, dataType: string, opts: Options): Doc {
-    return node.props?.['isUdt'] ? dataType : keyword(dataType, opts);
+    return node.props?.['isUdt'] ? dataType : builtinTypeDoc(dataType, opts);
 }
 
 function printCastCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {

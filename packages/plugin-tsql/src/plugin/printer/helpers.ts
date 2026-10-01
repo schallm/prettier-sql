@@ -5,6 +5,19 @@ import { keyword, ifExistsDoc, lineSuffix, hardline } from '@prettier-sql/core/p
 import { builders } from 'prettier/doc';
 
 const { breakParent } = builders;
+
+/**
+ * A built-in data type as written, keyword-cased. Sizes and MAX are keyword-cased with the name;
+ * an xml schema collection inside `xml(CONTENT dbo.sc)` is an identifier, so only CONTENT / DOCUMENT is.
+ */
+export function builtinTypeDoc(dataType: string, opts: Options): Doc {
+    const open = dataType.indexOf('(');
+    if (open < 0 || !dataType.endsWith(')')) return keyword(dataType, opts);
+    const inner = dataType.slice(open + 1, -1);
+    if (/^[\s\d,]*$/.test(inner) || /^\s*max\s*$/i.test(inner)) return keyword(dataType, opts);
+    const xml = /^(\s*)(content|document)(\s+)([\s\S]*)$/i.exec(inner);
+    return [keyword(dataType.slice(0, open), opts), '(', xml ? [xml[1]!, keyword(xml[2]!, opts), xml[3]!, xml[4]!] : inner, ')'];
+}
 import { prop, propArr, propStr, propBool, propStrArr } from '@prettier-sql/core/printer/helpers';
 export { prop, propArr, propStr, propBool, propStrArr };
 

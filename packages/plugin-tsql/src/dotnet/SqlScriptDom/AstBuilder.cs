@@ -1536,6 +1536,9 @@ public class AstBuilder : TSqlFragmentVisitor {
             dataType = schema != null ? $"{schema}.{baseName}" : baseName;
         } else if (d.DataType is SqlDataTypeReference { SqlDataTypeOption: SqlDataTypeOption.Cursor }) {
             dataType = "CURSOR";
+        } else if (d.DataType is XmlDataTypeReference { XmlSchemaCollection: not null }) {
+            // xml(CONTENT dbo.sc): the schema collection is part of the type
+            dataType = RawText(d.DataType);
         } else {
             dataType = d.DataType?.Name?.BaseIdentifier?.Value;
         }
@@ -2840,6 +2843,13 @@ public class AstBuilder : TSqlFragmentVisitor {
         });
     }
 
+    /// <summary>A scalar function's return type; a user-defined type keeps its schema and case.</summary>
+    private static string? ReturnTypeText(FunctionReturnType? rt) =>
+        rt is ScalarFunctionReturnType scalar ? DataTypeText(scalar.DataType) : RawTextOrNull(rt);
+
+    private static object? ReturnTypeIsUdt(FunctionReturnType? rt) =>
+        rt is ScalarFunctionReturnType scalar ? UdtFlag(scalar.DataType) : null;
+
     private static SqlNode BuildFunctionStatement(string type, FunctionStatementBody f) {
         var parms = f.Parameters?.Select(p => (object?)BuildProcedureParameter(p)).ToList();
 
@@ -2852,7 +2862,8 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["parameters"] = parms,
                 ["options"] = BuildFunctionOptions(f.Options),
                 // RETURNS TABLE (cols): a CLR table-valued function lists its columns
-                ["returnType"] = f.ReturnType is TableValuedFunctionReturnType ? null : RawTextOrNull(f.ReturnType),
+                ["returnType"] = f.ReturnType is TableValuedFunctionReturnType ? null : ReturnTypeText(f.ReturnType),
+                ["returnIsUdt"] = ReturnTypeIsUdt(f.ReturnType),
                 ["returnColumns"] = (f.ReturnType as TableValuedFunctionReturnType)?.DeclareTableVariableBody?.Definition?.ColumnDefinitions
                     ?.Select(c => (object?)BuildColumnDefinition(c)).ToList(),
                 ["externalName"] = externalName,
@@ -2893,7 +2904,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["parameters"] = parms,
             ["options"] = BuildFunctionOptions(f.Options),
             ["bodyStart"] = f.StatementList?.StartOffset,
-            ["returnType"] = RawTextOrNull(f.ReturnType),
+            ["returnType"] = ReturnTypeText(f.ReturnType),
+            ["returnIsUdt"] = ReturnTypeIsUdt(f.ReturnType),
             ["bodyType"] = bodyType,
             ["body"] = body,
         });
@@ -3299,9 +3311,20 @@ public class AstBuilder : TSqlFragmentVisitor {
     // the value in raw text (e.g. "10" for STATS = 10), so we prepend the keyword name.
     private static string BackupOptionText(BackupOption o) {
         if (o.Value == null) return RawText(o).Trim();
-        var name = System.Text.RegularExpressions.Regex
-                         .Replace(o.OptionKind.ToString(), "(?<=[a-z])(?=[A-Z])", "_")
-                         .ToUpperInvariant();
+        // Most options are the enum name in snake case; these are single words in SQL
+        var name = o.OptionKind.ToString() switch {
+            "ExpireDate" => "EXPIREDATE",
+            "RetainDays" => "RETAINDAYS",
+            "MediaName" => "MEDIANAME",
+            "MediaDescription" => "MEDIADESCRIPTION",
+            "MediaPassword" => "MEDIAPASSWORD",
+            "BlockSize" => "BLOCKSIZE",
+            "BufferCount" => "BUFFERCOUNT",
+            "MaxTransferSize" => "MAXTRANSFERSIZE",
+            var other => System.Text.RegularExpressions.Regex
+                         .Replace(other, "(?<=[a-z])(?=[A-Z])", "_")
+                         .ToUpperInvariant(),
+        };
         var rawVal = RawText(o.Value).Trim();
         if (rawVal.Length == 0) return name;
         if (rawVal.StartsWith(name, StringComparison.OrdinalIgnoreCase)) return rawVal;

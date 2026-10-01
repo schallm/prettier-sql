@@ -68,6 +68,11 @@ function kwOpt(opt: string, opts: Options): Doc {
     return keyword(opt, opts);
 }
 
+/** DISK = '...' | TAPE = ... | URL = ...: the kind is a keyword. A logical device name has no kind and keeps its case. */
+function deviceDoc(device: string, opts: Options): Doc {
+    return device.includes(' = ') ? kwOpt(device, opts) : device;
+}
+
 // ---------------------------------------------------------------------------
 // BACKUP DATABASE / LOG
 // ---------------------------------------------------------------------------
@@ -85,7 +90,7 @@ function printBackupBase(verb: Doc, node: SqlNode, opts: Options): Doc {
               ' ',
               join(
                   [',', hardline],
-                  devices.map((d) => kwOpt(d, opts)),
+                  devices.map((d) => deviceDoc(d, opts)),
               ),
           ]
         : '';
@@ -139,7 +144,7 @@ export function printRestore(node: SqlNode, opts: Options): Doc {
               ' ',
               join(
                   [',', hardline],
-                  devices.map((d) => kwOpt(d, opts)),
+                  devices.map((d) => deviceDoc(d, opts)),
               ),
           ]
         : '';

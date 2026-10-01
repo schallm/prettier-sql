@@ -13,7 +13,7 @@ import {
     commentsBlock,
     parenList,
 } from '@prettier-sql/core/printer/utils';
-import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, printDropSingleObject, withTrailingComment } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment } from './helpers.js';
 import { boolEndsWithPendingComment } from './expressions.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
@@ -682,7 +682,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             ' ',
             column,
             ' ',
-            propBool(node, 'isUdt') ? dataType : keyword(dataType, opts),
+            propBool(node, 'isUdt') ? dataType : builtinTypeDoc(dataType, opts),
             collatePart,
             encryptionPart,
             node.props?.['isSparse'] ? [' ', keyword('SPARSE', opts)] : '',
@@ -999,7 +999,7 @@ function printParameter(p: SqlNode, opts: Options): Doc {
     return [
         propStr(p, 'name') ?? '@p', ' ',
         // UDT names are identifiers, not SQL keywords — skip keyword-casing
-        propBool(p, 'isUdt') ? dt : keyword(dt, opts),
+        propBool(p, 'isUdt') ? dt : builtinTypeDoc(dt, opts),
         nullablePart(p.props?.['nullable'], opts),
         defaultVal ? [' = ', printNode(defaultVal, opts)] : '',
         propBool(p, 'output') ? [' ', keyword('OUTPUT', opts)] : '',
@@ -1104,6 +1104,11 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
 // CREATE / ALTER / CREATE OR ALTER FUNCTION
 // ---------------------------------------------------------------------------
 
+/** A scalar function's return type: a keyword, unless it names a user-defined type. */
+function returnTypeDoc(node: SqlNode, returnType: string, opts: Options): Doc {
+    return propBool(node, 'returnIsUdt') ? returnType : builtinTypeDoc(returnType, opts);
+}
+
 export function printCreateFunction(node: SqlNode, opts: Options): Doc {
     const parameters = propArr(node, 'parameters');
     const bodyType = propStr(node, 'bodyType') ?? 'scalar';
@@ -1148,7 +1153,7 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
                       hardline,
                       ')',
                   ]
-                : keyword(returnType, opts),
+                : returnTypeDoc(node, returnType, opts),
             printModuleOptions(node, opts),
             hardline,
             keyword('AS', opts),
@@ -1212,7 +1217,7 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
             ')',
         ];
     } else {
-        retTypePart = keyword(returnType, opts);
+        retTypePart = returnTypeDoc(node, returnType, opts);
     }
 
     // WITH options come AFTER RETURNS (per T-SQL syntax):

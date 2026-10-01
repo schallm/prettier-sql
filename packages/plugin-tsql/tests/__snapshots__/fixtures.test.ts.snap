@@ -95,6 +95,21 @@ restore database d from disk = 'x' with stopatmark = 'm' after '2020-01-01';
 restore database d
   from disk = 'x'
   with stopat = '2020-01-01';
+
+backup database d
+  to disk = 'x'
+  with
+    expiredate = '2030-01-01',
+    retaindays = 5,
+    medianame = 'm',
+    blocksize = 512;
+
+backup database d
+  to Dev1,
+  Dev2;
+
+restore database d
+  from Dev1;
 "
 `;
 
@@ -1076,6 +1091,49 @@ create table dbo.Documents (
   Doc xml(document dbo.StrictSchema) null,
   Untyped xml null
 );
+"
+`;
+
+exports[`fixtures > create-table/xml-typed-everywhere.sql 1`] = `
+"-- An xml schema collection and a user-defined type keep their case wherever a type is written
+alter table dbo.t
+alter column a xml(content dbo.Sc);
+go
+
+create procedure dbo.p
+  @x xml(dbo.Sc),
+  @y varchar(max),
+  @z decimal(10, 2)
+as
+begin
+  select 1;
+end;
+go
+
+declare @x xml(document dbo.Sc);
+declare @y xml(dbo.Sc);
+declare @z varchar(max);
+
+select
+  cast(a as xml(dbo.Sc)),
+  convert(xml(dbo.Sc), a);
+go
+
+create function dbo.f(@x xml(dbo.Sc))
+returns xml(dbo.Sc)
+as
+begin
+  return null;
+end;
+go
+
+create function dbo.g()
+returns dbo.MyType
+as
+begin
+  return null;
+end;
+go
 "
 `;
 

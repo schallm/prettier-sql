@@ -2,7 +2,7 @@ import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
 import { keyword, hardline, softline, join, indent, group, onOffKw, line, getDensity, parenList, parenListFill, commaFill } from '@prettier-sql/core/printer/utils';
-import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, assignmentOp, withTrailingComment } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, assignmentOp, withTrailingComment } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
 import { printStatementWithComments, joinBodyStatements, printNode, printBool, qexpr } from './statements.js';
@@ -78,7 +78,7 @@ export function printDeclareVariable(node: SqlNode, opts: Options): Doc {
         const dt = propStr(d, 'dataType') ?? 'INT';
         const isUdt = propBool(d, 'isUdt');
         const params = d.props?.['dataTypeParams'];
-        const dtDoc: Doc = isUdt ? dt : keyword(dt, opts);
+        const dtDoc: Doc = isUdt ? dt : builtinTypeDoc(dt, opts);
         const typeStr: Doc =
             Array.isArray(params) && params.length > 0
                 ? [dtDoc, `(${(params as string[]).join(', ')})`]

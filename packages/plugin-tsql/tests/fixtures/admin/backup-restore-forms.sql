@@ -12,3 +12,9 @@ restore database d from database_snapshot = 's'
 restore database d from disk = 'x' with stopatmark = 'm' after '2020-01-01'
 
 restore database d from disk = 'x' with stopat = '2020-01-01'
+
+backup database d to disk = 'x' with expiredate = '2030-01-01', retaindays = 5, medianame = 'm', blocksize = 512
+
+backup database d to Dev1, Dev2
+
+restore database d from Dev1
