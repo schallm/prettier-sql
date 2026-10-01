@@ -720,7 +720,7 @@ function printCreateTable(node: SqlNode, opts: Options): Doc {
     const inherits = propArr(node, 'inherits');
     const partitionDoc: Doc = partitionBy
         ? [hardline, makeKeyword('PARTITION BY'), ' ', makeKeyword(propStr(partitionBy, 'strategy') ?? 'RANGE'),
-           ' (', join(', ', propStrArr(partitionBy, 'columns')), ')']
+           ' (', join(', ', propArr(partitionBy, 'elements').map(printNode)), ')']
         : '';
 
     return [
@@ -1833,23 +1833,29 @@ function printLockTable(node: SqlNode, opts: Options): Doc {
 
 function printCreateTablePartitionOf(node: SqlNode, opts: Options): Doc {
     const makeKeyword     = (k: string) => keyword(k, opts);
+    const printNode = printWith(opts);
     const name   = prop(node, 'name');
     const parent = prop(node, 'parent');
     const bound  = prop(node, 'bound');
     const partitionBy = prop(node, 'partitionBy');
     const partitionDoc: Doc = partitionBy
         ? [hardline, makeKeyword('PARTITION BY'), ' ', makeKeyword(propStr(partitionBy, 'strategy') ?? 'RANGE'),
-           ' (', join(', ', propStrArr(partitionBy, 'columns')), ')']
+           ' (', join(', ', propArr(partitionBy, 'elements').map(printNode)), ')']
         : '';
 
     const boundText = bound ? printPartitionBound(bound, opts) : '';
     const boundDoc: Doc = boundText !== '' ? [hardline, boundText] : '';
 
+    const columns = propArr(node, 'columns');
     return [
-        makeKeyword('CREATE TABLE'), ' ', rangeVarName(name), hardline,
+        createTableKeyword(node, opts), ' ', ifNotExistsDoc(node, opts), rangeVarName(name), hardline,
         indent([makeKeyword('PARTITION OF'), ' ', rangeVarName(parent)]),
+        columns.length > 0
+            ? [' (', indent([hardline, join([',', hardline], columns.map(printNode))]), hardline, ')']
+            : '',
         boundDoc,
         partitionDoc,
+        tableStorageClauses(node, opts),
         ';',
     ];
 }
@@ -1944,14 +1950,20 @@ function printCreateForeignTable(node: SqlNode, opts: Options): Doc {
     const name       = prop(node, 'name');
     const columns    = propArr(node, 'columns');
     const ofType     = propStr(node, 'ofType');
+    const partitionOf = prop(node, 'partitionOf');
+    const bound      = prop(node, 'bound');
+    const inherits   = propArr(node, 'inherits');
     const serverName = propStr(node, 'serverName') ?? '';
 
     return [
         makeKeyword('CREATE FOREIGN TABLE'), ' ', ifNotExistsDoc(node, opts), rangeVarName(name),
         ofType ? [' ', makeKeyword('OF'), ' ', ofType] : '',
-        columns.length > 0 || !ofType
+        partitionOf ? [hardline, indent([makeKeyword('PARTITION OF'), ' ', rangeVarName(partitionOf)])] : '',
+        columns.length > 0 || (!ofType && !partitionOf)
             ? [' (', indent([hardline, join([',', hardline], columns.map(printNode))]), hardline, ')']
             : '',
+        bound ? [hardline, printPartitionBound(bound, opts)] : '',
+        inherits.length > 0 ? [hardline, makeKeyword('INHERITS'), ' (', join(', ', inherits.map(rangeVarName)), ')'] : '',
         hardline, indent([makeKeyword('SERVER'), ' ', serverName]),
         printFdwOptions(node, opts),
         ';',
@@ -2164,11 +2176,19 @@ function printDefOptions(options: SqlNode[], _opts: Options): Doc {
 function printCreateAggregate(node: SqlNode, opts: Options): Doc {
     const makeKeyword       = (k: string) => keyword(k, opts);
     const name     = propStr(node, 'name') ?? '';
-    const argTypes = (node.props?.['argTypes'] as string[] | undefined) ?? [];
+    const printNode = printWith(opts);
+    const args     = propArr(node, 'args');
+    const ordered  = propArr(node, 'orderedArgs');
     const options  = propArr(node, 'options');
+    const argList = (list: SqlNode[]): Doc => join(', ', list.map(printNode));
+    const argsDoc: Doc = propBool(node, 'star')
+        ? ' (*)'
+        : node.props?.['args'] === undefined && ordered.length === 0
+            ? ''
+            : [' (', args.length > 0 ? argList(args) : '', ordered.length > 0 ? [args.length > 0 ? ' ' : '', makeKeyword('ORDER BY'), ' ', argList(ordered)] : '', ')'];
 
     return [
-        makeKeyword('CREATE AGGREGATE'), ' ', name, ' (', join(', ', argTypes.map((t) => makeKeyword(t))), ') (',
+        makeKeyword(propBool(node, 'orReplace') ? 'CREATE OR REPLACE AGGREGATE' : 'CREATE AGGREGATE'), ' ', name, argsDoc, ' (',
         indent([hardline, printDefOptions(options, opts)]),
         hardline, ');',
     ];

@@ -2868,6 +2868,96 @@ set session characteristics as transaction isolation level serializable;
 "
 `;
 
+exports[`fixtures > p6/partition-elements-foreign-aggregates.sql 1`] = `
+"create table t (
+  a integer
+)
+partition by list (lower(a));
+
+create table t2 (
+  a text,
+  b integer
+)
+partition by range (a collate "C" text_ops, (b + 1), b);
+
+create table t3
+partition of p (
+  a with options not null,
+  constraint c check (a > 1)
+)
+for values in (1)
+partition by hash (x);
+
+create unlogged table if not exists t4
+partition of p
+default
+using heap
+with (fillfactor = 70)
+tablespace ts;
+
+create foreign table ft
+partition of t
+for values in (1)
+server s;
+
+create foreign table ft2 (
+  a integer,
+  constraint c check (a > 1)
+)
+inherits (u, v)
+server s;
+
+create foreign table ft3 (
+  a integer options (column_name 'x') not null
+)
+server s;
+
+create aggregate a1 (order by integer) (
+  sfunc = f,
+  stype = integer
+);
+
+create aggregate a2 (integer, integer order by integer) (
+  sfunc = f,
+  stype = integer
+);
+
+create aggregate a3 (*) (
+  sfunc = f,
+  stype = integer
+);
+
+create aggregate a4 (x integer, variadic "any" order by variadic "any") (
+  sfunc = f,
+  stype = integer
+);
+
+create aggregate a5 (variadic integer[]) (
+  sfunc = f,
+  stype = integer
+);
+
+create aggregate a6 (
+  basetype = integer,
+  sfunc = f,
+  stype = integer
+);
+
+create or replace aggregate a7 (integer) (
+  sfunc = f,
+  stype = integer
+);
+
+drop aggregate a(integer);
+
+drop aggregate a(integer, integer, integer), b(*);
+
+alter aggregate a(integer, integer) rename to b;
+
+comment on aggregate a(*) is 'x';
+"
+`;
+
 exports[`fixtures > select/advanced.sql 1`] = `
 "-- INTERVAL literals
 select

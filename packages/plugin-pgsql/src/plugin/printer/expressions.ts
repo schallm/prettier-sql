@@ -636,11 +636,12 @@ function printColumnDef(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const parts: Doc[] = [name, typeName ? [' ', makeKeyword(typeName)] : [' ', makeKeyword('WITH OPTIONS')],
         storage ? [' ', makeKeyword('STORAGE'), ' ', makeKeyword(storage)] : '',
         compression ? [' ', makeKeyword('COMPRESSION'), ' ', compression] : '',
+        // OPTIONS (foreign table columns) come before the collation and constraints
+        printFdwOptions(node, opts),
         collation ? [' ', makeKeyword('COLLATE'), ' ', collation] : ''];
     for (const c of constraints) {
         parts.push(' ', printConstraint(c, opts, printNode));
     }
-    parts.push(printFdwOptions(node, opts));
     return parts;
 }
 

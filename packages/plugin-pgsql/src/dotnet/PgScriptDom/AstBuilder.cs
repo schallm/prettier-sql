@@ -348,10 +348,17 @@ public class AstBuilder {
                 : null;
             SqlNode? bound = BuildPartitionBound(s.Partbound);
             return new SqlNode("CreateTablePartitionOfStatement", start, end, null, BuildProps(
+                ("persistence", Persistence(s.Relation)),
+                ("ifNotExists", s.IfNotExists ? true : null),
                 ("name",        BuildRangeVar(s.Relation)),
                 ("parent",      parent),
+                ("columns",     MapList(s.TableElts, BuildTableElement)),
                 ("bound",       bound),
-                ("partitionBy", BuildPartitionBy(s.Partspec))
+                ("partitionBy", BuildPartitionBy(s.Partspec)),
+                ("accessMethod", string.IsNullOrEmpty(s.AccessMethod) ? null : Ident.Quote(s.AccessMethod)),
+                ("options",     StorageOptions(s.Options)),
+                ("onCommit",    OnCommit(s.Oncommit)),
+                ("tablespace",  Ident.QuoteOpt(s.Tablespacename))
             ));
         }
 
@@ -400,7 +407,7 @@ public class AstBuilder {
 
     // PARTITION BY strategy (column list) — used by both plain CREATE TABLE and
     // CREATE TABLE ... PARTITION OF, either of which can itself be further partitioned.
-    private static SqlNode? BuildPartitionBy(PartitionSpec? spec) {
+    private SqlNode? BuildPartitionBy(PartitionSpec? spec) {
         if (spec == null) return null;
         var strategy = spec.Strategy switch {
             PartitionStrategy.Range => "range",
@@ -408,26 +415,21 @@ public class AstBuilder {
             PartitionStrategy.Hash  => "hash",
             _                      => spec.Strategy.ToString().ToLower(),
         };
-        var cols = spec.PartParams
+        var elems = spec.PartParams
+            .Where(n => n.NodeCase == Node.NodeOneofCase.PartitionElem)
             .Select(n => {
-                if (n.NodeCase == Node.NodeOneofCase.PartitionElem) {
-                    var pe = n.PartitionElem;
-                    if (!string.IsNullOrEmpty(pe.Name)) return Ident.Quote(pe.Name);
-                    // Expression-based partition element: extract ColumnRef name
-                    if (pe.Expr?.NodeCase == Node.NodeOneofCase.ColumnRef) {
-                        var fields = pe.Expr.ColumnRef.Fields;
-                        if (fields.Count > 0 && fields[0].NodeCase == Node.NodeOneofCase.String)
-                            return Ident.Quote(fields[0].String.Sval);
-                    }
-                }
-                return null;
+                var pe = n.PartitionElem;
+                return (SqlNode?)new SqlNode("IndexElem", 0, 0, null, BuildProps(
+                    ("name",      Ident.QuoteOpt(pe.Name)),
+                    ("expr",      pe.Expr != null ? BuildExpr(pe.Expr) : null),
+                    ("collation", pe.Collation.Count > 0 ? Ident.Qualified(pe.Collation.Select(c => c.String.Sval)) : null),
+                    ("opclass",   pe.Opclass.Count > 0 ? Ident.Qualified(pe.Opclass.Select(c => c.String.Sval)) : null)
+                ));
             })
-            .Where(c => !string.IsNullOrEmpty(c))
-            .Cast<string>()
             .ToList();
         return new SqlNode("PartitionBy", 0, 0, null, BuildProps(
             ("strategy", strategy),
-            ("columns",  MaybeList(cols))
+            ("elements", MaybeList(elems))
         ));
     }
 
@@ -649,7 +651,7 @@ public class AstBuilder {
             // DROP AGGREGATE a(*): an aggregate over no arguments
             Node.NodeOneofCase.ObjectWithArgs when s.RemoveType == ObjectType.ObjectAggregate
                 && o.ObjectWithArgs is { ArgsUnspecified: false, Objargs.Count: 0 } agg => $"{OwaName(agg.Objname)}(*)",
-            Node.NodeOneofCase.ObjectWithArgs => OwaSignature(o.ObjectWithArgs),
+            Node.NodeOneofCase.ObjectWithArgs => OwaSignature(o.ObjectWithArgs, s.RemoveType),
             // DROP TYPE / DOMAIN: a type name, printed as types are everywhere else
             Node.NodeOneofCase.TypeName => BuildPgTypeName(o.TypeName),
             Node.NodeOneofCase.String => Ident.Quote(o.String.Sval),
@@ -2299,7 +2301,7 @@ public class AstBuilder {
                 break;
             default:
                 kind = ObjectTypeKw(r.RenameType);
-                target = NodeObjName(r.Object) ?? throw NotSupported($"RENAME target ({r.RenameType})", null);
+                target = NodeObjName(r.Object, r.RenameType) ?? throw NotSupported($"RENAME target ({r.RenameType})", null);
                 break;
         }
 
@@ -2528,7 +2530,7 @@ public class AstBuilder {
             default:
                 objectName = cm.Object?.NodeCase switch {
                     Node.NodeOneofCase.List           => Names(cm.Object.List.Items),
-                    Node.NodeOneofCase.ObjectWithArgs => OwaSignature(cm.Object.ObjectWithArgs),
+                    Node.NodeOneofCase.ObjectWithArgs => OwaSignature(cm.Object.ObjectWithArgs, cm.Objtype),
                     Node.NodeOneofCase.String         => Ident.Quote(cm.Object.String.Sval),
                     Node.NodeOneofCase.TypeName       => TypeNameText(cm.Object.TypeName),
                     // COMMENT ON LARGE OBJECT 1234
@@ -2636,7 +2638,7 @@ public class AstBuilder {
         var newOwner = s.Newowner?.Roletype == RoleSpecType.RolespecPublic ? "PUBLIC" : RoleSpecName(s.Newowner);
         return new SqlNode("AlterOwnerStatement", start, end, null, BuildProps(
             ("objType",  ObjectTypeKw(s.ObjectType)),
-            ("name",     NodeObjName(s.Object)),
+            ("name",     NodeObjName(s.Object, s.ObjectType)),
             ("newOwner", newOwner)
         ));
     }
@@ -2645,7 +2647,7 @@ public class AstBuilder {
         new("AlterObjectSchemaStatement", start, end, null, BuildProps(
             ("objType",   ObjectTypeKw(s.ObjectType)),
             // Tables, views, sequences and matviews carry their name in Relation, not Object
-            ("name",      s.Relation != null ? RangeVarQualifiedName(s.Relation) : NodeObjName(s.Object)),
+            ("name",      s.Relation != null ? RangeVarQualifiedName(s.Relation) : NodeObjName(s.Object, s.ObjectType)),
             ("ifExists",  s.MissingOk ? true : null),
             ("newSchema", Ident.QuoteOpt(s.Newschema))
         ));
@@ -3287,12 +3289,18 @@ public class AstBuilder {
 
     private SqlNode BuildCreateForeignTable(CreateForeignTableStmt s, int start, int end) {
         var columns = s.BaseStmt != null ? MapList(s.BaseStmt.TableElts, BuildTableElement) : null;
+        var isPartOf = s.BaseStmt != null && s.BaseStmt.InhRelations.Count > 0 && s.BaseStmt.Partbound != null;
         var options = BuildDefElemOptions(s.Options);
         return new SqlNode("CreateForeignTableStatement", start, end, null, BuildProps(
             ("name",       s.BaseStmt?.Relation != null ? BuildRangeVar(s.BaseStmt.Relation) : null),
             ("ifNotExists", s.BaseStmt?.IfNotExists == true ? true : null),
             ("ofType",     s.BaseStmt?.OfTypename != null ? BuildPgTypeName(s.BaseStmt.OfTypename) : null),
             ("columns",    columns),
+            // PARTITION OF parent FOR VALUES ... (the parent is the single INHERITS entry)
+            ("partitionOf", isPartOf && s.BaseStmt!.InhRelations[0].NodeCase == Node.NodeOneofCase.RangeVar
+                ? BuildRangeVar(s.BaseStmt.InhRelations[0].RangeVar) : null),
+            ("bound",      isPartOf ? BuildPartitionBound(s.BaseStmt!.Partbound) : null),
+            ("inherits",   isPartOf ? null : MapList(s.BaseStmt?.InhRelations ?? new(), n => n.NodeCase == Node.NodeOneofCase.RangeVar ? BuildRangeVar(n.RangeVar) : null)),
             ("serverName", Ident.QuoteOpt(s.Servername)),
             ("options",    OptionsToObject(options))
         ));
@@ -3477,18 +3485,36 @@ public class AstBuilder {
 
         switch (s.Kind) {
             case ObjectType.ObjectAggregate: {
-                var argTypes = new List<string>();
-                if (s.Args.Count > 0 && s.Args[0].NodeCase == Node.NodeOneofCase.List) {
-                    foreach (var item in s.Args[0].List.Items) {
-                        if (item.NodeCase == Node.NodeOneofCase.FunctionParameter && item.FunctionParameter.ArgType != null) {
-                            argTypes.Add(BuildPgTypeName(item.FunctionParameter.ArgType));
-                        }
+                // args = [parameter list, number of direct args]: -1 for a plain aggregate,
+                // 0..n for an ordered-set one (the parameters before ORDER BY are the direct
+                // args). An empty list with a plain count is `(*)`; no args at all is the
+                // old-style `(basetype = ..., ...)` definition.
+                List<SqlNode>? direct = null, ordered = null;
+                var star = false;
+                if (s.Args.Count > 0) {
+                    var items = s.Args[0].NodeCase == Node.NodeOneofCase.List
+                        ? s.Args[0].List.Items.Select(BuildFunctionParam).OfType<SqlNode>().ToList()
+                        : new List<SqlNode>();
+                    var ndirect = s.Args.Count > 1 && s.Args[1].NodeCase == Node.NodeOneofCase.Integer ? s.Args[1].Integer.Ival : -1;
+                    if (ndirect < 0) {
+                        direct = items;
+                        star = items.Count == 0;
+                    } else if (ndirect >= items.Count && items.Count > 0) {
+                        // (..., VARIADIC "any" ORDER BY VARIADIC "any"): one parameter serves both lists
+                        direct = items;
+                        ordered = new List<SqlNode> { items[^1] };
+                    } else {
+                        direct = items.Take(ndirect).ToList();
+                        ordered = items.Skip(ndirect).ToList();
                     }
                 }
                 return new SqlNode("CreateAggregateStatement", start, end, null, BuildProps(
-                    ("name",     name),
-                    ("argTypes", MaybeList(argTypes)),
-                    ("options",  MaybeList(defList))
+                    ("orReplace",   s.Replace ? true : null),
+                    ("name",        name),
+                    ("args",        direct == null ? null : MaybeList(direct)),
+                    ("orderedArgs", ordered == null ? null : MaybeList(ordered)),
+                    ("star",        star ? true : null),
+                    ("options",     MaybeList(defList))
                 ));
             }
             case ObjectType.ObjectOperator: {
@@ -3549,7 +3575,7 @@ public class AstBuilder {
             Node.NodeOneofCase.List           => Ident.Qualified(s.Object.List.Items
                 .Where(n => n.NodeCase == Node.NodeOneofCase.String).Select(n => n.String.Sval)),
             Node.NodeOneofCase.RangeVar       => RangeVarQualifiedName(s.Object.RangeVar),
-            Node.NodeOneofCase.ObjectWithArgs => OwaSignature(s.Object.ObjectWithArgs),
+            Node.NodeOneofCase.ObjectWithArgs => OwaSignature(s.Object.ObjectWithArgs, s.Objtype),
             Node.NodeOneofCase.String         => Ident.Quote(s.Object.String.Sval),
             Node.NodeOneofCase.TypeName       => TypeNameText(s.Object.TypeName),
             Node.NodeOneofCase.Integer        => s.Object.Integer.Ival.ToString(),
@@ -3843,9 +3869,11 @@ public class AstBuilder {
     /// overload, and which an operator always requires. Just `f` when the SQL gave no
     /// argument list ("the only function named f").
     /// </summary>
-    private string OwaSignature(ObjectWithArgs owa) {
+    private string OwaSignature(ObjectWithArgs owa, ObjectType kind = ObjectType.Undefined) {
         var name = OwaName(owa.Objname);
         if (owa.ArgsUnspecified) return name;
+        // An aggregate over no arguments is written (*); `a()` is not valid for one
+        if (kind == ObjectType.ObjectAggregate && owa.Objargs.Count == 0) return $"{name}(*)";
         var args = owa.Objargs.Select(n => n.NodeCase == Node.NodeOneofCase.TypeName ? BuildPgTypeName(n.TypeName) : "none");
         var isOperator = Ident.IsOperatorSymbol(owa.Objname.LastOrDefault()?.String?.Sval ?? "");
         return $"{name}{(isOperator ? " " : "")}({string.Join(", ", args)})";
@@ -3856,9 +3884,9 @@ public class AstBuilder {
         Ident.Qualified(new[] { rv.Schemaname, rv.Relname }.Where(p => !string.IsNullOrEmpty(p)));
 
     /// <summary>Extracts a dotted name from a Node (RangeVar, ObjectWithArgs, List of strings, or String).</summary>
-    private string? NodeObjName(Node? node) => node?.NodeCase switch {
+    private string? NodeObjName(Node? node, ObjectType kind = ObjectType.Undefined) => node?.NodeCase switch {
         Node.NodeOneofCase.RangeVar       => RangeVarQualifiedName(node.RangeVar),
-        Node.NodeOneofCase.ObjectWithArgs => OwaSignature(node.ObjectWithArgs),
+        Node.NodeOneofCase.ObjectWithArgs => OwaSignature(node.ObjectWithArgs, kind),
         Node.NodeOneofCase.List           => Ident.Qualified(node.List.Items
             .Where(n => n.NodeCase == Node.NodeOneofCase.String)
             .Select(n => n.String.Sval)),

@@ -1,0 +1,18 @@
+create table t (a int) partition by list ((lower(a)));
+create table t2 (a text, b int) partition by range (a collate "C" text_ops, (b + 1), b);
+create table t3 partition of p (a not null, constraint c check (a > 1)) for values in (1) partition by hash (x);
+create unlogged table if not exists t4 partition of p default using heap with (fillfactor = 70) tablespace ts;
+create foreign table ft partition of t for values in (1) server s;
+create foreign table ft2 (a int, constraint c check (a > 1)) inherits (u, v) server s;
+create foreign table ft3 (a int options (column_name 'x') not null) server s;
+create aggregate a1(order by int) (sfunc = f, stype = int);
+create aggregate a2(int, int order by int) (sfunc = f, stype = int);
+create aggregate a3(*) (sfunc = f, stype = int);
+create aggregate a4(x int, variadic "any" order by variadic "any") (sfunc = f, stype = int);
+create aggregate a5(variadic int[]) (sfunc = f, stype = int);
+create aggregate a6 (basetype = int, sfunc = f, stype = int);
+create or replace aggregate a7(int) (sfunc = f, stype = int);
+drop aggregate a(order by int);
+drop aggregate a(int, int order by int), b(*);
+alter aggregate a(int order by int) rename to b;
+comment on aggregate a(*) is 'x';
