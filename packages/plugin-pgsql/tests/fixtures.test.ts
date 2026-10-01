@@ -66,9 +66,9 @@ describe('options', () => {
 // ---------------------------------------------------------------------------
 
 describe('unsupported constructs', () => {
-    it('throws a clear error for an unhandled expression (IS JSON predicate)', async () => {
-        await expect(fmt(`select x is json from t;`)).rejects.toThrow(
-            /Unsupported expression \(JsonIsPredicate\)/
+    it('throws a clear error for an unhandled expression (type modifier)', async () => {
+        await expect(fmt(`select 1::foo(1 + 1);`)).rejects.toThrow(
+            /Unsupported type modifier \(AExpr\)/
         );
     });
 });

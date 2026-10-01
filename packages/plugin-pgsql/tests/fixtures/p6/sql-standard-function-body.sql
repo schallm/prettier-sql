@@ -1,0 +1,10 @@
+create function f() returns int language sql begin atomic select 1; end;
+create function f(a int) returns int language sql return a + 1;
+create procedure p() language sql begin atomic insert into t values (1); update t set a = 2 where b = 3; delete from t; end;
+create or replace function f(a int, b int default 2) returns table (x int, y text) language sql immutable parallel safe begin atomic select a, b::text from t where a > b order by a; select 1, 'x'; end;
+create function f() returns void language sql begin atomic end;
+create function f(a int) returns int language sql begin atomic return a * 2; end;
+create function f() returns setof int language sql begin atomic select a from t; select b from u; end;
+create function f(a int) returns int language sql return case when a > 0 then 1 else 2 end;
+create function f() returns int language sql security definer set search_path = x begin atomic with c as (select 1 as a) select a from c; end;
+create function f() returns int language sql begin atomic select 1; select 2; return 3; end;

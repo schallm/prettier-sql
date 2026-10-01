@@ -437,31 +437,32 @@ public class AstBuilder {
         if (partitionBound.IsDefault) {
             return new SqlNode("PartitionBound", 0, 0, null, BuildProps(("isDefault", true)));
         }
-        var lowerDatums = partitionBound.Lowerdatums.Select(BuildPartitionDatum).OfType<string>().ToList();
-        var upperDatums = partitionBound.Upperdatums.Select(BuildPartitionDatum).OfType<string>().ToList();
-        var listDatums  = partitionBound.Listdatums.Select(BuildPartitionDatum).OfType<string>().ToList();
-
         return new SqlNode("PartitionBound", 0, 0, null, BuildProps(
-            ("lower",      MaybeList(lowerDatums)),
-            ("upper",      MaybeList(upperDatums)),
-            ("listDatums", MaybeList(listDatums)),
+            ("lower",      MaybeList(partitionBound.Lowerdatums.Select(BuildPartitionDatum).ToList())),
+            ("upper",      MaybeList(partitionBound.Upperdatums.Select(BuildPartitionDatum).ToList())),
+            ("listDatums", MaybeList(partitionBound.Listdatums.Select(BuildPartitionDatum).ToList())),
             ("modulus",    partitionBound.Modulus > 0 ? (object?)partitionBound.Modulus   : null),
             ("remainder",  partitionBound.Modulus > 0 ? (object?)partitionBound.Remainder : null)
         ));
     }
 
-    private string? BuildPartitionDatum(Node n) {
-        if (n.NodeCase == Node.NodeOneofCase.AConst) {
-            var v = BuildAConst(n.AConst);
-            return v.Text;
+    // A bound value is any expression (1, date '2020-01-01', 'a' || 'b'); a range bound can
+    // also be MINVALUE / MAXVALUE
+    private SqlNode? BuildPartitionDatum(Node n) {
+        if (n.NodeCase == Node.NodeOneofCase.PartitionRangeDatum) {
+            var d = n.PartitionRangeDatum;
+            return d.Kind switch {
+                PartitionRangeDatumKind.PartitionRangeDatumMinvalue => new SqlNode("Literal", 0, 0, "MINVALUE", null),
+                PartitionRangeDatumKind.PartitionRangeDatumMaxvalue => new SqlNode("Literal", 0, 0, "MAXVALUE", null),
+                _ => BuildExpr(d.Value),
+            };
         }
-        if (n.NodeCase == Node.NodeOneofCase.ColumnRef && n.ColumnRef.Fields.Count > 0) {
-            var name = n.ColumnRef.Fields[0].NodeCase == Node.NodeOneofCase.String
-                ? n.ColumnRef.Fields[0].String.Sval
-                : "";
-            return name.ToUpper();
-        }
-        throw NotSupported($"partition bound value ({n.NodeCase})", TryGetLocation(GetOneofValue(n)));
+        // MINVALUE / MAXVALUE are plain column references in the raw tree
+        if (n.NodeCase == Node.NodeOneofCase.ColumnRef && n.ColumnRef.Fields.Count == 1
+            && n.ColumnRef.Fields[0].NodeCase == Node.NodeOneofCase.String
+            && n.ColumnRef.Fields[0].String.Sval is "minvalue" or "maxvalue")
+            return new SqlNode("Literal", 0, 0, n.ColumnRef.Fields[0].String.Sval.ToUpperInvariant(), null);
+        return BuildExpr(n);
     }
 
     private SqlNode BuildAlterTable(AlterTableStmt s, int start, int end) =>
@@ -496,11 +497,6 @@ public class AstBuilder {
         ));
 
     private SqlNode BuildCreateFunction(CreateFunctionStmt s, int start, int end) {
-        // A SQL-standard body (RETURN expr / BEGIN ATOMIC ... END) isn't supported yet;
-        // it used to vanish, leaving a function with no body at all.
-        if (s.SqlBody != null && s.SqlBody.NodeCase != Node.NodeOneofCase.None)
-            throw NotSupported("SQL-standard function body (RETURN / BEGIN ATOMIC)", null);
-
         string? language = null;
         List<string>? body = null;
         var attributes = new List<string>();
@@ -542,8 +538,27 @@ public class AstBuilder {
             ("returnsTable", MaybeList(tableParams)),
             ("language",     language),
             ("attributes",   MaybeList(attributes)),
-            ("body",         body != null ? MaybeList(body) : null)
+            ("body",         body != null ? MaybeList(body) : null),
+            ("sqlBody",      s.SqlBody != null && s.SqlBody.NodeCase != Node.NodeOneofCase.None ? BuildSqlBody(s.SqlBody) : null)
         ));
+    }
+
+    // A SQL-standard function body: RETURN expr, or BEGIN ATOMIC stmt; ... END, which libpg_query
+    // hands over as a one-item list holding the list of statements
+    private SqlNode BuildSqlBody(Node body) {
+        if (body.NodeCase == Node.NodeOneofCase.ReturnStmt)
+            return new SqlNode("SqlFunctionBody", 0, 0, null, BuildProps(("returnExpr", BuildExpr(body.ReturnStmt.Returnval))));
+        if (body.NodeCase == Node.NodeOneofCase.List && body.List.Items.Count == 1
+            && body.List.Items[0].NodeCase is Node.NodeOneofCase.List or Node.NodeOneofCase.None) {
+            // BEGIN ATOMIC END: the inner list is empty and comes through as no node at all
+            var stmts = (body.List.Items[0].NodeCase == Node.NodeOneofCase.List ? body.List.Items[0].List.Items : new Google.Protobuf.Collections.RepeatedField<Node>())
+                .Select(n => n.NodeCase == Node.NodeOneofCase.ReturnStmt
+                    ? new SqlNode("ReturnStatement", 0, 0, null, BuildProps(("expr", BuildExpr(n.ReturnStmt.Returnval))))
+                    : BuildStmtNode(n, 0, _sql.Length))
+                .ToList();
+            return new SqlNode("SqlFunctionBody", 0, 0, null, BuildProps(("atomic", true), ("statements", MaybeList(stmts))));
+        }
+        throw NotSupported($"SQL-standard function body ({body.NodeCase})", TryGetLocation(GetOneofValue(body)));
     }
 
     // One CREATE FUNCTION / ALTER FUNCTION attribute as SQL text: IMMUTABLE, STRICT,
@@ -719,6 +734,11 @@ public class AstBuilder {
             Node.NodeOneofCase.JsonArrayConstructor  => BuildJsonArrayConstructor(node.JsonArrayConstructor),
             Node.NodeOneofCase.JsonObjectAgg         => BuildJsonObjectAgg(node.JsonObjectAgg),
             Node.NodeOneofCase.JsonArrayAgg          => BuildJsonArrayAgg(node.JsonArrayAgg),
+            Node.NodeOneofCase.JsonIsPredicate       => BuildJsonIsPredicate(node.JsonIsPredicate),
+            Node.NodeOneofCase.JsonScalarExpr        => BuildJsonScalarExpr(node.JsonScalarExpr),
+            Node.NodeOneofCase.JsonSerializeExpr     => BuildJsonSerializeExpr(node.JsonSerializeExpr),
+            Node.NodeOneofCase.JsonParseExpr         => BuildJsonParseExpr(node.JsonParseExpr),
+            Node.NodeOneofCase.JsonArrayQueryConstructor => BuildJsonArrayQueryConstructor(node.JsonArrayQueryConstructor),
             // Unknown expression: fail loudly rather than silently drop or mislabel it.
             _ => throw NotSupported($"expression ({node.NodeCase})", TryGetLocation(GetOneofValue(node))),
         };
@@ -2375,6 +2395,9 @@ public class AstBuilder {
                             => defElem.Arg.List.Items.Count == 1 && defElem.Arg.List.Items[0].String?.Sval == "none"
                                 ? "OWNED BY NONE"
                                 : $"OWNED BY {Ident.Qualified(defElem.Arg.List.Items.Select(i => i.String.Sval))}",
+                // GENERATED ... AS IDENTITY (SEQUENCE NAME s)
+                "sequence_name" when defElem.Arg?.NodeCase == Node.NodeOneofCase.List
+                            => $"SEQUENCE NAME {Ident.Qualified(defElem.Arg.List.Items.Select(i => i.String.Sval))}",
                 _ => throw NotSupported($"sequence option ({defElem.Defname})", defElem.Location),
             });
         }
@@ -3089,6 +3112,57 @@ public class AstBuilder {
         return new SqlNode("JsonArrayConstructor", 0, 0, null, props);
     }
 
+    // RETURNING type [FORMAT JSON ...] of a JSON constructor, when written
+    private string? JsonReturning(JsonOutput? o) =>
+        o?.TypeName != null ? BuildPgTypeName(o.TypeName) + JsonFormatClause(o.Returning?.Format) : null;
+
+    // expr IS [NOT] JSON [VALUE | ARRAY | OBJECT | SCALAR] [WITH UNIQUE KEYS]; NOT is a BoolExpr around it
+    private SqlNode BuildJsonIsPredicate(JsonIsPredicate p) =>
+        new("JsonIsPredicate", 0, 0, null, BuildProps(
+            ("expr",   BuildExpr(p.Expr)),
+            ("format", JsonFormatClause(p.Format) is { Length: > 0 } f ? f.Trim() : null),
+            ("itemType", p.ItemType switch {
+                JsonValueType.JsTypeObject => "OBJECT",
+                JsonValueType.JsTypeArray  => "ARRAY",
+                JsonValueType.JsTypeScalar => "SCALAR",
+                _                          => null,
+            }),
+            ("unique", p.UniqueKeys ? true : null)
+        ));
+
+    // JSON_SCALAR(expr [RETURNING type])
+    private SqlNode BuildJsonScalarExpr(JsonScalarExpr e) =>
+        new("JsonScalarExpr", 0, 0, null, BuildProps(
+            ("expr",      BuildExpr(e.Expr)),
+            ("returning", JsonReturning(e.Output))
+        ));
+
+    // JSON_SERIALIZE(expr [FORMAT JSON] [RETURNING type])
+    private SqlNode BuildJsonSerializeExpr(JsonSerializeExpr e) =>
+        new("JsonSerializeExpr", 0, 0, null, BuildProps(
+            ("expr",      BuildJsonValue(e.Expr)),
+            ("returning", JsonReturning(e.Output))
+        ));
+
+    // JSON(expr [FORMAT JSON] [WITH UNIQUE KEYS])
+    private SqlNode BuildJsonParseExpr(JsonParseExpr e) =>
+        new("JsonParseExpr", 0, 0, null, BuildProps(
+            ("expr",   BuildJsonValue(e.Expr)),
+            ("unique", e.UniqueKeys ? true : null)
+        ));
+
+    // JSON_ARRAY(SELECT ... [FORMAT JSON] [ABSENT ON NULL] [RETURNING type])
+    private SqlNode BuildJsonArrayQueryConstructor(JsonArrayQueryConstructor c) {
+        if (c.Query?.NodeCase != Node.NodeOneofCase.SelectStmt)
+            throw NotSupported($"JSON_ARRAY query ({c.Query?.NodeCase})", TryGetLocation(GetOneofValue(c.Query!)));
+        var props = BuildProps(
+            ("query",  BuildSelect(c.Query.SelectStmt, 0, _sql.Length)),
+            ("format", JsonFormatClause(c.Format) is { Length: > 0 } f ? f.Trim() : null)
+        );
+        foreach (var (k, v) in JsonConstructorProps(c.Output, c.AbsentOnNull, absentByDefault: true)) if (v != null) props[k] = v;
+        return new SqlNode("JsonArrayQueryConstructor", 0, 0, null, props);
+    }
+
     // A JSON constructor argument: the expression, plus FORMAT JSON when written
     private SqlNode? BuildJsonValue(JsonValueExpr v) {
         var expr = BuildExpr(v.RawExpr);
@@ -3616,10 +3690,17 @@ public class AstBuilder {
             .ToList();
 
         return new SqlNode("XmlTable", 0, 0, null, BuildProps(
+            ("namespaces", MaybeList(r.Namespaces
+                .Where(n => n.NodeCase == Node.NodeOneofCase.ResTarget)
+                .Select(n => new SqlNode("XmlNamespace", 0, 0, null, BuildProps(
+                    ("name",  Ident.QuoteOpt(n.ResTarget.Name)),
+                    ("value", BuildExpr(n.ResTarget.Val)))))
+                .ToList())),
             ("rowExpr", BuildExpr(r.Rowexpr)),
             ("docExpr", BuildExpr(r.Docexpr)),
             ("columns", MaybeList(columns)),
             ("alias",   Ident.QuoteOpt(r.Alias?.Aliasname)),
+            ("aliasColumns", AliasColumns(r.Alias)),
             ("lateral", r.Lateral ? true : null)
         ));
     }
@@ -3639,6 +3720,7 @@ public class AstBuilder {
             ("passing",  MaybeList(BuildJsonPassing(jt.Passing))),
             ("onError",  onError),
             ("alias",    Ident.QuoteOpt(jt.Alias?.Aliasname)),
+            ("aliasColumns", AliasColumns(jt.Alias)),
             ("lateral",  jt.Lateral ? true : null)
         ));
     }

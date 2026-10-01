@@ -86,6 +86,11 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'JsonArrayConstructor':  return printJsonArrayConstructor(node, opts, printNode);
         case 'JsonObjectAgg':         return printJsonObjectAgg(node, opts, printNode);
         case 'JsonArrayAgg':          return printJsonArrayAgg(node, opts, printNode);
+        case 'JsonIsPredicate':       return printJsonIsPredicate(node, false, opts, printNode);
+        case 'JsonScalarExpr':        return printJsonUnaryCall('json_scalar', node, opts, printNode);
+        case 'JsonSerializeExpr':     return printJsonUnaryCall('json_serialize', node, opts, printNode);
+        case 'JsonParseExpr':         return printJsonUnaryCall('json', node, opts, printNode);
+        case 'JsonArrayQueryConstructor': return printJsonArrayQuery(node, opts, printNode);
         default: return node.text ?? `/* unknown: ${node.type} */`;
     }
 }
@@ -144,6 +149,7 @@ function precedence(node: SqlNode): number {
         }
         case 'NullTest':
         case 'BooleanTest':
+        case 'JsonIsPredicate':
             return PREC.IS;
         case 'XmlExpr':
             return propStr(node, 'op') === 'IS DOCUMENT' ? PREC.IS : PREC.ATOM;
@@ -264,6 +270,7 @@ function printBoolExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     if (op === 'NOT') {
         const arg = args[0];
         // NOT is_normalized(x): x IS NOT NORMALIZED (the same tree)
+        if (arg?.type === 'JsonIsPredicate') return printJsonIsPredicate(arg, true, opts, printNode);
         if (arg && isNormalizedCall(arg)) return printIsNormalizedForm(propArr(arg, 'args'), true, opts, printNode);
         return [makeKeyword('NOT'), ' ', arg ? printOperand(arg, PREC.NOT, printNode) : ''];
     }
@@ -918,17 +925,19 @@ function printAlterOptions(node: SqlNode, opts: Options): Doc {
 /** `FOR VALUES FROM (...) TO (...)`, `FOR VALUES IN (...)`, `FOR VALUES WITH (MODULUS m, REMAINDER r)` or `DEFAULT`. */
 export function printPartitionBound(bound: SqlNode, opts: Options): Doc {
     const makeKeyword = (k: string) => keyword(k, opts);
-    const lower      = propStrArr(bound, 'lower');
-    const upper      = propStrArr(bound, 'upper');
-    const listDatums = propStrArr(bound, 'listDatums');
+    const printNode: PrintFn = (n) => printExpression(n, opts, printNode);
+    const values = (name: string): Doc => join(', ', propArr(bound, name).map((n) => printNode(n)));
+    const lower      = propArr(bound, 'lower');
+    const upper      = propArr(bound, 'upper');
+    const listDatums = propArr(bound, 'listDatums');
     const modulus    = bound.props?.['modulus']  as number | undefined;
     const remainder  = bound.props?.['remainder'] as number | undefined;
 
     if (propBool(bound, 'isDefault')) return makeKeyword('DEFAULT');
     if (lower.length > 0 || upper.length > 0) {
-        return [makeKeyword('FOR VALUES FROM'), ' (', join(', ', lower), ') ', makeKeyword('TO'), ' (', join(', ', upper), ')'];
+        return [makeKeyword('FOR VALUES FROM'), ' (', values('lower'), ') ', makeKeyword('TO'), ' (', values('upper'), ')'];
     }
-    if (listDatums.length > 0) return [makeKeyword('FOR VALUES IN'), ' (', join(', ', listDatums), ')'];
+    if (listDatums.length > 0) return [makeKeyword('FOR VALUES IN'), ' (', values('listDatums'), ')'];
     if (modulus !== undefined && remainder !== undefined) {
         return [makeKeyword('FOR VALUES WITH'), ' (', makeKeyword('MODULUS'), ' ', String(modulus), ', ', makeKeyword('REMAINDER'), ' ', String(remainder), ')'];
     }
@@ -1287,16 +1296,17 @@ function printJsonBehavior(b: SqlNode | null | undefined, on: string, opts: Opti
  * The clauses that end a SQL/JSON constructor call, in the order SQL requires:
  * ORDER BY (arrayagg), ON NULL, WITH UNIQUE KEYS, RETURNING.
  */
-function printJsonConstructorTail(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+function printJsonConstructorTail(node: SqlNode, opts: Options, printNode: PrintFn, hasArgs = true): Doc {
     const aggOrder = propArr(node, 'aggOrder');
     const onNull = propStr(node, 'onNull');
     const returning = propStr(node, 'returning');
-    return [
-        aggOrder.length > 0 ? [' ', keyword('ORDER BY', opts), ' ', join(', ', aggOrder.map(printNode))] : '',
-        onNull ? [' ', keyword(onNull, opts)] : '',
-        propBool(node, 'unique') ? [' ', keyword('WITH UNIQUE KEYS', opts)] : '',
-        returning ? [' ', keyword('RETURNING', opts), ' ', keyword(returning, opts)] : '',
-    ];
+    const parts: Doc[] = [];
+    if (aggOrder.length > 0) parts.push([keyword('ORDER BY', opts), ' ', join(', ', aggOrder.map(printNode))]);
+    if (onNull) parts.push(keyword(onNull, opts));
+    if (propBool(node, 'unique')) parts.push(keyword('WITH UNIQUE KEYS', opts));
+    if (returning) parts.push([keyword('RETURNING', opts), ' ', keyword(returning, opts)]);
+    // json_object(returning jsonb): nothing before the clauses, so no space either
+    return parts.length === 0 ? '' : [hasArgs ? ' ' : '', join(' ', parts)];
 }
 
 function printJsonObjectConstructor(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -1305,12 +1315,47 @@ function printJsonObjectConstructor(node: SqlNode, opts: Options, printNode: Pri
         const valDoc = prop(p, 'value') ? printNode(prop(p, 'value')!) : '';
         return [keyDoc, ': ', valDoc];
     });
-    return [keyword('json_object', opts), '(', join(', ', pairDocs), printJsonConstructorTail(node, opts, printNode), ')'];
+    return [keyword('json_object', opts), '(', join(', ', pairDocs), printJsonConstructorTail(node, opts, printNode, pairDocs.length > 0), ')'];
 }
 
 function printJsonArrayConstructor(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const itemDocs = propArr(node, 'items').map((n) => printNode(n));
-    return [keyword('json_array', opts), '(', join(', ', itemDocs), printJsonConstructorTail(node, opts, printNode), ')'];
+    return [keyword('json_array', opts), '(', join(', ', itemDocs), printJsonConstructorTail(node, opts, printNode, itemDocs.length > 0), ')'];
+}
+
+// x [FORMAT JSON] IS [NOT] JSON [VALUE | ARRAY | OBJECT | SCALAR] [WITH UNIQUE KEYS]
+function printJsonIsPredicate(node: SqlNode, negated: boolean, opts: Options, printNode: PrintFn): Doc {
+    const expr = prop(node, 'expr');
+    const format = propStr(node, 'format');
+    const itemType = propStr(node, 'itemType');
+    return [
+        expr ? printOperand(expr, PREC.IS + 1, printNode) : '',
+        format ? [' ', keyword(format, opts)] : '',
+        ' ', keyword('IS', opts), negated ? [' ', keyword('NOT', opts)] : '', ' ', keyword('JSON', opts),
+        itemType ? [' ', keyword(itemType, opts)] : '',
+        propBool(node, 'unique') ? [' ', keyword('WITH UNIQUE KEYS', opts)] : '',
+    ];
+}
+
+// JSON_SCALAR(x), JSON_SERIALIZE(x [FORMAT JSON] [RETURNING t]), JSON(x [WITH UNIQUE KEYS])
+function printJsonUnaryCall(name: string, node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const expr = prop(node, 'expr');
+    return [keyword(name, opts), '(', expr ? printNode(expr) : '', printJsonConstructorTail(node, opts, printNode), ')'];
+}
+
+// JSON_ARRAY(SELECT ... [FORMAT JSON] [ABSENT ON NULL] [RETURNING t])
+function printJsonArrayQuery(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const query = prop(node, 'query');
+    const format = propStr(node, 'format');
+    const returning = propStr(node, 'returning');
+    const tail: Doc[] = [];
+    if (format) tail.push(keyword(format, opts));
+    if (returning) tail.push(keyword('RETURNING', opts), keyword(returning, opts));
+    return [
+        keyword('json_array', opts), '(',
+        indent([hardline, query ? printNode(query) : '', tail.length > 0 ? [hardline, join(' ', tail)] : '']),
+        hardline, ')',
+    ];
 }
 
 function printJsonObjectAgg(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -1338,7 +1383,6 @@ function printXmlTable(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const rowExpr = prop(node, 'rowExpr');
     const docExpr = prop(node, 'docExpr');
     const columns = propArr(node, 'columns');
-    const alias   = propStr(node, 'alias');
 
     const colDocs: Doc[] = columns.map((col, i) => {
         const comma: Doc = i < columns.length - 1 ? ',' : '';
@@ -1361,14 +1405,22 @@ function printXmlTable(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
         return parts;
     });
 
+    const namespaces = propArr(node, 'namespaces');
     const inner: Doc = indent([
+        namespaces.length > 0
+            ? [hardline, makeKeyword('XMLNAMESPACES'), '(', join(', ', namespaces.map((ns): Doc => {
+                const name = propStr(ns, 'name');
+                const value = prop(ns, 'value');
+                return name ? [value ? printNode(value) : '', ' ', makeKeyword('AS'), ' ', name] : [makeKeyword('DEFAULT'), ' ', value ? printNode(value) : ''];
+            })), '),']
+            : '',
         hardline, rowExpr ? printNode(rowExpr) : '',
         hardline, makeKeyword('PASSING'), ' ', docExpr ? printNode(docExpr) : '',
         hardline, makeKeyword('COLUMNS'),
         indent(colDocs.map((c) => [hardline, c])),
     ]);
 
-    return [makeKeyword('XMLTABLE'), '(', inner, hardline, ')', aliasDoc(alias, opts)];
+    return [makeKeyword('XMLTABLE'), '(', inner, hardline, ')', tableAliasDoc(node, opts)];
 }
 
 function printJsonTable(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -1377,7 +1429,6 @@ function printJsonTable(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const path     = prop(node, 'path');
     const pathName = propStr(node, 'pathName');
     const columns  = propArr(node, 'columns');
-    const alias    = propStr(node, 'alias');
 
     const colDocs = buildJsonTableColumnDocs(columns, opts, printNode);
 
@@ -1393,7 +1444,7 @@ function printJsonTable(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
         printJsonBehavior(prop(node, 'onError'), 'ON ERROR', opts, printNode),
     ]);
 
-    return [makeKeyword('JSON_TABLE'), '(', inner, hardline, ')', aliasDoc(alias, opts)];
+    return [makeKeyword('JSON_TABLE'), '(', inner, hardline, ')', tableAliasDoc(node, opts)];
 }
 
 function buildJsonTableColumnDocs(columns: SqlNode[], opts: Options, printNode: PrintFn): Doc[] {

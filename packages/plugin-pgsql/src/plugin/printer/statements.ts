@@ -852,6 +852,23 @@ function printCreateFunction(node: SqlNode, opts: Options): Doc {
         parts.push(hardline, makeKeyword('AS'), ' ', join(', ', body.map((b) => `'${b.replace(/'/g, "''")}'`)));
     }
 
+    // SQL-standard body: RETURN expr | BEGIN ATOMIC stmt; ... END
+    const sqlBody = prop(node, 'sqlBody');
+    if (sqlBody) {
+        const returnExpr = prop(sqlBody, 'returnExpr');
+        if (returnExpr) {
+            parts.push(hardline, makeKeyword('RETURN'), ' ', indent(printNode(returnExpr)));
+        } else {
+            const stmts = propArr(sqlBody, 'statements').map((st): Doc =>
+                st.type === 'ReturnStatement'
+                    ? [makeKeyword('RETURN'), ' ', printNode(prop(st, 'expr')!), ';']
+                    : printStatement(st, opts));
+            parts.push(hardline, makeKeyword('BEGIN ATOMIC'),
+                stmts.length > 0 ? indent([hardline, join(hardline, stmts)]) : '',
+                hardline, makeKeyword('END'));
+        }
+    }
+
     return [join('', parts), ';'];
 }
 
