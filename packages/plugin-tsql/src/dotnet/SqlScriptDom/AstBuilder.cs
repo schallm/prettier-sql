@@ -1054,6 +1054,28 @@ public class AstBuilder : TSqlFragmentVisitor {
             Index(node.Statements, -1);
             base.ExplicitVisit(node);
         }
+        // An IF/WHILE body ends where the IF/WHILE does (the enclosing list was indexed first, so its
+        // limit is already known), or, for a THEN body with an ELSE, at that ELSE token
+        public override void ExplicitVisit(WhileStatement node) {
+            if (node.Statement != null && limits.TryGetValue(node, out var limit)) limits[node.Statement] = limit;
+            base.ExplicitVisit(node);
+        }
+        public override void ExplicitVisit(IfStatement node) {
+            var hasOuter = limits.TryGetValue(node, out var outer);
+            if (node.ElseStatement != null && hasOuter) limits[node.ElseStatement] = outer;
+            if (node.ThenStatement != null) {
+                var stream = node.ScriptTokenStream;
+                var elseIndex = -1;
+                if (node.ElseStatement != null && stream != null) {
+                    for (var i = node.ElseStatement.FirstTokenIndex - 1; i > node.ThenStatement.LastTokenIndex; i--) {
+                        if (stream[i].TokenType == TSqlTokenType.Else) { elseIndex = i; break; }
+                    }
+                }
+                if (elseIndex >= 0) limits[node.ThenStatement] = elseIndex;
+                else if (hasOuter) limits[node.ThenStatement] = outer;
+            }
+            base.ExplicitVisit(node);
+        }
     }
 
     /// <summary>
