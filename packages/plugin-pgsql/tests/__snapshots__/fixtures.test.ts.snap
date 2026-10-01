@@ -3383,7 +3383,7 @@ returns integer
 language sql
 return case
     when a > 0 then 1
-  else 2
+    else 2
   end;
 
 create function f()
@@ -5128,7 +5128,7 @@ exports[`shared fixtures > select/case.sql 1`] = `
   case
     when price < 10 then 'Budget'
     when price < 30 then 'Mid'
-  else 'Premium'
+    else 'Premium'
   end as tier
 from books;
 
@@ -5137,7 +5137,7 @@ select
   case genre_id
     when 1 then 'Fiction'
     when 2 then 'Non-Fiction'
-  else 'Other'
+    else 'Other'
   end as genre
 from books;
 "

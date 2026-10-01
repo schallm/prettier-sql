@@ -561,8 +561,10 @@ function printCaseExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 
     return [
         makeKeyword('CASE'), arg ? [' ', printNode(arg)] : '',
-        indent([hardline, join(hardline, whenDocs)]),
-        else_ ? [hardline, makeKeyword('ELSE'), ' ', printNode(else_)] : '',
+        indent([
+            hardline, join(hardline, whenDocs),
+            else_ ? [hardline, makeKeyword('ELSE'), ' ', printNode(else_)] : '',
+        ]),
         hardline, makeKeyword('END'),
     ];
 }
