@@ -19,7 +19,7 @@ import {
     fill,
     hasLineSuffix,
 } from '@prettier-sql/core/printer/utils';
-import { prop, propArr, propStr, propBool, assignmentOp, claimTrailingComment, takeTrailingComment, unprintedComments, withTrailingComment } from './helpers.js';
+import { prop, propArr, propStr, propBool, assignmentOp, claimTrailingComment, takeTrailingComment, unprintedComments, withTrailingComment, takeLeadingComments } from './helpers.js';
 import {
     printExpression,
     printBoolExpr,
@@ -223,8 +223,9 @@ export function printStatementWithComments(s: SqlNode, opts: Options): Doc {
     // after leftover comments (printed on their own lines) it goes on a line of its own as well
     const trailing = takeTrailingComment(s);
     const withTrailing = leftover.length > 0 && trailing ? appendTrailingLines(stmtDoc, trailing.replace(/^\n/, '')) : appendTrailingComment(stmtDoc, trailing);
-    if (s.leadingComments?.length) {
-        return [...s.leadingComments.flatMap((c): Doc[] => [c, hardline]), withTrailing] as Doc;
+    const leading = takeLeadingComments(s);
+    if (leading.length) {
+        return [...leading.flatMap((c): Doc[] => [c, hardline]), withTrailing] as Doc;
     }
     return withTrailing;
 }
@@ -822,7 +823,7 @@ export function printCtes(node: SqlNode, opts: Options): Doc[] {
         const cols = cte.props?.['columns'] as string[] | undefined;
         const query = prop(cte, 'query');
         const colsPart: Doc = cols?.length ? [' ', parenList(cols)] : '';
-        const queryComments: Doc[] = (cte.leadingComments ?? []).flatMap((c): Doc[] => [c, hardline]);
+        const queryComments: Doc[] = takeLeadingComments(cte).flatMap((c): Doc[] => [c, hardline]);
         allItems.push(
             withTrailingComment(cte, [
                 name,

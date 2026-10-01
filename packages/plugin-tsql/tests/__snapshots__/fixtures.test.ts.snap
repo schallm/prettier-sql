@@ -2103,6 +2103,55 @@ truncate table dbo.Orders with (partitions (1, 5 to 10, 20));
 "
 `;
 
+exports[`fixtures > procedural/comments-before-statement-body.sql 1`] = `
+"-- A line comment after the condition must end its line before the statement follows
+if object_id('tempdb..#t') is not null
+  -- why
+  drop table #t;
+
+if @a = 1 print 'a';
+else if @a = 2
+  -- two
+  print 'b';
+else
+  print 'c';
+go
+
+create function dbo.f
+-- the name
+(@a int)
+returns int
+as
+begin
+  return @a;
+end;
+go
+
+create function dbo.g(@a int)
+-- the body
+returns int
+as
+begin
+  return @a;
+end;
+go
+
+-- command
+dbcc checkdb('d') with no_infomsgs;
+
+-- value
+alter database d
+set automatic_index_compaction = on;
+
+create table dbo.c
+with (distribution = hash(a), heap)
+as
+select 1 as a;
+/* d */
+go
+"
+`;
+
 exports[`fixtures > procedural/compound-assignment.sql 1`] = `
 "-- Compound assignment operators must all be preserved
 declare @n int = 10;

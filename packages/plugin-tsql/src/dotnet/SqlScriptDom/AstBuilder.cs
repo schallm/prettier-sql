@@ -17,16 +17,24 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode Leaf(string type, TSqlFragment f, string? text = null) =>
         new(type, f.StartOffset, f.StartOffset + f.FragmentLength, text, null);
 
-    /// <summary>Reconstructs raw SQL text for a fragment using its token stream.</summary>
-    private static string RawText(TSqlFragment f) {
+    /// <summary>
+    /// Reconstructs raw SQL text for a fragment using its token stream. Comments inside it are left
+    /// out unless <paramref name="keepComments"/> (a statement printed as written): they are attached
+    /// to the tree separately and printed there, so keeping them here would print them twice.
+    /// </summary>
+    private static string RawText(TSqlFragment f, bool keepComments = false) {
         var stream = f.ScriptTokenStream;
         if (stream == null || stream.Count == 0) return f.GetType().Name;
         var start = f.StartOffset;
         var end = start + f.FragmentLength;
         var sb = new StringBuilder();
         foreach (var t in stream)
-            if (t.Offset >= start && t.Offset < end)
-                sb.Append(t.Text);
+            if (t.Offset >= start && t.Offset < end) {
+                if (!keepComments && t.TokenType is TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment)
+                    sb.Append(t.TokenType == TSqlTokenType.MultilineComment ? " " : "");
+                else
+                    sb.Append(t.Text);
+            }
         return sb.ToString().Trim();
     }
 
@@ -1045,7 +1053,7 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode LeafStatement(TSqlStatement stmt) {
         var stream = stmt.ScriptTokenStream;
         if (stream == null || stmt.FirstTokenIndex < 0 || _stmtLimit == null || !_stmtLimit.TryGetValue(stmt, out var limit))
-            return Leaf("Statement", stmt, RawText(stmt));
+            return Leaf("Statement", stmt, RawText(stmt, keepComments: true));
         var last = Math.Min(stmt.LastTokenIndex, stream.Count - 1);
         var end = last;
         for (var i = last + 1; i < Math.Min(limit, stream.Count); i++) {
@@ -1055,7 +1063,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                 or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment) continue;
             end = i;
         }
-        if (end == last) return Leaf("Statement", stmt, RawText(stmt));
+        if (end == last) return Leaf("Statement", stmt, RawText(stmt, keepComments: true));
         var sb = new StringBuilder();
         for (var i = stmt.FirstTokenIndex; i <= end; i++) sb.Append(stream[i].Text);
         return new SqlNode("Statement", stmt.StartOffset, stream[end].Offset + stream[end].Text.Length, sb.ToString().Trim(), null);
@@ -3334,7 +3342,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         int count = 0;
         foreach (var t in stream) {
             if (t.Offset < start || t.Offset >= end) continue;
-            if (t.TokenType == TSqlTokenType.WhiteSpace) continue;
+            if (t.TokenType is TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment) continue;
             count++;
             if (count == 2) return t.Text.ToUpperInvariant(); // skip DBCC (1st), return command name (2nd)
         }
@@ -3486,7 +3494,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         var stream = stmt.ScriptTokenStream;
         if (stream != null) {
             var prev = stream
-                .Where(t => t.Offset < o.StartOffset && t.TokenType != TSqlTokenType.WhiteSpace)
+                .Where(t => t.Offset < o.StartOffset && t.TokenType is not (TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment))
                 .OrderByDescending(t => t.Offset)
                 .FirstOrDefault();
             if (prev?.TokenType == TSqlTokenType.EqualsSign) sep = " = ";
@@ -3538,8 +3546,10 @@ public class AstBuilder : TSqlFragmentVisitor {
         var gotValue = false;
         var words = 0;
         foreach (var t in stream.Where(t => t.Offset >= optStart)) {
-            if (t.TokenType is TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment) {
-                tokens.Add(t);
+            // Comments are attached to the tree and printed there; keeping them here would repeat them
+            if (t.TokenType is TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment) continue;
+            if (t.TokenType == TSqlTokenType.WhiteSpace) {
+                if (tokens.Count > 0 && tokens[^1].TokenType != TSqlTokenType.WhiteSpace) tokens.Add(t);
                 continue;
             }
             if (t.TokenType is TSqlTokenType.Semicolon or TSqlTokenType.Go or TSqlTokenType.EndOfFile) break;
@@ -3553,7 +3563,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         while (tokens.Count > 0 && tokens[^1].TokenType is TSqlTokenType.WhiteSpace
             or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment)
             tokens.RemoveAt(tokens.Count - 1);
-        return string.Concat(tokens.Select(t => t.Text)).Trim();
+        return string.Concat(tokens.Select(t => t.TokenType == TSqlTokenType.WhiteSpace ? " " : t.Text)).Trim();
     }
 
     private static SqlNode BuildAlterDatabaseScopedConfigSet(AlterDatabaseScopedConfigurationSetStatement stmt) =>
@@ -3652,7 +3662,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         }
 
         // Other forms (ADD EVENT, DROP EVENT, ADD TARGET, DROP TARGET, ALTER EVENT) — use raw text.
-        return Leaf("Statement", aes, RawText(aes));
+        return Leaf("Statement", aes, RawText(aes, keepComments: true));
     }
 
     private static SqlNode? BuildOutputClause(OutputClause? output) {

@@ -2,6 +2,7 @@ import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
 import { keyword, hardline, softline, join, indent, group, onOffKw, line, getDensity, parenList, parenListFill, commaFill } from '@prettier-sql/core/printer/utils';
+import { boolEndsWithPendingComment } from './expressions.js';
 import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, assignmentOp, withTrailingComment } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
@@ -355,13 +356,17 @@ export function printIf(node: SqlNode, opts: Options): Doc {
     const condition = prop(node, 'condition');
     const then = prop(node, 'then');
     const els = prop(node, 'else');
+    // A comment ending the condition's last line must be followed by a line break
+    const condEndsInComment = condition ? boolEndsWithPendingComment(condition) : false;
     const condDoc = condition ? indent(printBool(condition, opts)) : '';
     // Single-statement body (no BEGIN/END): try inline, wrap to next line if too long.
     // BeginEndBlock always goes on a new line.
     const thenDoc = then
         ? then.type === 'BeginEndBlock'
             ? printStatementBlock(then, opts)
-            : group(indent([line, printStatementWithComments(then, opts)]))
+            : condEndsInComment
+              ? indent([hardline, printStatementWithComments(then, opts)])
+              : group(indent([line, printStatementWithComments(then, opts)]))
         : ';';
     const parts: Doc[] = [keyword('IF', opts), ' ', condDoc, thenDoc];
     if (els) {

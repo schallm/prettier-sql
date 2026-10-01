@@ -33,6 +33,14 @@ export { prop, propArr, propStr, propBool, propStrArr };
 //    comment is never silently dropped.
 const claimedComments = new WeakSet<SqlNode>();
 const printedComments = new WeakSet<SqlNode>();
+const printedLeading = new WeakSet<SqlNode>();
+
+/** Marks a node's leadingComments as printed, and returns them. */
+export function takeLeadingComments(node: SqlNode): string[] {
+    if (!node.leadingComments?.length || printedLeading.has(node)) return [];
+    printedLeading.add(node);
+    return node.leadingComments;
+}
 
 export function claimTrailingComment(node: SqlNode): void {
     claimedComments.add(node);
@@ -88,6 +96,7 @@ export function unprintedComments(stmt: SqlNode): string[] {
         if (!v || typeof v !== 'object') return;
         const n = v as SqlNode;
         if (typeof n.type === 'string' && n !== stmt) {
+            out.push(...takeLeadingComments(n));
             const c = takeTrailingComment(n);
             if (c) out.push(c);
         }

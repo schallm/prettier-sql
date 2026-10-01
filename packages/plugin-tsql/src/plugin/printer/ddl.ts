@@ -1141,7 +1141,8 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
         fnKw,
         ' ',
         schemaObjectName(prop(node, 'name')),
-        preBody,
+        // comments end at a line break: the parameter list can't follow on their line
+        node.preBodyComments?.length ? [preBody, hardline] : '',
         group(['(', parameters.length > 0 ? [indent([softline, join([',', line], paramDocs)]), softline] : '', ')']),
         postParam,
     ];
