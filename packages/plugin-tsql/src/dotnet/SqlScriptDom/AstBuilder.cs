@@ -727,12 +727,13 @@ public class AstBuilder : TSqlFragmentVisitor {
             UnpivotedTableReference unpiv => BuildUnpivotedTableRef(unpiv),
             InlineDerivedTable idt => BuildInlineDerivedTable(idt),
             // Built-in TVFs: STRING_SPLIT, GENERATE_SERIES, OPENDATASOURCE etc.
-            BuiltInFunctionTableReference bif => BuildBuiltinTableRef(bif, bif.Name?.Value, bif.Parameters, bif.Alias),
+            // FROM ::fn_trace_getinfo(0): the leading colons are part of the call
+            BuiltInFunctionTableReference bif => BuildBuiltinTableRef(bif, ColonPrefix(bif) + bif.Name?.Value, bif.Parameters, bif.Alias),
             // ::GlobalFunctionName() CLR global functions
-            GlobalFunctionTableReference gf => BuildBuiltinTableRef(gf, gf.Name?.Value, gf.Parameters, gf.Alias),
+            GlobalFunctionTableReference gf => BuildBuiltinTableRef(gf, ColonPrefix(gf) + gf.Name?.Value, gf.Parameters, gf.Alias),
             // OPENQUERY(linkedServer, 'sql')
             OpenQueryTableReference oq => Node("OpenQueryTableReference", oq, new Dictionary<string, object?> {
-                ["linkedServer"] = oq.LinkedServer?.Value,
+                ["linkedServer"] = QuotedName(oq.LinkedServer),
                 ["query"] = oq.Query?.Value,
                 ["alias"] = QuotedName(oq.Alias),
             }),
@@ -832,6 +833,9 @@ public class AstBuilder : TSqlFragmentVisitor {
     /// are represented as dedicated ScriptDom types rather than SchemaObjectFunctionTableReference.
     /// Emit them with a bare string name so the TS printer can keyword()-normalize the casing.
     /// </summary>
+    /// <summary>The `::` before a system table function written as `FROM ::fn_trace_getinfo(0)`.</summary>
+    private static string ColonPrefix(TSqlFragment f) => RawText(f).StartsWith("::", StringComparison.Ordinal) ? "::" : "";
+
     private static SqlNode BuildBuiltinTableRef(TSqlFragment f, string? name, IList<ScalarExpression>? parameters, Identifier? alias) {
         var args = parameters?.Select(p => (object?)BuildScalarExpression(p)).ToList();
         return Node("BuiltInFunctionTableReference", f, new Dictionary<string, object?> {

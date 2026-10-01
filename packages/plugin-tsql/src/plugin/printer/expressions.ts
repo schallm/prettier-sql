@@ -1636,7 +1636,9 @@ function printBuiltInFunctionTableRef(node: SqlNode, opts: Options, printFn: Pri
         args.map((a) => printExpression(a, opts, printFn)),
     );
     const aliasPart: Doc = aliasDoc(alias, opts);
-    return [keyword(name, opts), '(', argsDoc, ')', aliasPart];
+    // ::fn_name(): a system function written with the leading colons
+    const nameDoc: Doc = name.startsWith('::') ? ['::', keyword(name.slice(2), opts)] : keyword(name, opts);
+    return [nameDoc, '(', argsDoc, ')', aliasPart];
 }
 
 /** OPENQUERY(linkedServer, 'sql') */
@@ -1645,7 +1647,7 @@ function printOpenQueryTableRef(node: SqlNode, opts: Options): Doc {
     const query = propStr(node, 'query') ?? '';
     const alias = propStr(node, 'alias');
     const aliasPart: Doc = aliasDoc(alias, opts);
-    return [keyword('OPENQUERY', opts), '(', linkedServer, ', ', `'${query}'`, ')', aliasPart];
+    return [keyword('OPENQUERY', opts), '(', linkedServer, ', ', `'${query.replace(/'/g, "''")}'`, ')', aliasPart];
 }
 
 // ---------------------------------------------------------------------------

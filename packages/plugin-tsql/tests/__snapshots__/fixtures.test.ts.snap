@@ -3372,6 +3372,21 @@ from
 "
 `;
 
+exports[`fixtures > select/global-function-table.sql 1`] = `
+"select *
+from ::fn_trace_getinfo(0) as t;
+
+select *
+from ::fn_virtualfilestats(1, 1);
+
+select *
+from openquery(Srv, 'select ''x'' as a') as q;
+
+select *
+from openquery([My Srv], 'select 1');
+"
+`;
+
 exports[`fixtures > select/graph-match.sql 1`] = `
 "-- Graph queries: MATCH predicate must not drop the MATCH( prefix
 select
