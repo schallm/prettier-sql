@@ -2005,6 +2005,15 @@ public class AstBuilder : TSqlFragmentVisitor {
         // each kind, so a column with more stays as written rather than losing the rest
         if (col.Constraints != null && col.Constraints.GroupBy(c => c.GetType()).Any(g => g.Count() > 1))
             return Leaf("ColumnDefinition", col, RawText(col).Trim());
+        // The printer writes the constraints in a fixed order (NULL/NOT NULL, CHECK, PRIMARY KEY/UNIQUE,
+        // REFERENCES); a column that lists them in another order stays as written
+        if (col.Constraints != null) {
+            static int Rank(ConstraintDefinition c) => c switch {
+                NullableConstraintDefinition => 0, CheckConstraintDefinition => 1, UniqueConstraintDefinition => 2, ForeignKeyConstraintDefinition => 3, _ => 4 };
+            var ranks = col.Constraints.Select(Rank).ToList();
+            for (var i = 1; i < ranks.Count; i++)
+                if (ranks[i] < ranks[i - 1]) return Leaf("ColumnDefinition", col, RawText(col).Trim());
+        }
 
         if (col.ComputedColumnExpression != null) {
             return new SqlNode(
@@ -2082,6 +2091,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["maskingFunction"] = col.MaskingFunction?.Value,
                 // Always Encrypted
                 ["encryption"] = BuildColumnEncryptionDefinition(col.Encryption),
+                ["checkNotForReplication"] = col.Constraints?.OfType<CheckConstraintDefinition>().FirstOrDefault()?.NotForReplication == true ? (object?)true : null,
                 ["checkConstraint"] = col.Constraints?.OfType<CheckConstraintDefinition>().FirstOrDefault() is { } chk
                     ? BuildBooleanExpression(chk.CheckCondition)
                     : null,
@@ -2108,6 +2118,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                         ["refColumns"] = fk.ReferencedTableColumns?.Select(c => (object?)QuotedName(c)).ToList(),
                         ["deleteAction"] = fk.DeleteAction != DeleteUpdateAction.NotSpecified ? (object?)fk.DeleteAction.ToString() : null,
                         ["updateAction"] = fk.UpdateAction != DeleteUpdateAction.NotSpecified ? (object?)fk.UpdateAction.ToString() : null,
+                        ["notForReplication"] = fk.NotForReplication ? (object?)true : null,
                     }
                     : null,
             });
@@ -2207,6 +2218,9 @@ public class AstBuilder : TSqlFragmentVisitor {
                 }).ToList();
         } else if (at is AlterTableConstraintModificationStatement constraintMod) {
             props["constraintEnforcement"] = constraintMod.ConstraintEnforcement.ToString();
+            // WITH CHECK | WITH NOCHECK before CHECK CONSTRAINT: re-validate (or not) the existing rows
+            props["withCheckEnforcement"] = constraintMod.ExistingRowsCheckEnforcement == ConstraintEnforcement.NotSpecified
+                ? null : constraintMod.ExistingRowsCheckEnforcement.ToString();
             props["constraintNames"] = MapList(constraintMod.ConstraintNames, n => (object?)QuotedName(n));
         } else if (at is AlterTableAlterColumnStatement alterCol) {
             props["column"] = QuotedName(alterCol.ColumnIdentifier);

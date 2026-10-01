@@ -213,14 +213,14 @@ function generatedAlwaysKeyword(generatedAlways: string): string {
     const gaMap: Record<string, string> = {
         RowStart: 'ROW START',
         RowEnd: 'ROW END',
-        UserIdStart: 'USER ID START',
-        UserIdEnd: 'USER ID END',
-        UserNameStart: 'USER NAME START',
-        UserNameEnd: 'USER NAME END',
-        TransactionIdStart: 'TRANSACTION ID START',
-        TransactionIdEnd: 'TRANSACTION ID END',
-        SequenceNumberStart: 'SEQUENCE NUMBER START',
-        SequenceNumberEnd: 'SEQUENCE NUMBER END',
+        UserIdStart: 'SUSER_SID START',
+        UserIdEnd: 'SUSER_SID END',
+        UserNameStart: 'SUSER_SNAME START',
+        UserNameEnd: 'SUSER_SNAME END',
+        TransactionIdStart: 'TRANSACTION_ID START',
+        TransactionIdEnd: 'TRANSACTION_ID END',
+        SequenceNumberStart: 'SEQUENCE_NUMBER START',
+        SequenceNumberEnd: 'SEQUENCE_NUMBER END',
     };
     return gaMap[generatedAlways] ?? generatedAlways.toUpperCase();
 }
@@ -333,7 +333,8 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         // inside the comment, and the output wouldn't parse.
         const needsBreak = boolEndsWithPendingComment(checkConstraint);
         const checkDoc = printBool(checkConstraint, opts);
-        parts.push(' ', checkPrefix, keyword('CHECK', opts), ' (', checkDoc, needsBreak ? hardline : '', ')');
+        const checkNfr: Doc = propBool(node, 'checkNotForReplication') ? [' ', keyword('NOT FOR REPLICATION', opts)] : '';
+        parts.push(' ', checkPrefix, keyword('CHECK', opts), checkNfr, ' (', checkDoc, needsBreak ? hardline : '', ')');
     }
 
     // Inline PRIMARY KEY / UNIQUE constraint (e.g. in table variable declarations)
@@ -363,7 +364,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
 
     // Inline REFERENCES (column-level foreign key: col type [CONSTRAINT name] REFERENCES Table(col))
     const foreignKey = node.props?.['foreignKey'] as
-        | { constraintName?: string; refTable: SqlNode | null; refColumns?: string[]; deleteAction?: string; updateAction?: string }
+        | { constraintName?: string; refTable: SqlNode | null; refColumns?: string[]; deleteAction?: string; updateAction?: string; notForReplication?: boolean }
         | null
         | undefined;
     if (foreignKey) {
@@ -400,6 +401,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
                 ),
             );
         }
+        if (foreignKey.notForReplication) parts.push(' ', keyword('NOT FOR REPLICATION', opts));
     }
 
     // Column-level INDEX ix [CLUSTERED | NONCLUSTERED]
@@ -600,11 +602,19 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             constraintNames.length > 0
                 ? group([indent([softline, join([',', line], constraintNames)])])
                 : keyword('ALL', opts);
+        const modCheck = propStr(node, 'withCheckEnforcement');
+        const modCheckPrefix: Doc =
+            modCheck === 'Check'
+                ? [keyword('WITH CHECK', opts), ' ']
+                : modCheck === 'NoCheck'
+                  ? [keyword('WITH NOCHECK', opts), ' ']
+                  : '';
         return [
             keyword('ALTER TABLE', opts),
             ' ',
             name,
             hardline,
+            modCheckPrefix,
             enforcementKw,
             ' ',
             keyword('CONSTRAINT', opts),
