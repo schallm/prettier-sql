@@ -2174,6 +2174,154 @@ server s;
 "
 `;
 
+exports[`fixtures > p5/expression-nodes.sql 1`] = `
+"insert into t (a)
+values
+  (default), (1);
+
+insert into t (a, b)
+values (default, default);
+
+update t
+set b = default;
+
+update t
+set (a, b) = (1, 2);
+
+update t
+set (a, b) = (
+  select
+    1,
+    2
+);
+
+update t
+set (a, b) = row(1, 2);
+
+update t
+set
+  (a, b) = (1, 2), c = 3, (d[1], e.f) = (4, 5);
+
+update t
+set (a) = 1;
+
+update t
+set
+  a = 1, (b, c) = (
+    select
+      x,
+      y
+    from u
+    where u.id = t.id
+  )
+where id = 5;
+
+insert into t
+values (1, 2)
+on conflict (a) do update
+set (b, c) = (excluded.b, excluded.c);
+
+merge into t
+using u
+on t.a = u.a
+when matched then
+  update set
+    (a, b) = (u.a, u.b);
+
+merge into t
+using u
+on t.a = u.a
+when matched then
+  update set
+    (a, b) = (
+      select
+        1,
+        2
+    );
+
+select a collate "C"
+from t;
+
+select *
+from t
+order by a collate "C";
+
+select *
+from t
+where a collate "C" = 'x';
+
+select *
+from t
+where a collate "C" > b collate pg_catalog."default";
+
+select (a || b) collate "C"
+from t;
+
+select a || b collate "C"
+from t;
+
+select *
+from t
+order by a collate "C" desc nulls last;
+
+select count(*) over (order by a collate "C")
+from t;
+
+select -a collate "C"
+from t;
+
+select (a collate "C")::text
+from t;
+
+select *
+from t
+group by a collate "C";
+
+select a collate "C" is null
+from t;
+
+select a collate "x y"
+from t;
+
+update t
+set a = 1
+where current of c;
+
+delete from t
+where current of "My Cursor";
+
+select merge_action();
+
+merge into t
+using u
+on t.a = u.a
+when matched then
+  delete
+returning
+  merge_action(),
+  t.*;
+
+select
+  b'101',
+  x'ff';
+
+select
+  b'',
+  x'AbC';
+
+insert into t
+values (b'1');
+
+create table t (
+  a bit(3) default b'101'
+);
+
+select *
+from t
+where x = b'01';
+"
+`;
+
 exports[`fixtures > p5/grant-object-types.sql 1`] = `
 "grant usage on foreign server s
 to u;

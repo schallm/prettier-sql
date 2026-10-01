@@ -290,11 +290,38 @@ public class AstBuilder {
         ));
     }
 
+    // The assignments of UPDATE SET / ON CONFLICT DO UPDATE SET / MERGE ... UPDATE SET. `(a, b) = (1, 2)`
+    // arrives as one ResTarget per column, each holding a MultiAssignRef that shares one source
+    // expression; fold those back into a single MultiAssignment.
+    private List<SqlNode>? BuildAssignments(IList<Node> targets) {
+        var result = new List<SqlNode>();
+        for (int i = 0; i < targets.Count; i++) {
+            var t = targets[i];
+            if (t.NodeCase == Node.NodeOneofCase.ResTarget && t.ResTarget.Val?.NodeCase == Node.NodeOneofCase.MultiAssignRef) {
+                var multi = t.ResTarget.Val.MultiAssignRef;
+                var columns = new List<SqlNode>();
+                for (int k = 0; k < multi.Ncolumns && i + k < targets.Count; k++) {
+                    var r = targets[i + k].ResTarget;
+                    columns.Add(new SqlNode("ResTarget", 0, 0, null, BuildProps(
+                        ("name", Ident.QuoteOpt(r.Name)),
+                        ("indirection", r.Indirection.Count > 0 ? MaybeList(BuildIndirectionList(r.Indirection)) : null))));
+                }
+                result.Add(new SqlNode("MultiAssignment", 0, 0, null, BuildProps(
+                    ("columns", columns),
+                    ("source",  BuildExpr(multi.Source)))));
+                i += multi.Ncolumns - 1;
+            } else {
+                result.Add(BuildExpr(t));
+            }
+        }
+        return result.Count > 0 ? result : null;
+    }
+
     private SqlNode BuildUpdate(UpdateStmt s, int start, int end) =>
         new("UpdateStatement", start, end, null, BuildProps(
             ("ctes",      s.WithClause != null ? BuildWithClause(s.WithClause) : null),
             ("target",    BuildRangeVar(s.Relation)),
-            ("sets",      MapList(s.TargetList, BuildExpr)),
+            ("sets",      BuildAssignments(s.TargetList)),
             ("from",      MapList(s.FromClause, BuildFromItem)),
             ("where",     BuildExpr(s.WhereClause)),
             ("returning", MapList(s.ReturningList, BuildExpr))
@@ -673,6 +700,17 @@ public class AstBuilder {
             Node.NodeOneofCase.GroupingFunc => BuildGroupingFunc(node.GroupingFunc),
             Node.NodeOneofCase.Constraint   => BuildConstraint(node.Constraint),
             Node.NodeOneofCase.MergeWhenClause => BuildMergeWhen(node.MergeWhenClause),
+            // INSERT ... VALUES (DEFAULT) / UPDATE ... SET a = DEFAULT
+            Node.NodeOneofCase.SetToDefault => new SqlNode("SetToDefault", 0, 0, null, null),
+            // expr COLLATE "C"
+            Node.NodeOneofCase.CollateClause => new SqlNode("Collate", 0, 0, null, BuildProps(
+                ("arg",       BuildExpr(node.CollateClause.Arg)),
+                ("collation", Ident.Qualified(node.CollateClause.Collname.Select(c => c.String.Sval))))),
+            // WHERE CURRENT OF cursor
+            Node.NodeOneofCase.CurrentOfExpr => new SqlNode("CurrentOf", 0, 0, null, BuildProps(
+                ("cursor", node.CurrentOfExpr.CursorParam > 0 ? $"${node.CurrentOfExpr.CursorParam}" : Ident.Quote(node.CurrentOfExpr.CursorName)))),
+            // MERGE ... RETURNING merge_action()
+            Node.NodeOneofCase.MergeSupportFunc => new SqlNode("Literal", 0, 0, "merge_action()", null),
             Node.NodeOneofCase.XmlExpr              => BuildXmlExpr(node.XmlExpr),
             Node.NodeOneofCase.XmlSerialize         => BuildXmlSerialize(node.XmlSerialize),
             Node.NodeOneofCase.JsonFuncExpr         => BuildJsonFuncExpr(node.JsonFuncExpr),
@@ -710,8 +748,9 @@ public class AstBuilder {
             A_Const.ValOneofCase.Fval => c.Fval.Fval,
             A_Const.ValOneofCase.Sval => $"'{c.Sval.Sval.Replace("'", "''")}'",
             A_Const.ValOneofCase.Boolval => c.Boolval.Boolval ? "true" : "false",
-            // Unknown constant kind (e.g. bit-string BsVal): fail loudly rather than
-            // silently drop the literal — this previously vanished with no trace at all.
+            // Bit strings keep their B / X prefix in the value: B'101', X'ff'
+            A_Const.ValOneofCase.Bsval => $"{char.ToLowerInvariant(c.Bsval.Bsval[0])}'{c.Bsval.Bsval.Substring(1)}'",
+            // Unknown constant kind: fail loudly rather than silently drop the literal
             _ => throw NotSupported($"constant ({c.ValCase})", c.Location),
         };
         return new SqlNode("Literal", 0, 0, text, null);
@@ -992,7 +1031,7 @@ public class AstBuilder {
             SubLinkType.ExistsSublink => "EXISTS",
             SubLinkType.AllSublink => "ALL",
             SubLinkType.AnySublink => "ANY",
-            SubLinkType.ExprSublink => "SCALAR",
+            SubLinkType.ExprSublink or SubLinkType.MultiexprSublink => "SCALAR",
             SubLinkType.ArraySublink => "ARRAY",
             SubLinkType.RowcompareSublink => "ROWCOMPARE",
             _ => s.SubLinkType.ToString(),
@@ -1308,7 +1347,7 @@ public class AstBuilder {
         return new SqlNode("OnConflict", 0, 0, null, BuildProps(
             ("action", action),
             ("target", c.Infer != null ? BuildInferClause(c.Infer) : null),
-            ("sets",   MapList(c.TargetList, BuildExpr)),
+            ("sets",   BuildAssignments(c.TargetList)),
             ("where",  c.WhereClause != null ? BuildExpr(c.WhereClause) : null)
         ));
     }
@@ -2399,7 +2438,7 @@ public class AstBuilder {
             ("matchKind", matchKind),
             ("cmd",       cmd),
             ("condition", BuildExpr(w.Condition)),
-            ("targets",   MapList(w.TargetList, BuildExpr)),
+            ("targets",   w.CommandType == CmdType.CmdUpdate ? BuildAssignments(w.TargetList) : MapList(w.TargetList, BuildExpr)),
             ("override",  w.Override switch {
                 OverridingKind.OverridingUserValue   => "USER",
                 OverridingKind.OverridingSystemValue => "SYSTEM",

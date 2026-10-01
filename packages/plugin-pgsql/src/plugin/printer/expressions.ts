@@ -62,6 +62,12 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'NamedArg':       return printNamedArg(node, opts, printNode);
         case 'GroupingSet':    return printGroupingSet(node, opts, printNode);
         case 'GroupingFunc':     return printGroupingFunc(node, opts, printNode);
+        case 'SetToDefault':     return keyword('DEFAULT', opts);
+        case 'Collate': {
+            const arg = prop(node, 'arg');
+            return [arg ? printOperand(arg, PREC.AT, printNode) : '', ' ', keyword('COLLATE', opts), ' ', propStr(node, 'collation') ?? ''];
+        }
+        case 'CurrentOf':        return [keyword('CURRENT OF', opts), ' ', propStr(node, 'cursor') ?? ''];
         case 'IntervalLiteral':  return printIntervalLiteral(node, opts, printNode);
         // value FORMAT JSON — a JSON constructor argument that is already JSON text
         case 'JsonFormatted': {
@@ -155,6 +161,8 @@ function precedence(node: SqlNode): number {
         }
         case 'Cast':
             return PREC.CAST;
+        case 'Collate':
+            return PREC.AT;
         case 'Literal':
             // A negative numeric constant reads as unary minus: `(-1)::int`, not `-1::int`
             return node.text?.startsWith('-') ? PREC.UNARY : PREC.ATOM;
@@ -923,6 +931,10 @@ export function printAssignTarget(t: SqlNode, printNode: PrintFn): Doc {
 
 /** One `col = value` entry of SET / DO UPDATE SET / WHEN MATCHED THEN UPDATE SET. */
 export function printAssignment(t: SqlNode, printNode: PrintFn): Doc {
+    if (t.type === 'MultiAssignment') {
+        const source = prop(t, 'source');
+        return ['(', join(', ', propArr(t, 'columns').map((c) => printAssignTarget(c, printNode))), ') = ', source ? printNode(source) : ''];
+    }
     const val = prop(t, 'val');
     return [printAssignTarget(t, printNode), ' = ', val ? printNode(val) : ''];
 }
