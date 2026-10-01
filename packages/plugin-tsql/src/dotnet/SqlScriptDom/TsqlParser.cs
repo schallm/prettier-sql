@@ -13,6 +13,8 @@ public static class TsqlParser {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         WriteIndented = false,
+        // A long chain of AND, + or JOIN is a left-nested tree, two JSON levels per term: the default of 64 allows only ~30
+        MaxDepth = 100_000,
     };
 
     /// <summary>
@@ -132,7 +134,7 @@ public static class TsqlParser {
             .Select(t => t.Text.Trim());
         return JsonSerializer.Serialize(
             new { tree = CanonicalNode(fragment), comments, goCounts = gos.Where(g => g.Count != null).Select(g => g.Count) },
-            new JsonSerializerOptions { WriteIndented = true });
+            new JsonSerializerOptions { WriteIndented = true, MaxDepth = 100_000 });
     }
 
     // Properties that record where something was written, not what it means.
