@@ -753,6 +753,7 @@ function printAlterCmd(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const newType = propStr(node, 'newType');
     const expr    = prop(node, 'expr');
     const def     = prop(node, 'def');
+    const value   = propStr(node, 'value');
     const missingOk = propBool(node, 'ifExists');
     const ifExists: Doc = missingOk ? [makeKeyword('IF EXISTS'), ' '] : '';
     const cascade: Doc = propBool(node, 'cascade') ? [' ', makeKeyword('CASCADE')] : '';
@@ -786,9 +787,102 @@ function printAlterCmd(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
             return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('SET NOT NULL')];
         case 'DROP NOT NULL':
             return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('DROP NOT NULL')];
+        case 'DROP EXPRESSION':
+            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('DROP EXPRESSION'), missingOk ? [' ', makeKeyword('IF EXISTS')] : ''];
+        case 'ADD IDENTITY':
+            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('ADD'), ' ', def ? printNode(def) : ''];
+        case 'DROP IDENTITY':
+            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('DROP IDENTITY'), missingOk ? [' ', makeKeyword('IF EXISTS')] : ''];
+        case 'SET IDENTITY':
+            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', join(' ', propStrArr(node, 'options').map((o) => makeKeyword(o)))];
+        case 'SET STATISTICS':
+            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('SET STATISTICS'), ' ', value !== null ? value : makeKeyword('DEFAULT')];
+        case 'SET COLUMN OPTIONS':
+            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('SET'), ' (', join(', ', propStrArr(node, 'options')), ')'];
+        case 'RESET COLUMN OPTIONS':
+            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('RESET'), ' (', join(', ', propStrArr(node, 'options')), ')'];
+        case 'SET STORAGE':
+            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('SET STORAGE'), ' ', makeKeyword(value ?? '')];
+        case 'SET COMPRESSION':
+            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('SET COMPRESSION'), ' ', value === 'default' ? makeKeyword('DEFAULT') : (value ?? '')];
+        case 'SET EXPRESSION':
+            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('SET EXPRESSION AS'), ' (', expr ? printNode(expr) : '', ')'];
+        case 'ALTER COLUMN OPTIONS':
+            return [makeKeyword('ALTER COLUMN'), ' ', name, printAlterOptions(node, opts)];
+        case 'OPTIONS':
+            return [makeKeyword('OPTIONS'), ' (', join(', ', alterOptionDocs(node, opts)), ')'];
+        case 'ALTER CONSTRAINT':
+            return [
+                makeKeyword('ALTER CONSTRAINT'), ' ', name, ' ',
+                propBool(node, 'deferrable') ? makeKeyword('DEFERRABLE') : makeKeyword('NOT DEFERRABLE'),
+                propBool(node, 'initDeferred') ? [' ', makeKeyword('INITIALLY DEFERRED')] : '',
+            ];
+        case 'SET REL OPTIONS':
+            return [makeKeyword('SET'), ' (', join(', ', propStrArr(node, 'options')), ')'];
+        case 'RESET REL OPTIONS':
+            return [makeKeyword('RESET'), ' (', join(', ', propStrArr(node, 'options')), ')'];
+        case 'INHERIT':
+        case 'NO INHERIT': {
+            const parent = prop(node, 'parent');
+            return [makeKeyword(subtype), ' ', parent ? rangeVarName(parent) : ''];
+        }
+        case 'OF':
+            return [makeKeyword('OF'), ' ', value ?? ''];
+        case 'REPLICA IDENTITY':
+            return [makeKeyword('REPLICA IDENTITY'), ' ', makeKeyword(value ?? ''), name ? [' ', name] : ''];
+        case 'ATTACH PARTITION': {
+            const parent = prop(node, 'parent');
+            const bound = prop(node, 'bound');
+            return [makeKeyword('ATTACH PARTITION'), ' ', parent ? rangeVarName(parent) : '', bound ? [' ', printPartitionBound(bound, opts)] : ''];
+        }
+        case 'DETACH PARTITION': {
+            const parent = prop(node, 'parent');
+            return [makeKeyword('DETACH PARTITION'), ' ', parent ? rangeVarName(parent) : '',
+                propBool(node, 'concurrently') ? [' ', makeKeyword('CONCURRENTLY')] : '',
+                propBool(node, 'finalize') ? [' ', makeKeyword('FINALIZE')] : ''];
+        }
+        // Everything else is a keyword phrase, optionally followed by the name it applies to
         default:
             return [makeKeyword(subtype), name ? [' ', name] : ''];
     }
+}
+
+/** The `ADD name 'value'` / `SET name 'value'` / `DROP name` entries of an ALTER ... OPTIONS list. */
+function alterOptionDocs(node: SqlNode, opts: Options): Doc[] {
+    return propArr(node, 'fdwOptions').map((o): Doc => {
+        const action = propStr(o, 'action');
+        const key = propStr(o, 'key') ?? '';
+        const val = propStr(o, 'val');
+        return [
+            action ? [keyword(action, opts), ' '] : '',
+            key,
+            val !== null ? [" '", val.replace(/'/g, "''"), "'"] : '',
+        ];
+    });
+}
+
+function printAlterOptions(node: SqlNode, opts: Options): Doc {
+    return [' ', keyword('OPTIONS', opts), ' (', join(', ', alterOptionDocs(node, opts)), ')'];
+}
+
+/** `FOR VALUES FROM (...) TO (...)`, `FOR VALUES IN (...)`, `FOR VALUES WITH (MODULUS m, REMAINDER r)` or `DEFAULT`. */
+export function printPartitionBound(bound: SqlNode, opts: Options): Doc {
+    const makeKeyword = (k: string) => keyword(k, opts);
+    const lower      = propStrArr(bound, 'lower');
+    const upper      = propStrArr(bound, 'upper');
+    const listDatums = propStrArr(bound, 'listDatums');
+    const modulus    = bound.props?.['modulus']  as number | undefined;
+    const remainder  = bound.props?.['remainder'] as number | undefined;
+
+    if (propBool(bound, 'isDefault')) return makeKeyword('DEFAULT');
+    if (lower.length > 0 || upper.length > 0) {
+        return [makeKeyword('FOR VALUES FROM'), ' (', join(', ', lower), ') ', makeKeyword('TO'), ' (', join(', ', upper), ')'];
+    }
+    if (listDatums.length > 0) return [makeKeyword('FOR VALUES IN'), ' (', join(', ', listDatums), ')'];
+    if (modulus !== undefined && remainder !== undefined) {
+        return [makeKeyword('FOR VALUES WITH'), ' (', makeKeyword('MODULUS'), ' ', String(modulus), ', ', makeKeyword('REMAINDER'), ' ', String(remainder), ')'];
+    }
+    return '';
 }
 
 function printFunctionParam(node: SqlNode, opts: Options, printNode: PrintFn): Doc {

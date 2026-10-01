@@ -16,7 +16,7 @@ import {
     line,
 } from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions } from './helpers.js';
-import { printExpression, printAssignTarget, printAssignment, printWindowDef, printOperand, PREC, tableAliasDoc } from './expressions.js';
+import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, printOperand, PREC, tableAliasDoc } from './expressions.js';
 
 // ---------------------------------------------------------------------------
 // Script root
@@ -1842,30 +1842,8 @@ function printCreateTablePartitionOf(node: SqlNode, opts: Options): Doc {
            ' (', join(', ', propStrArr(partitionBy, 'columns')), ')']
         : '';
 
-    let boundDoc: Doc = '';
-    if (bound) {
-        const isDefault  = propBool(bound, 'isDefault');
-        const lower      = (bound.props?.['lower']      as string[] | undefined) ?? [];
-        const upper      = (bound.props?.['upper']      as string[] | undefined) ?? [];
-        const listDatums = (bound.props?.['listDatums'] as string[] | undefined) ?? [];
-        const modulus    = bound.props?.['modulus']  as number | undefined;
-        const remainder  = bound.props?.['remainder'] as number | undefined;
-
-        if (isDefault) {
-            boundDoc = [hardline, makeKeyword('DEFAULT')];
-        } else if (lower.length > 0 || upper.length > 0) {
-            boundDoc = [
-                hardline, makeKeyword('FOR VALUES FROM'),
-                ' (', join(', ', lower), ')',
-                ' ', makeKeyword('TO'),
-                ' (', join(', ', upper), ')',
-            ];
-        } else if (listDatums.length > 0) {
-            boundDoc = [hardline, makeKeyword('FOR VALUES IN'), ' (', join(', ', listDatums), ')'];
-        } else if (modulus !== undefined && remainder !== undefined) {
-            boundDoc = [hardline, makeKeyword('FOR VALUES WITH'), ' (', makeKeyword('MODULUS'), ' ', String(modulus), ', ', makeKeyword('REMAINDER'), ' ', String(remainder), ')'];
-        }
-    }
+    const boundText = bound ? printPartitionBound(bound, opts) : '';
+    const boundDoc: Doc = boundText !== '' ? [hardline, boundText] : '';
 
     return [
         makeKeyword('CREATE TABLE'), ' ', rangeVarName(name), hardline,

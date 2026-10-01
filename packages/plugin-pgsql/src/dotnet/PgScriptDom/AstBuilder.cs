@@ -437,13 +437,7 @@ public class AstBuilder {
         }
         var lowerDatums = partitionBound.Lowerdatums.Select(BuildPartitionDatum).OfType<string>().ToList();
         var upperDatums = partitionBound.Upperdatums.Select(BuildPartitionDatum).OfType<string>().ToList();
-        var listDatums  = partitionBound.Listdatums.Select(n => {
-            if (n.NodeCase == Node.NodeOneofCase.AConst) {
-                var v = BuildAConst(n.AConst);
-                return v.Text;
-            }
-            return null;
-        }).OfType<string>().ToList();
+        var listDatums  = partitionBound.Listdatums.Select(BuildPartitionDatum).OfType<string>().ToList();
 
         return new SqlNode("PartitionBound", 0, 0, null, BuildProps(
             ("lower",      MaybeList(lowerDatums)),
@@ -465,7 +459,7 @@ public class AstBuilder {
                 : "";
             return name.ToUpper();
         }
-        return null;
+        throw NotSupported($"partition bound value ({n.NodeCase})", TryGetLocation(GetOneofValue(n)));
     }
 
     private SqlNode BuildAlterTable(AlterTableStmt s, int start, int end) =>
@@ -1528,46 +1522,208 @@ public class AstBuilder {
         return BuildAlterCmd(n.AlterTableCmd);
     }
 
+    // ALTER TABLE / INDEX / VIEW / MATERIALIZED VIEW / FOREIGN TABLE / SEQUENCE subcommands.
+    // `subtype` is the SQL keyword text of the command; commands that name something (a column,
+    // trigger, rule, index, tablespace, ...) carry it in `name`, and the printer's fallback
+    // prints `subtype name` for the ones with nothing else to say.
     private SqlNode BuildAlterCmd(AlterTableCmd cmd) {
+        string? name = Ident.QuoteOpt(cmd.Name);
+        string? value = null;           // statistics target, storage mode, compression method, replica identity, ...
+        object? options = null;         // SET (...) / RESET (...) / identity changes: a list of strings
+        object? fdwOptions = null;      // OPTIONS (ADD ..., SET ..., DROP ...)
+        SqlNode? parent = null;         // INHERIT / NO INHERIT / ATTACH / DETACH target
+        SqlNode? bound = null;
+        string? newType = null;
+        bool concurrently = false;
+        bool finalize = false;
+        var def = cmd.Def;
+
         var subtype = cmd.Subtype switch {
             AlterTableType.AtAddColumn       => "ADD COLUMN",
             AlterTableType.AtDropColumn      => "DROP COLUMN",
             AlterTableType.AtAddConstraint   => "ADD CONSTRAINT",
             AlterTableType.AtDropConstraint  => "DROP CONSTRAINT",
             AlterTableType.AtAlterColumnType => "ALTER COLUMN TYPE",
-            AlterTableType.AtColumnDefault   => cmd.Def != null ? "SET DEFAULT" : "DROP DEFAULT",
+            AlterTableType.AtColumnDefault   => def != null ? "SET DEFAULT" : "DROP DEFAULT",
             AlterTableType.AtSetNotNull      => "SET NOT NULL",
             AlterTableType.AtDropNotNull     => "DROP NOT NULL",
+            AlterTableType.AtDropExpression  => "DROP EXPRESSION",
+            AlterTableType.AtAddIdentity     => "ADD IDENTITY",
+            AlterTableType.AtDropIdentity    => "DROP IDENTITY",
+            AlterTableType.AtSetIdentity     => "SET IDENTITY",
+            AlterTableType.AtSetStatistics   => "SET STATISTICS",
+            AlterTableType.AtSetOptions      => "SET COLUMN OPTIONS",
+            AlterTableType.AtResetOptions    => "RESET COLUMN OPTIONS",
+            AlterTableType.AtSetStorage      => "SET STORAGE",
+            AlterTableType.AtSetCompression  => "SET COMPRESSION",
+            AlterTableType.AtSetExpression   => "SET EXPRESSION",
+            AlterTableType.AtAlterColumnGenericOptions => "ALTER COLUMN OPTIONS",
+            AlterTableType.AtValidateConstraint => "VALIDATE CONSTRAINT",
+            AlterTableType.AtAlterConstraint => "ALTER CONSTRAINT",
+            AlterTableType.AtChangeOwner     => "OWNER TO",
+            AlterTableType.AtSetTableSpace   => "SET TABLESPACE",
+            AlterTableType.AtSetAccessMethod => "SET ACCESS METHOD",
+            AlterTableType.AtSetRelOptions   => "SET REL OPTIONS",
+            AlterTableType.AtResetRelOptions => "RESET REL OPTIONS",
+            AlterTableType.AtEnableTrig         => "ENABLE TRIGGER",
+            AlterTableType.AtEnableAlwaysTrig   => "ENABLE ALWAYS TRIGGER",
+            AlterTableType.AtEnableReplicaTrig  => "ENABLE REPLICA TRIGGER",
+            AlterTableType.AtDisableTrig        => "DISABLE TRIGGER",
+            AlterTableType.AtEnableTrigAll      => "ENABLE TRIGGER ALL",
+            AlterTableType.AtDisableTrigAll     => "DISABLE TRIGGER ALL",
+            AlterTableType.AtEnableTrigUser     => "ENABLE TRIGGER USER",
+            AlterTableType.AtDisableTrigUser    => "DISABLE TRIGGER USER",
+            AlterTableType.AtEnableRule         => "ENABLE RULE",
+            AlterTableType.AtEnableAlwaysRule   => "ENABLE ALWAYS RULE",
+            AlterTableType.AtEnableReplicaRule  => "ENABLE REPLICA RULE",
+            AlterTableType.AtDisableRule        => "DISABLE RULE",
+            AlterTableType.AtEnableRowSecurity  => "ENABLE ROW LEVEL SECURITY",
+            AlterTableType.AtDisableRowSecurity => "DISABLE ROW LEVEL SECURITY",
+            AlterTableType.AtForceRowSecurity   => "FORCE ROW LEVEL SECURITY",
+            AlterTableType.AtNoForceRowSecurity => "NO FORCE ROW LEVEL SECURITY",
+            AlterTableType.AtClusterOn          => "CLUSTER ON",
+            AlterTableType.AtDropCluster        => "SET WITHOUT CLUSTER",
+            AlterTableType.AtSetLogged          => "SET LOGGED",
+            AlterTableType.AtSetUnLogged        => "SET UNLOGGED",
+            AlterTableType.AtDropOids           => "SET WITHOUT OIDS",
+            AlterTableType.AtAddInherit         => "INHERIT",
+            AlterTableType.AtDropInherit        => "NO INHERIT",
+            AlterTableType.AtAddOf              => "OF",
+            AlterTableType.AtDropOf             => "NOT OF",
+            AlterTableType.AtReplicaIdentity    => "REPLICA IDENTITY",
+            AlterTableType.AtAttachPartition    => "ATTACH PARTITION",
+            AlterTableType.AtDetachPartition or AlterTableType.AtDetachPartitionFinalize => "DETACH PARTITION",
+            AlterTableType.AtGenericOptions     => "OPTIONS",
             // Anything else used to print its enum name (`changeowner`, `settablespace`):
             // invalid SQL. Fail loudly instead, like every other unmapped construct.
             _ => throw NotSupported($"ALTER TABLE subcommand ({cmd.Subtype})", null),
         };
-        string? newType = null;
-        if (cmd.Subtype == AlterTableType.AtAlterColumnType && cmd.Def?.NodeCase == Node.NodeOneofCase.ColumnDef
-            && cmd.Def.ColumnDef.TypeName != null)
-            newType = BuildPgTypeName(cmd.Def.ColumnDef.TypeName);
+
+        switch (cmd.Subtype) {
+            case AlterTableType.AtAlterColumnType when def?.NodeCase == Node.NodeOneofCase.ColumnDef && def.ColumnDef.TypeName != null:
+                newType = BuildPgTypeName(def.ColumnDef.TypeName);
+                break;
+            // ALTER COLUMN 2 SET STATISTICS n on an index names its column by position
+            case AlterTableType.AtSetStatistics:
+                if (string.IsNullOrEmpty(cmd.Name) && cmd.Num > 0) name = cmd.Num.ToString();
+                value = def?.NodeCase == Node.NodeOneofCase.Integer ? def.Integer.Ival.ToString()
+                    : def?.NodeCase == Node.NodeOneofCase.AConst && def.AConst.ValCase == A_Const.ValOneofCase.Ival ? def.AConst.Ival.Ival.ToString()
+                    : null;
+                break;
+            case AlterTableType.AtSetStorage or AlterTableType.AtSetCompression:
+                value = def?.NodeCase == Node.NodeOneofCase.String ? def.String.Sval : null;
+                break;
+            case AlterTableType.AtSetOptions or AlterTableType.AtResetOptions
+                or AlterTableType.AtSetRelOptions or AlterTableType.AtResetRelOptions:
+                options = def?.NodeCase == Node.NodeOneofCase.List ? StorageOptions(def.List.Items) : null;
+                break;
+            case AlterTableType.AtSetIdentity when def?.NodeCase == Node.NodeOneofCase.List:
+                options = MaybeList(BuildIdentityChanges(def.List.Items));
+                break;
+            case AlterTableType.AtSetExpression:
+                break;
+            case AlterTableType.AtChangeOwner:
+                name = RoleSpecName(cmd.Newowner);
+                break;
+            case AlterTableType.AtAlterConstraint when def?.NodeCase == Node.NodeOneofCase.Constraint:
+                name = Ident.QuoteOpt(def.Constraint.Conname);
+                break;
+            case AlterTableType.AtAddInherit or AlterTableType.AtDropInherit when def?.NodeCase == Node.NodeOneofCase.RangeVar:
+                parent = BuildRangeVar(def.RangeVar);
+                break;
+            case AlterTableType.AtAddOf when def?.NodeCase == Node.NodeOneofCase.TypeName:
+                value = BuildPgTypeName(def.TypeName);
+                break;
+            case AlterTableType.AtReplicaIdentity when def?.NodeCase == Node.NodeOneofCase.ReplicaIdentityStmt:
+                var ri = def.ReplicaIdentityStmt;
+                value = ri.IdentityType switch {
+                    "d" => "DEFAULT",
+                    "f" => "FULL",
+                    "n" => "NOTHING",
+                    "i" => "USING INDEX",
+                    _   => throw NotSupported($"REPLICA IDENTITY ({ri.IdentityType})", null),
+                };
+                if (ri.IdentityType == "i") name = Ident.QuoteOpt(ri.Name);
+                break;
+            case AlterTableType.AtAttachPartition or AlterTableType.AtDetachPartition or AlterTableType.AtDetachPartitionFinalize
+                when def?.NodeCase == Node.NodeOneofCase.PartitionCmd:
+                parent = BuildRangeVar(def.PartitionCmd.Name);
+                bound = def.PartitionCmd.Bound != null ? BuildPartitionBound(def.PartitionCmd.Bound) : null;
+                concurrently = def.PartitionCmd.Concurrent;
+                finalize = cmd.Subtype == AlterTableType.AtDetachPartitionFinalize;
+                break;
+            case AlterTableType.AtGenericOptions or AlterTableType.AtAlterColumnGenericOptions:
+                fdwOptions = def?.NodeCase == Node.NodeOneofCase.List ? BuildGenericOptionActions(def.List.Items) : null;
+                break;
+        }
 
         return new SqlNode("AlterCmd", 0, 0, null, BuildProps(
             ("subtype", subtype),
-            ("name",    Ident.QuoteOpt(cmd.Name)),
+            ("name",    name),
             ("newType", newType),
             // ALTER COLUMN a TYPE text COLLATE "C"
-            ("collation", cmd.Subtype == AlterTableType.AtAlterColumnType && cmd.Def?.ColumnDef?.CollClause != null
-                        ? Ident.Qualified(cmd.Def.ColumnDef.CollClause.Collname.Select(c => c.String.Sval)) : null),
+            ("collation", cmd.Subtype == AlterTableType.AtAlterColumnType && def?.ColumnDef?.CollClause != null
+                        ? Ident.Qualified(def.ColumnDef.CollClause.Collname.Select(c => c.String.Sval)) : null),
             // ALTER COLUMN a TYPE bigint USING a::bigint: how to convert existing values
-            ("using",   cmd.Subtype == AlterTableType.AtAlterColumnType && cmd.Def?.ColumnDef?.RawDefault != null
-                        ? BuildExpr(cmd.Def.ColumnDef.RawDefault) : null),
-            ("expr",    cmd.Subtype == AlterTableType.AtColumnDefault && cmd.Def != null ? BuildExpr(cmd.Def) : null),
-            ("def",     cmd.Subtype == AlterTableType.AtAddColumn && cmd.Def?.NodeCase == Node.NodeOneofCase.ColumnDef
-                        ? BuildColumnDef(cmd.Def.ColumnDef)
-                        : cmd.Subtype == AlterTableType.AtAddConstraint && cmd.Def?.NodeCase == Node.NodeOneofCase.Constraint
-                        ? BuildConstraint(cmd.Def.Constraint)
+            ("using",   cmd.Subtype == AlterTableType.AtAlterColumnType && def?.ColumnDef?.RawDefault != null
+                        ? BuildExpr(def.ColumnDef.RawDefault) : null),
+            ("expr",    cmd.Subtype is AlterTableType.AtColumnDefault or AlterTableType.AtSetExpression && def != null ? BuildExpr(def) : null),
+            ("def",     cmd.Subtype == AlterTableType.AtAddColumn && def?.NodeCase == Node.NodeOneofCase.ColumnDef
+                        ? BuildColumnDef(def.ColumnDef)
+                        : cmd.Subtype is AlterTableType.AtAddConstraint or AlterTableType.AtAddIdentity && def?.NodeCase == Node.NodeOneofCase.Constraint
+                        ? BuildConstraint(def.Constraint)
                         : null),
+            ("value",   value),
+            ("options", options),
+            ("fdwOptions", fdwOptions),
+            ("parent",  parent),
+            ("bound",   bound),
+            ("concurrently", concurrently ? true : null),
+            ("finalize", finalize ? true : null),
+            // ALTER CONSTRAINT c [NOT] DEFERRABLE [INITIALLY DEFERRED]
+            ("deferrable",   cmd.Subtype == AlterTableType.AtAlterConstraint && def?.Constraint?.Deferrable == true ? true : null),
+            ("initDeferred", cmd.Subtype == AlterTableType.AtAlterConstraint && def?.Constraint?.Initdeferred == true ? true : null),
             // MissingOk means IF NOT EXISTS for ADD COLUMN and IF EXISTS for the DROPs
             ("ifExists", cmd.MissingOk ? true : null),
             ("cascade",  cmd.Behavior == DropBehavior.DropCascade ? true : null)
         ));
     }
+
+    // ALTER COLUMN ... SET GENERATED ALWAYS / SET INCREMENT BY 2 / RESTART [WITH n]: one change per DefElem
+    private List<string> BuildIdentityChanges(IEnumerable<Node> items) {
+        var result = new List<string>();
+        foreach (var n in items) {
+            if (n.NodeCase != Node.NodeOneofCase.DefElem) continue;
+            var d = n.DefElem;
+            if (d.Defname == "generated") {
+                var when = d.Arg?.NodeCase == Node.NodeOneofCase.Integer ? d.Arg.Integer.Ival : 0;
+                result.Add(when switch {
+                    97  => "SET GENERATED ALWAYS",
+                    100 => "SET GENERATED BY DEFAULT",
+                    _   => throw NotSupported($"identity generation ({when})", d.Location),
+                });
+                continue;
+            }
+            var text = ParseSeqOptions(new Google.Protobuf.Collections.RepeatedField<Node> { n })[0];
+            result.Add(d.Defname == "restart" ? text : "SET " + text);
+        }
+        return result;
+    }
+
+    // OPTIONS (ADD host 'x', SET port '1', DROP z) of ALTER FOREIGN TABLE / ALTER COLUMN
+    private static object? BuildGenericOptionActions(IEnumerable<Node> items) =>
+        MaybeList(items
+            .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
+            .Select(n => (object?)new SqlNode("FdwOption", 0, 0, null, BuildProps(
+                ("action", n.DefElem.Defaction switch {
+                    DefElemAction.DefelemAdd  => "ADD",
+                    DefElemAction.DefelemSet  => "SET",
+                    DefElemAction.DefelemDrop => "DROP",
+                    _ => null,
+                }),
+                ("key", n.DefElem.Defname),
+                ("val", n.DefElem.Arg?.NodeCase == Node.NodeOneofCase.String ? n.DefElem.Arg.String.Sval : null))))
+            .ToList());
 
     private SqlNode? BuildFunctionParam(Node n) {
         if (n.NodeCase != Node.NodeOneofCase.FunctionParameter) return null;
