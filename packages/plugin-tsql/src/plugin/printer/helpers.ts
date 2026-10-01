@@ -34,6 +34,16 @@ export { prop, propArr, propStr, propBool, propStrArr };
 const claimedComments = new WeakSet<SqlNode>();
 const printedComments = new WeakSet<SqlNode>();
 const printedLeading = new WeakSet<SqlNode>();
+/** Statements standing alone as an IF/ELSE/WHILE body, with no BEGIN/END around them. */
+const singleBodies = new WeakSet<SqlNode>();
+
+export function markSingleBody(node: SqlNode): void {
+    singleBodies.add(node);
+}
+
+export function isSingleBody(node: SqlNode): boolean {
+    return singleBodies.has(node);
+}
 
 /** Marks a node's leadingComments as printed, and returns them. */
 export function takeLeadingComments(node: SqlNode): string[] {

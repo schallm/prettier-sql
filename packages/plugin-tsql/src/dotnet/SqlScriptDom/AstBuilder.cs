@@ -1059,15 +1059,23 @@ public class AstBuilder : TSqlFragmentVisitor {
     /// </summary>
     private static SqlNode LeafStatement(TSqlStatement stmt) {
         var stream = stmt.ScriptTokenStream;
-        if (stream == null || stmt.FirstTokenIndex < 0 || _stmtLimit == null || !_stmtLimit.TryGetValue(stmt, out var limit))
+        if (stream == null || stmt.FirstTokenIndex < 0)
             return Leaf("Statement", stmt, RawText(stmt, keepComments: true));
+        // The last statement of a BEGIN ... END, TRY or IF has no next statement to stop at: it runs
+        // to the END or ELSE that closes it (a CASE ... END inside it doesn't count), or to the batch's end
+        var hasLimit = _stmtLimit != null && _stmtLimit.TryGetValue(stmt, out _);
+        var limit = hasLimit ? _stmtLimit![stmt] : stream.Count;
         var last = Math.Min(stmt.LastTokenIndex, stream.Count - 1);
         var end = last;
+        var caseDepth = 0;
         for (var i = last + 1; i < Math.Min(limit, stream.Count); i++) {
             var type = stream[i].TokenType;
             if (type is TSqlTokenType.Go or TSqlTokenType.EndOfFile) break;
+            if (!hasLimit && caseDepth == 0 && type is TSqlTokenType.End or TSqlTokenType.Else) break;
             if (type is TSqlTokenType.WhiteSpace or TSqlTokenType.Semicolon
                 or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment) continue;
+            if (type == TSqlTokenType.Case) caseDepth++;
+            else if (type == TSqlTokenType.End) caseDepth--;
             end = i;
         }
         if (end == last) return Leaf("Statement", stmt, RawText(stmt, keepComments: true));

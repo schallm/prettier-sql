@@ -3,7 +3,7 @@ import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
 import { keyword, hardline, softline, join, indent, group, onOffKw, line, getDensity, parenList, parenListFill, commaFill } from '@prettier-sql/core/printer/utils';
 import { boolEndsWithPendingComment } from './expressions.js';
-import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, assignmentOp, withTrailingComment } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, assignmentOp, withTrailingComment, markSingleBody, isSingleBody } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
 import { printStatementWithComments, joinBodyStatements, printNode, printBool, qexpr } from './statements.js';
@@ -85,17 +85,15 @@ export function printDeclareVariable(node: SqlNode, opts: Options): Doc {
                 ? [dtDoc, `(${(params as string[]).join(', ')})`]
                 : dtDoc;
         const val = prop(d, 'value');
-        return [
-            keyword('DECLARE', opts),
-            ' ',
-            name,
-            ' ',
-            typeStr,
-            ...(val ? [' = ', printNode(val, opts)] : []),
-            ';',
-        ] as Doc;
+        const inline: Doc = [name, ' ', typeStr, ...(val ? [' = ', printNode(val, opts)] : [])];
+        return { inline, doc: [keyword('DECLARE', opts), ' ', inline, ';'] as Doc };
     });
-    return join(hardline, declDocs);
+    // DECLARE @a int, @b int as the only statement of an IF or WHILE stays one statement
+    if (decls.length > 1 && isSingleBody(node)) {
+        const items = declDocs.map((d) => d.inline);
+        return [keyword('DECLARE', opts), ' ', join(', ', items), ';'];
+    }
+    return join(hardline, declDocs.map((d) => d.doc));
 }
 
 export function printDeclareTableVariable(node: SqlNode, opts: Options): Doc {
@@ -349,6 +347,7 @@ export function printStatementBlock(node: SqlNode, opts: Options): Doc {
             keyword('END', opts),
         ];
     }
+    markSingleBody(node);
     return indent([hardline, printStatementWithComments(node, opts)]);
 }
 
@@ -361,6 +360,7 @@ export function printIf(node: SqlNode, opts: Options): Doc {
     const condDoc = condition ? indent(printBool(condition, opts)) : '';
     // Single-statement body (no BEGIN/END): try inline, wrap to next line if too long.
     // BeginEndBlock always goes on a new line.
+    if (then) markSingleBody(then);
     const thenDoc = then
         ? then.type === 'BeginEndBlock'
             ? printStatementBlock(then, opts)
