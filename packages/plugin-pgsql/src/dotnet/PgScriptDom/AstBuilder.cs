@@ -3318,21 +3318,19 @@ public class AstBuilder {
     // P4: Security Labels
     // -------------------------------------------------------------------------
 
-    private static SqlNode BuildSecLabel(SecLabelStmt s, int start, int end) {
-        var objType = s.Objtype switch {
-            ObjectType.ObjectTable  => "table",
-            ObjectType.ObjectColumn => "column",
-            _                      => s.Objtype.ToString().ToLower(),
+    private SqlNode BuildSecLabel(SecLabelStmt s, int start, int end) {
+        var objType = ObjectTypeKw(s.Objtype).ToLowerInvariant();
+        string? objName = s.Object?.NodeCase switch {
+            Node.NodeOneofCase.List           => Ident.Qualified(s.Object.List.Items
+                .Where(n => n.NodeCase == Node.NodeOneofCase.String).Select(n => n.String.Sval)),
+            Node.NodeOneofCase.RangeVar       => RangeVarQualifiedName(s.Object.RangeVar),
+            Node.NodeOneofCase.ObjectWithArgs => OwaSignature(s.Object.ObjectWithArgs),
+            Node.NodeOneofCase.String         => Ident.Quote(s.Object.String.Sval),
+            Node.NodeOneofCase.TypeName       => TypeNameText(s.Object.TypeName),
+            Node.NodeOneofCase.Integer        => s.Object.Integer.Ival.ToString(),
+            Node.NodeOneofCase.Float          => s.Object.Float.Fval,
+            _ => throw NotSupported($"SECURITY LABEL target ({s.Object?.NodeCase})", null),
         };
-
-        string? objName = null;
-        if (s.Object?.NodeCase == Node.NodeOneofCase.List) {
-            objName = Ident.Qualified(s.Object.List.Items
-                .Where(n => n.NodeCase == Node.NodeOneofCase.String)
-                .Select(n => n.String.Sval));
-        } else if (s.Object?.NodeCase == Node.NodeOneofCase.RangeVar) {
-            objName = RangeVarQualifiedName(s.Object.RangeVar);
-        }
 
         return new SqlNode("SecurityLabelStatement", start, end, null, BuildProps(
             ("provider", s.Provider),

@@ -2237,6 +2237,16 @@ grant a to b;
 "
 `;
 
+exports[`fixtures > p5/security-label-targets.sql 1`] = `
+"security label on large object 1 is 'x';
+security label on domain d is 'x';
+security label on type t is 'x';
+security label on function f(integer) is 'x';
+security label on materialized view v is 'x';
+security label on event trigger e is 'x';
+"
+`;
+
 exports[`fixtures > select/advanced.sql 1`] = `
 "-- INTERVAL literals
 select
