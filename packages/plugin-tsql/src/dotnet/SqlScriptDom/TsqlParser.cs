@@ -175,6 +175,9 @@ public static class TsqlParser {
             // ORDER BY a and ORDER BY a ASC sort the same way
             case SortOrder.NotSpecified:
                 return System.Text.Json.Nodes.JsonValue.Create(nameof(SortOrder.Ascending));
+            // SELECT ALL a and SELECT a, COUNT(ALL a) and COUNT(a): ALL is what happens without it
+            case UniqueRowFilter.All:
+                return System.Text.Json.Nodes.JsonValue.Create(nameof(UniqueRowFilter.NotSpecified));
             case Enum e:
                 return System.Text.Json.Nodes.JsonValue.Create(e.ToString());
             // Parentheses are syntax: the tree's shape already records the grouping they

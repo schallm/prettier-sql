@@ -37,6 +37,8 @@ const BINARY_OP_MAP: Record<string, string> = {
     BitwiseAnd: '&',
     BitwiseOr:  '|',
     BitwiseXor: '^',
+    LeftShift:  '<<',
+    RightShift: '>>',
     Concatenate: '+',
     Concat:     '||',
 };

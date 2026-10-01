@@ -137,9 +137,9 @@ public class AstBuilder : TSqlFragmentVisitor {
     /// reserved word.  Plain names like "Books" or "dbo" are returned as-is;
     /// "My Column" becomes "[My Column]"; "key" becomes "[key]".
     /// </summary>
-    private static string? QuotedName(Identifier? id) {
-        if (id == null) return null;
-        var v = id.Value;
+    private static string? QuotedName(Identifier? id) => id == null ? null : QuotedText(id.Value);
+
+    private static string? QuotedText(string? v) {
         if (string.IsNullOrEmpty(v)) return v;
         bool needsBrackets = _reservedWords.Contains(v) ||
             !System.Text.RegularExpressions.Regex.IsMatch(v, @"^[A-Za-z_@#][A-Za-z0-9_@#$]*$");
@@ -163,7 +163,10 @@ public class AstBuilder : TSqlFragmentVisitor {
     /// quote the identifier form; a variable or literal is returned as written.
     /// </summary>
     private static string? QuotedName(IdentifierOrValueExpression? name) =>
-        name?.Identifier != null ? QuotedName(name.Identifier) : name?.Value;
+        name?.Identifier != null ? QuotedName(name.Identifier)
+        // AS 'two words': a string alias is a name, and prints as one
+        : name?.ValueExpression is StringLiteral str ? QuotedText(str.Value)
+        : name?.Value;
 
     /// <summary>
     /// Where a table, index or constraint is stored: ON filegroup, or ON scheme(column) for

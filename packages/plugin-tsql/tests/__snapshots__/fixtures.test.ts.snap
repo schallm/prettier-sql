@@ -3959,6 +3959,30 @@ select 2; -- c
 "
 `;
 
+exports[`fixtures > select/shift-operators-and-string-aliases.sql 1`] = `
+"select
+  a << 1,
+  b >> 2,
+  a & b | c ^ d
+from t;
+
+select
+  a as [two words],
+  b as [other name],
+  c as plain,
+  d as [it's]
+from t;
+
+select a
+from t;
+
+select
+  count(a),
+  sum(distinct a)
+from t;
+"
+`;
+
 exports[`fixtures > select/subquery.sql 1`] = `
 "select
   Id,
