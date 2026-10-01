@@ -251,6 +251,8 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
     }
 
     const dataType = propStr(node, 'dataType') ?? 'INT';
+    // A user-defined type is an identifier: keep its case
+    const isUdtType = propBool(node, 'isUdt');
     const params = node.props?.['dataTypeParams'];
     const xmlSchemaCollection = propStr(node, 'xmlSchemaCollection');
     const xmlTypeOption = propStr(node, 'xmlTypeOption');
@@ -264,7 +266,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
     const collation = propStr(node, 'collation');
 
     const typeStr: Doc = (() => {
-        const baseType = keyword(dataType, opts);
+        const baseType = isUdtType ? dataType : keyword(dataType, opts);
         if (Array.isArray(params) && params.length > 0) {
             return [baseType, `(${(params as string[]).join(', ')})`] as Doc;
         }
@@ -291,9 +293,9 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
     }
 
     if (isIdentity) {
-        const seed = identitySeed ?? '1';
-        const inc = identityIncrement ?? '1';
-        parts.push(' ', keyword('IDENTITY', opts), `(${seed}, ${inc})`);
+        // A bare IDENTITY stays bare; IDENTITY(seed, increment) needs both
+        if (identitySeed == null && identityIncrement == null) parts.push(' ', keyword('IDENTITY', opts));
+        else parts.push(' ', keyword('IDENTITY', opts), `(${identitySeed ?? '1'}, ${identityIncrement ?? '1'})`);
         if (node.props?.['identityNotForReplication']) parts.push(' ', keyword('NOT FOR REPLICATION', opts));
     }
     if (node.props?.['isRowGuidCol']) parts.push(' ', keyword('ROWGUIDCOL', opts));
@@ -336,7 +338,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
 
     // Inline PRIMARY KEY / UNIQUE constraint (e.g. in table variable declarations)
     const uniqueConstraint = node.props?.['uniqueConstraint'] as
-        | { constraintName?: string; isPrimaryKey: boolean; clustered: boolean | null }
+        | { constraintName?: string; isPrimaryKey: boolean; clustered: boolean | null; hash?: boolean }
         | null
         | undefined;
     if (uniqueConstraint) {
@@ -350,9 +352,10 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
                 : uniqueConstraint.clustered === false
                   ? [' ', keyword('NONCLUSTERED', opts)]
                   : '';
+        const hashKw: Doc = uniqueConstraint.hash ? [' ', keyword('NONCLUSTERED HASH', opts)] : '';
         const uqOptions = (uniqueConstraint as { indexOptions?: string[] }).indexOptions ?? [];
         parts.push(
-            ' ', constraintNamePrefix, uqKw, clusteredKw,
+            ' ', constraintNamePrefix, uqKw, clusteredKw, hashKw,
             uqOptions.length > 0 ? [' ', keyword('WITH', opts), ' (', join(', ', uqOptions), ')'] : '',
             storageClause(uniqueConstraint as Record<string, unknown>, opts),
         );
@@ -431,6 +434,8 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
                       ? [keyword('NONCLUSTERED', opts), ' ']
                       : '';
             const kw = isPK ? keyword('PRIMARY KEY', opts) : keyword('UNIQUE', opts);
+            // NONCLUSTERED HASH: a hash index on a memory-optimized table
+            const hashKw: Doc = propBool(node, 'hash') ? [keyword('NONCLUSTERED HASH', opts), ' '] : '';
             // Columns are now {name, order} objects; fall back to plain strings for compat
             const rawCols = Array.isArray(node.props?.['columns']) ? node.props!['columns'] : [];
             const colDocs: Doc[] = (rawCols as Array<{ name: string; order: string } | string>).map((c) => {
@@ -443,7 +448,7 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
             const withPart: Doc = indexOptions.length
                 ? [' ', keyword('WITH', opts), ' (', join(', ', indexOptions), ')']
                 : '';
-            return group([namePrefix, indent([softline, kw, ' ', clusteredKw, colsDoc]), withPart, storageClause(node.props, opts)]);
+            return group([namePrefix, indent([softline, kw, ' ', clusteredKw, hashKw, colsDoc]), withPart, storageClause(node.props, opts)]);
         }
         case 'DefaultConstraint': {
             const expr = prop(node, 'expression');
@@ -677,7 +682,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             ' ',
             column,
             ' ',
-            keyword(dataType, opts),
+            propBool(node, 'isUdt') ? dataType : keyword(dataType, opts),
             collatePart,
             encryptionPart,
             node.props?.['isSparse'] ? [' ', keyword('SPARSE', opts)] : '',
@@ -995,6 +1000,7 @@ function printParameter(p: SqlNode, opts: Options): Doc {
         propStr(p, 'name') ?? '@p', ' ',
         // UDT names are identifiers, not SQL keywords — skip keyword-casing
         propBool(p, 'isUdt') ? dt : keyword(dt, opts),
+        nullablePart(p.props?.['nullable'], opts),
         defaultVal ? [' = ', printNode(defaultVal, opts)] : '',
         propBool(p, 'output') ? [' ', keyword('OUTPUT', opts)] : '',
         propBool(p, 'readonly') ? [' ', keyword('READONLY', opts)] : '',
@@ -1191,7 +1197,11 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
     if (bodyType === 'inline-table') {
         const returnVar = propStr(node, 'returnVar') ?? '@t';
         const returnColumns = propArr(node, 'returnColumns');
-        const colDocs = returnColumns.map((c) => printColumnDef(c as SqlNode, opts));
+        const colDocs = [
+            ...returnColumns.map((c) => printColumnDef(c as SqlNode, opts)),
+            ...propArr(node, 'returnConstraints').map((c) => printConstraintDef(c, opts)),
+            ...propArr(node, 'returnIndexes').map((i) => printInlineIndex(i, opts)),
+        ];
         retTypePart = [
             returnVar,
             ' ',
@@ -1446,7 +1456,7 @@ export function printCreateTypeUddt(node: SqlNode, opts: Options): Doc {
         ' ',
         keyword('FROM', opts),
         ' ',
-        keyword(propStr(node, 'dataType') ?? '', opts),
+        propBool(node, 'isUdt') ? (propStr(node, 'dataType') ?? '') : keyword(propStr(node, 'dataType') ?? '', opts),
         nullablePart(node.props?.['nullable'], opts),
         ';',
     ];
@@ -1855,6 +1865,8 @@ export function printCreateColumnStoreIndex(node: SqlNode, opts: Options): Doc {
     if (columns.length) {
         parts.push([' ', parenList(columns)]);
     }
+    const orderedColumns = propStrArr(node, 'orderedColumns');
+    if (orderedColumns.length) parts.push([hardline, keyword('ORDER', opts), ' ', parenList(orderedColumns)]);
     if (filterPredicateNode) parts.push([hardline, printBoolClause('WHERE', filterPredicateNode, opts)]);
     if (options.length) {
         parts.push([

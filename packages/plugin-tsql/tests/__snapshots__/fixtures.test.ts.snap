@@ -9,6 +9,28 @@ set automatic_index_compaction = off;
 "
 `;
 
+exports[`fixtures > admin/alter-database-set-values.sql 1`] = `
+"-- ALTER DATABASE SET options keep their = and their names
+alter database d
+set target_recovery_time = 60 seconds;
+
+alter database d
+set delayed_durability = forced;
+
+alter database d
+set partner = 'tcp://x:5022';
+
+alter database d
+set filestream (non_transacted_access = full, directory_name = 'x');
+
+alter database d
+set recovery simple with rollback immediate;
+
+alter database d
+set auto_close off, auto_shrink on;
+"
+`;
+
 exports[`fixtures > admin/backup-restore.sql 1`] = `
 "backup database Bookstore
   to disk = N'C:\\Backups\\Bookstore_Full.bak'
@@ -56,6 +78,26 @@ drop database Bookstore, BookstoreDev;
 "
 `;
 
+exports[`fixtures > admin/backup-restore-forms.sql 1`] = `
+"-- BACKUP / RESTORE forms the formatter doesn't model stay as written
+backup database d file = 'f', filegroup = 'g' to disk = 'a' mirror to disk = 'c' with format;
+
+backup database d to disk = 'x' with encryption (algorithm = aes_256, server certificate = c);
+
+restore database d filegroup = 'g' from disk = 'x' with partial;
+
+restore database d page = '1:57' from disk = 'x';
+
+restore database d from database_snapshot = 's';
+
+restore database d from disk = 'x' with stopatmark = 'm' after '2020-01-01';
+
+restore database d
+  from disk = 'x'
+  with stopat = '2020-01-01';
+"
+`;
+
 exports[`fixtures > admin/create-database.sql 1`] = `
 "create database SalesDB;
 
@@ -78,6 +120,20 @@ on
 log on
   (name = 'TestDb_log', filename = 'C:\\data\\TestDb_log.ldf', size = 10mb)
 collate Latin1_General_CI_AS;
+"
+`;
+
+exports[`fixtures > admin/create-database-options.sql 1`] = `
+"-- CREATE DATABASE options, containment and attach forms stay as written
+create database d collate latin1_general_100_ci_as_sc with catalog_collation = sql_latin1_general_cp1_ci_as, ledger = on;
+
+create database d with trustworthy on, db_chaining on;
+
+create database d containment = partial;
+
+create database d (edition = 'basic', service_objective = 'basic');
+
+create database s on (name = f1, filename = 'c:\\s1.ss') as snapshot of d;
 "
 `;
 
@@ -676,6 +732,28 @@ create table t (
 "
 `;
 
+exports[`fixtures > create-table/hash-primary-key.sql 1`] = `
+"-- Hash indexes on memory-optimized tables
+create table dbo.t (
+  a int not null,
+  b int,
+  constraint pk primary key nonclustered hash (a) with (bucket_count = 1000)
+)
+with (memory_optimized = on);
+
+create table dbo.t (
+  a int not null primary key nonclustered hash with (bucket_count = 1000),
+  b int
+)
+with (memory_optimized = on);
+
+create table dbo.t (
+  a int not null,
+  constraint uq unique nonclustered hash (a) with (bucket_count = 64)
+);
+"
+`;
+
 exports[`fixtures > create-table/inline-fk-constraint-name.sql 1`] = `
 "-- Inline column-level FK with constraint name and FOREIGN KEY keywords must be preserved
 create table dbo.LineItems (
@@ -710,6 +788,59 @@ create type dbo.TT as table (
   index ix (a asc)
 )
 with (memory_optimized = on);
+"
+`;
+
+exports[`fixtures > create-table/quoted-names-and-udt-types.sql 1`] = `
+"-- Bracketed names inside constraints, and user-defined types keep their schema and case
+create table [t x] (
+  [a b] int,
+  [order] int,
+  constraint [c d] foreign key ([a b]) references [u v] ([x y]),
+  constraint [e f] primary key ([a b], [order])
+);
+
+create table dbo.t (
+  a dbo.MyType not null,
+  b [my schema].[my type] null,
+  c sysname
+);
+
+create table dbo.t (
+  a int references dbo.u ([x y]),
+  b int constraint [fk 2] references dbo.v ([z w])
+);
+
+create table dbo.t (
+  a int constraint c1 check (a > 0) constraint c2 check (a < 10)
+);
+
+create table dbo.t (
+  a int identity,
+  b bigint identity(1000, 5)
+);
+
+alter table dbo.t
+add constraint [c d] foreign key ([a b]) references [u v] ([x y]);
+
+alter table dbo.t
+check constraint [c d];
+
+alter table dbo.t
+alter column [a b] dbo.MyType not null;
+
+select
+  cast(a as dbo.MyType),
+  convert(dbo.MyType, a),
+  try_cast(a as [my type]),
+  try_convert(dbo.MyType, a);
+
+create type dbo.t from [my type] not null;
+
+create type dbo.tt as table (
+  [a b] int primary key,
+  index [i x] ([a b] asc)
+);
 "
 `;
 
@@ -1501,6 +1632,25 @@ go
 "
 `;
 
+exports[`fixtures > function/table-valued-return-constraints.sql 1`] = `
+"-- A multi-statement table-valued function's result table keeps its indexes and constraints
+create function dbo.f()
+returns @t table (
+  a int not null,
+  b int,
+  c int,
+  primary key (a),
+  unique (c),
+  index ix (b asc)
+)
+as
+begin
+  return;
+end;
+go
+"
+`;
+
 exports[`fixtures > function/trim.sql 1`] = `
 "create function dbo.TrimCharsFrom(@str nvarchar(max))
 returns nvarchar(max)
@@ -1594,6 +1744,19 @@ on dbo.Orders (CustomerId, OrderDate, Total);
 create nonclustered columnstore index ncci_filtered
 on dbo.Orders (CustomerId, OrderDate)
 where Status = 'Closed'
+with (drop_existing = on);
+"
+`;
+
+exports[`fixtures > index/columnstore-order.sql 1`] = `
+"-- CREATE CLUSTERED COLUMNSTORE INDEX ... ORDER (...)
+create clustered columnstore index cci
+on dbo.t
+order (a, b);
+
+create clustered columnstore index cci
+on dbo.t
+order (a)
 with (drop_existing = on);
 "
 `;
@@ -2301,6 +2464,26 @@ to AppUser;
 grant control
 on database::AdventureWorks
 to AppUser;
+"
+`;
+
+exports[`fixtures > security/role-member-names.sql 1`] = `
+"-- Names that need brackets keep them
+alter role r
+add member [d\\u];
+
+alter role r
+drop member [x y];
+
+create login [d\\u]
+from windows;
+
+drop database [a b];
+
+create user [d\\u]
+for login [d\\u];
+
+update statistics dbo.t [my stat];
 "
 `;
 
@@ -3848,6 +4031,19 @@ begin atomic with (
     Amount
   from dbo.Orders
   where Id = @Id;
+end;
+go
+"
+`;
+
+exports[`fixtures > stored-proc/parameter-nullability.sql 1`] = `
+"-- A parameter's NULL / NOT NULL
+create procedure dbo.p
+  @a int null,
+  @b int not null
+as
+begin
+  select 1;
 end;
 go
 "

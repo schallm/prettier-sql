@@ -475,6 +475,11 @@ function printCaseExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     ]);
 }
 
+/** A data type: a keyword, unless it names a user-defined type (an identifier, whose case is kept). */
+function typeDoc(node: SqlNode, dataType: string, opts: Options): Doc {
+    return node.props?.['isUdt'] ? dataType : keyword(dataType, opts);
+}
+
 function printCastCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     const dataType = propStr(node, 'dataType') ?? 'INT';
@@ -485,7 +490,7 @@ function printCastCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
         ' ',
         keyword('AS', opts),
         ' ',
-        keyword(dataType, opts),
+        typeDoc(node, dataType, opts),
         ')',
     ];
 }
@@ -497,7 +502,7 @@ function printConvertCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const parts: Doc[] = [
         keyword('CONVERT', opts),
         '(',
-        keyword(dataType, opts),
+        typeDoc(node, dataType, opts),
         ', ',
         expr ? printExpression(expr, opts, printFn) : '',
     ];
@@ -560,7 +565,7 @@ function printTryCastCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
         ' ',
         keyword('AS', opts),
         ' ',
-        keyword(dataType, opts),
+        typeDoc(node, dataType, opts),
         ')',
     ];
 }
@@ -572,7 +577,7 @@ function printTryConvertCall(node: SqlNode, opts: Options, printFn: PrintFn): Do
     const parts: Doc[] = [
         keyword('TRY_CONVERT', opts),
         '(',
-        keyword(dataType, opts),
+        typeDoc(node, dataType, opts),
         ', ',
         expr ? printExpression(expr, opts, printFn) : '',
     ];
@@ -1844,7 +1849,7 @@ function printParseCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const valueDoc = printExpression(prop(node, 'value')!, opts, printFn);
     const dataType = propStr(node, 'dataType') ?? '';
     const culture = prop(node, 'culture');
-    const parts: Doc[] = [valueDoc, ' ', keyword('AS', opts), ' ', keyword(dataType, opts)];
+    const parts: Doc[] = [valueDoc, ' ', keyword('AS', opts), ' ', typeDoc(node, dataType, opts)];
     if (culture) parts.push(' ', keyword('USING', opts), ' ', printExpression(culture, opts, printFn));
     return group([fnKw, '(', indent([softline, ...parts]), softline, ')']);
 }
