@@ -1274,7 +1274,12 @@ function printComment(node: SqlNode, opts: Options): Doc {
     const comment = propStr(node, 'comment');
 
     const commentVal: Doc = comment != null ? `'${comment.replace(/'/g, "''")}'` : makeKeyword('NULL');
-    return [[makeKeyword('COMMENT ON'), ' ', makeKeyword(objtype), ' ', object, ' ', makeKeyword('IS'), ' ', commentVal], ';'];
+    const tailKw   = propStr(node, 'tailKw');
+    const tailName = propStr(node, 'tailName') ?? '';
+    // CAST (source AS target) is the one form whose two names sit inside parentheses
+    const target: Doc = objtype === 'CAST' ? ['(', object, ' ', makeKeyword('AS'), ' ', tailName, ')']
+        : [object, tailKw ? [' ', makeKeyword(tailKw), ' ', tailName] : ''];
+    return [[makeKeyword('COMMENT ON'), ' ', makeKeyword(objtype), ' ', target, ' ', makeKeyword('IS'), ' ', commentVal], ';'];
 }
 
 // ---------------------------------------------------------------------------

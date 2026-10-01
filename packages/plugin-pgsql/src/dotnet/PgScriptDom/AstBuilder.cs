@@ -2267,23 +2267,68 @@ public class AstBuilder {
 
     private SqlNode BuildComment(CommentStmt cm, int start, int end) {
         var objtype = ObjectTypeKw(cm.Objtype);
-        string? objectName = cm.Object?.NodeCase switch {
-            Node.NodeOneofCase.List           => Ident.Qualified(cm.Object.List.Items.Select(n => n.String?.Sval).OfType<string>()),
-            Node.NodeOneofCase.ObjectWithArgs => OwaSignature(cm.Object.ObjectWithArgs),
-            Node.NodeOneofCase.String         => Ident.Quote(cm.Object.String.Sval),
-            Node.NodeOneofCase.TypeName       => string.Join(".", cm.Object.TypeName.Names
-                .Where(n => n.NodeCase == Node.NodeOneofCase.String)
-                .Select(n => n.String.Sval)
-                .Where(v => v != "pg_catalog")
-                .Select(Ident.QuoteFunc)),
-            _ => null,
-        };
+        string? objectName;
+        string? tailKw = null, tailName = null;
+        var items = cm.Object?.NodeCase == Node.NodeOneofCase.List ? cm.Object.List.Items : null;
+        string Names(IEnumerable<Node> ns) => Ident.Qualified(ns.Select(n => n.String?.Sval).OfType<string>());
+        switch (cm.Objtype) {
+            // The name is a list ending in the object's own name; the rest names the table it belongs to
+            case ObjectType.ObjectTabconstraint when items != null:
+                objtype = "CONSTRAINT";
+                objectName = Ident.Quote(items[^1].String.Sval);
+                tailKw = "ON"; tailName = Names(items.Take(items.Count - 1));
+                break;
+            case ObjectType.ObjectTrigger or ObjectType.ObjectRule or ObjectType.ObjectPolicy when items != null:
+                objectName = Ident.Quote(items[^1].String.Sval);
+                tailKw = "ON"; tailName = Names(items.Take(items.Count - 1));
+                break;
+            // (domain type, constraint name)
+            case ObjectType.ObjectDomconstraint when items is { Count: 2 } && items[0].NodeCase == Node.NodeOneofCase.TypeName:
+                objtype = "CONSTRAINT";
+                objectName = Ident.Quote(items[1].String.Sval);
+                tailKw = "ON DOMAIN"; tailName = TypeNameText(items[0].TypeName);
+                break;
+            // (access method, name...)
+            case ObjectType.ObjectOpclass or ObjectType.ObjectOpfamily when items is { Count: > 1 }:
+                objectName = Names(items.Skip(1));
+                tailKw = "USING"; tailName = Ident.Quote(items[0].String.Sval);
+                break;
+            // (type, language)
+            case ObjectType.ObjectTransform when items is { Count: 2 } && items[0].NodeCase == Node.NodeOneofCase.TypeName:
+                objectName = TypeNameText(items[0].TypeName);
+                tailKw = "LANGUAGE"; tailName = Ident.Quote(items[1].String.Sval);
+                objtype = "TRANSFORM FOR";
+                break;
+            // (source type, target type)
+            case ObjectType.ObjectCast when items is { Count: 2 } && items[0].NodeCase == Node.NodeOneofCase.TypeName:
+                objectName = TypeNameText(items[0].TypeName);
+                tailKw = "AS"; tailName = TypeNameText(items[1].TypeName);
+                break;
+            default:
+                objectName = cm.Object?.NodeCase switch {
+                    Node.NodeOneofCase.List           => Names(cm.Object.List.Items),
+                    Node.NodeOneofCase.ObjectWithArgs => OwaSignature(cm.Object.ObjectWithArgs),
+                    Node.NodeOneofCase.String         => Ident.Quote(cm.Object.String.Sval),
+                    Node.NodeOneofCase.TypeName       => TypeNameText(cm.Object.TypeName),
+                    // COMMENT ON LARGE OBJECT 1234
+                    Node.NodeOneofCase.Integer        => cm.Object.Integer.Ival.ToString(),
+                    Node.NodeOneofCase.Float          => cm.Object.Float.Fval,
+                    _ => throw NotSupported($"COMMENT ON {objtype} target ({cm.Object?.NodeCase})", null),
+                };
+                break;
+        }
         return new SqlNode("CommentStatement", start, end, null, BuildProps(
             ("objtype", objtype),
             ("object",  objectName),
+            // What follows the name: ON table, USING method, LANGUAGE lang, or CAST's AS target
+            ("tailKw",  tailKw),
+            ("tailName", tailName),
             ("comment", string.IsNullOrEmpty(cm.Comment) ? null : cm.Comment)
         ));
     }
+
+    // A type named in COMMENT ON TYPE / DOMAIN / CAST: the name without pg_catalog
+    private string TypeNameText(TypeName t) => BuildPgTypeName(t);
 
     private SqlNode BuildCall(CallStmt c, int start, int end) =>
         new("CallStatement", start, end, null, BuildProps(
