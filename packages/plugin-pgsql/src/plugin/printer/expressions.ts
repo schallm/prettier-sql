@@ -145,6 +145,8 @@ function precedence(node: SqlNode): number {
         case 'NullTest':
         case 'BooleanTest':
             return PREC.IS;
+        case 'XmlExpr':
+            return propStr(node, 'op') === 'IS DOCUMENT' ? PREC.IS : PREC.ATOM;
         case 'BinaryExpr':
             return prop(node, 'left') ? binaryOpPrec(propStr(node, 'op') ?? '') : PREC.UNARY;
         case 'InExpr':
@@ -1137,6 +1139,11 @@ function printXmlExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     }
     if (op === 'XMLROOT') {
         return printXmlRoot(args, opts, printNode);
+    }
+    // expr IS DOCUMENT: a postfix predicate, not a function call
+    if (op === 'IS DOCUMENT') {
+        const [arg] = args;
+        return [arg ? printOperand(arg, PREC.IS + 1, printNode) : '', ' ', makeKeyword('IS DOCUMENT')];
     }
     // XMLCONCAT — simple arg list
     const allArgs = [...namedArgs, ...args].map(printNode);

@@ -2728,6 +2728,27 @@ grant a to b;
 "
 `;
 
+exports[`fixtures > p5/is-document.sql 1`] = `
+"select a is document
+from t;
+
+select not a is document
+from t;
+
+select not a is document
+from t;
+
+select *
+from t
+where
+  a || b is document
+  and c;
+
+select xmlconcat(a, b)
+from t;
+"
+`;
+
 exports[`fixtures > p5/maintenance-options.sql 1`] = `
 "cluster (verbose);
 
