@@ -715,6 +715,7 @@ function printCreateTable(node: SqlNode, opts: Options): Doc {
     const name     = prop(node, 'name');
     const columns  = propArr(node, 'columns');
     const partitionBy = prop(node, 'partitionBy');
+    const ofType = propStr(node, 'ofType');
 
     const inherits = propArr(node, 'inherits');
     const partitionDoc: Doc = partitionBy
@@ -723,9 +724,11 @@ function printCreateTable(node: SqlNode, opts: Options): Doc {
         : '';
 
     return [
-        createTableKeyword(node, opts), ' ', ifNotExistsDoc(node, opts), rangeVarName(name), ' (',
-        indent([hardline, join([',', hardline], columns.map(printNode))]),
-        hardline, ')',
+        createTableKeyword(node, opts), ' ', ifNotExistsDoc(node, opts), rangeVarName(name),
+        ofType ? [' ', makeKeyword('OF'), ' ', ofType] : '',
+        columns.length > 0 || !ofType
+            ? [' (', indent([hardline, join([',', hardline], columns.map(printNode))]), hardline, ')']
+            : '',
         inherits.length > 0 ? [hardline, makeKeyword('INHERITS'), ' (', join(', ', inherits.map(rangeVarName)), ')'] : '',
         partitionDoc,
         tableStorageClauses(node, opts),
@@ -1931,12 +1934,15 @@ function printCreateForeignTable(node: SqlNode, opts: Options): Doc {
     const printNode  = printWith(opts);
     const name       = prop(node, 'name');
     const columns    = propArr(node, 'columns');
+    const ofType     = propStr(node, 'ofType');
     const serverName = propStr(node, 'serverName') ?? '';
 
     return [
-        makeKeyword('CREATE FOREIGN TABLE'), ' ', rangeVarName(name), ' (',
-        indent([hardline, join([',', hardline], columns.map(printNode))]),
-        hardline, ')',
+        makeKeyword('CREATE FOREIGN TABLE'), ' ', ifNotExistsDoc(node, opts), rangeVarName(name),
+        ofType ? [' ', makeKeyword('OF'), ' ', ofType] : '',
+        columns.length > 0 || !ofType
+            ? [' (', indent([hardline, join([',', hardline], columns.map(printNode))]), hardline, ')']
+            : '',
         hardline, indent([makeKeyword('SERVER'), ' ', serverName]),
         printFdwOptions(node, opts),
         ';',

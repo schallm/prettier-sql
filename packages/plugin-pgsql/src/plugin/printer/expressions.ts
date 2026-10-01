@@ -620,7 +620,13 @@ function printColumnDef(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const typeName = propStr(node, 'typeName') ?? '';
     const constraints = propArr(node, 'constraints');
     const collation = propStr(node, 'collation');
-    const parts: Doc[] = [name, ' ', makeKeyword(typeName), collation ? [' ', makeKeyword('COLLATE'), ' ', collation] : ''];
+    const storage = propStr(node, 'storage');
+    const compression = propStr(node, 'compression');
+    // A column of a typed table (CREATE TABLE t OF type) has no type of its own
+    const parts: Doc[] = [name, typeName ? [' ', makeKeyword(typeName)] : [' ', makeKeyword('WITH OPTIONS')],
+        storage ? [' ', makeKeyword('STORAGE'), ' ', makeKeyword(storage)] : '',
+        compression ? [' ', makeKeyword('COMPRESSION'), ' ', compression] : '',
+        collation ? [' ', makeKeyword('COLLATE'), ' ', collation] : ''];
     for (const c of constraints) {
         parts.push(' ', printConstraint(c, opts, printNode));
     }

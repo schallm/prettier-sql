@@ -2014,6 +2014,46 @@ when not matched then
 "
 `;
 
+exports[`fixtures > p5/create-table-typed-storage.sql 1`] = `
+"create table t of typ (
+  a with options not null
+);
+
+create table t of typ;
+
+create table t of typ (
+  a with options default 1,
+  constraint c check (a > 0)
+);
+
+create table t (
+  a integer storage plain compression pglz
+);
+
+create table t (
+  a integer storage external
+);
+
+create table t (
+  a text compression lz4 collate "C" not null
+);
+
+create unlogged table t of typ (
+  primary key (a)
+);
+
+create foreign table ft (
+  a integer storage plain
+)
+server s;
+
+create foreign table if not exists ft (
+  a integer
+)
+server s;
+"
+`;
+
 exports[`fixtures > select/advanced.sql 1`] = `
 "-- INTERVAL literals
 select

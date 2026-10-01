@@ -331,6 +331,8 @@ public class AstBuilder {
             ("persistence",  Persistence(s.Relation)),
             ("ifNotExists",  s.IfNotExists ? true : null),
             ("name",         BuildRangeVar(s.Relation)),
+            // CREATE TABLE t OF type (...)
+            ("ofType",       s.OfTypename != null ? BuildPgTypeName(s.OfTypename) : null),
             ("columns",      MapList(s.TableElts, BuildTableElement)),
             ("inherits",     MapList(s.InhRelations, n => n.NodeCase == Node.NodeOneofCase.RangeVar ? BuildRangeVar(n.RangeVar) : null)),
             ("partitionBy",  partitionBy),
@@ -1373,6 +1375,9 @@ public class AstBuilder {
             ("name",        Ident.QuoteOpt(columnDef.Colname)),
             ("typeName",    columnDef.TypeName != null ? BuildPgTypeName(columnDef.TypeName) : null),
             ("collation",   columnDef.CollClause != null ? Ident.Qualified(columnDef.CollClause.Collname.Select(c => c.String.Sval)) : null),
+            // STORAGE and COMPRESSION column clauses (CREATE TABLE only; ALTER uses AtSetStorage / AtSetCompression)
+            ("storage",     string.IsNullOrEmpty(columnDef.StorageName) ? null : columnDef.StorageName),
+            ("compression", string.IsNullOrEmpty(columnDef.Compression) ? null : Ident.Quote(columnDef.Compression)),
             ("constraints", columnDef.Constraints.Count > 0
                 ? (object?)columnDef.Constraints
                     .Where(n => n.NodeCase == Node.NodeOneofCase.Constraint)
@@ -2988,6 +2993,8 @@ public class AstBuilder {
         var options = BuildDefElemOptions(s.Options);
         return new SqlNode("CreateForeignTableStatement", start, end, null, BuildProps(
             ("name",       s.BaseStmt?.Relation != null ? BuildRangeVar(s.BaseStmt.Relation) : null),
+            ("ifNotExists", s.BaseStmt?.IfNotExists == true ? true : null),
+            ("ofType",     s.BaseStmt?.OfTypename != null ? BuildPgTypeName(s.BaseStmt.OfTypename) : null),
             ("columns",    columns),
             ("serverName", Ident.QuoteOpt(s.Servername)),
             ("options",    OptionsToObject(options))
