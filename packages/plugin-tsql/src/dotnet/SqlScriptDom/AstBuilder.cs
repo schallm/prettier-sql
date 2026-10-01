@@ -729,30 +729,43 @@ public class AstBuilder : TSqlFragmentVisitor {
         };
     }
 
+    /// <summary>A table hint as text: INDEX (...), FORCESEEK (...), SPATIAL_WINDOW_MAX_CELLS = n, or a plain keyword.</summary>
+    private static string TableHintText(TableHint h) {
+        // INDEX hints carry index names/ids — serialize as "INDEX = name" or "INDEX(n1,n2)"
+        if (h is IndexTableHint idxHint && idxHint.IndexValues?.Count > 0) {
+            var vals = idxHint.IndexValues.Select(v =>
+                v.Identifier != null ? QuotedName(v.Identifier) : v.Value ?? "");
+            return idxHint.IndexValues.Count == 1
+                ? $"INDEX = {vals.First()}"
+                : $"INDEX({string.Join(", ", vals)})";
+        }
+        // FORCESEEK with optional index and column list: FORCESEEK(index_name(col1,col2))
+        if (h is ForceSeekTableHint fsHint && fsHint.IndexValue != null) {
+            var idxName = fsHint.IndexValue.Identifier != null
+                ? QuotedName(fsHint.IndexValue.Identifier)
+                : fsHint.IndexValue.Value ?? "";
+            if (fsHint.ColumnValues?.Count > 0) {
+                var cols = fsHint.ColumnValues.Select(cv =>
+                    QuotedName(cv.MultiPartIdentifier?.Identifiers.LastOrDefault()) ?? "");
+                return $"FORCESEEK({idxName}({string.Join(", ", cols)}))";
+            }
+            return $"FORCESEEK({idxName})";
+        }
+        if (h is LiteralTableHint literalHint && literalHint.Value != null)
+            return $"{TableHintKeyword(h.HintKind)} = {RawText(literalHint.Value)}";
+        return TableHintKeyword(h.HintKind);
+    }
+
+    /// <summary>The keyword for a table hint: the enum name in capitals, except where SQL separates words.</summary>
+    private static string TableHintKeyword(TableHintKind kind) => kind switch {
+        TableHintKind.IgnoreConstraints => "IGNORE_CONSTRAINTS",
+        TableHintKind.IgnoreTriggers => "IGNORE_TRIGGERS",
+        TableHintKind.SpatialWindowMaxCells => "SPATIAL_WINDOW_MAX_CELLS",
+        _ => kind.ToString().ToUpperInvariant(),
+    };
+
     private static SqlNode BuildNamedTableRef(NamedTableReference named) {
-        var hints = MapList(named.TableHints, h => {
-            // INDEX hints carry index names/ids — serialize as "INDEX = name" or "INDEX(n1,n2)"
-            if (h is IndexTableHint idxHint && idxHint.IndexValues?.Count > 0) {
-                var vals = idxHint.IndexValues.Select(v =>
-                    v.Identifier != null ? QuotedName(v.Identifier) : v.Value ?? "");
-                return (object?)(idxHint.IndexValues.Count == 1
-                    ? $"INDEX = {vals.First()}"
-                    : $"INDEX({string.Join(", ", vals)})");
-            }
-            // FORCESEEK with optional index and column list: FORCESEEK(index_name(col1,col2))
-            if (h is ForceSeekTableHint fsHint && fsHint.IndexValue != null) {
-                var idxName = fsHint.IndexValue.Identifier != null
-                    ? QuotedName(fsHint.IndexValue.Identifier)
-                    : fsHint.IndexValue.Value ?? "";
-                if (fsHint.ColumnValues?.Count > 0) {
-                    var cols = fsHint.ColumnValues.Select(cv =>
-                        QuotedName(cv.MultiPartIdentifier?.Identifiers.LastOrDefault()) ?? "");
-                    return (object?)$"FORCESEEK({idxName}({string.Join(", ", cols)}))";
-                }
-                return (object?)$"FORCESEEK({idxName})";
-            }
-            return (object?)h.HintKind.ToString().ToUpper();
-        });
+        var hints = MapList(named.TableHints, h => (object?)TableHintText(h));
         return Node("NamedTableReference", named, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(named.SchemaObject),
             ["alias"] = QuotedName(named.Alias),
@@ -1335,6 +1348,13 @@ public class AstBuilder : TSqlFragmentVisitor {
             }) ?? [];
             return $"OPTIMIZE FOR ({string.Join(", ", pairs)})";
         }
+        // TABLE HINT (object [, hint, ...])
+        if (hint is TableHintsOptimizerHint thh) {
+            var parts = new List<string>();
+            if (thh.ObjectName != null) parts.Add(SchemaObjectText(thh.ObjectName));
+            parts.AddRange(thh.TableHints.Select(TableHintText));
+            return $"TABLE HINT ({string.Join(", ", parts)})";
+        }
         var kind = hint.HintKind switch {
             OptimizerHintKind.Recompile => "RECOMPILE",
             OptimizerHintKind.MaxDop => "MAXDOP",
@@ -1347,10 +1367,23 @@ public class AstBuilder : TSqlFragmentVisitor {
             OptimizerHintKind.MergeJoin => "MERGE JOIN",
             OptimizerHintKind.HashGroup => "HASH GROUP",
             OptimizerHintKind.OrderGroup => "ORDER GROUP",
+            OptimizerHintKind.NoPerformanceSpool => "NO_PERFORMANCE_SPOOL",
+            OptimizerHintKind.UsePlan => "USE PLAN",
+            OptimizerHintKind.IgnoreNonClusteredColumnStoreIndex => "IGNORE_NONCLUSTERED_COLUMNSTORE_INDEX",
+            OptimizerHintKind.MinGrantPercent => "MIN_GRANT_PERCENT",
+            OptimizerHintKind.MaxGrantPercent => "MAX_GRANT_PERCENT",
+            OptimizerHintKind.ConcatUnion => "CONCAT UNION",
+            OptimizerHintKind.HashUnion => "HASH UNION",
+            OptimizerHintKind.MergeUnion => "MERGE UNION",
+            OptimizerHintKind.ParameterizationSimple => "PARAMETERIZATION SIMPLE",
+            OptimizerHintKind.ParameterizationForced => "PARAMETERIZATION FORCED",
             _ => hint.HintKind.ToString().ToUpper(),
         };
         if (hint is LiteralOptimizerHint lit && lit.Value != null)
-            return $"{kind} {lit.Value.Value}";
+            // LABEL = 'x', MIN_GRANT_PERCENT = 10 take an equals sign; MAXDOP 1, FAST 10, USE PLAN N'..' do not
+            return hint.HintKind is OptimizerHintKind.Label or OptimizerHintKind.MinGrantPercent or OptimizerHintKind.MaxGrantPercent
+                ? $"{kind} = {LiteralText(lit.Value)}"
+                : $"{kind} {LiteralText(lit.Value)}";
         return kind;
     }
 

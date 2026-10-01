@@ -1364,6 +1364,43 @@ function printTableRefInner(node: SqlNode, opts: Options, printFn: PrintFn): Doc
     }
 }
 
+/**
+ * A table hint serialized by the builder. Index names and columns inside INDEX = ix,
+ * INDEX(a, b) and FORCESEEK(ix(col)) are identifiers, so they keep their case.
+ */
+export function tableHintDoc(hint: string, opts: Options): Doc {
+    const m = /^(INDEX|FORCESEEK)(\s*=\s*|\()([\s\S]*)$/.exec(hint);
+    return m ? [keyword(m[1]!, opts), m[2]!, m[3]!] : keyword(hint, opts);
+}
+
+/** Splits at the commas that are not inside parentheses or quotes. */
+function splitTopLevel(text: string): string[] {
+    const parts: string[] = [];
+    let depth = 0;
+    let quote = false;
+    let start = 0;
+    for (let i = 0; i < text.length; i++) {
+        const c = text[i]!;
+        if (c === "'") quote = !quote;
+        else if (!quote && c === '(') depth++;
+        else if (!quote && c === ')') depth--;
+        else if (!quote && depth === 0 && c === ',') {
+            parts.push(text.slice(start, i).trim());
+            start = i + 1;
+        }
+    }
+    parts.push(text.slice(start).trim());
+    return parts;
+}
+
+/** An OPTION (...) query hint serialized by the builder; TABLE HINT (object, hints) keeps the object's case. */
+export function optimizerHintDoc(hint: string, opts: Options): Doc {
+    const m = /^TABLE HINT \(([\s\S]*)\)$/.exec(hint);
+    if (!m) return keyword(hint, opts);
+    const [object, ...hints] = splitTopLevel(m[1]!);
+    return [keyword('TABLE HINT', opts), ' (', join(', ', [object!, ...hints.map((h) => tableHintDoc(h, opts))]), ')'];
+}
+
 function printNamedTableRef(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const alias = propStr(node, 'alias');
     const hints = node.props?.['hints'] as string[] | undefined;
@@ -1376,14 +1413,7 @@ function printNamedTableRef(node: SqlNode, opts: Options, printFn: PrintFn): Doc
               ' (',
               join(
                   ', ',
-                  hints.map((h) => {
-                      // INDEX hints carry an identifier/value that must not be keyword-cased
-                      if (h.startsWith('INDEX')) {
-                          const rest = h.slice('INDEX'.length); // " = name" or "(n1, n2)"
-                          return [keyword('INDEX', opts), rest];
-                      }
-                      return keyword(h, opts);
-                  }),
+                  hints.map((h) => tableHintDoc(h, opts)),
               ),
               ')',
           ]
