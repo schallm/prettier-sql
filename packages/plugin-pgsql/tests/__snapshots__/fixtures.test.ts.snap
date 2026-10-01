@@ -2958,6 +2958,76 @@ comment on aggregate a(*) is 'x';
 "
 `;
 
+exports[`fixtures > p6/sql-syntax-functions.sql 1`] = `
+"select (a, b) overlaps (c, d)
+from t;
+
+select
+  a is normalized,
+  a is nfc normalized,
+  a is not normalized,
+  a is not nfd normalized,
+  a is nfkc normalized,
+  a is nfkd normalized
+from t;
+
+select system_user;
+
+select collation for (x)
+from t;
+
+select
+  normalize(a),
+  normalize(a, nfc),
+  normalize(a, nfkd)
+from t;
+
+select
+  xmlexists('//a' passing x),
+  xmlexists('//a' passing x)
+from t;
+
+select *
+from t
+where not (a, b) overlaps (c, d);
+
+select
+  ((a, b) overlaps (c, d)) = true,
+  ((a, b) overlaps (c, d)) is null,
+  a is not normalized
+from t;
+
+select
+  a || b is nfc normalized,
+  (a is normalized) is true
+from t;
+
+select
+  current_user,
+  session_user,
+  current_catalog,
+  current_schema,
+  user,
+  current_role,
+  localtime(1),
+  current_time(2);
+
+select
+  x at time zone y,
+  x at local,
+  extract(year from d),
+  overlay(a placing b from 2 for 3),
+  position(a in b),
+  trim(both 'x' from a)
+from t;
+
+select
+  a similar to b escape 'x',
+  a not similar to b
+from t;
+"
+`;
+
 exports[`fixtures > select/advanced.sql 1`] = `
 "-- INTERVAL literals
 select

@@ -169,7 +169,10 @@ function precedence(node: SqlNode): number {
             // A negative numeric constant reads as unary minus: `(-1)::int`, not `-1::int`
             return node.text?.startsWith('-') ? PREC.UNARY : PREC.ATOM;
         case 'FunctionCall':
-            return propStr(node, 'name') === 'pg_catalog.timezone' ? PREC.AT : PREC.ATOM;
+            if (propStr(node, 'name') === 'pg_catalog.timezone') return PREC.AT;
+            // (a, b) OVERLAPS (c, d), x IS NORMALIZED: written as operators in SQL
+            if (propBool(node, 'sqlSyntax') && ['pg_catalog.overlaps', 'pg_catalog.is_normalized'].includes(propStr(node, 'name') ?? '')) return PREC.IS;
+            return PREC.ATOM;
         default:
             return PREC.ATOM;
     }
@@ -247,6 +250,12 @@ function printBinaryExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
     return [printOperand(left, leftPrec, printNode), ' ', opDoc, ' ', right ? printOperand(right, rightPrec, printNode) : '', escapeDoc];
 }
 
+function isNormalizedCall(node: SqlNode): boolean {
+    const n = propArr(node, 'args').length;
+    return node.type === 'FunctionCall' && propBool(node, 'sqlSyntax') && propStr(node, 'name') === 'pg_catalog.is_normalized'
+        && !prop(node, 'over') && !prop(node, 'filter') && (n === 1 || (n === 2 && normalForm(propArr(node, 'args')[1]) !== null));
+}
+
 function printBoolExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (kw: string) => keyword(kw, opts);
     const op = propStr(node, 'op') ?? 'AND';
@@ -254,6 +263,8 @@ function printBoolExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 
     if (op === 'NOT') {
         const arg = args[0];
+        // NOT is_normalized(x): x IS NOT NORMALIZED (the same tree)
+        if (arg && isNormalizedCall(arg)) return printIsNormalizedForm(propArr(arg, 'args'), true, opts, printNode);
         return [makeKeyword('NOT'), ' ', arg ? printOperand(arg, PREC.NOT, printNode) : ''];
     }
 
@@ -273,8 +284,14 @@ function printFunctionCall(node: SqlNode, opts: Options, printNode: PrintFn): Do
 
     // SQL standard keyword-form functions — reconstruct readable syntax
     if (propBool(node, 'sqlSyntax') && rawName.startsWith('pg_catalog.')) {
-        const local = rawName.slice('pg_catalog.'.length);
+        const local = rawName.slice('pg_catalog.'.length).replace(/^"(.*)"$/, '$1');
         switch (local) {
+            case 'overlaps':  if (args.length === 4) return printOverlapsForm(args, opts, printNode); break;
+            case 'is_normalized': if (args.length >= 1 && args.length <= 2) return printIsNormalizedForm(args, false, opts, printNode); break;
+            case 'normalize': return printNormalizeForm(args, opts, printNode);
+            case 'system_user': if (args.length === 0) return makeKeyword('SYSTEM_USER'); break;
+            case 'pg_collation_for': if (args.length === 1) return [makeKeyword('COLLATION FOR'), ' (', printNode(args[0]!), ')']; break;
+            case 'xmlexists': if (args.length === 2) return [makeKeyword('XMLEXISTS'), '(', printNode(args[0]!), ' ', makeKeyword('PASSING'), ' ', printNode(args[1]!), ')']; break;
             case 'substring': return printSubstringForm(args, opts, printNode);
             case 'extract':   return printExtractForm(args, opts, printNode);
             case 'ltrim':     return printTrimForm(args, 'LEADING',  opts, printNode);
@@ -322,6 +339,36 @@ function printAggregateTail(callDoc: Doc, node: SqlNode, opts: Options, printNod
     // Named window reference: OVER w (no inline spec)
     if (over.type === 'WindowRef') return [callDoc, ' ', makeKeyword('OVER'), ' ', over.text ?? ''];
     return [callDoc, ' ', makeKeyword('OVER'), ' (', printWindowDef(over, opts, printNode), ')'];
+}
+
+// (a, b) OVERLAPS (c, d) — the four arguments are the two rows' elements
+function printOverlapsForm(args: SqlNode[], opts: Options, printNode: PrintFn): Doc {
+    const row = (a: SqlNode, b: SqlNode): Doc => ['(', printNode(a), ', ', printNode(b), ')'];
+    return [row(args[0]!, args[1]!), ' ', keyword('OVERLAPS', opts), ' ', row(args[2]!, args[3]!)];
+}
+
+/** The `NFC` of a normalization-form argument, which the grammar turns into a string constant. */
+function normalForm(arg: SqlNode | undefined): string | null {
+    const m = arg?.type === 'Literal' ? /^'(NFC|NFD|NFKC|NFKD)'$/.exec(arg.text ?? '') : null;
+    return m ? m[1]! : null;
+}
+
+// x IS [NOT] [NFC | NFD | NFKC | NFKD] NORMALIZED
+function printIsNormalizedForm(args: SqlNode[], negated: boolean, opts: Options, printNode: PrintFn): Doc {
+    const form = args.length === 2 ? normalForm(args[1]) : null;
+    return [
+        printOperand(args[0]!, PREC.IS + 1, printNode), ' ', keyword('IS', opts), negated ? [' ', keyword('NOT', opts)] : '',
+        form ? [' ', keyword(form, opts)] : '', ' ', keyword('NORMALIZED', opts),
+    ];
+}
+
+// NORMALIZE(x [, NFC | NFD | NFKC | NFKD])
+function printNormalizeForm(args: SqlNode[], opts: Options, printNode: PrintFn): Doc {
+    const form = args.length === 2 ? normalForm(args[1]) : null;
+    if (args.length === 0 || args.length > 2 || (args.length === 2 && !form)) {
+        throw new Error('Unsupported NORMALIZE form');
+    }
+    return [keyword('NORMALIZE', opts), '(', printNode(args[0]!), form ? [', ', keyword(form, opts)] : '', ')'];
 }
 
 // SUBSTRING(str FROM pattern)  — 2 args: regex form
