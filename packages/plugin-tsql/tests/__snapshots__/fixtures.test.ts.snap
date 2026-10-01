@@ -113,6 +113,14 @@ restore database d
 "
 `;
 
+exports[`fixtures > admin/comments-only.sql 1`] = `
+"-- nothing to run here
+/* still nothing */
+go 2
+-- end
+"
+`;
+
 exports[`fixtures > admin/create-database.sql 1`] = `
 "create database SalesDB;
 
@@ -191,6 +199,53 @@ alter external language l set (content = 'x', file_name = 'y');
 create external library l from (content = 'x') with (language = 'R');
 
 alter external library l set (content = 'x') with (language = 'R');
+"
+`;
+
+exports[`fixtures > admin/go-with-count.sql 1`] = `
+"select 1;
+go 5
+
+select 2; -- two
+go 10
+
+insert into t (a)
+values (1);
+go 3
+"
+`;
+
+exports[`fixtures > admin/raw-statement-comments.sql 1`] = `
+"/* lead */
+create database d containment = partial /* inside */;
+
+backup database d
+  to disk = 'x.bak'; -- trailing
+go
+
+select 1; -- before semicolon
+
+-- after semicolon
+alter schema s transfer dbo.t;
+go
+"
+`;
+
+exports[`fixtures > admin/scoped-config-unterminated.sql 1`] = `
+"alter database scoped configuration set maxdop = 4; -- cores
+
+select 1;
+go
+
+if 1 = 1
+begin
+  alter database scoped configuration set legacy_cardinality_estimation = on;
+end
+
+alter database scoped configuration clear procedure_cache;
+
+alter database scoped configuration for secondary set maxdop = primary;
+go
 "
 `;
 

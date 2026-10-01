@@ -172,6 +172,23 @@ export function qexpr(node: SqlNode, opts: Options): Doc {
     return printQueryExpression(node, opts, (n) => printNode(n, opts));
 }
 
+/** True when the doc ends with a line comment that no hard line has flushed yet. */
+function endsInPendingLineComment(doc: Doc): boolean {
+    let pending = false;
+    const walk = (d: Doc): void => {
+        if (Array.isArray(d)) return d.forEach(walk);
+        if (!d || typeof d !== 'object') return;
+        const o = d as { type?: string; hard?: boolean; contents?: Doc; parts?: Doc[]; breakContents?: Doc; flatContents?: Doc };
+        if (o.type === 'line-suffix') pending = true;
+        else if (o.type === 'line' && o.hard) pending = false;
+        else if (o.type === 'if-break') walk(o.breakContents ?? '');
+        else if (o.parts) o.parts.forEach(walk);
+        else if (o.contents !== undefined) walk(o.contents);
+    };
+    walk(doc);
+    return pending;
+}
+
 /**
  * Append a trailing comment to a doc.
  * Line comments (--) stay on the same line via lineSuffix.
@@ -179,7 +196,16 @@ export function qexpr(node: SqlNode, opts: Options): Doc {
  */
 function appendTrailingComment(doc: Doc, comment: string | undefined): Doc {
     if (!comment) return doc;
-    if (comment.startsWith('--')) return [doc, lineSuffix([' ', comment])];
+    // A comment that stood on a line of its own after the statement (a leading newline marks it)
+    if (comment.startsWith('\n')) return appendTrailingLines(doc, comment.slice(1));
+    // A line comment already waiting for the end of the line would swallow this one
+    if (comment.startsWith('--') && endsInPendingLineComment(doc)) return appendTrailingLines(doc, comment);
+    if (comment.startsWith('--')) {
+        // Several comments are joined by newlines: the first stays on the line, each other gets its own
+        const [first, ...rest] = comment.split(/\r?\n/);
+        const withFirst: Doc = [doc, lineSuffix([' ', first!])];
+        return rest.length > 0 ? appendTrailingLines(withFirst, rest.join('\n')) : withFirst;
+    }
     return appendTrailingLines(doc, comment);
 }
 
@@ -194,7 +220,9 @@ export function printStatementWithComments(s: SqlNode, opts: Options): Doc {
     const leftover = unprintedComments(s);
     const stmtDoc = leftover.length > 0 ? appendTrailingLines(printed, leftover.join('\n')) : printed;
     // Taken (marked printed), so an enclosing statement's leftover check doesn't print it again
-    const withTrailing = appendTrailingComment(stmtDoc, takeTrailingComment(s));
+    // after leftover comments (printed on their own lines) it goes on a line of its own as well
+    const trailing = takeTrailingComment(s);
+    const withTrailing = leftover.length > 0 && trailing ? appendTrailingLines(stmtDoc, trailing.replace(/^\n/, '')) : appendTrailingComment(stmtDoc, trailing);
     if (s.leadingComments?.length) {
         return [...s.leadingComments.flatMap((c): Doc[] => [c, hardline]), withTrailing] as Doc;
     }
@@ -276,14 +304,30 @@ const BATCH_ISOLATING = new Set([
 
 export function printScript(node: SqlNode, opts: Options): Doc {
     const batches = propArr(node, 'batches');
+    // Nothing but comments (and GO lines): kept as written
+    const commentsOnly = node.props?.['commentsOnly'] as string | undefined;
+    if (batches.length === 0 && commentsOnly) return [commentsOnly, hardline];
     if (batches.length === 0) return '';
 
     const go = keyword('go', opts);
+    const goLine = (count: number | null): Doc => (count === null ? go : [go, ' ', String(count)]);
     const parts: Doc[] = [];
+    // GO 5 before the first batch runs nothing, but it stays
+    for (const count of (node.props?.['goBefore'] as (number | null)[] | undefined) ?? []) {
+        if (count !== null) parts.push(goLine(count), hardline, hardline);
+    }
     for (let i = 0; i < batches.length; i++) {
         if (i > 0) parts.push(hardline, hardline);
         parts.push(printBatch(batches[i]!, opts));
         const stmts = propArr(batches[i]!, 'statements');
+        // The GO lines after this batch, when one has a repeat count; a bare GO after the first is a no-op
+        const goLines = batches[i]!.props?.['goLines'] as (number | null)[] | undefined;
+        if (goLines) {
+            goLines.forEach((count, k) => {
+                if (k === 0 || count !== null) parts.push(hardline, goLine(count));
+            });
+            continue;
+        }
         const needsGo = batches.length > 1 || stmts.some((s) => BATCH_ISOLATING.has(s.type));
         if (needsGo) parts.push(hardline, go);
     }

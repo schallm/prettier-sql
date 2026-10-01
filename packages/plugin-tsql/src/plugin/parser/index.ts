@@ -48,7 +48,11 @@ export function parse(text: string): SqlNode {
         throw new Error('Parser returned no AST and no errors');
     }
 
-    if (result.comments?.length) {
+    const hasStatement = propArr(result.ast, 'batches').some((b) => propArr(b, 'statements').length > 0);
+    if (!hasStatement && text.trim()) {
+        // No statement to hang comments on: only comments and GO lines, kept as written
+        result.ast.props = { ...result.ast.props, commentsOnly: text.trim() };
+    } else if (result.comments?.length) {
         attachComments(result.ast, result.comments, text);
     }
 
@@ -86,8 +90,16 @@ function attachComments(ast: SqlNode, comments: CommentToken[], text: string): v
     const batches = propArr(ast, 'batches');
     const allStatements = batches.flatMap((b) => propArr(b, 'statements'));
 
+    // A statement printed as its source text already carries the comments inside it
+    const everyNode: SqlNode[] = [];
+    collectDescendants(ast, everyNode);
+    for (const node of everyNode) {
+        if (node.text == null || node.props || !node.type.endsWith('Statement')) continue;
+        for (const c of comments) if (c.startOffset >= node.startOffset && c.endOffset <= node.endOffset) used.add(c);
+    }
+
     attachSameLineTrailing(batches, comments, text, used);
-    attachLeadingAndPreBody(allStatements, comments, used);
+    attachLeadingAndPreBody(allStatements, comments, used, text);
     attachIntraStatement(batches, comments, text, used);
 }
 
@@ -125,7 +137,7 @@ function attachSameLineTrailing(
 
 // Pass 2: leading comments (standalone lines before a statement) and
 // pre-body comments (inside a statement but before its body start).
-function attachLeadingAndPreBody(allStatements: SqlNode[], comments: CommentToken[], used: Set<CommentToken>): void {
+function attachLeadingAndPreBody(allStatements: SqlNode[], comments: CommentToken[], used: Set<CommentToken>, text: string): void {
     const unusedSorted = comments.filter((c) => !used.has(c)).sort((a, b) => a.startOffset - b.startOffset);
 
     for (const c of unusedSorted) {
@@ -187,7 +199,13 @@ function attachLeadingAndPreBody(allStatements: SqlNode[], comments: CommentToke
             // Attach to the last statement so it is never silently dropped.
             const last = allStatements.at(-1);
             if (last) {
-                last.trailingComment = last.trailingComment ? last.trailingComment + '\n' + c.text : c.text;
+                // On a line of its own, it stays on a line of its own (marked by a leading newline)
+                const ownLine = /\n/.test(text.substring(last.endOffset, c.startOffset));
+                last.trailingComment = last.trailingComment
+                    ? last.trailingComment + '\n' + c.text
+                    : ownLine
+                      ? '\n' + c.text
+                      : c.text;
                 used.add(c);
             }
         }

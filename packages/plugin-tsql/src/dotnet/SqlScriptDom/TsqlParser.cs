@@ -15,8 +15,40 @@ public static class TsqlParser {
         WriteIndented = false,
     };
 
+    /// <summary>
+    /// ScriptDom splits a script at GO but doesn't accept a repeat count (GO 5), which sqlcmd and
+    /// SSMS do. Returns the script with each count blanked out (same length, so every offset
+    /// still holds), and the offset and count of every GO line (count null when it has none).
+    /// </summary>
+    private static string BlankGoCounts(string sql, out List<(int Offset, int? Count)> gos) {
+        gos = [];
+        var tokens = new TSql180Parser(initialQuotedIdentifiers: false).GetTokenStream(new StringReader(sql), out _);
+        var chars = sql.ToCharArray();
+        for (var i = 0; i < tokens.Count; i++) {
+            if (tokens[i].TokenType != TSqlTokenType.Go) continue;
+            int? count = null;
+            var j = i + 1;
+            while (j < tokens.Count && tokens[j].TokenType == TSqlTokenType.WhiteSpace && !tokens[j].Text.Contains('\n')) j++;
+            if (j < tokens.Count && tokens[j].TokenType == TSqlTokenType.Integer && int.TryParse(tokens[j].Text, out var n)) {
+                // only blanks and comments may follow on the line
+                var k = j + 1;
+                while (k < tokens.Count && (tokens[k].TokenType is TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment
+                       || (tokens[k].TokenType == TSqlTokenType.WhiteSpace && !tokens[k].Text.Contains('\n')))) k++;
+                if (k >= tokens.Count || tokens[k].TokenType is TSqlTokenType.EndOfFile
+                    || (tokens[k].TokenType == TSqlTokenType.WhiteSpace && tokens[k].Text.Contains('\n'))) {
+                    count = n;
+                    for (var c = 0; c < tokens[j].Text.Length; c++) chars[tokens[j].Offset + c] = ' ';
+                }
+            }
+            gos.Add((tokens[i].Offset, count));
+        }
+        return new string(chars);
+    }
+
     public static string Parse(string sql) {
         var parser = new TSql180Parser(initialQuotedIdentifiers: false);
+        var original = sql;
+        sql = BlankGoCounts(sql, out var gos);
         var fragment = parser.Parse(new StringReader(sql), out var errors);
 
         if (errors.Count > 0) {
@@ -31,6 +63,7 @@ public static class TsqlParser {
 
         var builder = new AstBuilder();
         fragment.Accept(builder);
+        AttachGoCounts(builder.Root, gos);
 
         var lineStarts = BuildLineStarts(sql);
         var comments = fragment.ScriptTokenStream
@@ -56,6 +89,29 @@ public static class TsqlParser {
     }
 
     /// <summary>
+    /// Records the GO lines that carry a count: on the batch they follow ("goLines": the counts of
+    /// every GO line between it and the next batch, null for a bare GO), or on the script
+    /// ("goBefore") when they come before the first batch.
+    /// </summary>
+    private static void AttachGoCounts(SqlNode? root, List<(int Offset, int? Count)> gos) {
+        if (root?.Props == null || !gos.Any(g => g.Count != null)) return;
+        var batches = (root.Props["batches"] as List<object?>)?.OfType<SqlNode>().ToList() ?? [];
+        var before = new List<object?>();
+        var after = new Dictionary<SqlNode, List<object?>>();
+        foreach (var (offset, count) in gos) {
+            var batch = batches.LastOrDefault(b => b.EndOffset <= offset);
+            if (batch == null) before.Add(count);
+            else {
+                if (!after.TryGetValue(batch, out var list)) after[batch] = list = [];
+                list.Add(count);
+            }
+        }
+        if (before.Any(c => c != null)) root.Props["goBefore"] = before;
+        foreach (var (batch, list) in after)
+            if (list.Any(c => c != null)) batch.Props!["goLines"] = list;
+    }
+
+    /// <summary>
     /// A canonical form of the SQL's meaning, for tests that check formatting didn't
     /// change it: ScriptDom's syntax tree, walked by reflection, without source
     /// positions or token streams, plus the comment texts in order (comments aren't
@@ -68,13 +124,14 @@ public static class TsqlParser {
     /// </summary>
     public static string? Canonical(string sql) {
         var parser = new TSql180Parser(initialQuotedIdentifiers: false);
+        sql = BlankGoCounts(sql, out var gos);
         var fragment = parser.Parse(new StringReader(sql), out var errors);
         if (errors.Count > 0) return null;
         var comments = fragment.ScriptTokenStream
             .Where(t => t.TokenType is TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment)
             .Select(t => t.Text.Trim());
         return JsonSerializer.Serialize(
-            new { tree = CanonicalNode(fragment), comments },
+            new { tree = CanonicalNode(fragment), comments, goCounts = gos.Where(g => g.Count != null).Select(g => g.Count) },
             new JsonSerializerOptions { WriteIndented = true });
     }
 

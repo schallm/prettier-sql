@@ -3531,13 +3531,29 @@ public class AstBuilder : TSqlFragmentVisitor {
         var stream = stmt.ScriptTokenStream;
         if (stream == null || stream.Count == 0) return RawText(option);
         var optStart = option.StartOffset;
-        var text = string.Concat(stream
-            .OrderBy(t => t.Offset)
-            .SkipWhile(t => t.Offset < optStart)
-            .TakeWhile(t => t.TokenType != TSqlTokenType.Semicolon &&
-                            t.TokenType != TSqlTokenType.EndOfFile)
-            .Select(t => t.Text));
-        return text.Trim();
+        // `NAME = value`, or `NAME` and an optional binary plan handle: whatever follows belongs to the
+        // next statement, which may come with no semicolon, and may be the end of a block
+        var tokens = new List<TSqlParserToken>();
+        var sawEquals = false;
+        var gotValue = false;
+        var words = 0;
+        foreach (var t in stream.Where(t => t.Offset >= optStart)) {
+            if (t.TokenType is TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment) {
+                tokens.Add(t);
+                continue;
+            }
+            if (t.TokenType is TSqlTokenType.Semicolon or TSqlTokenType.Go or TSqlTokenType.EndOfFile) break;
+            if (sawEquals && gotValue) break;
+            if (!sawEquals && words >= 1 && t.TokenType != TSqlTokenType.EqualsSign && t.TokenType != TSqlTokenType.HexLiteral) break;
+            tokens.Add(t);
+            words++;
+            if (t.TokenType == TSqlTokenType.EqualsSign) sawEquals = true;
+            else if (sawEquals) gotValue = true;
+        }
+        while (tokens.Count > 0 && tokens[^1].TokenType is TSqlTokenType.WhiteSpace
+            or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment)
+            tokens.RemoveAt(tokens.Count - 1);
+        return string.Concat(tokens.Select(t => t.Text)).Trim();
     }
 
     private static SqlNode BuildAlterDatabaseScopedConfigSet(AlterDatabaseScopedConfigurationSetStatement stmt) =>
