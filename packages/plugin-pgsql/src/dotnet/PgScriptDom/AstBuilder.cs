@@ -2987,15 +2987,19 @@ public class AstBuilder {
     // P4: VACUUM / ANALYZE / CLUSTER / REINDEX
     // -------------------------------------------------------------------------
 
+    // (name, value) options of VACUUM / ANALYZE / CLUSTER / REINDEX: PARALLEL 4, TABLESPACE ts, …
+    private object? UtilityOptions(IEnumerable<Node> nodes) =>
+        MaybeList(nodes
+            .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
+            .Select(n => (object?)new Dictionary<string, object?> {
+                ["name"]  = n.DefElem.Defname,
+                ["value"] = UtilityOptionValue(n.DefElem),
+            })
+            .ToList());
+
     private SqlNode BuildVacuum(VacuumStmt s, int start, int end) {
         var isVacuum = s.IsVacuumcmd;
-        // PARALLEL 4, INDEX_CLEANUP off, …: the value is part of the option
-        var options = s.Options
-            .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
-            .Select(n => UtilityOptionValue(n.DefElem) is { } value
-                ? $"{n.DefElem.Defname.ToUpper()} {value}"
-                : n.DefElem.Defname.ToUpper())
-            .ToList();
+        var options = UtilityOptions(s.Options);
         var rels = s.Rels
             .Where(n => n.NodeCase == Node.NodeOneofCase.VacuumRelation)
             .Select(n => {
@@ -3012,33 +3016,33 @@ public class AstBuilder {
 
         return new SqlNode("VacuumStatement", start, end, null, BuildProps(
             ("isVacuum",  isVacuum ? true : null),
-            ("options",   MaybeList(options)),
+            ("options",   options),
             ("relations", MaybeList(rels))
         ));
     }
 
-    private static SqlNode BuildCluster(ClusterStmt s, int start, int end) =>
+    private SqlNode BuildCluster(ClusterStmt s, int start, int end) =>
         new("ClusterStatement", start, end, null, BuildProps(
+            ("options",   UtilityOptions(s.Params)),
             ("relation",  s.Relation != null ? BuildRangeVar(s.Relation) : null),
             ("indexName", Ident.QuoteOpt(s.Indexname))
         ));
 
-    private static SqlNode BuildReindex(ReindexStmt s, int start, int end) {
+    private SqlNode BuildReindex(ReindexStmt s, int start, int end) {
         var kind = s.Kind switch {
             ReindexObjectType.ReindexObjectTable    => "TABLE",
             ReindexObjectType.ReindexObjectIndex    => "INDEX",
             ReindexObjectType.ReindexObjectSchema   => "SCHEMA",
             ReindexObjectType.ReindexObjectDatabase => "DATABASE",
-            _                                       => "TABLE",
+            ReindexObjectType.ReindexObjectSystem   => "SYSTEM",
+            _ => throw NotSupported($"REINDEX target ({s.Kind})", null),
         };
-        var options = s.Params
-            .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
-            .Select(n => n.DefElem.Defname.ToUpper())
-            .ToList();
         return new SqlNode("ReindexStatement", start, end, null, BuildProps(
             ("kind",     kind),
             ("relation", s.Relation != null ? BuildRangeVar(s.Relation) : null),
-            ("options",  MaybeList(options))
+            // REINDEX SCHEMA s / DATABASE d / SYSTEM d name a database object rather than a relation
+            ("name",     Ident.QuoteOpt(s.Name)),
+            ("options",  UtilityOptions(s.Params))
         ));
     }
 

@@ -1735,7 +1735,9 @@ function printExplain(node: SqlNode, opts: Options): Doc {
 }
 
 /** A COPY / EXPLAIN option: `FORMAT csv`, `DELIMITER ','`, or a bare flag such as `ANALYZE`. */
-function utilityOptionDoc(option: { name: string; value?: string | null }, opts: Options): Doc {
+type UtilityOption = { name: string; value?: string | null };
+
+function utilityOptionDoc(option: UtilityOption, opts: Options): Doc {
     const name = keyword(option.name.toUpperCase(), opts);
     const value = option.value;
     if (value == null) return name;
@@ -1881,8 +1883,9 @@ function printCreateTablePartitionOf(node: SqlNode, opts: Options): Doc {
 function printVacuum(node: SqlNode, opts: Options): Doc {
     const makeKeyword        = (k: string) => keyword(k, opts);
     const isVacuum  = propBool(node, 'isVacuum');
-    const options   = (node.props?.['options'] as string[] | undefined) ?? [];
+    const options   = (node.props?.['options'] as UtilityOption[] | undefined) ?? [];
     const relations = propArr(node, 'relations');
+    const optionDocs = options.map((o) => utilityOptionDoc(o, opts));
 
     const relDoc: Doc = relations.length > 0
         ? [' ', join(', ', relations.map((r): Doc => {
@@ -1892,17 +1895,18 @@ function printVacuum(node: SqlNode, opts: Options): Doc {
         : '';
 
     if (!isVacuum) {
-        const optDoc: Doc = options.length > 0 ? [' (', join(', ', options.map((o) => makeKeyword(o.toLowerCase()))), ')'] : '';
+        const optDoc: Doc = options.length > 0 ? [' (', join(', ', optionDocs), ')'] : '';
         return [[makeKeyword('ANALYZE'), optDoc, relDoc], ';'];
     }
 
     if (options.length === 0) {
         return [[makeKeyword('VACUUM'), relDoc], ';'];
     }
-    if (options.length === 1 && (options[0] === 'VERBOSE' || options[0] === 'ANALYZE')) {
-        return [[makeKeyword('VACUUM'), ' ', makeKeyword(options[0]!), relDoc], ';'];
+    const only = options.length === 1 ? options[0]! : undefined;
+    if (only && !only.value && (only.name === 'verbose' || only.name === 'analyze')) {
+        return [[makeKeyword('VACUUM'), ' ', makeKeyword(only.name.toUpperCase()), relDoc], ';'];
     }
-    return [[makeKeyword('VACUUM'), ' (', join(', ', options.map((o) => makeKeyword(o.toLowerCase()))), ')', relDoc], ';'];
+    return [[makeKeyword('VACUUM'), ' (', join(', ', optionDocs), ')', relDoc], ';'];
 }
 
 function printCluster(node: SqlNode, opts: Options): Doc {
@@ -1910,8 +1914,12 @@ function printCluster(node: SqlNode, opts: Options): Doc {
     const relation = prop(node, 'relation');
     const indexName = propStr(node, 'indexName');
 
+    const options = (node.props?.['options'] as UtilityOption[] | undefined) ?? [];
+
     return [
-        [makeKeyword('CLUSTER'), ' ', rangeVarName(relation),
+        [makeKeyword('CLUSTER'),
+         options.length > 0 ? [' (', join(', ', options.map((o) => utilityOptionDoc(o, opts))), ')'] : '',
+         relation ? [' ', rangeVarName(relation)] : '',
          indexName ? [' ', makeKeyword('USING'), ' ', indexName] : ''],
         ';',
     ];
@@ -1921,14 +1929,16 @@ function printReindex(node: SqlNode, opts: Options): Doc {
     const makeKeyword       = (k: string) => keyword(k, opts);
     const kind     = propStr(node, 'kind') ?? 'TABLE';
     const relation = prop(node, 'relation');
-    const options  = (node.props?.['options'] as string[] | undefined) ?? [];
+    const name     = propStr(node, 'name');
+    const options  = (node.props?.['options'] as UtilityOption[] | undefined) ?? [];
 
     const optDoc: Doc = options.length > 0
-        ? [' (', join(', ', options.map((o) => makeKeyword(o.toLowerCase()))), ')']
+        ? [' (', join(', ', options.map((o) => utilityOptionDoc(o, opts))), ')']
         : '';
 
     return [
-        [makeKeyword('REINDEX'), optDoc, ' ', makeKeyword(kind), ' ', rangeVarName(relation)],
+        [makeKeyword('REINDEX'), optDoc, ' ', makeKeyword(kind),
+         relation ? [' ', rangeVarName(relation)] : '', name ? [' ', name] : ''],
         ';',
     ];
 }

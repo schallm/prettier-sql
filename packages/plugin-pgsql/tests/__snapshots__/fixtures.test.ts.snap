@@ -2237,6 +2237,85 @@ grant a to b;
 "
 `;
 
+exports[`fixtures > p5/maintenance-options.sql 1`] = `
+"cluster (verbose);
+
+cluster;
+
+cluster t;
+
+cluster t using i;
+
+cluster (verbose) t using i;
+
+cluster (verbose) t using i;
+
+cluster (verbose false) t;
+
+reindex (verbose) schema s;
+
+reindex schema s;
+
+reindex (concurrently) schema s;
+
+reindex database d;
+
+reindex database;
+
+reindex system d;
+
+reindex system;
+
+reindex (tablespace ts) table t;
+
+reindex (tablespace 'MyTS') table t;
+
+reindex (concurrently false) table t;
+
+reindex (concurrently) index i;
+
+reindex (concurrently) table t;
+
+reindex index i;
+
+reindex (verbose, concurrently true) table s.t;
+
+vacuum;
+
+vacuum t;
+
+vacuum verbose;
+
+vacuum analyze t (a, b);
+
+vacuum (full, freeze, verbose) t;
+
+vacuum (parallel 4, index_cleanup off) t;
+
+vacuum (buffer_usage_limit '1MB') t;
+
+vacuum (analyze false) t;
+
+vacuum (verbose false) t;
+
+vacuum (skip_locked) t;
+
+vacuum (full) t;
+
+analyze;
+
+analyze t;
+
+analyze (verbose) t;
+
+analyze (verbose false) t;
+
+analyze (skip_locked, buffer_usage_limit '1 MB') t;
+
+analyze (verbose true) t (a);
+"
+`;
+
 exports[`fixtures > p5/security-label-targets.sql 1`] = `
 "security label on large object 1 is 'x';
 security label on domain d is 'x';
