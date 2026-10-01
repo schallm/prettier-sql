@@ -1877,17 +1877,25 @@ public class AstBuilder {
             )))
             .ToList();
 
+        // GRANT ... ON ALL TABLES IN SCHEMA s: the objects are schema names
+        var allInSchema = g.Targtype == GrantTargetType.AclTargetAllInSchema;
         var objtypeStr = g.Objtype switch {
-            ObjectType.ObjectTable    => g.Targtype == GrantTargetType.AclTargetAllInSchema ? "ALL TABLES IN SCHEMA" : "TABLE",
-            ObjectType.ObjectSequence => g.Targtype == GrantTargetType.AclTargetAllInSchema ? "ALL SEQUENCES IN SCHEMA" : "SEQUENCE",
-            ObjectType.ObjectFunction => g.Targtype == GrantTargetType.AclTargetAllInSchema ? "ALL FUNCTIONS IN SCHEMA" : "FUNCTION",
-            ObjectType.ObjectRoutine  => g.Targtype == GrantTargetType.AclTargetAllInSchema ? "ALL ROUTINES IN SCHEMA" : "ROUTINE",
-            ObjectType.ObjectSchema   => "SCHEMA",
-            ObjectType.ObjectDatabase => "DATABASE",
-            ObjectType.ObjectType     => "TYPE",
-            ObjectType.ObjectLanguage => "LANGUAGE",
+            ObjectType.ObjectTable      => allInSchema ? "ALL TABLES IN SCHEMA" : "TABLE",
+            ObjectType.ObjectSequence   => allInSchema ? "ALL SEQUENCES IN SCHEMA" : "SEQUENCE",
+            ObjectType.ObjectFunction   => allInSchema ? "ALL FUNCTIONS IN SCHEMA" : "FUNCTION",
+            ObjectType.ObjectProcedure  => allInSchema ? "ALL PROCEDURES IN SCHEMA" : "PROCEDURE",
+            ObjectType.ObjectRoutine    => allInSchema ? "ALL ROUTINES IN SCHEMA" : "ROUTINE",
+            ObjectType.ObjectSchema     => "SCHEMA",
+            ObjectType.ObjectDatabase   => "DATABASE",
+            ObjectType.ObjectType       => "TYPE",
+            ObjectType.ObjectDomain     => "DOMAIN",
+            ObjectType.ObjectLanguage   => "LANGUAGE",
             ObjectType.ObjectTablespace => "TABLESPACE",
-            _ => g.Objtype.ToString().Replace("Object", "").ToUpper(),
+            ObjectType.ObjectFdw           => "FOREIGN DATA WRAPPER",
+            ObjectType.ObjectForeignServer => "FOREIGN SERVER",
+            ObjectType.ObjectLargeobject   => "LARGE OBJECT",
+            ObjectType.ObjectParameterAcl  => "PARAMETER",
+            _ => throw NotSupported($"GRANT/REVOKE object type ({g.Objtype})", null),
         };
 
         var objects = g.Objects.Select(o => o.NodeCase switch {
@@ -1895,8 +1903,14 @@ public class AstBuilder {
             Node.NodeOneofCase.String         => new SqlNode("Literal", 0, 0, Ident.Quote(o.String.Sval), null),
             Node.NodeOneofCase.ObjectWithArgs => new SqlNode("Literal", 0, 0,
                 OwaSignature(o.ObjectWithArgs), null),
-            _ => null,
-        }).OfType<SqlNode>().ToList();
+            // GRANT ... ON TYPE t / DOMAIN d
+            Node.NodeOneofCase.TypeName       => new SqlNode("Literal", 0, 0, BuildPgTypeName(o.TypeName), null),
+            Node.NodeOneofCase.List           => new SqlNode("Literal", 0, 0, NodeObjName(o), null),
+            // GRANT ... ON LARGE OBJECT 1234
+            Node.NodeOneofCase.Integer        => new SqlNode("Literal", 0, 0, o.Integer.Ival.ToString(), null),
+            Node.NodeOneofCase.Float          => new SqlNode("Literal", 0, 0, o.Float.Fval, null),
+            _ => throw NotSupported($"GRANT/REVOKE object ({o.NodeCase})", null),
+        }).ToList();
 
         var grantees = g.Grantees
             .Where(gr => gr.NodeCase == Node.NodeOneofCase.RoleSpec)

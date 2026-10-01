@@ -2118,6 +2118,69 @@ server s;
 "
 `;
 
+exports[`fixtures > p5/grant-object-types.sql 1`] = `
+"grant usage on foreign server s
+to u;
+grant usage on foreign data wrapper w
+to u;
+grant usage on type t
+to u;
+grant usage on type public.t, s.t2
+to u;
+grant usage on domain d
+to u;
+grant usage on language plpgsql
+to u;
+grant select on large object 1234
+to u;
+grant all privileges on large object 1, 2
+to u;
+grant create on tablespace ts
+to u;
+grant execute on function f(integer), g()
+to u;
+grant execute on procedure p(integer)
+to u;
+grant execute on routine r(integer)
+to u;
+grant usage on sequence q
+to u;
+grant select on all tables in schema s
+to u;
+grant usage on all sequences in schema s, t
+to u;
+grant execute on all functions in schema s
+to u;
+grant execute on all procedures in schema s
+to u;
+grant execute on all routines in schema s
+to u;
+grant set on parameter work_mem
+to u;
+grant alter system on parameter work_mem, log_statement
+to u;
+revoke grant option for usage on foreign server s
+from u
+cascade;
+revoke usage on type t
+from u;
+grant select on table t
+to u;
+grant select on table t, u
+to public;
+grant connect on database d
+to u;
+grant usage on schema s
+to u;
+grant all privileges on schema s
+to u;
+grant select (a, b) on table t
+to u;
+
+grant a to b;
+"
+`;
+
 exports[`fixtures > select/advanced.sql 1`] = `
 "-- INTERVAL literals
 select
