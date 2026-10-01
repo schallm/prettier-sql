@@ -366,9 +366,10 @@ export function printIf(node: SqlNode, opts: Options): Doc {
             ? printStatementBlock(then, opts)
             : condEndsInComment
               ? indent([hardline, printStatementWithComments(then, opts)])
-              : group(indent([line, printStatementWithComments(then, opts)]))
+              : indent([line, printStatementWithComments(then, opts)])
         : ';';
-    const parts: Doc[] = [keyword('IF', opts), ' ', condDoc, thenDoc];
+    // The statement goes on the next line when the condition doesn't fit on one with it
+    const parts: Doc[] = [group([keyword('IF', opts), ' ', condDoc, thenDoc])];
     if (els) {
         // ELSE IF chain: keep on the same line to avoid extra nesting
         if (els.type === 'IfStatement') {
