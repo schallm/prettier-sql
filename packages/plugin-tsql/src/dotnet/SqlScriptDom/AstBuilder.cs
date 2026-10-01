@@ -30,6 +30,28 @@ public class AstBuilder : TSqlFragmentVisitor {
         return sb.ToString().Trim();
     }
 
+    /// <summary>
+    /// Source text of a WITH-list option, from its first token to the next top-level comma or
+    /// closing parenthesis. Some option fragments cover only their first keyword (or only
+    /// their value), so <see cref="RawText"/> drops the rest — `distribution` for
+    /// `distribution = hash(a)`. Comments are skipped and whitespace collapsed to one space.
+    /// </summary>
+    private static string OptionText(TSqlFragment opt) {
+        var stream = opt.ScriptTokenStream;
+        if (stream == null || opt.FirstTokenIndex < 0) return RawText(opt);
+        var sb = new StringBuilder();
+        var depth = 0;
+        for (var i = opt.FirstTokenIndex; i < stream.Count; i++) {
+            var t = stream[i];
+            if (t.TokenType == TSqlTokenType.LeftParenthesis) depth++;
+            else if (t.TokenType == TSqlTokenType.RightParenthesis) { if (depth == 0) break; depth--; }
+            else if (depth == 0 && (t.TokenType == TSqlTokenType.Comma || t.TokenType == TSqlTokenType.Semicolon)) break;
+            if (t.TokenType == TSqlTokenType.SingleLineComment || t.TokenType == TSqlTokenType.MultilineComment) continue;
+            sb.Append(t.TokenType == TSqlTokenType.WhiteSpace ? " " : t.Text);
+        }
+        return System.Text.RegularExpressions.Regex.Replace(sb.ToString(), @"\s+", " ").Trim();
+    }
+
     private static SqlNode Node(string type, TSqlFragment f, Dictionary<string, object?> props) =>
         new(type, f.StartOffset, f.StartOffset + f.FragmentLength, null, props);
 
@@ -146,6 +168,10 @@ public class AstBuilder : TSqlFragmentVisitor {
             ? $"{name}({string.Join(", ", f.PartitionSchemeColumns.Select(QuotedName))})"
             : name;
     }
+
+    /// <summary>A multi-part object name as text: `server.db.schema.name`, each part bracketed only when it must be.</summary>
+    private static string SchemaObjectText(SchemaObjectName name) =>
+        string.Join(".", name.Identifiers.Select(i => QuotedName(i)));
 
     private static SqlNode? BuildSchemaObjectName(SchemaObjectName? name) =>
         name == null ? null : new SqlNode(
@@ -950,10 +976,62 @@ public class AstBuilder : TSqlFragmentVisitor {
     // -------------------------------------------------------------------------
 
     public override void Visit(TSqlScript script) {
+        _stmtLimit = new Dictionary<TSqlStatement, int>(ReferenceEqualityComparer.Instance);
+        script.Accept(new StatementLimitIndexer(_stmtLimit));
         var batches = script.Batches?.Select(b => (object?)BuildBatch(b)).ToList();
         Root = Node("TSqlScript", script, new Dictionary<string, object?> {
             ["batches"] = batches,
         });
+    }
+
+    /// <summary>
+    /// For each statement, the token index where the next statement (or the end of its batch)
+    /// begins. ScriptDom gives some statement kinds a fragment that stops short of their last
+    /// tokens (CREATE EXTERNAL LANGUAGE ... FROM (...) ends before the FROM clause), so a
+    /// statement printed from its own text needs to know where it really ends.
+    /// </summary>
+    [ThreadStatic] private static Dictionary<TSqlStatement, int>? _stmtLimit;
+
+    private sealed class StatementLimitIndexer(Dictionary<TSqlStatement, int> limits) : TSqlFragmentVisitor {
+        private void Index(IList<TSqlStatement>? statements, int lastLimit) {
+            if (statements == null) return;
+            for (var i = 0; i < statements.Count; i++) {
+                if (i + 1 < statements.Count) limits[statements[i]] = statements[i + 1].FirstTokenIndex;
+                else if (lastLimit >= 0) limits[statements[i]] = lastLimit;
+            }
+        }
+        public override void ExplicitVisit(TSqlBatch node) {
+            // The last statement of a batch runs to the next GO or the end of the script
+            Index(node.Statements, node.ScriptTokenStream?.Count ?? -1);
+            base.ExplicitVisit(node);
+        }
+        public override void ExplicitVisit(StatementList node) {
+            Index(node.Statements, -1);
+            base.ExplicitVisit(node);
+        }
+    }
+
+    /// <summary>
+    /// A statement kept as its source text. Extends past the end of the statement's own
+    /// fragment when real tokens follow it before the next statement (see <see cref="_stmtLimit"/>).
+    /// </summary>
+    private static SqlNode LeafStatement(TSqlStatement stmt) {
+        var stream = stmt.ScriptTokenStream;
+        if (stream == null || stmt.FirstTokenIndex < 0 || _stmtLimit == null || !_stmtLimit.TryGetValue(stmt, out var limit))
+            return Leaf("Statement", stmt, RawText(stmt));
+        var last = Math.Min(stmt.LastTokenIndex, stream.Count - 1);
+        var end = last;
+        for (var i = last + 1; i < Math.Min(limit, stream.Count); i++) {
+            var type = stream[i].TokenType;
+            if (type is TSqlTokenType.Go or TSqlTokenType.EndOfFile) break;
+            if (type is TSqlTokenType.WhiteSpace or TSqlTokenType.Semicolon
+                or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment) continue;
+            end = i;
+        }
+        if (end == last) return Leaf("Statement", stmt, RawText(stmt));
+        var sb = new StringBuilder();
+        for (var i = stmt.FirstTokenIndex; i <= end; i++) sb.Append(stream[i].Text);
+        return new SqlNode("Statement", stmt.StartOffset, stream[end].Offset + stream[end].Text.Length, sb.ToString().Trim(), null);
     }
 
     private static SqlNode BuildBatch(TSqlBatch batch) {
@@ -1177,7 +1255,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["errorDescription"] = ecs.ErrorDescription != null ? RawText(ecs.ErrorDescription) : null,
             }),
 
-            _ => Leaf("Statement", stmt, RawText(stmt)),
+            _ => LeafStatement(stmt),
         };
     }
 
@@ -1616,9 +1694,71 @@ public class AstBuilder : TSqlFragmentVisitor {
     // DDL: CREATE TABLE
     // -------------------------------------------------------------------------
 
+    /// <summary>INFINITE, or a count and unit: `6 months`.</summary>
+    private static string RetentionPeriodText(RetentionPeriodDefinition rp) {
+        if (rp.IsInfinity) return "infinite";
+        var duration = RawText(rp.Duration);
+        var unit = rp.Units.ToString().ToLowerInvariant().TrimEnd('s');
+        return duration == "1" ? $"{duration} {unit}" : $"{duration} {unit}s";
+    }
+
+    private static string RdaState(string state) => state switch {
+        "Enable" => "on",
+        "Disable" => "off",
+        "OffWithoutDataRecovery" => "off_without_data_recovery",
+        _ => state.ToLowerInvariant(),
+    };
+
+    /// <summary>A name or a value written where either can go: an identifier, or a literal as written.</summary>
+    private static string IdentifierOrValueText(IdentifierOrValueExpression? v) =>
+        v == null ? "" : v.Identifier != null ? QuotedName(v.Identifier) ?? "" : v.ValueExpression != null ? RawText(v.ValueExpression) : v.Value;
+
     private static string SerializeTableOption(TableOption opt) {
-        if (opt is LedgerTableOption ledger)
-            return $"ledger = {ledger.OptionState.ToString().ToLower()}";
+        if (opt is LedgerTableOption ledger) {
+            // LEDGER = ON (LEDGER_VIEW = v (transaction_id_column_name = ..., ...), APPEND_ONLY = ON)
+            var parts = new List<string>();
+            if (ledger.LedgerViewOption is { ViewName: not null } lv) {
+                var cols = new List<string>();
+                if (lv.TransactionIdColumnName != null) cols.Add($"transaction_id_column_name = {QuotedName(lv.TransactionIdColumnName)}");
+                if (lv.SequenceNumberColumnName != null) cols.Add($"sequence_number_column_name = {QuotedName(lv.SequenceNumberColumnName)}");
+                if (lv.OperationTypeColumnName != null) cols.Add($"operation_type_column_name = {QuotedName(lv.OperationTypeColumnName)}");
+                if (lv.OperationTypeDescColumnName != null) cols.Add($"operation_type_desc_column_name = {QuotedName(lv.OperationTypeDescColumnName)}");
+                var view = $"ledger_view = {SchemaObjectText(lv.ViewName)}";
+                parts.Add(cols.Count > 0 ? $"{view} ({string.Join(", ", cols)})" : view);
+            }
+            if (ledger.AppendOnly != OptionState.NotSet)
+                parts.Add($"append_only = {ledger.AppendOnly.ToString().ToLower()}");
+            var state = ledger.OptionState.ToString().ToLower();
+            return parts.Count > 0 ? $"ledger = {state} ({string.Join(", ", parts)})" : $"ledger = {state}";
+        }
+        // REMOTE_DATA_ARCHIVE = ON | OFF | OFF_WITHOUT_DATA_RECOVERY [(FILTER_PREDICATE = ..., MIGRATION_STATE = ...)]
+        if (opt is RemoteDataArchiveAlterTableOption rdaAlter) {
+            var parts = new List<string>();
+            if (rdaAlter.IsFilterPredicateSpecified)
+                parts.Add("filter_predicate = " + (rdaAlter.FilterPredicate != null ? RawText(rdaAlter.FilterPredicate) : "null"));
+            if (rdaAlter.IsMigrationStateSpecified)
+                parts.Add("migration_state = " + rdaAlter.MigrationState.ToString().ToLowerInvariant());
+            var state = RdaState(rdaAlter.RdaTableOption.ToString());
+            return parts.Count > 0 ? $"remote_data_archive = {state} ({string.Join(", ", parts)})" : $"remote_data_archive = {state}";
+        }
+        if (opt is RemoteDataArchiveTableOption rda) {
+            var migration = rda.MigrationState.ToString();
+            var state = RdaState(rda.RdaTableOption.ToString());
+            return migration == "NotSpecified" ? $"remote_data_archive = {state}"
+                : $"remote_data_archive = {state} (migration_state = {migration.ToLowerInvariant()})";
+        }
+        if (opt is FileStreamOnTableOption fsOn)
+            return $"filestream_on = {IdentifierOrValueText(fsOn.Value)}";
+        if (opt is FileTableDirectoryTableOption ftDir)
+            return $"filetable_directory = {RawText(ftDir.Value)}";
+        if (opt is FileTableCollateFileNameTableOption ftCollate)
+            return $"filetable_collate_filename = {(ftCollate.Value != null ? QuotedName(ftCollate.Value) : "database_default")}";
+        if (opt is FileTableConstraintNameTableOption ftConstraint)
+            return ftConstraint.OptionKind switch {
+                TableOptionKind.FileTablePrimaryKeyConstraintName => $"filetable_primary_key_constraint_name = {QuotedName(ftConstraint.Value)}",
+                TableOptionKind.FileTableStreamIdUniqueConstraintName => $"filetable_streamid_unique_constraint_name = {QuotedName(ftConstraint.Value)}",
+                _ => $"filetable_fullpath_unique_constraint_name = {QuotedName(ftConstraint.Value)}",
+            };
         if (opt is MemoryOptimizedTableOption mo)
             return $"memory_optimized = {mo.OptionState.ToString().ToLower()}";
         if (opt is DurabilityTableOption dur) {
@@ -1647,10 +1787,26 @@ public class AstBuilder : TSqlFragmentVisitor {
                 if (subOpts.Length > 0) subOpts.Append(", ");
                 subOpts.Append("data_consistency_check = off");
             }
+            if (svo.RetentionPeriod != null) {
+                if (subOpts.Length > 0) subOpts.Append(", ");
+                subOpts.Append($"history_retention_period = {RetentionPeriodText(svo.RetentionPeriod)}");
+            }
             var subPart = subOpts.Length > 0 ? $" ({subOpts})" : "";
             return $"system_versioning = {state}{subPart}";
         }
-        return RawText(opt);
+        // HEAP | CLUSTERED COLUMNSTORE INDEX [ORDER (...)] | CLUSTERED INDEX (cols): the option
+        // fragment doesn't reach its tokens, so build the text from the parsed value.
+        if (opt is TableIndexOption { Value: TableNonClusteredIndexType }) return "heap";
+        if (opt is TableIndexOption { Value: TableClusteredIndexType clustered }) {
+            string Col(ColumnReferenceExpression c) => string.Join(".", c.MultiPartIdentifier.Identifiers.Select(i => QuotedName(i)));
+            if (clustered.ColumnStore) {
+                return clustered.OrderedColumns?.Count > 0
+                    ? $"clustered columnstore index order ({string.Join(", ", clustered.OrderedColumns.Select(Col))})"
+                    : "clustered columnstore index";
+            }
+            return $"clustered index ({string.Join(", ", clustered.Columns.Select(c => Col(c.Column) + (c.SortOrder == SortOrder.Descending ? " desc" : "")))})";
+        }
+        return OptionText(opt);
     }
 
     private static string SerializeIndexOption(IndexOption opt) {
@@ -1742,6 +1898,9 @@ public class AstBuilder : TSqlFragmentVisitor {
         var indexes = ct.Definition?.Indexes
             ?.Select(i => (object?)BuildInlineIndex(i)).ToList();
         var options = MapList(ct.Options, o => (object?)SerializeTableOption(o));
+        // CREATE TABLE t [(col, ...)] [WITH (...)] AS SELECT ... (CTAS)
+        var ctasSelect = ct.SelectStatement != null ? BuildSelectStatement(ct.SelectStatement) : null;
+        var ctasColumns = MapList(ct.CtasColumns, c => (object?)QuotedName(c));
 
         // PERIOD FOR SYSTEM_TIME (ValidFrom, ValidTo) — temporal table period definition
         var stp = ct.Definition?.SystemTimePeriod;
@@ -1758,6 +1917,8 @@ public class AstBuilder : TSqlFragmentVisitor {
         return Node("CreateTableStatement", ct, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(ct.SchemaObjectName),
             ["columns"] = columns,
+            ["ctasColumns"] = ctasColumns,
+            ["ctasSelect"] = ctasSelect,
             ["constraints"] = constraints,
             ["indexes"] = indexes,
             ["systemTimePeriod"] = systemTimePeriod,
@@ -1766,6 +1927,10 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["textimageOn"] = textimageOn,
             ["fileStreamOn"] = fileStreamOn,
             // Graph table types
+            ["asFileTable"] = ct.AsFileTable ? (object?)true : null,
+            // FEDERATED ON (distribution_name = column_name)
+            ["federatedOn"] = ct.FederationScheme != null
+                ? $"{QuotedName(ct.FederationScheme.DistributionName)} = {QuotedName(ct.FederationScheme.ColumnName)}" : null,
             ["asNode"] = ct.AsNode ? (object?)true : null,
             ["asEdge"] = ct.AsEdge ? (object?)true : null,
         });
@@ -2285,6 +2450,9 @@ public class AstBuilder : TSqlFragmentVisitor {
         Node(type, drop, new Dictionary<string, object?> {
             ["names"] = drop.Objects?.Select(o => (object?)BuildSchemaObjectName(o)).ToList(),
             ["ifExists"] = drop.IsIfExists,
+            // DROP TRIGGER t ON DATABASE | ON ALL SERVER
+            ["triggerScope"] = drop is DropTriggerStatement { TriggerScope: not TriggerScope.Normal } dts
+                ? dts.TriggerScope.ToString() : null,
         });
 
     // -------------------------------------------------------------------------
@@ -2605,6 +2773,8 @@ public class AstBuilder : TSqlFragmentVisitor {
         }
         return Node(type, p, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(p.ProcedureReference?.Name),
+            // CREATE PROCEDURE name;number — the procedure's number within a group
+            ["number"] = p.ProcedureReference?.Number?.Value,
             ["parameters"] = parms,
             ["options"] = BuildProcedureOptions(p.Options),
             // FOR REPLICATION: a procedure only replication runs
@@ -2626,7 +2796,10 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["name"] = BuildSchemaObjectName(f.Name),
                 ["parameters"] = parms,
                 ["options"] = BuildFunctionOptions(f.Options),
-                ["returnType"] = RawTextOrNull(f.ReturnType),
+                // RETURNS TABLE (cols): a CLR table-valued function lists its columns
+                ["returnType"] = f.ReturnType is TableValuedFunctionReturnType ? null : RawTextOrNull(f.ReturnType),
+                ["returnColumns"] = (f.ReturnType as TableValuedFunctionReturnType)?.DeclareTableVariableBody?.Definition?.ColumnDefinitions
+                    ?.Select(c => (object?)BuildColumnDefinition(c)).ToList(),
                 ["externalName"] = externalName,
             });
         }
@@ -2698,6 +2871,10 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["triggerType"] = trigger.TriggerType.ToString(),
             ["actions"] = actions,
             ["notForReplication"] = trigger.IsNotForReplication ? (object?)true : null,
+            // CLR trigger: AS EXTERNAL NAME assembly.[class].method
+            ["externalName"] = trigger.MethodSpecifier is { } tms
+                ? QuotedName(tms.AssemblyName) + "." + QuotedName(tms.ClassName) + "." + QuotedName(tms.MethodName)
+                : null,
             // WITH EXECUTE AS ..., ENCRYPTION, NATIVE_COMPILATION, SCHEMABINDING
             ["options"] = MapList(trigger.Options, o => (object?)(o is ExecuteAsTriggerOption execAs
                 ? Node("ExecuteAsOption", o, new Dictionary<string, object?> {

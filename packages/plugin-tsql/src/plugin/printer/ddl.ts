@@ -17,7 +17,7 @@ import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, printDr
 import { boolEndsWithPendingComment } from './expressions.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
-import { joinBodyStatements, printNode, printBool, printBoolClause, qexpr, printCtes, printStatement } from './statements.js';
+import { joinBodyStatements, printSelectBody, printNode, printBool, printBoolClause, qexpr, printCtes, printStatement } from './statements.js';
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -142,6 +142,23 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
     const onPart: Doc = onFileGroup ? [hardline, keyword('ON', opts), ' ', onFileGroup] : '';
     const textimagePart: Doc = textimageOn ? [hardline, keyword('TEXTIMAGE_ON', opts), ' ', textimageOn] : '';
     const fileStreamPart: Doc = fileStreamOn ? [hardline, keyword('FILESTREAM_ON', opts), ' ', fileStreamOn] : '';
+    // CREATE TABLE t [(col, ...)] [WITH (...)] AS SELECT ... (CTAS)
+    const ctasSelect = prop(node, 'ctasSelect');
+    if (ctasSelect) {
+        const ctasColumns = propStrArr(node, 'ctasColumns');
+        return group([
+            keyword('CREATE TABLE', opts),
+            ' ',
+            schemaObjectName(prop(node, 'name')),
+            ctasColumns.length ? [' ', parenList(ctasColumns)] : '',
+            withPart,
+            hardline,
+            keyword('AS', opts),
+            hardline,
+            printSelectBody(ctasSelect, opts),
+            ';',
+        ]);
+    }
     // Graph table types (AS NODE / AS EDGE)
     const asNode = node.props?.['asNode'] as boolean | undefined;
     const asEdge = node.props?.['asEdge'] as boolean | undefined;
@@ -150,14 +167,17 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
         : asEdge
           ? [' ', keyword('AS EDGE', opts)]
           : '';
+    // AS FILETABLE has no column list; FEDERATED ON (distribution = column) follows it
+    const asFileTable = propBool(node, 'asFileTable');
+    const federatedOn = propStr(node, 'federatedOn');
     return group([
         keyword('CREATE TABLE', opts),
         ' ',
         schemaObjectName(prop(node, 'name')),
-        ' (',
-        indent([hardline, join([',', hardline], allDefs)]),
-        hardline,
-        ')',
+        asFileTable
+            ? [' ', keyword('AS FILETABLE', opts)]
+            : [' (', indent([hardline, join([',', hardline], allDefs)]), hardline, ')'],
+        federatedOn ? [hardline, keyword('FEDERATED ON', opts), ' (', federatedOn, ')'] : '',
         graphPart,
         onPart,
         fileStreamPart,
@@ -921,6 +941,12 @@ export function printAtomicOptions(options: SqlNode[], opts: Options): Doc[] {
     return options.map((o): Doc => [keyword(propStr(o, 'kind') ?? '', opts), ' = ', propStr(o, 'value') ?? '']);
 }
 
+/** `;number` after a procedure name: CREATE PROCEDURE name;2. */
+function procedureNumber(node: SqlNode): Doc {
+    const number = propStr(node, 'number');
+    return number ? [';', number] : '';
+}
+
 export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
     const parameters = propArr(node, 'parameters');
     const body = propArr(node, 'body');
@@ -949,6 +975,7 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
             procKw,
             ' ',
             schemaObjectName(prop(node, 'name')),
+            procedureNumber(node),
             preBody,
             parameters.length > 0 ? indent([hardline, join([',', hardline], paramDocs)]) : '',
             postParam,
@@ -967,6 +994,7 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
         procKw,
         ' ',
         schemaObjectName(prop(node, 'name')),
+        procedureNumber(node),
         preBody,
         parameters.length > 0 ? indent([hardline, join([',', hardline], paramDocs)]) : '',
         postParam,
@@ -1030,12 +1058,21 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
     // CLR function: EXTERNAL NAME assembly.[class].method (no body)
     const externalName = propStr(node, 'externalName');
     if (externalName) {
+        const clrColumns = propArr(node, 'returnColumns');
         return [
             nameAndParamsNoOpts,
             hardline,
             keyword('RETURNS', opts),
             ' ',
-            keyword(returnType, opts),
+            clrColumns.length > 0
+                ? [
+                      keyword('TABLE', opts),
+                      ' (',
+                      indent([hardline, join([',', hardline], clrColumns.map((c) => printColumnDef(c, opts)))]),
+                      hardline,
+                      ')',
+                  ]
+                : keyword(returnType, opts),
             printModuleOptions(node, opts),
             hardline,
             keyword('AS', opts),
@@ -1202,6 +1239,7 @@ export function printCreateTrigger(node: SqlNode, opts: Options): Doc {
     const notForReplication = propBool(node, 'notForReplication');
     const notForReplicationDoc: Doc = notForReplication ? [hardline, keyword('NOT FOR REPLICATION', opts)] : '';
     const triggerBody = unwrapBodyBlock(propArr(node, 'body'));
+    const externalName = propStr(node, 'externalName');
 
     const triggerScope = propStr(node, 'triggerScope'); // 'Database' or 'AllServer' for DDL triggers
     const onTarget: Doc = triggerScope === 'Database'
@@ -1226,12 +1264,17 @@ export function printCreateTrigger(node: SqlNode, opts: Options): Doc {
         notForReplicationDoc,
         hardline,
         keyword('AS', opts),
-        hardline,
-        keyword('BEGIN', opts),
-        indent([hardline, joinBodyStatements(triggerBody, opts)]),
-        hardline,
-        keyword('END', opts),
-        ';',
+        // CLR trigger: AS EXTERNAL NAME assembly.[class].method
+        ...(externalName
+            ? [' ', keyword('EXTERNAL NAME', opts), ' ', externalName, ';']
+            : [
+                  hardline,
+                  keyword('BEGIN', opts),
+                  indent([hardline, joinBodyStatements(triggerBody, opts)]),
+                  hardline,
+                  keyword('END', opts),
+                  ';',
+              ]),
     ];
 }
 
@@ -1366,6 +1409,7 @@ export function printCreateTypeTable(node: SqlNode, opts: Options): Doc {
 export function printDropObjects(objType: string, node: SqlNode, opts: Options): Doc {
     const names = propArr(node, 'names');
     const ifExists = propBool(node, 'ifExists');
+    const triggerScope = propStr(node, 'triggerScope');
     return [
         keyword('DROP', opts),
         ' ',
@@ -1376,6 +1420,8 @@ export function printDropObjects(objType: string, node: SqlNode, opts: Options):
             ', ',
             names.map((n) => schemaObjectName(n)),
         ),
+        // DROP TRIGGER t ON DATABASE | ON ALL SERVER
+        triggerScope ? [' ', keyword('ON', opts), ' ', keyword(triggerScope === 'AllServer' ? 'ALL SERVER' : 'DATABASE', opts)] : '',
         ';',
     ];
 }

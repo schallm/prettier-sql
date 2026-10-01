@@ -793,6 +793,11 @@ export function printCtes(node: SqlNode, opts: Options): Doc[] {
 }
 
 function printSelect(node: SqlNode, opts: Options): Doc {
+    return [printSelectBody(node, opts), ';'];
+}
+
+/** A SELECT statement without its terminating semicolon (also the body of CREATE TABLE ... AS). */
+export function printSelectBody(node: SqlNode, opts: Options): Doc {
     const ctesDocs = printCtes(node, opts);
     const queryExpr = prop(node, 'queryExpression');
     const orderBy = prop(node, 'orderBy');
@@ -804,7 +809,7 @@ function printSelect(node: SqlNode, opts: Options): Doc {
             printOrderByClause(orderBy, opts, (n) => printNode(n, opts)),
         );
     }
-    parts.push(optionClause(node, opts), ';');
+    parts.push(optionClause(node, opts));
     return group(parts);
 }
 

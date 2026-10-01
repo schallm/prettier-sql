@@ -109,6 +109,20 @@ go
 "
 `;
 
+exports[`fixtures > admin/external-language-library.sql 1`] = `
+"-- CREATE / ALTER EXTERNAL LANGUAGE and LIBRARY keep their FROM and WITH clauses
+create external language l from (content = 'x', file_name = 'y');
+
+create external language l from (content = 'x', file_name = 'y', platform = windows);
+
+alter external language l set (content = 'x', file_name = 'y');
+
+create external library l from (content = 'x') with (language = 'R');
+
+alter external library l set (content = 'x') with (language = 'R');
+"
+`;
+
 exports[`fixtures > admin/service-broker.sql 1`] = `
 "-- Service Broker statements — END CONVERSATION must include the handle variable
 end conversation @handle;
@@ -432,6 +446,52 @@ create table dbo.Employees (
 "
 `;
 
+exports[`fixtures > create-table/ctas.sql 1`] = `
+"-- CREATE TABLE AS SELECT (Synapse / Fabric): the SELECT and WITH options are part of the table
+create table dbo.t
+as
+select 1 as a;
+
+create table dbo.t
+with (distribution = round_robin)
+as
+select 1 as a;
+
+create table dbo.t
+with (distribution = hash(a, b), clustered columnstore index)
+as
+select
+  a,
+  b
+from dbo.u;
+
+create table dbo.t (x, y)
+with (distribution = replicate, heap)
+as
+select
+  a,
+  b
+from dbo.u
+where a > 1;
+
+create table dbo.t
+with (distribution = hash(a), clustered index (a desc, b))
+as
+select
+  a,
+  b
+from dbo.u;
+
+create table dbo.t
+with (distribution = round_robin, clustered columnstore index order (a, b))
+as
+select
+  a,
+  b
+from dbo.u;
+"
+`;
+
 exports[`fixtures > create-table/filestream.sql 1`] = `
 "-- FILESTREAM_ON clause must be preserved
 create table dbo.Documents (
@@ -678,6 +738,67 @@ create table BigData (
   constraint PK_BigData primary key (Id)
 )
 with (data_compression = row, memory_optimized = off);
+"
+`;
+
+exports[`fixtures > create-table/with-options-extended.sql 1`] = `
+"-- WITH options that carry values of their own
+create table dbo.t (
+  a int
+)
+with (distribution = hash(a), clustered columnstore index);
+
+create table dbo.t (
+  a int
+)
+with (distribution = replicate);
+
+create table dbo.t (
+  a int
+)
+with (heap);
+
+create table dbo.t (
+  a int
+)
+with (data_compression = page);
+
+create table dbo.t (
+  a int
+)
+with (
+  ledger = on (ledger_view = dbo.v (transaction_id_column_name = x, sequence_number_column_name = y), append_only = on)
+);
+
+create table dbo.t (
+  a int
+)
+with (ledger = on (append_only = on));
+
+create table dbo.t (
+  a int
+)
+with (remote_data_archive = on (migration_state = outbound));
+
+create table dbo.t as filetable
+with (
+  filetable_directory = 'd',
+  filetable_collate_filename = database_default,
+  filetable_primary_key_constraint_name = pk
+);
+
+create table dbo.t (
+  a int,
+  b int
+)
+with (
+  system_versioning = on (history_table = dbo.h, history_retention_period = 6 months)
+);
+
+create table dbo.t (
+  a int
+)
+federated on (a = b);
 "
 `;
 
@@ -1120,6 +1241,18 @@ go
 alter function dbo.FormatPhone(@phone nvarchar(20))
 returns nvarchar(20)
 as external name MyClrLib.[MyNamespace.MyClass].FormatPhone;
+go
+"
+`;
+
+exports[`fixtures > function/clr-table-valued.sql 1`] = `
+"-- A CLR table-valued function lists its result columns
+create function dbo.clr_tvf(@a int)
+returns table (
+  a int,
+  b nvarchar(10)
+)
+as external name asm.cls.mth;
 go
 "
 `;
@@ -3512,6 +3645,24 @@ go
 "
 `;
 
+exports[`fixtures > stored-proc/procedure-number.sql 1`] = `
+"-- A numbered procedure group: create procedure name;number
+create procedure dbo.p;2
+as
+begin
+  select 1;
+end;
+go
+
+alter procedure dbo.p;2
+as
+begin
+  select 2;
+end;
+go
+"
+`;
+
 exports[`fixtures > stored-proc/tvp-parameter.sql 1`] = `
 "-- Stored proc with table-valued parameter (UDT type must not be keyword-cased)
 create procedure dbo.BulkInsertOrders
@@ -3570,6 +3721,22 @@ go
 "
 `;
 
+exports[`fixtures > trigger/clr-external-name.sql 1`] = `
+"-- A CLR trigger is its EXTERNAL NAME, with no body
+create trigger dbo.tg
+on dbo.t
+after insert
+as external name asm.cls.mth;
+go
+
+create trigger tg2
+on database
+for create_table
+as external name asm.cls.mth;
+go
+"
+`;
+
 exports[`fixtures > trigger/database-scope.sql 1`] = `
 "-- DDL trigger: ON DATABASE scope must be preserved, DDL event names must not
 -- become generic "EVENT" (ScriptDOM TriggerActionType maps all DDL events to same enum).
@@ -3582,6 +3749,16 @@ begin
   values (eventdata(), original_login());
 end;
 go
+"
+`;
+
+exports[`fixtures > trigger/drop-scope.sql 1`] = `
+"-- DROP TRIGGER on a database or server scope must keep the scope
+drop trigger tg on database;
+
+drop trigger tg on all server;
+
+drop trigger dbo.tg;
 "
 `;
 
