@@ -763,8 +763,10 @@ function printAlterCmd(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
             return [makeKeyword('ADD'), ' ', def ? printNode(def) : name];
         case 'ALTER COLUMN TYPE': {
             const using = prop(node, 'using');
+            const collation = propStr(node, 'collation');
             return [
                 makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('TYPE'), ' ', newType ? makeKeyword(newType) : '',
+                collation ? [' ', makeKeyword('COLLATE'), ' ', collation] : '',
                 using ? [' ', makeKeyword('USING'), ' ', printNode(using)] : '',
             ];
         }

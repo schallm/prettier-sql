@@ -1508,6 +1508,9 @@ public class AstBuilder {
             ("subtype", subtype),
             ("name",    Ident.QuoteOpt(cmd.Name)),
             ("newType", newType),
+            // ALTER COLUMN a TYPE text COLLATE "C"
+            ("collation", cmd.Subtype == AlterTableType.AtAlterColumnType && cmd.Def?.ColumnDef?.CollClause != null
+                        ? Ident.Qualified(cmd.Def.ColumnDef.CollClause.Collname.Select(c => c.String.Sval)) : null),
             // ALTER COLUMN a TYPE bigint USING a::bigint: how to convert existing values
             ("using",   cmd.Subtype == AlterTableType.AtAlterColumnType && cmd.Def?.ColumnDef?.RawDefault != null
                         ? BuildExpr(cmd.Def.ColumnDef.RawDefault) : null),

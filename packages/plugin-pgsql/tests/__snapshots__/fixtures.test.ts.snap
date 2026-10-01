@@ -1962,6 +1962,18 @@ reindex (verbose) table orders;
 "
 `;
 
+exports[`fixtures > p5/alter-column-type-collate.sql 1`] = `
+"alter table t
+  alter column a type text collate "C";
+
+alter table t
+  alter column a type text collate "C" using a::text;
+
+alter type t
+  alter attribute a type text collate "C";
+"
+`;
+
 exports[`fixtures > p5/assignment-targets.sql 1`] = `
 "insert into t (a.b)
 values (1);

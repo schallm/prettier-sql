@@ -793,7 +793,8 @@ function printAttributeCmd(cmd: SqlNode, opts: Options, printNode: PrintFn): Doc
         case 'DROP COLUMN':
             return [makeKeyword('DROP ATTRIBUTE'), ' ', ifExists, name, cascade];
         case 'ALTER COLUMN TYPE':
-            return [makeKeyword('ALTER ATTRIBUTE'), ' ', name, ' ', makeKeyword('TYPE'), ' ', keyword(propStr(cmd, 'newType') ?? '', opts), cascade];
+            return [makeKeyword('ALTER ATTRIBUTE'), ' ', name, ' ', makeKeyword('TYPE'), ' ', keyword(propStr(cmd, 'newType') ?? '', opts),
+                propStr(cmd, 'collation') ? [' ', makeKeyword('COLLATE'), ' ', propStr(cmd, 'collation')!] : '', cascade];
         default:
             return printNode(cmd);
     }
