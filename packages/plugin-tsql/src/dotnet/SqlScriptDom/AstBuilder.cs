@@ -128,6 +128,8 @@ public class AstBuilder : TSqlFragmentVisitor {
         "USER", "VALUES", "VARYING", "VIEW", "WAITFOR", "WHEN", "WHERE", "WHILE", "WITH",
         "WITHIN", "WRITETEXT",
         "VALUE",
+        // not reserved, but alone on a line it is a batch separator
+        "GO",
     };
 
     /// <summary>

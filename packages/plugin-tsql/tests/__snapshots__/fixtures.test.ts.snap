@@ -1234,6 +1234,9 @@ exports[`fixtures > ddl/at-sign-names.sql 1`] = `
 
 select [@col] as [@alias]
 from [@@SCHEMA_NAME@@].[@@OBJECT_NAME@@];
+
+select [go]
+from [go];
 "
 `;
 
