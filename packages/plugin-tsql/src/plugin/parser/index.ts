@@ -236,6 +236,30 @@ function attachIntraStatement(batches: SqlNode[], comments: CommentToken[], text
                     continue;
                 }
 
+                // Between a CTE's opening parenthesis and its query: it leads the query
+                const cteQuery = descendants.find((n) => {
+                    if (n.type !== 'CommonTableExpression') return false;
+                    const q = n.props?.['query'] as SqlNode | null | undefined;
+                    return !!q && n.startOffset < c.startOffset && c.endOffset <= q.startOffset && !text.substring(c.endOffset, q.startOffset).includes('(');
+                });
+                if (cteQuery) {
+                    cteQuery.leadingComments = cteQuery.leadingComments ?? [];
+                    cteQuery.leadingComments.push(c.text);
+                    used.add(c);
+                    continue;
+                }
+
+                // Inside a column definition, whose parts print no comments: it trails the column
+                const column = descendants.find(
+                    (n) => n.type === 'ColumnDefinition' && n.startOffset < c.startOffset && c.endOffset <= n.endOffset,
+                );
+                const check = column?.props?.['checkConstraint'] as SqlNode | null | undefined;
+                if (column && !(check && check.startOffset < c.startOffset) && !descendants.some((n) => n !== column && n.startOffset <= c.startOffset && c.endOffset <= n.endOffset && n.startOffset >= column.startOffset)) {
+                    column.trailingComment = column.trailingComment ? column.trailingComment + '\n' + c.text : c.text;
+                    used.add(c);
+                    continue;
+                }
+
                 // Find the nearest backward neighbour (highest endOffset ≤ comment start)
                 // and the nearest forward neighbour (lowest startOffset ≥ comment end).
                 let best: SqlNode | null = null;

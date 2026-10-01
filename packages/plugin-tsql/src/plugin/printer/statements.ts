@@ -19,7 +19,7 @@ import {
     fill,
     hasLineSuffix,
 } from '@prettier-sql/core/printer/utils';
-import { prop, propArr, propStr, propBool, assignmentOp, claimTrailingComment, takeTrailingComment, unprintedComments } from './helpers.js';
+import { prop, propArr, propStr, propBool, assignmentOp, claimTrailingComment, takeTrailingComment, unprintedComments, withTrailingComment } from './helpers.js';
 import {
     printExpression,
     printBoolExpr,
@@ -822,16 +822,19 @@ export function printCtes(node: SqlNode, opts: Options): Doc[] {
         const cols = cte.props?.['columns'] as string[] | undefined;
         const query = prop(cte, 'query');
         const colsPart: Doc = cols?.length ? [' ', parenList(cols)] : '';
-        allItems.push([
-            name,
-            colsPart,
-            ' ',
-            keyword('AS', opts),
-            ' (',
-            indent([hardline, query ? qexpr(query, opts) : '']),
-            hardline,
-            ')',
-        ] as Doc);
+        const queryComments: Doc[] = (cte.leadingComments ?? []).flatMap((c): Doc[] => [c, hardline]);
+        allItems.push(
+            withTrailingComment(cte, [
+                name,
+                colsPart,
+                ' ',
+                keyword('AS', opts),
+                ' (',
+                indent([hardline, ...queryComments, query ? qexpr(query, opts) : '']),
+                hardline,
+                ')',
+            ] as Doc),
+        );
     }
 
     return [...ctxPrefix, [keyword('WITH', opts), indent([hardline, join(sep, allItems)])], hardline];

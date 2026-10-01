@@ -674,6 +674,16 @@ create table dbo.SparseDocs (
 "
 `;
 
+exports[`fixtures > create-table/column-comments.sql 1`] = `
+"create table t (
+  a int not null constraint pk primary key -- key
+  , -- first
+  b int /* second */,
+  c int -- third
+);
+"
+`;
+
 exports[`fixtures > create-table/column-constraint-order-and-ledger-columns.sql 1`] = `
 "create table dbo.l (
   id int,
@@ -3055,6 +3065,22 @@ create table t (
   b int, -- col b
   constraint pk primary key (a) -- pk
 );
+"
+`;
+
+exports[`fixtures > select/cte-comments.sql 1`] = `
+"with
+  a as (
+    -- the first one
+    select 1 as x
+  ), -- between the two
+  b as (
+    select 2 as y -- inside b
+  )
+select *
+from
+  a,
+  b;
 "
 `;
 
