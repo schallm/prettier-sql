@@ -1928,13 +1928,18 @@ public class AstBuilder {
         ));
     }
 
-    private static SqlNode BuildAlterRole(AlterRoleStmt ar, int start, int end) =>
-        new("AlterRoleStatement", start, end, null, BuildProps(
-            ("name",    Ident.QuoteOpt(ar.Role?.Rolename) ?? ""),
-            ("options", ParseRoleOptions(ar.Options) is { Count: > 0 } options ? (object?)options : null)
+    private static SqlNode BuildAlterRole(AlterRoleStmt ar, int start, int end) {
+        // ALTER GROUP g ADD|DROP USER u: the only form that carries a member list
+        var members = ar.Options.FirstOrDefault(o => o.NodeCase == Node.NodeOneofCase.DefElem && o.DefElem.Defname == "rolemembers");
+        return new SqlNode("AlterRoleStatement", start, end, null, BuildProps(
+            ("name",    RoleSpecName(ar.Role)),
+            ("members", members != null ? RoleListText(members.DefElem.Arg) : null),
+            ("membersAction", members != null ? (ar.Action < 0 ? "DROP" : "ADD") : null),
+            ("options", ParseRoleOptions(ar.Options.Where(o => o != members)) is { Count: > 0 } options ? (object?)options : null)
         ));
+    }
 
-    private static List<string> ParseRoleOptions(Google.Protobuf.Collections.RepeatedField<Node> options) {
+    private static List<string> ParseRoleOptions(IEnumerable<Node> options) {
         var result = new List<string>();
         foreach (var o in options) {
             if (o.NodeCase != Node.NodeOneofCase.DefElem) continue;
@@ -2348,7 +2353,7 @@ public class AstBuilder {
     }
 
     private SqlNode BuildAlterOwner(AlterOwnerStmt s, int start, int end) {
-        var newOwner = s.Newowner?.Roletype == RoleSpecType.RolespecPublic ? "PUBLIC" : Ident.QuoteOpt(s.Newowner?.Rolename);
+        var newOwner = s.Newowner?.Roletype == RoleSpecType.RolespecPublic ? "PUBLIC" : RoleSpecName(s.Newowner);
         return new SqlNode("AlterOwnerStatement", start, end, null, BuildProps(
             ("objType",  ObjectTypeKw(s.ObjectType)),
             ("name",     NodeObjName(s.Object)),
@@ -3576,6 +3581,9 @@ public class AstBuilder {
             .Where(n => n.NodeCase == Node.NodeOneofCase.String)
             .Select(n => n.String.Sval)),
         Node.NodeOneofCase.String         => Ident.Quote(node.String.Sval),
+        // ALTER LARGE OBJECT 1234 OWNER TO u: an object identified by its OID
+        Node.NodeOneofCase.Integer        => node.Integer.Ival.ToString(),
+        Node.NodeOneofCase.Float          => node.Float.Fval,
         _                                 => null,
     };
 

@@ -1,0 +1,11 @@
+alter large object 1 owner to u;
+alter large object 16385 owner to current_user;
+alter group g add user u;
+alter group g drop user u, v;
+alter group current_user add user u;
+alter role r with login;
+alter role current_user with nologin;
+alter user u with password 'x';
+alter group g rename to h;
+alter schema s owner to session_user;
+alter database d owner to current_role;

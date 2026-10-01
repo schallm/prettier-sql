@@ -1974,6 +1974,32 @@ alter type t
 "
 `;
 
+exports[`fixtures > p5/alter-owner-group.sql 1`] = `
+"alter large object 1 owner to u;
+alter large object 16385 owner to current_user;
+
+alter group g add user u;
+
+alter group g drop user u, v;
+
+alter group current_user add user u;
+
+alter role r
+login;
+
+alter role current_user
+nologin;
+
+alter role u
+password 'x';
+
+alter role g rename to h;
+
+alter schema s owner to session_user;
+alter database d owner to current_role;
+"
+`;
+
 exports[`fixtures > p5/assignment-targets.sql 1`] = `
 "insert into t (a.b)
 values (1);

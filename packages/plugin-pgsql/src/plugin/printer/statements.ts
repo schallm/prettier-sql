@@ -1038,6 +1038,11 @@ function printAlterRole(node: SqlNode, opts: Options): Doc {
     const name    = propStr(node, 'name') ?? '';
     const options = (node.props?.['options'] as string[] | undefined) ?? [];
 
+    const members = propStr(node, 'members');
+    if (members !== null) {
+        return [[makeKeyword('ALTER GROUP'), ' ', name, ' ', makeKeyword(`${propStr(node, 'membersAction')} USER`), ' ', members], ';'];
+    }
+
     const parts: Doc[] = [[makeKeyword('ALTER ROLE'), ' ', name]];
     if (options.length > 0) parts.push(join(' ', options.map(makeKeyword)));
     return [join(hardline, parts), ';'];
