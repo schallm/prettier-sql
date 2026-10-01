@@ -16,7 +16,7 @@ import {
     line,
 } from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions } from './helpers.js';
-import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, printOperand, PREC, tableAliasDoc } from './expressions.js';
+import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, printOperand, printBoolFlat, PREC, tableAliasDoc } from './expressions.js';
 
 // ---------------------------------------------------------------------------
 // Script root
@@ -253,7 +253,7 @@ function printBoolClause(kw: string, where: SqlNode, opts: Options, printNode: P
         return [makeKeyword(kw), group([indent([line, fill(fillParts)])])];
     }
 
-    return [makeKeyword(kw), indent([hardline, printNode(where)])];
+    return [makeKeyword(kw), indent([hardline, printBoolFlat(where, opts, printNode)])];
 }
 
 /**

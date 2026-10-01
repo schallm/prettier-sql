@@ -277,8 +277,28 @@ function printBoolExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 
     // AND/OR are associative, so an operand only needs parentheses when it
     // binds more loosely: an OR inside an AND.
+    // Outside a WHERE/HAVING/ON-style clause (see `printBoolFlat`) the operands stay on
+    // one line when they fit, and otherwise hang indented under the first.
     const prec = op === 'OR' ? PREC.OR : PREC.AND;
-    return join([hardline, makeKeyword(op), ' '], args.map((a) => printOperand(a, prec, printNode)));
+    const [first, ...rest] = args.map((a) => boolOperand(a, prec, printNode));
+    return group([first ?? '', indent(rest.map((a) => [line, makeKeyword(op), ' ', a]))]);
+}
+
+/** An operand of AND/OR; a looser-binding AND/OR inside it gets parentheses that break only when too long. */
+function boolOperand(a: SqlNode, prec: number, printNode: PrintFn): Doc {
+    if (precedence(a) >= prec || a.type !== 'BoolExpr' || propStr(a, 'op') === 'NOT') return printOperand(a, prec, printNode);
+    return group(['(', indent([softline, printNode(a)]), softline, ')']);
+}
+
+/**
+ * An AND/OR chain with each operand on its own line, for a clause that supplies the
+ * indent itself (WHERE, HAVING, JOIN ... ON, ON CONFLICT ... WHERE).
+ */
+export function printBoolFlat(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const op = propStr(node, 'op') ?? 'AND';
+    if (node.type !== 'BoolExpr' || op === 'NOT') return printNode(node);
+    const prec = op === 'OR' ? PREC.OR : PREC.AND;
+    return join([hardline, keyword(op, opts), ' '], propArr(node, 'args').map((a) => boolOperand(a, prec, printNode)));
 }
 
 function printFunctionCall(node: SqlNode, opts: Options, printNode: PrintFn): Doc {

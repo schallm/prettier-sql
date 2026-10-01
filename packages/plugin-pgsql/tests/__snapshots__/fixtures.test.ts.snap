@@ -4245,26 +4245,19 @@ from t;
 select 1
 from t
 where not (
-  a = 1
-  and b = 2
+  a = 1 and b = 2
 );
 
 select 1
 from t
 where
   a = 1
-  and (
-    b = 2
-    or c = 3
-  );
+  and (b = 2 or c = 3);
 
 select 1
 from t
 where
-  (
-    price < 10
-    or price > 100
-  )
+  (price < 10 or price > 100)
   and deleted_at is null;
 
 select 1
@@ -4276,41 +4269,23 @@ where
 select 1
 from
   t
-  join u on (
-    t.a = u.a
-    or t.b = u.b
-  )
-  and t.c = 1;
+  join u on (t.a = u.a or t.b = u.b) and t.c = 1;
 
 select case
-  when (
-    a
-    or b
-  )
-  and c then 1
+  when (a or b) and c then 1
 end
 from t;
 
-select count(*) filter (where (
-  a
-  or b
-)
-and c)
+select count(*) filter (where (a or b) and c)
 from t
 having
-  (
-    count(*) > 1
-    or sum(x) > 2
-  )
+  (count(*) > 1 or sum(x) > 2)
   and max(y) < 3;
 
 update t
 set a = (b + c) * 2
 where
-  (
-    x
-    or y
-  )
+  (x or y)
   and z;
 
 select
@@ -5427,10 +5402,7 @@ select
   title
 from books
 where
-  (
-    price < 10
-    or price > 100
-  )
+  (price < 10 or price > 100)
   and deleted_at is null;
 
 select id
