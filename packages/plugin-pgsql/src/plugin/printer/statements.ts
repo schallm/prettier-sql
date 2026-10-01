@@ -16,7 +16,7 @@ import {
     line,
 } from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions } from './helpers.js';
-import { printExpression, printWindowDef, printOperand, PREC, tableAliasDoc } from './expressions.js';
+import { printExpression, printAssignTarget, printAssignment, printWindowDef, printOperand, PREC, tableAliasDoc } from './expressions.js';
 
 // ---------------------------------------------------------------------------
 // Script root
@@ -407,7 +407,7 @@ function printInsertBody(node: SqlNode, opts: Options): Doc {
     const cteParts = ctes ? printCtes(ctes, opts, printNode) : [];
 
     const colsPart: Doc = columns.length > 0
-        ? group([' (', indent([softline, join(softSep(opts), columns.map((c) => propStr(c, 'name') ?? ''))]), softline, ')'])
+        ? group([' (', indent([softline, join(softSep(opts), columns.map((c) => printAssignTarget(c, printNode)))]), softline, ')'])
         : '';
 
     const overridePart: Doc = override ? [' ', makeKeyword(`OVERRIDING ${override} VALUE`)] : '';
@@ -464,11 +464,7 @@ function printUpdateBody(node: SqlNode, opts: Options): Doc {
     const returning = propArr(node, 'returning');
     const density   = getDensity(opts);
 
-    const setDocs = sets.map((s) => {
-        const name = propStr(s, 'name') ?? '';
-        const val  = prop(s, 'val');
-        return [name, ' = ', val ? printNode(val) : ''] as Doc;
-    });
+    const setDocs = sets.map((s) => printAssignment(s, printNode));
 
     const parts: Doc[] = ctes ? printCtes(ctes, opts, printNode) : [];
     parts.push(
@@ -689,11 +685,7 @@ function printOnConflict(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
     }
 
     // DO UPDATE SET
-    const setDocs = sets.map((s) => {
-        const name = propStr(s, 'name') ?? '';
-        const val  = prop(s, 'val');
-        return [name, ' = ', val ? printNode(val) : ''] as Doc;
-    });
+    const setDocs = sets.map((s) => printAssignment(s, printNode));
 
     const density = getDensity(opts);
     const parts: Doc[] = [
@@ -1361,19 +1353,17 @@ function printMerge(node: SqlNode, opts: Options): Doc {
             actionDoc = makeKeyword('DELETE');
         } else if (cmd === 'UPDATE') {
             // ResTarget: name=column, val=value → "col = val"
-            const assignments: Doc[] = targets.map((t) => {
-                const column = propStr(t, 'name') ?? '';
-                const val = prop(t, 'val');
-                return [column, ' = ', val ? printNode(val) : ''] as Doc;
-            });
+            const assignments: Doc[] = targets.map((t) => printAssignment(t, printNode));
             actionDoc = [makeKeyword('UPDATE SET'), indent([hardline, join(hardSep(opts), assignments)])];
         } else { // INSERT
-            const cols = targets.filter((t) => t.type === 'ResTarget').map((t) => propStr(t, 'name') ?? '');
+            const cols = targets.filter((t) => t.type === 'ResTarget').map((t) => printAssignTarget(t, printNode));
             const colList: Doc = cols.length > 0 ? [' (', join(', ', cols), ')'] : '';
             const valList: Doc = values.length > 0
                 ? [makeKeyword('VALUES'), ' (', join(', ', values.map(printNode)), ')']
                 : [makeKeyword('DEFAULT VALUES')];
-            actionDoc = [makeKeyword('INSERT'), colList, hardline, valList];
+            const override = propStr(w, 'override');
+            const overrideDoc: Doc = override ? [' ', makeKeyword(`OVERRIDING ${override} VALUE`)] : '';
+            actionDoc = [makeKeyword('INSERT'), colList, overrideDoc, hardline, valList];
         }
 
         parts.push([whenLine, indent([hardline, actionDoc])]);
@@ -1447,7 +1437,7 @@ function printRefreshMatView(node: SqlNode, opts: Options): Doc {
 function printSelectInto(node: SqlNode, opts: Options): Doc {
     const makeKeyword       = (k: string) => keyword(k, opts);
     const printNode = printWith(opts);
-    const temp     = propBool(node, 'temp');
+    const persistence = propStr(node, 'persistence');
     const into     = prop(node, 'into');
     const targets  = propArr(node, 'targetList');
     const from     = propArr(node, 'from');
@@ -1461,7 +1451,7 @@ function printSelectInto(node: SqlNode, opts: Options): Doc {
     const parts: Doc[] = [];
     parts.push(printListClause('SELECT', targets, opts, printNode));
 
-    const intoKw: Doc = temp ? [makeKeyword('INTO'), ' ', makeKeyword('TEMP')] : makeKeyword('INTO');
+    const intoKw: Doc = persistence ? [makeKeyword('INTO'), ' ', makeKeyword(persistence)] : makeKeyword('INTO');
     parts.push([intoKw, indent([hardline, rangeVarName(into)])]);
 
     if (from.length > 0) {

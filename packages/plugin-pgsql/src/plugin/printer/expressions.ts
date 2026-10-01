@@ -905,7 +905,23 @@ function printSubscript(node: SqlNode, _opts: Options, printNode: PrintFn): Doc 
     // which names a different column.
     const bare = (arg?.type === 'ColumnRef' || arg?.type === 'ParamRef') && subscripts[0]?.type !== 'FieldAccess';
     const base: Doc = !arg ? '' : bare || arg.type === 'Subscript' ? printNode(arg) : ['(', printNode(arg), ')'];
-    const parts: Doc[] = subscripts.map((s): Doc => {
+    return [base, ...printIndirection(subscripts, printNode)];
+}
+
+/** The column of an INSERT column list or SET assignment: `a`, `a[1]`, `a.b`. */
+export function printAssignTarget(t: SqlNode, printNode: PrintFn): Doc {
+    return [propStr(t, 'name') ?? '', ...printIndirection(propArr(t, 'indirection'), printNode)];
+}
+
+/** One `col = value` entry of SET / DO UPDATE SET / WHEN MATCHED THEN UPDATE SET. */
+export function printAssignment(t: SqlNode, printNode: PrintFn): Doc {
+    const val = prop(t, 'val');
+    return [printAssignTarget(t, printNode), ' = ', val ? printNode(val) : ''];
+}
+
+/** `[1]`, `[1:2]` and `.field` suffixes of a subscripted expression or assignment target. */
+export function printIndirection(subscripts: SqlNode[], printNode: PrintFn): Doc[] {
+    return subscripts.map((s): Doc => {
         if (s.type === 'SubscriptIndex') {
             const index = prop(s, 'index');
             return ['[', index ? printNode(index) : '', ']'];
@@ -918,7 +934,6 @@ function printSubscript(node: SqlNode, _opts: Options, printNode: PrintFn): Doc 
         if (s.type === 'FieldAccess') return ['.', s.text ?? ''];
         return '';
     });
-    return [base, ...parts];
 }
 
 function printNamedArg(node: SqlNode, _opts: Options, printNode: PrintFn): Doc {

@@ -195,9 +195,8 @@ public class AstBuilder {
         // SELECT INTO
         if (s.IntoClause != null) {
             var rel = BuildRangeVar(s.IntoClause.Rel);
-            var temp = s.IntoClause.Rel?.Relpersistence == "t";
             var intoProps = BuildProps(
-                ("temp",       temp ? true : null),
+                ("persistence", Persistence(s.IntoClause.Rel)),
                 ("into",       rel),
                 ("targetList", MapList(s.TargetList, BuildExpr)),
                 ("from",       MapList(s.FromClause, BuildFromItem)),
@@ -1091,6 +1090,8 @@ public class AstBuilder {
     private SqlNode BuildResTarget(ResTarget r) =>
         new("ResTarget", 0, 0, null, BuildProps(
             ("name", Ident.QuoteOpt(r.Name)),
+            // INSERT INTO t (a.b, a[1]) / UPDATE t SET a[1] = ...: the subscripts and fields after the column
+            ("indirection", r.Indirection.Count > 0 ? MaybeList(BuildIndirectionList(r.Indirection)) : null),
             ("val", r.Val != null ? BuildExpr(r.Val) : null)
         ));
 
@@ -1642,8 +1643,14 @@ public class AstBuilder {
         return t.Setof ? $"setof {name}" : name;
     }
 
-    private SqlNode BuildIndirection(A_Indirection a) {
-        var subscripts = a.Indirection
+    private SqlNode BuildIndirection(A_Indirection a) =>
+        new SqlNode("Subscript", 0, 0, null, BuildProps(
+            ("arg",        BuildExpr(a.Arg)),
+            ("subscripts", MaybeList(BuildIndirectionList(a.Indirection)))
+        ));
+
+    private List<SqlNode> BuildIndirectionList(IEnumerable<Node> items) =>
+        items
             .Select(n => {
                 if (n.NodeCase == Node.NodeOneofCase.AIndices) {
                     var idx = n.AIndices;
@@ -1662,11 +1669,6 @@ public class AstBuilder {
                 throw NotSupported($"indirection ({n.NodeCase})", TryGetLocation(GetOneofValue(n)));
             })
             .ToList();
-        return new SqlNode("Subscript", 0, 0, null, BuildProps(
-            ("arg",        BuildExpr(a.Arg)),
-            ("subscripts", MaybeList(subscripts))
-        ));
-    }
 
     private SqlNode BuildNamedArgExpr(NamedArgExpr n) =>
         new("NamedArg", 0, 0, null, BuildProps(
@@ -2302,6 +2304,11 @@ public class AstBuilder {
             ("cmd",       cmd),
             ("condition", BuildExpr(w.Condition)),
             ("targets",   MapList(w.TargetList, BuildExpr)),
+            ("override",  w.Override switch {
+                OverridingKind.OverridingUserValue   => "USER",
+                OverridingKind.OverridingSystemValue => "SYSTEM",
+                _                                    => null,
+            }),
             ("values",    MapList(w.Values, BuildExpr))
         ));
     }

@@ -1,0 +1,10 @@
+insert into t (a.b) values (1);
+insert into t (a[1], c) values (1, 2);
+update t set a[1] = 2;
+update t set a.b = 2, c[1:2] = '{}';
+insert into t values (1) on conflict (a) do update set b[1] = 2;
+merge into t using u on t.a = u.a when matched then update set a[1] = 1;
+select * into unlogged new_t from t;
+select * into temporary new_t2 from t;
+merge into t using u on t.a = u.a when not matched then insert overriding user value values (1);
+merge into t using u on t.a = u.a when not matched then insert (a) overriding system value values (1);
