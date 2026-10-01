@@ -66,13 +66,9 @@ describe('options', () => {
 // ---------------------------------------------------------------------------
 
 describe('unsupported constructs', () => {
-    it('throws a clear error for an unhandled expression (COLLATE clause)', async () => {
-        await expect(fmt(`select name collate "C" from t;`)).rejects.toThrow(
-            /Unsupported expression \(CollateClause\)/
+    it('throws a clear error for an unhandled expression (IS JSON predicate)', async () => {
+        await expect(fmt(`select x is json from t;`)).rejects.toThrow(
+            /Unsupported expression \(JsonIsPredicate\)/
         );
-    });
-
-    it('throws a clear error for an unhandled constant kind (bit-string literal)', async () => {
-        await expect(fmt(`select b'101' from t;`)).rejects.toThrow(/Unsupported constant \(Bsval\)/);
     });
 });
