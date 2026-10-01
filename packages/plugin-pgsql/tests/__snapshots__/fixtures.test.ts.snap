@@ -2322,6 +2322,41 @@ where x = b'01';
 "
 `;
 
+exports[`fixtures > p5/function-transform-ctas-execute.sql 1`] = `
+"create function f(x integer)
+returns integer
+language sql
+transform for type integer
+as $$select 1$$;
+
+create function f(x integer)
+returns integer
+language sql
+transform for type integer, for type text
+as $$select 1$$;
+
+create function f(x integer)
+returns integer
+language sql
+transform for type public.t
+volatile
+as $$select 1$$;
+
+create table x as
+execute p(1);
+
+create table x as
+execute p;
+
+create temporary table x as
+execute p(1, 'a')
+with no data;
+
+create table if not exists x (a, b) as
+execute p(1);
+"
+`;
+
 exports[`fixtures > p5/grant-object-types.sql 1`] = `
 "grant usage on foreign server s
 to u;

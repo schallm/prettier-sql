@@ -561,6 +561,10 @@ public class AstBuilder {
             "security"   => Flag() ? "SECURITY DEFINER" : "SECURITY INVOKER",
             "leakproof"  => Flag() ? "LEAKPROOF" : "NOT LEAKPROOF",
             "window"     => "WINDOW",
+            // TRANSFORM FOR TYPE t, FOR TYPE u
+            "transform"  when d.Arg?.NodeCase == Node.NodeOneofCase.List => "TRANSFORM " + string.Join(", ", d.Arg.List.Items
+                .Where(i => i.NodeCase == Node.NodeOneofCase.TypeName)
+                .Select(i => "FOR TYPE " + BuildPgTypeName(i.TypeName))),
             "parallel"   => $"PARALLEL {Value().ToUpperInvariant()}",
             "cost"       => $"COST {Value()}",
             "rows"       => $"ROWS {Value()}",
@@ -2281,7 +2285,10 @@ public class AstBuilder {
             ("tablespace",   Ident.QuoteOpt(into?.TableSpaceName)),
             ("withNoData",   into?.SkipData == true ? true : null),
             ("ifNotExists", cta.IfNotExists ? true : null),
-            ("query",       cta.Query != null ? BuildExpr(cta.Query) : null)
+            // CREATE TABLE t AS EXECUTE prepared(args)
+            ("query",       cta.Query?.NodeCase == Node.NodeOneofCase.ExecuteStmt
+                ? BuildExecute(cta.Query.ExecuteStmt, 0, _sql.Length)
+                : cta.Query != null ? BuildExpr(cta.Query) : null)
         ));
     }
 
