@@ -2247,6 +2247,36 @@ security label on event trigger e is 'x';
 "
 `;
 
+exports[`fixtures > p5/set-time-zone.sql 1`] = `
+"set time zone interval '1' hour to minute;
+set time zone interval '-08:00' hour to minute;
+set local time zone interval '1' hour;
+set time zone interval '1';
+set time zone interval(3) '1';
+set timezone to default;
+set timezone to default;
+set timezone = 'UTC';
+set timezone = utc;
+set timezone = 3;
+set timezone = -7;
+set timezone = 1.5;
+set timezone = x;
+set timezone = x;
+set local timezone to default;
+set session_authorization = u;
+set session_authorization to default;
+set search_path = a, b;
+set x = on;
+set role = none;
+reset timezone;
+set client_encoding = utf8;
+set search_path = x;
+set xmloption = 'DOCUMENT';
+
+set session characteristics as transaction isolation level serializable;
+"
+`;
+
 exports[`fixtures > select/advanced.sql 1`] = `
 "-- INTERVAL literals
 select

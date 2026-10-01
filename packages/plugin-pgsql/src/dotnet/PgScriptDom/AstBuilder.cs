@@ -1826,6 +1826,25 @@ public class AstBuilder {
             return new SqlNode("TransactionStatement", start, end, null, BuildProps(
                 ("kind", "SET TRANSACTION"), ("options", MaybeList(txOpts))));
         }
+        // SET TIME ZONE INTERVAL '1' HOUR TO MINUTE: the only SET value that is a typed constant,
+        // and the only one SET name = value can't express
+        if (v.Kind == VariableSetKind.VarSetValue && v.Args.Count == 1 && v.Args[0].NodeCase == Node.NodeOneofCase.TypeCast
+            && v.Args[0].TypeCast.Arg?.NodeCase == Node.NodeOneofCase.AConst
+            && v.Args[0].TypeCast.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval) {
+            var tc = v.Args[0].TypeCast;
+            var typeText = BuildPgTypeName(tc.TypeName);   // interval, interval HOUR TO MINUTE, interval(3)
+            if (v.Name != "timezone" || !typeText.StartsWith("interval"))
+                throw NotSupported($"SET value ({typeText} constant)", TryGetLocation(GetOneofValue(v.Args[0])));
+            var rest = typeText.Substring("interval".Length);
+            return new SqlNode("VariableSetStatement", start, end, null, BuildProps(
+                ("kind", "SET TIME ZONE"),
+                ("name", v.Name),
+                ("local", v.IsLocal ? true : null),
+                ("intervalValue", $"'{tc.Arg.AConst.Sval.Sval.Replace("'", "''")}'"),
+                // `interval(3) 'x'` takes a precision before the string; fields come after it
+                ("intervalPrecision", rest.StartsWith("(") ? rest : null),
+                ("intervalFields", rest.Length > 0 && !rest.StartsWith("(") ? rest.Trim() : null)));
+        }
         if (v.Kind == VariableSetKind.VarSetValue) {
             var vals = v.Args.Select(SetValue).ToList();
             return new SqlNode("VariableSetStatement", start, end, null, BuildProps(

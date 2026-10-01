@@ -960,6 +960,13 @@ function printVariableSet(node: SqlNode, opts: Options): Doc {
         return [[makeKeyword('SET'), ' ', localKw, name, ' ', makeKeyword('TO'), ' ', makeKeyword('DEFAULT')], ';'];
     }
 
+    if (kind === 'SET TIME ZONE') {
+        const precision = propStr(node, 'intervalPrecision');
+        const fields    = propStr(node, 'intervalFields');
+        return [[makeKeyword('SET'), ' ', localKw, makeKeyword('TIME ZONE'), ' ', makeKeyword('INTERVAL'), precision ?? '', ' ',
+                 propStr(node, 'intervalValue') ?? '', fields ? [' ', makeKeyword(fields)] : ''], ';'];
+    }
+
     // Values arrive as SQL text (numbers, bare words, or quoted literals)
     return [[makeKeyword('SET'), ' ', localKw, name, ' = ', join(', ', values)], ';'];
 }
