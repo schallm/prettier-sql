@@ -2014,6 +2014,32 @@ when not matched then
 "
 `;
 
+exports[`fixtures > p5/create-schema-elements.sql 1`] = `
+"create schema s
+  create table t (
+    a integer
+  )
+  create view v
+  as
+  select 1;
+
+create schema s authorization u
+  create table t (
+    a integer primary key
+  )
+  create index i on t (a)
+  create sequence q
+  create trigger tg
+  before insert on t
+  for each row
+  execute function f()
+  grant select on table t
+  to u;
+
+create schema if not exists s;
+"
+`;
+
 exports[`fixtures > p5/create-table-typed-storage.sql 1`] = `
 "create table t of typ (
   a with options not null

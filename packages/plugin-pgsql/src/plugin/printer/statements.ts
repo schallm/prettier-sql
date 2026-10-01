@@ -1156,7 +1156,10 @@ function printCreateSchema(node: SqlNode, opts: Options): Doc {
 
     const ifNotExistsDoc: Doc   = ifNotExists ? [makeKeyword('IF NOT EXISTS'), ' '] : '';
     const authDoc: Doc = authRole ? [' ', makeKeyword('AUTHORIZATION'), ' ', authRole] : '';
-    return [[makeKeyword('CREATE SCHEMA'), ' ', ifNotExistsDoc, name, authDoc], ';'];
+    // Schema elements follow without separators: a ';' would end the CREATE SCHEMA
+    const elements = propArr(node, 'elements').map((e) => stripTrailingSemicolon(printStatement(e, opts)));
+    return [[makeKeyword('CREATE SCHEMA'), ' ', ifNotExistsDoc, name, authDoc,
+        ...elements.map((e) => indent([hardline, e]))], ';'];
 }
 
 // ---------------------------------------------------------------------------

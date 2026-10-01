@@ -79,7 +79,10 @@ public class AstBuilder {
 
         int start = rawStmt.StmtLocation;
         int end = rawStmt.StmtLen > 0 ? start + rawStmt.StmtLen : _sql.Length;
+        return BuildStmtNode(stmt, start, end);
+    }
 
+    private SqlNode BuildStmtNode(Node stmt, int start, int end) {
         return stmt.NodeCase switch {
             Node.NodeOneofCase.SelectStmt => BuildSelect(stmt.SelectStmt, start, end),
             Node.NodeOneofCase.InsertStmt => BuildInsert(stmt.InsertStmt, start, end),
@@ -2156,9 +2159,11 @@ public class AstBuilder {
         ));
     }
 
-    private static SqlNode BuildCreateSchema(CreateSchemaStmt cs, int start, int end) =>
+    private SqlNode BuildCreateSchema(CreateSchemaStmt cs, int start, int end) =>
         new("CreateSchemaStatement", start, end, null, BuildProps(
             ("name",        Ident.QuoteOpt(cs.Schemaname)),
+            // CREATE SCHEMA s CREATE TABLE ... CREATE VIEW ...: the objects created inside the schema
+            ("elements",    MapList(cs.SchemaElts, n => BuildStmtNode(n, start, end))),
             ("authRole",    Ident.QuoteOpt(cs.Authrole?.Rolename)),
             ("ifNotExists", cs.IfNotExists ? true : null)
         ));
