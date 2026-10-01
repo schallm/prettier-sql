@@ -3002,6 +3002,37 @@ comment on aggregate a(*) is 'x';
 "
 `;
 
+exports[`fixtures > p6/routine-signature-modes.sql 1`] = `
+"drop function f(a integer);
+
+drop function f(in a integer, out b integer);
+
+drop function f(variadic a integer[]);
+
+drop function f(inout a integer);
+
+drop procedure p(in a integer, inout b integer);
+
+drop aggregate a(x integer);
+
+drop aggregate a(variadic integer[]);
+
+drop aggregate a(integer, variadic integer[]);
+
+drop aggregate a(variadic "any");
+
+drop aggregate a(integer, integer);
+
+alter function f(a integer, variadic b integer[]) rename to g;
+
+comment on function f(in a integer, out b integer) is 'x';
+grant execute on function f(a integer, variadic b integer[])
+to u;
+
+alter aggregate a(x integer, y integer) rename to b;
+"
+`;
+
 exports[`fixtures > p6/sql-json-predicates-constructors.sql 1`] = `
 "select a is json
 from t;

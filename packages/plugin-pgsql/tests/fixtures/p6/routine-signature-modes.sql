@@ -1,0 +1,14 @@
+drop function f(a int);
+drop function f(in a int, out b int);
+drop function f(variadic a int[]);
+drop function f(inout a int);
+drop procedure p(in a int, inout b int);
+drop aggregate a(x int);
+drop aggregate a(variadic int[]);
+drop aggregate a(int, variadic int[]);
+drop aggregate a(variadic "any" order by variadic "any");
+drop aggregate a(int order by int);
+alter function f(a int, variadic b int[]) rename to g;
+comment on function f(in a int, out b int) is 'x';
+grant execute on function f(a int, variadic b int[]) to u;
+alter aggregate a(x int order by y int) rename to b;

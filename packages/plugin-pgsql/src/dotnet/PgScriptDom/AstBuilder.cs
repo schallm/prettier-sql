@@ -3969,7 +3969,23 @@ public class AstBuilder {
         if (owa.ArgsUnspecified) return name;
         // An aggregate over no arguments is written (*); `a()` is not valid for one
         if (kind == ObjectType.ObjectAggregate && owa.Objargs.Count == 0) return $"{name}(*)";
-        var args = owa.Objargs.Select(n => n.NodeCase == Node.NodeOneofCase.TypeName ? BuildPgTypeName(n.TypeName) : "none");
+        // A function's or aggregate's parameters keep their modes and names (f(IN a int, OUT b text)):
+        // the tree records them next to the bare types, and OUT parameters are not among the types.
+        // Operators and casts have only types.
+        var args = owa.Objfuncargs.Count > 0 && owa.Objfuncargs.All(n => n.NodeCase == Node.NodeOneofCase.FunctionParameter)
+            ? owa.Objfuncargs.Select(n => {
+                var p = n.FunctionParameter;
+                var mode = p.Mode switch {
+                    FunctionParameterMode.FuncParamIn       => "in ",
+                    FunctionParameterMode.FuncParamOut      => "out ",
+                    FunctionParameterMode.FuncParamInout    => "inout ",
+                    FunctionParameterMode.FuncParamVariadic => "variadic ",
+                    _                                        => "",
+                };
+                var name = string.IsNullOrEmpty(p.Name) ? "" : Ident.Quote(p.Name) + " ";
+                return mode + name + (p.ArgType != null ? BuildPgTypeName(p.ArgType) : "");
+            })
+            : owa.Objargs.Select(n => n.NodeCase == Node.NodeOneofCase.TypeName ? BuildPgTypeName(n.TypeName) : "none");
         var isOperator = Ident.IsOperatorSymbol(owa.Objname.LastOrDefault()?.String?.Sval ?? "");
         return $"{name}{(isOperator ? " " : "")}({string.Join(", ", args)})";
     }
