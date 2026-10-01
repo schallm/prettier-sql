@@ -138,8 +138,15 @@ export function printSetVariable(node: SqlNode, opts: Options): Doc {
     if (methodName) {
         const methodArgs = propArr(node, 'methodArgs');
         const argDocs = methodArgs.map((a) => printNode(a, opts));
+        const separator = propStr(node, 'separator') ?? '.';
+        const call: Doc = propBool(node, 'functionCall') ? ['(', join(', ', argDocs), ')'] : '';
+        // SET @a.p = 1: a CLR type's property is assigned, not called
+        const assigned = prop(node, 'value');
+        const assignment: Doc = assigned
+            ? [' ', assignmentOp(propStr(node, 'operator') ?? 'Equals'), ' ', printNode(assigned, opts)]
+            : '';
         // The method name keeps its case: xml and CLR type methods are case-sensitive
-        return [keyword('SET', opts), ' ', name, '.', methodName, '(', join(', ', argDocs), ')', ';'];
+        return [keyword('SET', opts), ' ', name, separator, methodName, call, assignment, ';'];
     }
 
     const opStr = assignmentOp(propStr(node, 'operator') ?? 'Equals');

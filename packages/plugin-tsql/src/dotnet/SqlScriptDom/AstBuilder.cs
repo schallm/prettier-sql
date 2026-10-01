@@ -1556,6 +1556,11 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["name"] = sv.Variable?.Name,
                 ["methodName"] = sv.Identifier.Value,
                 ["methodArgs"] = methodArgs,
+                // SET @a.m(...) calls a method; SET @a.p = 1 assigns a property (no parentheses)
+                ["functionCall"] = sv.FunctionCallExists ? (object?)true : null,
+                ["separator"] = sv.SeparatorType == SeparatorType.DoubleColon ? "::" : null,
+                ["value"] = sv.Expression != null ? BuildScalarExpression(sv.Expression) : null,
+                ["operator"] = sv.Expression != null ? sv.AssignmentKind.ToString() : null,
             });
         }
 
@@ -2157,6 +2162,15 @@ public class AstBuilder : TSqlFragmentVisitor {
             props["maskingFunction"] = alterCol.MaskingFunction?.Value;
             // COLLATE clause — stored as a separate property on the statement
             props["collation"] = alterCol.Collation?.Value;
+            // ALTER COLUMN a int [ENCRYPTED WITH (...)] [SPARSE] [HIDDEN] [MASKED WITH (...)] [WITH (ONLINE = ON)]
+            props["encryption"] = BuildColumnEncryptionDefinition(alterCol.Encryption);
+            props["isSparse"] = alterCol.StorageOptions?.SparseOption == SparseColumnOption.Sparse ? (object?)true : null;
+            props["isFileStream"] = alterCol.StorageOptions?.IsFileStream == true ? (object?)true : null;
+            props["isColumnSet"] = alterCol.StorageOptions?.SparseOption == SparseColumnOption.ColumnSetForAllSparseColumns ? (object?)true : null;
+            props["generatedAlways"] = alterCol.GeneratedAlways.HasValue ? (object?)alterCol.GeneratedAlways.Value.ToString() : null;
+            props["isHidden"] = alterCol.IsHidden ? (object?)true : null;
+            props["isMasked"] = alterCol.IsMasked ? (object?)true : null;
+            props["columnOptions"] = MapList(alterCol.Options, o => (object?)SerializeIndexOption(o));
         } else if (at is AlterTableSetStatement setStmt) {
             // Use SerializeTableOption so complex options like SYSTEM_VERSIONING are
             // correctly serialized (OptionKind is unreliable — it defaults to 0).
@@ -2179,6 +2193,18 @@ public class AstBuilder : TSqlFragmentVisitor {
             props["enable"] = triggerMod.TriggerEnforcement == TriggerEnforcement.Enable ? (object?)true : false;
             props["triggerAll"] = triggerMod.All ? (object?)true : null;
             props["triggerNames"] = MapList(triggerMod.TriggerNames, n => (object?)n.Value);
+        } else if (at is AlterTableChangeTrackingModificationStatement ct) {
+            // ENABLE | DISABLE CHANGE_TRACKING [WITH (TRACK_COLUMNS_UPDATED = ON | OFF)]
+            props["changeTracking"] = ct.IsEnable ? "enable" : "disable";
+            props["trackColumnsUpdated"] = ct.TrackColumnsUpdated switch {
+                OptionState.On => "on",
+                OptionState.Off => "off",
+                _ => null,
+            };
+        } else {
+            // Rarely used forms (FILETABLE_NAMESPACE, ALTER INDEX, SPLIT/MERGE RANGE, CLUSTER BY, ...)
+            // stay as the source text
+            return LeafStatement(at);
         }
 
         return Node("AlterTableStatement", at, props);
@@ -2974,6 +3000,8 @@ public class AstBuilder : TSqlFragmentVisitor {
         bool noMinValue = false;
         bool noMaxValue = false;
         bool noCache = false;
+        bool restart = false;
+        bool cacheDefault = false;
         string? cache = null;
 
         foreach (var opt in options ?? []) {
@@ -3003,6 +3031,11 @@ public class AstBuilder : TSqlFragmentVisitor {
                         break;
                     case SequenceOptionKind.Cache:
                         if (opt.NoValue) noCache = true;
+                        else cacheDefault = true; // CACHE without a size
+                        break;
+                    // RESTART without WITH: back to the start value
+                    case SequenceOptionKind.Restart:
+                        restart = true;
                         break;
                 }
             }
@@ -3020,6 +3053,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["cycle"] = cycle,
             ["cache"] = cache,
             ["noCache"] = noCache,
+            ["restart"] = restart ? (object?)true : null,
+            ["cacheDefault"] = cacheDefault ? (object?)true : null,
         };
     }
 
@@ -3559,6 +3594,19 @@ public class AstBuilder : TSqlFragmentVisitor {
     // Security: USER / LOGIN / ROLE
     // -------------------------------------------------------------------------
 
+    /// <summary>
+    /// A literal as written. Some literals (a CREATE USER password) carry no source offsets,
+    /// so <see cref="RawText"/> comes back empty; rebuild a string from its value then.
+    /// </summary>
+    private static string? LiteralText(Literal? lit) {
+        if (lit == null) return null;
+        var raw = RawText(lit);
+        if (raw.Length > 0 && raw != lit.GetType().Name) return raw;
+        return lit is StringLiteral str
+            ? (str.IsNational ? "N" : "") + "'" + str.Value.Replace("'", "''") + "'"
+            : lit.Value;
+    }
+
     private static object? BuildPrincipalOption(PrincipalOption opt) => opt switch {
         PasswordAlterPrincipalOption popt => new Dictionary<string, object?> {
             ["kind"] = "Password",
@@ -3574,7 +3622,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         },
         LiteralPrincipalOption litOpt => new Dictionary<string, object?> {
             ["kind"] = opt.OptionKind.ToString(),
-            ["value"] = RawTextOrNull(litOpt.Value),
+            ["value"] = LiteralText(litOpt.Value),
         },
         IdentifierPrincipalOption idOpt => new Dictionary<string, object?> {
             ["kind"] = opt.OptionKind.ToString(),
@@ -3625,6 +3673,10 @@ public class AstBuilder : TSqlFragmentVisitor {
             case WindowsCreateLoginSource wcs:
                 props["sourceType"] = "Windows";
                 props["options"] = BuildPrincipalOptions(wcs.Options);
+                break;
+            case ExternalCreateLoginSource ecs:
+                props["sourceType"] = "External";
+                props["options"] = BuildPrincipalOptions(ecs.Options);
                 break;
             case CertificateCreateLoginSource ccs:
                 props["sourceType"] = "Certificate";
@@ -3758,14 +3810,26 @@ public class AstBuilder : TSqlFragmentVisitor {
     // DDL — Statistics
     // -------------------------------------------------------------------------
 
+    /// <summary>The keyword for a statistics option: most are the enum name in capitals, a few are not.</summary>
+    private static string StatisticsOptionKeyword(StatisticsOptionKind kind) => kind switch {
+        // Written as one word
+        StatisticsOptionKind.FullScan => "FULLSCAN",
+        StatisticsOptionKind.NoRecompute => "NORECOMPUTE",
+        StatisticsOptionKind.RowCount => "ROWCOUNT",
+        StatisticsOptionKind.PageCount => "PAGECOUNT",
+        StatisticsOptionKind.StatsStream => "STATS_STREAM",
+        StatisticsOptionKind.PersistSamplePercent => "PERSIST_SAMPLE_PERCENT",
+        _ => System.Text.RegularExpressions.Regex.Replace(kind.ToString(), "(?<=[a-z])(?=[A-Z])", "_").ToUpperInvariant(),
+    };
+
     private static string StatisticsOptionText(StatisticsOption o) => o switch {
-        OnOffStatisticsOption oo => $"{o.OptionKind} = {(oo.OptionState == OptionState.On ? "ON" : "OFF")}",
+        OnOffStatisticsOption oo => $"{StatisticsOptionKeyword(o.OptionKind)} = {(oo.OptionState == OptionState.On ? "ON" : "OFF")}",
         LiteralStatisticsOption lo when o.OptionKind == StatisticsOptionKind.SamplePercent
             => $"SAMPLE {lo.Literal?.Value} PERCENT",
         LiteralStatisticsOption lo when o.OptionKind == StatisticsOptionKind.SampleRows
             => $"SAMPLE {lo.Literal?.Value} ROWS",
-        LiteralStatisticsOption lo => $"{o.OptionKind} = {lo.Literal?.Value}",
-        _ => o.OptionKind.ToString().ToUpperInvariant(),
+        LiteralStatisticsOption lo => $"{StatisticsOptionKeyword(o.OptionKind)} = {lo.Literal?.Value}",
+        _ => StatisticsOptionKeyword(o.OptionKind),
     };
 
     private static SqlNode BuildCreateStatistics(CreateStatisticsStatement cs) {

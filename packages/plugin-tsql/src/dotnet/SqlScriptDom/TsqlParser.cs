@@ -154,6 +154,9 @@ public static class TsqlParser {
                         obj[prop.Name] = alias.Value;
                         continue;
                     }
+                    // FETCH c and FETCH NEXT FROM c: NEXT is the orientation when none is given
+                    if (fragment is FetchCursorStatement && prop.Name == nameof(FetchCursorStatement.FetchType) && propValue == null)
+                        propValue = new FetchType { Orientation = FetchOrientation.Next };
                     // INSERT t and INSERT INTO t
                     if (fragment is InsertSpecification && prop.Name == "InsertOption" && propValue is InsertOption.None)
                         propValue = InsertOption.Into;

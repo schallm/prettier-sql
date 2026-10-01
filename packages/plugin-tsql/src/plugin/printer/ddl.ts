@@ -56,10 +56,17 @@ function withOptionsClause(options: string[] | null | undefined, opts: Options):
             line,
             join(
                 [',', line],
-                options.map((o) => keyword(o, opts)),
+                options.map((o) => statisticsOption(o, opts)),
             ),
         ]),
     ]);
+}
+
+/** NAME = value: the name is a keyword; a value other than ON / OFF (0x01 in STATS_STREAM) is kept as written. */
+function statisticsOption(option: string, opts: Options): Doc {
+    const m = /^([A-Z_]+) = (.*)$/i.exec(option);
+    if (!m) return keyword(option, opts);
+    return [keyword(m[1]!, opts), ' = ', /^(ON|OFF)$/i.test(m[2]!) ? keyword(m[2]!, opts) : m[2]!];
 }
 
 // ---------------------------------------------------------------------------
@@ -187,6 +194,37 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
     ]);
 }
 
+/** ENCRYPTED WITH (COLUMN_ENCRYPTION_KEY = ..., ENCRYPTION_TYPE = ..., ALGORITHM = '...') */
+function encryptedWithDoc(
+    encryption: { columnEncryptionKey?: string; encryptionType?: string; algorithm?: string },
+    opts: Options,
+): Doc {
+    const encParts: Doc[] = [];
+    if (encryption.columnEncryptionKey)
+        encParts.push([keyword('COLUMN_ENCRYPTION_KEY', opts), ' = ', encryption.columnEncryptionKey]);
+    if (encryption.encryptionType)
+        encParts.push([keyword('ENCRYPTION_TYPE', opts), ' = ', keyword(encryption.encryptionType, opts)]);
+    if (encryption.algorithm) encParts.push([keyword('ALGORITHM', opts), ' = ', encryption.algorithm]);
+    return [keyword('ENCRYPTED WITH', opts), ' (', join(', ', encParts), ')'];
+}
+
+/** The keywords after GENERATED ALWAYS AS for a GeneratedAlwaysType name. */
+function generatedAlwaysKeyword(generatedAlways: string): string {
+    const gaMap: Record<string, string> = {
+        RowStart: 'ROW START',
+        RowEnd: 'ROW END',
+        UserIdStart: 'USER ID START',
+        UserIdEnd: 'USER ID END',
+        UserNameStart: 'USER NAME START',
+        UserNameEnd: 'USER NAME END',
+        TransactionIdStart: 'TRANSACTION ID START',
+        TransactionIdEnd: 'TRANSACTION ID END',
+        SequenceNumberStart: 'SEQUENCE NUMBER START',
+        SequenceNumberEnd: 'SEQUENCE NUMBER END',
+    };
+    return gaMap[generatedAlways] ?? generatedAlways.toUpperCase();
+}
+
 export function printColumnDef(node: SqlNode, opts: Options): Doc {
     // Raw leaf (e.g. ENCRYPTED WITH — property names vary across ScriptDOM versions).
     // The C# AstBuilder emits `Leaf("ColumnDefinition", col, rawText)` which sets
@@ -249,13 +287,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         | null
         | undefined;
     if (encryption) {
-        const encParts: Doc[] = [];
-        if (encryption.columnEncryptionKey)
-            encParts.push([keyword('COLUMN_ENCRYPTION_KEY', opts), ' = ', encryption.columnEncryptionKey]);
-        if (encryption.encryptionType)
-            encParts.push([keyword('ENCRYPTION_TYPE', opts), ' = ', keyword(encryption.encryptionType, opts)]);
-        if (encryption.algorithm) encParts.push([keyword('ALGORITHM', opts), ' = ', encryption.algorithm]);
-        parts.push(' ', keyword('ENCRYPTED WITH', opts), ' (', join(', ', encParts), ')');
+        parts.push(' ', encryptedWithDoc(encryption, opts));
     }
 
     if (isIdentity) {
@@ -273,19 +305,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
     // Temporal table: GENERATED ALWAYS AS ROW START / ROW END [HIDDEN]
     const generatedAlways = propStr(node, 'generatedAlways');
     if (generatedAlways) {
-        const gaMap: Record<string, string> = {
-            RowStart: 'ROW START',
-            RowEnd: 'ROW END',
-            UserIdStart: 'USER ID START',
-            UserIdEnd: 'USER ID END',
-            UserNameStart: 'USER NAME START',
-            UserNameEnd: 'USER NAME END',
-            TransactionIdStart: 'TRANSACTION ID START',
-            TransactionIdEnd: 'TRANSACTION ID END',
-            SequenceNumberStart: 'SEQUENCE NUMBER START',
-            SequenceNumberEnd: 'SEQUENCE NUMBER END',
-        };
-        const gaKw = gaMap[generatedAlways] ?? generatedAlways.toUpperCase();
+        const gaKw = generatedAlwaysKeyword(generatedAlways);
         parts.push(' ', keyword('GENERATED ALWAYS AS', opts), ' ', keyword(gaKw, opts));
     }
     if (node.props?.['isHidden']) parts.push(' ', keyword('HIDDEN', opts));
@@ -520,7 +540,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
 
     if (alterType === 'AlterTableDropTableElementStatement') {
         const elements = (node.props?.['elements'] ?? []) as Array<{
-            name: string;
+            name?: string;
             elementType: string;
             ifExists: boolean;
             dropOptions?: string[];
@@ -529,7 +549,13 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         // (NotSpecified) takes the kind of the name before it, or is a constraint when first.
         // So print each keyword where it was written: printing only the first element's
         // keyword turned `COLUMN IF EXISTS b` into a constraint named b.
-        const kindKw: Record<string, string> = { Constraint: 'CONSTRAINT', Column: 'COLUMN', Index: 'INDEX' };
+        const kindKw: Record<string, string> = {
+            Constraint: 'CONSTRAINT',
+            Column: 'COLUMN',
+            Index: 'INDEX',
+            // DROP PERIOD FOR SYSTEM_TIME names nothing after it
+            Period: 'PERIOD FOR SYSTEM_TIME',
+        };
         const itemKw = (e: (typeof elements)[number]): string | null => {
             const kw = kindKw[e.elementType];
             return kw ? (e.ifExists ? `${kw} IF EXISTS` : kw) : null;
@@ -537,11 +563,12 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         const itemDocs: Doc[] = elements.map((e, i) => {
             const kw = itemKw(e);
             // The first keyword stays on the DROP line
-            return kw && i > 0 ? [keyword(kw, opts), ' ', e.name] : e.name;
+            const elementName = e.name ?? '';
+            return kw && i > 0 ? [keyword(kw, opts), elementName ? ' ' : '', elementName] : elementName;
         });
         const firstKw = elements[0] ? itemKw(elements[0]) : null;
         const dropKw = keyword(firstKw ? `DROP ${firstKw}` : 'DROP', opts);
-        const nameList: Doc = group([indent([softline, join([',', line], itemDocs)])]);
+        const nameList: Doc = group([indent([softline, join([',', line], itemDocs.filter((d) => d !== ''))])]);
         // WITH (ONLINE = ON, WAIT_AT_LOW_PRIORITY ...) on DROP CLUSTERED CONSTRAINT
         const allDropOptions = elements.flatMap((e) => e.dropOptions ?? []);
         const withPart: Doc =
@@ -554,8 +581,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             name,
             hardline,
             dropKw,
-            ' ',
-            nameList,
+            itemDocs.every((d) => d === '') ? '' : [' ', nameList],
             withPart,
             ';',
         ];
@@ -606,8 +632,13 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
                     DropHidden: 'DROP HIDDEN',
                     AddPersisted: 'ADD PERSISTED',
                     DropPersisted: 'DROP PERSISTED',
+                    AddNotForReplication: 'ADD NOT FOR REPLICATION',
+                    DropNotForReplication: 'DROP NOT FOR REPLICATION',
                 };
-                optDoc = keyword(optMap[alterColumnOption] ?? alterColumnOption.toUpperCase(), opts);
+                optDoc = keyword(
+                    optMap[alterColumnOption] ?? alterColumnOption.replace(/([a-z])([A-Z])/g, '$1 $2').toUpperCase(),
+                    opts,
+                );
             }
             return [
                 keyword('ALTER TABLE', opts),
@@ -630,6 +661,13 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             ? [' ', keyword('COLLATE', opts), ' ', collationAC]
             : '';
         const nullPart = nullablePart(node.props?.['nullable'], opts);
+        const encryption = node.props?.['encryption'] as
+            | { columnEncryptionKey?: string; encryptionType?: string; algorithm?: string }
+            | null
+            | undefined;
+        const encryptionPart: Doc = encryption ? [' ', encryptedWithDoc(encryption, opts)] : '';
+        const generatedAlways = propStr(node, 'generatedAlways');
+        const columnOptions = propStrArr(node, 'columnOptions');
         return [
             keyword('ALTER TABLE', opts),
             ' ',
@@ -641,7 +679,25 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             ' ',
             keyword(dataType, opts),
             collatePart,
+            encryptionPart,
+            node.props?.['isSparse'] ? [' ', keyword('SPARSE', opts)] : '',
+            node.props?.['isFileStream'] ? [' ', keyword('FILESTREAM', opts)] : '',
+            node.props?.['isColumnSet'] ? [' ', keyword('COLUMN_SET FOR ALL_SPARSE_COLUMNS', opts)] : '',
+            generatedAlways
+                ? [' ', keyword('GENERATED ALWAYS AS', opts), ' ', keyword(generatedAlwaysKeyword(generatedAlways), opts)]
+                : '',
+            node.props?.['isHidden'] ? [' ', keyword('HIDDEN', opts)] : '',
+            node.props?.['isMasked']
+                ? [
+                      ' ',
+                      keyword('MASKED WITH', opts),
+                      ' (',
+                      keyword('FUNCTION', opts),
+                      ` = '${(maskingFunction ?? 'default()').replace(/'/g, "''")}')`,
+                  ]
+                : '',
             nullPart,
+            columnOptions.length ? [' ', keyword('WITH', opts), ' (', join(', ', columnOptions), ')'] : '',
             ';',
         ];
     }
@@ -722,6 +778,19 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         const verb: Doc = enable ? keyword('ENABLE TRIGGER', opts) : keyword('DISABLE TRIGGER', opts);
         const targets: Doc = triggerAll ? keyword('ALL', opts) : join(', ', triggerNames);
         return [keyword('ALTER TABLE', opts), ' ', name, hardline, verb, ' ', targets, ';'];
+    }
+
+    if (alterType === 'AlterTableChangeTrackingModificationStatement') {
+        const trackColumns = propStr(node, 'trackColumnsUpdated');
+        return [
+            keyword('ALTER TABLE', opts),
+            ' ',
+            name,
+            hardline,
+            keyword(propStr(node, 'changeTracking') === 'enable' ? 'ENABLE CHANGE_TRACKING' : 'DISABLE CHANGE_TRACKING', opts),
+            trackColumns ? [' ', keyword('WITH', opts), ' (', keyword('TRACK_COLUMNS_UPDATED', opts), ' = ', keyword(trackColumns, opts), ')'] : '',
+            ';',
+        ];
     }
 
     return [keyword('ALTER TABLE', opts), ' ', name, ' /* ', alterType, ' */;'];
@@ -859,9 +928,10 @@ export function printAlterIndex(node: SqlNode, opts: Options): Doc {
     const typeKw = keyword(typeKwMap[alterType] ?? alterType.toUpperCase(), opts);
     const indexOptions = propStrArr(node, 'indexOptions');
     const partition = propStr(node, 'partition');
+    // ALTER INDEX ... SET (options) has no WITH; REBUILD / REORGANIZE / DISABLE take WITH (options)
     const withPart: Doc =
         indexOptions.length > 0
-            ? [' ', keyword('WITH', opts), ' (', join(', ', indexOptions), ')']
+            ? [' ', alterType === 'Set' ? '' : [keyword('WITH', opts), ' '], '(', join(', ', indexOptions), ')']
             : '';
     const partitionPart: Doc = partition ? [' ', keyword('PARTITION', opts), ' = ', partition] : '';
     return [
@@ -1288,6 +1358,7 @@ function printSequenceOptions(node: SqlNode, opts: Options): Doc[] {
     if (startWith != null) parts.push(hardline, keyword('START WITH', opts), ' ', startWith);
     const restartWith = propStr(node, 'restartWith');
     if (restartWith != null) parts.push(hardline, keyword('RESTART WITH', opts), ' ', restartWith);
+    else if (propBool(node, 'restart')) parts.push(hardline, keyword('RESTART', opts));
     const incrementBy = propStr(node, 'incrementBy');
     if (incrementBy != null) parts.push(hardline, keyword('INCREMENT BY', opts), ' ', incrementBy);
     const minValue = propStr(node, 'minValue');
@@ -1305,6 +1376,7 @@ function printSequenceOptions(node: SqlNode, opts: Options): Doc[] {
     const noCache = node.props?.['noCache'];
     if (cache != null) parts.push(hardline, keyword('CACHE', opts), ' ', cache);
     else if (noCache) parts.push(hardline, keyword('NO CACHE', opts));
+    else if (propBool(node, 'cacheDefault')) parts.push(hardline, keyword('CACHE', opts));
     return parts;
 }
 

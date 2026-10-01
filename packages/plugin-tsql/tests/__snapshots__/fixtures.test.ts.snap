@@ -187,6 +187,52 @@ dbo.Orders.stat2;
 "
 `;
 
+exports[`fixtures > admin/update-statistics-options.sql 1`] = `
+"-- Every UPDATE STATISTICS option keeps its keyword
+update statistics dbo.t
+with stats_stream = 0x01;
+
+update statistics dbo.t
+with fullscan;
+
+update statistics dbo.t
+with resample;
+
+update statistics dbo.t
+with sample 10 percent;
+
+update statistics dbo.t
+with sample 1000 rows;
+
+update statistics dbo.t
+with fullscan, norecompute;
+
+update statistics dbo.t
+with incremental = on;
+
+update statistics dbo.t
+with persist_sample_percent = on;
+
+update statistics dbo.t
+with rowcount = 10, pagecount = 5;
+
+update statistics dbo.t
+with all;
+
+update statistics dbo.t
+with columns;
+
+update statistics dbo.t
+with index;
+
+update statistics dbo.t s
+with fullscan, all;
+
+update statistics dbo.t (s1, s2)
+with fullscan;
+"
+`;
+
 exports[`fixtures > alter-table/add-column.sql 1`] = `
 "alter table Books
 add
@@ -245,6 +291,64 @@ alter column Name nvarchar(200) collate Latin1_General_CI_AS null;
 
 alter table dbo.T
 alter column Code varchar(20) collate SQL_Latin1_General_CP1_CS_AS not null;
+"
+`;
+
+exports[`fixtures > alter-table/alter-column-options.sql 1`] = `
+"-- ALTER COLUMN keeps NOT FOR REPLICATION, its column properties and its WITH options
+alter table dbo.t
+alter column a drop not for replication;
+
+alter table dbo.t
+alter column a add not for replication;
+
+alter table dbo.t
+alter column a varchar(max) with (online = on);
+
+alter table dbo.t
+alter column a int sparse;
+
+alter table dbo.t
+alter column a int hidden;
+
+alter table dbo.t
+alter column a int masked with (function = 'default()');
+
+alter table dbo.t
+alter column a int encrypted with (column_encryption_key = k, encryption_type = deterministic, algorithm = 'AEAD_AES_256_CBC_HMAC_SHA_256');
+
+alter table dbo.t
+alter column a varchar(10) collate latin1_general_bin not null;
+"
+`;
+
+exports[`fixtures > alter-table/change-tracking-and-period.sql 1`] = `
+"-- ENABLE / DISABLE CHANGE_TRACKING, DROP PERIOD, and the rarer forms kept as written
+alter table dbo.t
+enable change_tracking;
+
+alter table dbo.t
+enable change_tracking with (track_columns_updated = on);
+
+alter table dbo.t
+enable change_tracking with (track_columns_updated = off);
+
+alter table dbo.t
+disable change_tracking;
+
+alter table dbo.t
+drop period for system_time;
+
+alter table dbo.t
+drop constraint c, column d, period for system_time;
+
+alter table dbo.t enable filetable_namespace;
+
+alter table dbo.t disable filetable_namespace;
+
+alter table dbo.t split range (1);
+
+alter table dbo.t merge range (1);
 "
 `;
 
@@ -328,6 +432,31 @@ switch partition @p to t2 partition @p;
 
 alter table t
 switch to t2;
+"
+`;
+
+exports[`fixtures > alter-table/set-options.sql 1`] = `
+"-- ALTER TABLE SET (...) options keep their names
+alter table dbo.t
+set (filestream_on = fs);
+
+alter table dbo.t
+set (lock_escalation = auto, filestream_on = fs);
+
+alter table dbo.t
+set (system_versioning = on (history_table = dbo.h, history_retention_period = 6 months));
+
+alter table dbo.t
+set (system_versioning = on (history_retention_period = infinite));
+
+alter table dbo.t
+set (system_versioning = off);
+
+alter table dbo.t
+set (remote_data_archive = on (filter_predicate = dbo.fn(a), migration_state = outbound));
+
+alter table dbo.t
+set (filetable_directory = 'x');
 "
 `;
 
@@ -1392,6 +1521,16 @@ alter index IX_Orders on dbo.Orders rebuild partition = all with (data_compressi
 "
 `;
 
+exports[`fixtures > index/alter-index-set.sql 1`] = `
+"-- ALTER INDEX ... SET takes its options without WITH
+alter index ix on dbo.t set (allow_row_locks = off);
+
+alter index ix on dbo.t set (allow_row_locks = on, allow_page_locks = off);
+
+alter index ix on dbo.t rebuild with (online = on);
+"
+`;
+
 exports[`fixtures > index/basic.sql 1`] = `
 "create index IX_Books_Title
   on Books (
@@ -1881,6 +2020,19 @@ reconfigure with override;
 "
 `;
 
+exports[`fixtures > procedural/set-clr-member.sql 1`] = `
+"-- SET @var.member = value assigns a CLR type's property; SET @var.method(...) calls a method
+declare @g geography;
+declare @p dbo.Point;
+declare @x xml;
+set @p.x = 1;
+set @p.x += 2;
+set @g.m();
+set @x.modify('delete /a');
+fetch next from c;
+"
+`;
+
 exports[`fixtures > procedural/standalone-begin-end.sql 1`] = `
 "begin
   print 'hello';
@@ -2149,6 +2301,46 @@ to AppUser;
 grant control
 on database::AdventureWorks
 to AppUser;
+"
+`;
+
+exports[`fixtures > security/user-login-options.sql 1`] = `
+"-- Options with values must keep them
+create user u
+with password = 'x';
+
+create user u
+with password = N'x', default_schema = dbo;
+
+create user u
+from external provider;
+
+create user u
+for login l
+with default_schema = dbo;
+
+alter user u
+with password = 'x' old_password = 'y';
+
+alter user u
+with name = v, default_schema = s, login = l;
+
+create login l
+from external provider;
+
+create login l
+with
+  password = 'x' must_change,
+  default_database = d,
+  check_policy = off,
+  sid = 0x01;
+
+create login l
+from windows
+with default_database = d, default_language = french;
+
+alter login l
+with name = m, check_expiration = on, credential = c;
 "
 `;
 
@@ -3517,6 +3709,22 @@ select x.query('.')
 from
   t
   cross apply t.x.nodes('/r') as n(x);
+"
+`;
+
+exports[`fixtures > sequence/alter-restart.sql 1`] = `
+"-- RESTART without a value, and CACHE without a size
+alter sequence dbo.s
+  restart;
+
+alter sequence dbo.s
+  restart with 5;
+
+alter sequence dbo.s
+  cache;
+
+alter sequence dbo.s
+  no cache;
 "
 `;
 

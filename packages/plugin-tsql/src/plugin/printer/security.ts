@@ -136,7 +136,8 @@ function principalOptionKw(kind: string, opts: Options): Doc {
 
 function printPrincipalOption(o: Record<string, unknown>, opts: Options): Doc {
     const kind = (o['kind'] as string) ?? '';
-    if (kind === 'Password') {
+    // CREATE USER ... WITH PASSWORD = '...' is a plain literal option; the login forms carry more
+    if (kind === 'Password' && !('value' in o)) {
         return expandPasswordOption(o, opts);
     }
     if ('onOff' in o) {
@@ -241,6 +242,10 @@ export function printCreateLogin(node: SqlNode, opts: Options): Doc {
         parts.push([hardline, keyword('WITH', opts), withOptionsPart(allOpts)]);
     } else if (sourceType === 'Windows') {
         parts.push([hardline, keyword('FROM WINDOWS', opts)]);
+        const optionsDoc = printPrincipalOptions(node, opts);
+        if (optionsDoc !== '') parts.push([hardline, optionsDoc]);
+    } else if (sourceType === 'External') {
+        parts.push([hardline, keyword('FROM EXTERNAL PROVIDER', opts)]);
         const optionsDoc = printPrincipalOptions(node, opts);
         if (optionsDoc !== '') parts.push([hardline, optionsDoc]);
     } else if (sourceType === 'Certificate') {
