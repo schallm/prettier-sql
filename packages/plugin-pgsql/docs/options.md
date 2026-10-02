@@ -12,7 +12,7 @@ Controls the case of SQL keywords (`SELECT`, `FROM`, `WHERE`, `JOIN`, etc.).
 |---|---|
 | `lower` (default) | All keywords lowercase |
 | `upper` | All keywords uppercase |
-| `preserve` | Keywords emitted as-is from the formatter's internal representation (currently uppercase) |
+| `preserve` | Matches the file: keywords are printed in whichever case (upper or lower) the input mostly uses |
 
 ### `lower` (default)
 
@@ -61,9 +61,31 @@ Controls whitespace density.
 
 | Value | Description |
 |---|---|
-| `standard` (default) | Single FROM table and single WHERE predicate stay inline; AND/OR conditions indent |
-| `compact` | Same as standard (reserved for further compaction in future) |
+| `standard` (default) | One clause per line; a single FROM table and a single WHERE predicate stay inline; AND/OR conditions indent |
+| `compact` | Fits as much as possible on each line, wrapping at `printWidth` |
 | `spacious` | Every clause indents, even single predicates |
+
+### `compact`
+
+<!-- check-docs:skip -->
+```sql
+select id, title from books where price < 50 and in_stock order by price;
+```
+
+### `spacious`
+
+<!-- check-docs:skip -->
+```sql
+select
+  id,
+  title
+from books
+where
+  price < 50
+  and in_stock
+order by
+  price;
+```
 
 ---
 

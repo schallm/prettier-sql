@@ -186,8 +186,10 @@ pnpm run test:watch   # vitest watch
 ## What's NOT yet implemented
 
 - **Procedural / PL/pgSQL** — out of scope for now
-- **Density-aware WHERE** — currently always inline; tsql has compact/standard/spacious logic
-- **Leading comma style** — `sqlCommaStyle: 'leading'` is wired up in utils but not used in SELECT lists
+- **Printers for uncommon top-level statements** — `CREATE CAST`, `CREATE DOMAIN`, `CREATE EVENT TRIGGER`,
+  `CREATE STATISTICS`, `ALTER DEFAULT PRIVILEGES`, `CREATE/ALTER/DROP DATABASE`, text search, … reach `Fallback()`
+  in `AstBuilder.cs` and are kept as written (`UnknownStatement`)
+- **Type modifiers that are expressions** (`foo(1 + 1)`) — throw `Unsupported type modifier`
 
 ## Adding a new node type
 
