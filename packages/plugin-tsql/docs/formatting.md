@@ -392,7 +392,7 @@ create function dbo.TrimCharsFrom(@str nvarchar(max))
 returns nvarchar(max)
 as
 begin
-    return trim(nchar(12288) from @str);
+  return trim(nchar(12288) from @str);
 end;
 go
 ```
@@ -563,8 +563,8 @@ Each query branch is separated from the set operator by a blank line:
 
 ```sql
 select
-    Id,
-    Title
+  Id,
+  Title
 from Books
 where InStock = 1
 
@@ -1435,11 +1435,11 @@ All three are batch-isolating (automatically followed by `go`).
 create procedure GetAvailableBooks
 as
 begin
-    select
-        Id,
-        Title
-    from Books
-    where InStock = 1;
+  select
+    Id,
+    Title
+  from Books
+  where InStock = 1;
 end;
 go
 ```
@@ -1448,15 +1448,15 @@ With parameters (each on its own indented line):
 
 ```sql
 create procedure GetBookById
-    @Id int,
-    @IncludeOutOfStock bit = 0
+  @Id int,
+  @IncludeOutOfStock bit = 0
 as
 begin
-    select
-        Id,
-        Title
-    from Books
-    where Id = @Id;
+  select
+    Id,
+    Title
+  from Books
+  where Id = @Id;
 end;
 go
 ```
@@ -1466,16 +1466,16 @@ Comments between the procedure name and the parameter list are preserved before 
 ```sql
 create procedure GetBookById
 /* Returns a single book by its ID */
-    @Id int,
-    @Active bit = 1
+  @Id int,
+  @Active bit = 1
 /* WITH ENCRYPTION */
 as
 begin
-    select
-        Id,
-        Title
-    from Books
-    where Id = @Id;
+  select
+    Id,
+    Title
+  from Books
+  where Id = @Id;
 end;
 go
 ```
@@ -1507,14 +1507,14 @@ create function GetBooksByGenre(@GenreId int)
 returns table
 as
 return (
-    select
-        Id,
-        Title,
-        Price
-    from Books
-    where
-        GenreId = @GenreId
-        and InStock = 1
+  select
+    Id,
+    Title,
+    Price
+  from Books
+  where
+    GenreId = @GenreId
+    and InStock = 1
 );
 go
 ```
@@ -1524,22 +1524,22 @@ Multi-statement table-valued function: return table declaration inline after `)`
 ```sql
 create function GetTopBooks(@MaxPrice decimal(10, 2))
 returns @result table (
-    Id int not null,
-    Title nvarchar(200) not null,
-    Price decimal(10, 2) not null
+  Id int not null,
+  Title nvarchar(200) not null,
+  Price decimal(10, 2) not null
 )
 as
 begin
-    insert into @result
-    select
-        Id,
-        Title,
-        Price
-    from Books
-    where Price <= @MaxPrice
-    order by Price asc;
+  insert into @result
+  select
+    Id,
+    Title,
+    Price
+  from Books
+  where Price <= @MaxPrice
+  order by Price asc;
 
-return;
+  return;
 end;
 go
 ```
@@ -1552,8 +1552,8 @@ go
 create or alter view AvailableBooksView
 as
 select
-    Id,
-    Title
+  Id,
+  Title
 from Books
 where InStock = 1;
 go
@@ -1566,8 +1566,8 @@ create or alter view SensitivePricesView
 /* with encryption */
 as
 select
-    Id,
-    Price
+  Id,
+  Price
 from Books;
 go
 ```
@@ -1609,12 +1609,12 @@ on Books
 after insert
 as
 begin
-    update Books
-    set Price = Price * 1.1
-    where Id in (
-        select Id
-        from inserted
-    );
+  update Books
+  set Price = Price * 1.1
+  where Id in (
+    select Id
+    from inserted
+  );
 end;
 go
 ```
@@ -1627,7 +1627,7 @@ on Books
 after insert, update, delete
 as
 begin
-    print 'modified';
+  print 'modified';
 end;
 go
 ```
@@ -1640,7 +1640,7 @@ on Books
 instead of update, delete
 as
 begin
-    print 'blocked';
+  print 'blocked';
 end;
 go
 ```
@@ -1902,9 +1902,7 @@ Variables are declared one per statement. An optional initializer follows the ty
 
 ```sql
 declare @price decimal(10, 2) = 29.99;
-
 declare @title nvarchar(200);
-
 declare @count int;
 ```
 
@@ -1920,7 +1918,6 @@ set @count = (
   from Books
   where InStock = 1
 );
-
 set @title = 'Books available';
 ```
 
@@ -1933,11 +1930,11 @@ A single-statement body stays inline; a multi-statement body uses `begin`/`end`:
 ```sql
 if @count > 0
 begin
-    set @title = 'Books available';
+  set @title = 'Books available';
 end
 else
 begin
-    set @title = 'No books available';
+  set @title = 'No books available';
 end
 ```
 
@@ -1961,13 +1958,9 @@ Statements inside the `begin`/`end` body are indented one level. `IF` bodies are
 ```sql
 while @count > 0
 begin
-    set @count = @count - 1;
-
-    if @count = 5
-        continue;
-
-    if @count = 0
-        break;
+  set @count = @count - 1;
+  if @count = 5 continue;
+  if @count = 0 break;
 end
 ```
 
@@ -1977,7 +1970,6 @@ end
 
 ```sql
 print 'Books loaded.';
-
 print @message;
 ```
 
@@ -1989,7 +1981,6 @@ print @message;
 
 ```sql
 return;
-
 return @count;
 ```
 
@@ -2012,11 +2003,8 @@ applies to both the `SET` keyword and the option name.
 
 ```sql
 set nocount on;
-
 set ansi_nulls on;
-
 set quoted_identifier on;
-
 set xact_abort off;
 ```
 
@@ -2024,7 +2012,6 @@ set xact_abort off;
 
 ```sql
 set statistics io on;
-
 set statistics time off;
 ```
 
@@ -2032,7 +2019,6 @@ set statistics time off;
 
 ```sql
 set identity_insert Books on;
-
 set identity_insert Books off;
 ```
 
@@ -2040,9 +2026,7 @@ set identity_insert Books off;
 
 ```sql
 set transaction isolation level read committed;
-
 set transaction isolation level snapshot;
-
 set transaction isolation level serializable;
 ```
 
@@ -2056,11 +2040,8 @@ Supported levels: `READ COMMITTED`, `READ UNCOMMITTED`, `REPEATABLE READ`, `SERI
 
 ```sql
 begin transaction;
-
 begin transaction SaveOrder;
-
 commit transaction;
-
 rollback transaction SaveOrder;
 ```
 
@@ -2068,7 +2049,6 @@ rollback transaction SaveOrder;
 
 ```sql
 save transaction BeforeSave;
-
 save transaction @sp;
 ```
 
@@ -2131,16 +2111,12 @@ execute (@sql1 + @sql2);
 ```sql
 while @i < 10
 begin
-    if @i = 5
-        break;
-
-set @i = @i + 1;
-
-continue;
+  if @i = 5 break;
+  set @i = @i + 1;
+  continue;
 end
 
 goto exit_label;
-
 exit_label:
 ```
 
@@ -2153,10 +2129,8 @@ Labels are emitted as-is (ScriptDom preserves the trailing colon in the value).
 ```sql
 -- Re-throw inside a CATCH block
 throw;
-
 -- New-style throw with arguments
 throw 50001, 'Book not found', 1;
-
 -- Legacy RAISERROR
 raiserror ('Book not found', 16, 1);
 ```
@@ -2167,11 +2141,11 @@ raiserror ('Book not found', 16, 1);
 
 ```sql
 begin try
-    insert into Books (Title, Price)
-    values ('New Book', 29.99);
+  insert into Books (Title, Price)
+  values ('New Book', 29.99);
 end try
 begin catch
-    throw;
+  throw;
 end catch
 ```
 
@@ -2204,17 +2178,11 @@ The remaining cursor operations are single-line statements:
 
 ```sql
 open BookCursor;
-
 fetch next from BookCursor into @id, @title;
-
 fetch prior from BookCursor;
-
 fetch first from BookCursor into @id, @title;
-
 fetch last from BookCursor into @id;
-
 close BookCursor;
-
 deallocate BookCursor;
 ```
 
@@ -2226,7 +2194,6 @@ Simple operational statements format on one line:
 
 ```sql
 checkpoint;
-
 checkpoint 5;
 
 kill 52;
@@ -2283,7 +2250,6 @@ When there is no `ON` clause (server-scoped or database-scoped permissions), it 
 deny delete
 on object::Books
 to GuestUser;
-
 deny insert, update
 on object::Books
 to GuestUser
@@ -2298,7 +2264,6 @@ Uses `FROM` to revoke a grant. The optional `GRANT OPTION FOR` prefix and `CASCA
 revoke select
 on object::Books
 from AppUser;
-
 revoke grant option for select
 on object::Books
 from AppUser
@@ -2479,8 +2444,8 @@ Line comments at the end of a statement or VALUES row are kept on the same line:
 ```sql
 insert into Genres (Id, Name)
 values
-    (1, 'Fiction'), -- primary genre
-    (2, 'Non-Fiction'); -- secondary genre
+  (1, 'Fiction'), -- primary genre
+  (2, 'Non-Fiction'); -- secondary genre
 ```
 
 #### Leading comments
@@ -2530,17 +2495,17 @@ Comments between statements inside a `begin`/`end` block are preserved in positi
 create procedure ProcessBooks
 as
 begin
-    -- Step 1: mark unavailable books
-    update Books
-    set InStock = 0
-    where PublishedDate < '2000-01-01';
+  -- Step 1: mark unavailable books
+  update Books
+  set InStock = 0
+  where PublishedDate < '2000-01-01';
 
--- Step 2: return the remaining stock
-    select
-        Id,
-        Title
-    from Books
-    where InStock = 1;
+  -- Step 2: return the remaining stock
+  select
+    Id,
+    Title
+  from Books
+  where InStock = 1;
 end;
 go
 ```
@@ -2594,17 +2559,17 @@ When multiple such statements appear in a file (separated by `go` in the input),
 create or alter view BooksView
 as
 select
-    Id,
-    Title
+  Id,
+  Title
 from Books;
 go
 
 create or alter view AuthorsView
 as
 select
-    Id,
-    FirstName,
-    LastName
+  Id,
+  FirstName,
+  LastName
 from Authors;
 go
 ```

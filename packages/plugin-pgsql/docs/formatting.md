@@ -524,7 +524,7 @@ select
     when price < 10 then 'budget'
     when price < 50 then 'mid-range'
     when price < 100 then 'premium'
-  else 'luxury'
+    else 'luxury'
   end as price_tier
 from books;
 ```
@@ -1143,7 +1143,6 @@ create collation my_coll2 from "en-US";
 
 ```sql
 security label for my_provider on table orders is 'sensitive';
-
 security label for my_provider on column orders.amount is 'pii';
 ```
 
@@ -1312,31 +1311,24 @@ connection limit 10;
 -- GRANT permissions on a table
 grant select, insert on table books
 to alice;
-
 grant all privileges on table orders
 to bob;
-
 -- GRANT on schema
 grant usage on schema myschema
 to alice;
-
 -- GRANT on all tables in schema
 grant select on all tables in schema public
 to alice;
-
 -- GRANT on a function
 grant execute on function get_count
-to PUBLIC;
-
+to public;
 -- WITH GRANT OPTION
 grant select on table books
 to alice
 with grant option;
-
 -- REVOKE
 revoke select on table books
 from alice;
-
 revoke all privileges on table orders
 from bob
 cascade;
@@ -1348,23 +1340,14 @@ Attaches a description string to any database object. Set to `NULL` to remove a 
 
 ```sql
 comment on table books is 'Book catalog';
-
 comment on column books.title is 'The book''s title';
-
 comment on schema public is 'Public schema';
-
 comment on function get_count is 'Returns count for given id';
-
 comment on view active_users is 'Users with active accounts';
-
 comment on index idx_books_author is 'Author lookup index';
-
 comment on sequence order_seq is 'Order ID sequence';
-
 comment on type order_status is 'Possible order states';
-
 comment on database mydb is 'Main application database';
-
 -- Remove a comment
 comment on table temp_data is null;
 ```
@@ -1416,7 +1399,7 @@ create schema myschema authorization alice;
 ```sql
 create extension "uuid-ossp";
 
-create extension if not exists "pgcrypto";
+create extension if not exists pgcrypto;
 ```
 
 ### ALTER FUNCTION
@@ -1442,7 +1425,6 @@ alter function format_name(text, text)
 alter function get_count(integer) rename to count_items;
 
 alter function get_count owner to admin;
-
 alter function get_count set schema reporting;
 ```
 
@@ -1454,15 +1436,10 @@ All standard transaction statements are supported.
 
 ```sql
 begin;
-
 commit;
-
 rollback;
-
 savepoint my_save;
-
 release savepoint my_save;
-
 rollback to savepoint my_save;
 ```
 
@@ -1470,9 +1447,7 @@ rollback to savepoint my_save;
 
 ```sql
 set transaction isolation level serializable;
-
 set transaction read only;
-
 set transaction read write, deferrable;
 ```
 
@@ -1480,7 +1455,6 @@ set transaction read write, deferrable;
 
 ```sql
 begin isolation level read committed;
-
 begin read only;
 ```
 
@@ -1488,9 +1462,7 @@ Two-phase commit:
 
 ```sql
 prepare transaction 'txn-1234';
-
 commit prepared 'txn-1234';
-
 rollback prepared 'txn-1234';
 ```
 
@@ -1604,23 +1576,16 @@ copy orders (id, customer_id, amount) to '/tmp/orders_partial.csv' (format csv, 
 ```sql
 -- SET a session parameter
 set search_path = public, myschema;
-
 set work_mem = '64MB';
-
 -- SET LOCAL applies only within the current transaction
 set local client_encoding = utf8;
-
 -- SET TO DEFAULT restores the compiled-in value
 set work_mem to default;
-
 -- RESET is equivalent to SET TO DEFAULT
 reset search_path;
-
 reset all;
-
 -- SHOW displays the current effective value
 show work_mem;
-
 show all;
 ```
 
@@ -1644,11 +1609,8 @@ Releases session-level resources.
 
 ```sql
 discard all;
-
 discard plans;
-
 discard sequences;
-
 discard temp;
 ```
 
@@ -1668,13 +1630,9 @@ lock table orders in access exclusive mode nowait;
 
 ```sql
 listen my_channel;
-
 unlisten my_channel;
-
 unlisten *;
-
 notify my_channel;
-
 notify my_channel, 'payload text';
 ```
 
@@ -1688,19 +1646,13 @@ select
   id,
   name
 from users;
-
 declare scroll_cursor scroll cursor for
 select id
 from orders;
-
 fetch next from my_cursor;
-
 fetch forward 10 from my_cursor;
-
 fetch all from my_cursor;
-
 move prior from scroll_cursor;
-
 close my_cursor;
 ```
 

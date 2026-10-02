@@ -55,7 +55,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   case
 +     when price < 10 then 'cheap'
 +     when price < 50 then 'mid'
-+   else 'expensive'
++     else 'expensive'
 +   end as tier
 + from books;
 ```

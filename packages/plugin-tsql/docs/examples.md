@@ -161,29 +161,26 @@ In each diff block, `-` lines are the raw input and `+` lines are the formatted 
 +   Id,
 +   Title
 + from Books
-+ where exists (
-+   select 1
-+   from OrderItems
-+   where OrderItems.BookId = Books.Id
-+ );
++ where exists (select 1 from OrderItems where OrderItems.BookId = Books.Id);
 ```
 
 ### CTE with window function
 
 ```diff
 - with ranked as (select Id,Title,Price,RANK() over(partition by GenreId order by Price desc) as PriceRank from Books where InStock=1) select * from ranked where PriceRank<=3
-+ with ranked as (
-+   select
-+     Id,
-+     Title,
-+     Price,
-+     rank() over (
-+       partition by GenreId
-+       order by Price desc
-+     ) as PriceRank
-+   from Books
-+   where InStock = 1
-+ )
++ with
++   ranked as (
++     select
++       Id,
++       Title,
++       Price,
++       rank() over (
++         partition by GenreId
++         order by Price desc
++       ) as PriceRank
++     from Books
++     where InStock = 1
++   )
 + select *
 + from ranked
 + where PriceRank <= 3;
@@ -262,8 +259,7 @@ Multiple rows always break with one row per line:
 - UPDATE Books SET Books.Price=Books.Price*0.9,Books.InStock=1 FROM Books INNER JOIN Genres ON Books.GenreId=Genres.Id WHERE Genres.Name='Fiction' AND Books.Price>20
 + update Books
 + set
-+   Books.Price = Books.Price * 0.9,
-+   Books.InStock = 1
++   Books.Price = Books.Price * 0.9, Books.InStock = 1
 + from
 +   Books
 +   inner join Genres on Books.GenreId = Genres.Id
@@ -276,7 +272,7 @@ Multiple rows always break with one row per line:
 
 ```diff
 - DELETE OrderItems FROM OrderItems INNER JOIN Orders ON OrderItems.OrderId=Orders.Id WHERE Orders.OrderDate<'2020-01-01' AND Orders.Total<10
-+ delete from OrderItems
++ delete OrderItems
 + from
 +   OrderItems
 +   inner join Orders on OrderItems.OrderId = Orders.Id
@@ -380,7 +376,7 @@ referential action, and check constraint:
 - CREATE PROCEDURE dbo.GetBooksByAuthor @AuthorId INT, @MinPrice DECIMAL(10,2)=0 AS BEGIN SET NOCOUNT ON; SELECT Books.Id,Books.Title,Books.Price FROM Books WHERE Books.AuthorId=@AuthorId AND Books.Price>=@MinPrice ORDER BY Books.Price END
 + create procedure dbo.GetBooksByAuthor
 +   @AuthorId int,
-+   @MinPrice decimal(10,2) = 0
++   @MinPrice decimal(10, 2) = 0
 + as
 + begin
 +   set nocount on;
@@ -411,9 +407,7 @@ the declaration block from the statements that follow:
 - DECLARE @MinPrice DECIMAL(10,2), @MaxPrice DECIMAL(10,2); SET @MinPrice = 10.00; SET @MaxPrice = 50.00; SELECT Id, Title, Price FROM Books WHERE Price BETWEEN @MinPrice AND @MaxPrice
 + declare @MinPrice decimal(10, 2);
 + declare @MaxPrice decimal(10, 2);
-+
 + set @MinPrice = 10.00;
-+
 + set @MaxPrice = 50.00;
 +
 + select
@@ -445,11 +439,7 @@ Dynamic SQL — concatenation expression is preserved inside the parentheses:
 
 ```diff
 - IF EXISTS (SELECT 1 FROM Books WHERE Price < 0) BEGIN RAISERROR('Invalid price', 16, 1); END ELSE BEGIN PRINT 'Prices OK'; END
-+ if exists (
-+   select 1
-+   from Books
-+   where Price < 0
-+ )
++ if exists (select 1 from Books where Price < 0)
 + begin
 +   raiserror ('Invalid price', 16, 1);
 + end
@@ -466,15 +456,10 @@ Dynamic SQL — concatenation expression is preserved inside the parentheses:
 ```diff
 - DECLARE @n INT=10; SET @n+=5; SET @n-=2; SET @n*=3; SET @n/=4; SET @n%=7
 + declare @n int = 10;
-+
 + set @n += 5;
-+
 + set @n -= 2;
-+
 + set @n *= 3;
-+
 + set @n /= 4;
-+
 + set @n %= 7;
 ```
 
