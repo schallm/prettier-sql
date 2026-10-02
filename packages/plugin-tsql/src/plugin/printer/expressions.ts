@@ -1260,8 +1260,8 @@ function printExistsPredicate(node: SqlNode, opts: Options, printFn: PrintFn): D
     const subquery = prop(node, 'subquery');
     if (!subquery) return keyword('EXISTS', opts) + '()';
     const density = getDensity(opts);
-    if (density === 'spacious') {
-        // Spacious: always expand
+    if (density !== 'compact') {
+        // standard + spacious: the subquery goes on its own lines, formatted like any other SELECT
         return group([
             keyword('EXISTS', opts),
             ' (',
@@ -1270,7 +1270,7 @@ function printExistsPredicate(node: SqlNode, opts: Options, printFn: PrintFn): D
             ')',
         ]);
     }
-    // compact + standard: render the inner query in compact mode so the group's
+    // compact: render the inner query in compact mode so the group's
     // softline can keep simple subqueries inline. Complex ones still wrap because
     // their content exceeds printWidth and the group breaks.
     const compactOpts = { ...opts, sqlDensity: 'compact' } as Options;

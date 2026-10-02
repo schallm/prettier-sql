@@ -395,7 +395,11 @@ select
   id,
   name
 from customers
-where exists (select 1 from orders where orders.customer_id = customers.id);
+where exists (
+  select 1
+  from orders
+  where orders.customer_id = customers.id
+);
 ```
 
 ```sql

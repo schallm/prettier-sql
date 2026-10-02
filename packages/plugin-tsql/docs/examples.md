@@ -165,7 +165,11 @@ In each diff block, `-` lines are the raw input and `+` lines are the formatted 
 +   Id,
 +   Title
 + from Books
-+ where exists (select 1 from OrderItems where OrderItems.BookId = Books.Id);
++ where exists (
++   select 1
++   from OrderItems
++   where OrderItems.BookId = Books.Id
++ );
 ```
 
 ### CTE with window function
@@ -443,7 +447,11 @@ Dynamic SQL — concatenation expression is preserved inside the parentheses:
 
 ```diff
 - IF EXISTS (SELECT 1 FROM Books WHERE Price < 0) BEGIN RAISERROR('Invalid price', 16, 1); END ELSE BEGIN PRINT 'Prices OK'; END
-+ if exists (select 1 from Books where Price < 0)
++ if exists (
++   select 1
++   from Books
++   where Price < 0
++ )
 + begin
 +   raiserror ('Invalid price', 16, 1);
 + end

@@ -535,10 +535,11 @@ function printSubLink(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 
     if (type === 'EXISTS') {
         const density = getDensity(opts);
-        if (density === 'spacious') {
+        // standard + spacious: the subquery goes on its own lines, formatted like any other SELECT
+        if (density !== 'compact') {
             return [makeKeyword('EXISTS'), ' ', subDoc];
         }
-        // compact + standard: render inner query in compact mode so simple
+        // compact: render inner query in compact mode so simple
         // subqueries stay inline; complex ones wrap when they exceed printWidth.
         const compactOpts = { ...opts, sqlDensity: 'compact' } as Options;
         const compactPrintFn: PrintFn = (n) =>

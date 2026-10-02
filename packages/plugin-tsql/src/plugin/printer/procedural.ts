@@ -357,7 +357,12 @@ export function printIf(node: SqlNode, opts: Options): Doc {
     const els = prop(node, 'else');
     // A comment ending the condition's last line must be followed by a line break
     const condEndsInComment = condition ? boolEndsWithPendingComment(condition) : false;
-    const condDoc = condition ? indent(printBool(condition, opts)) : '';
+    // Only an AND/OR chain, or a condition ending in a line comment, hangs indented; a single predicate (EXISTS (...), a comparison) keeps its own indent
+    const condDoc = condition
+        ? condition.type === 'BooleanBinary' || boolEndsWithPendingComment(condition)
+            ? indent(printBool(condition, opts))
+            : printBool(condition, opts)
+        : '';
     // Single-statement body (no BEGIN/END): try inline, wrap to next line if too long.
     // BeginEndBlock always goes on a new line.
     if (then) markSingleBody(then);
@@ -384,7 +389,12 @@ export function printIf(node: SqlNode, opts: Options): Doc {
 export function printWhile(node: SqlNode, opts: Options): Doc {
     const condition = prop(node, 'condition');
     const body = prop(node, 'body');
-    const condDoc = condition ? indent(printBool(condition, opts)) : '';
+    // Only an AND/OR chain, or a condition ending in a line comment, hangs indented; a single predicate (EXISTS (...), a comparison) keeps its own indent
+    const condDoc = condition
+        ? condition.type === 'BooleanBinary' || boolEndsWithPendingComment(condition)
+            ? indent(printBool(condition, opts))
+            : printBool(condition, opts)
+        : '';
     return group([keyword('WHILE', opts), ' ', condDoc, body ? printStatementBlock(body, opts) : ';']);
 }
 
