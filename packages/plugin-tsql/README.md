@@ -1,6 +1,6 @@
 # prettier-plugin-tsql
 
-> **Beta** — covers the vast majority of T-SQL; a small number of less-common statements fall back to original source text (see [Pending implementation](#pending-implementation)). Breaking changes possible before 1.0.
+> **Beta** — covers the vast majority of T-SQL; a number of less-common statements (and rarer forms of some common ones) are kept as their original source text (see [Pending implementation](#pending-implementation)). Breaking changes possible before 1.0.
 
 A [Prettier](https://prettier.io) plugin that formats T-SQL (SQL Server) using Microsoft's official `Microsoft.SqlServer.TransactSql.ScriptDom` parser — the same parser SQL Server itself uses. Supports SQL Server syntax up to and including **SQL Server 2025** (via `TSql180Parser`).
 
@@ -8,7 +8,7 @@ A [Prettier](https://prettier.io) plugin that formats T-SQL (SQL Server) using M
 
 ## Features
 
-Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Configurable keyword casing, layout density, and comma style. Preserves `--` and `/* */` comments — trailing, leading, inside procedure bodies, between parameters and `AS` — and never drops one. The test suite checks that formatting never changes what a statement means: every fixture's ScriptDom syntax tree must be the same before and after. Emits `go` batch separators where required. Integrates with editor extensions that support Prettier (VS Code, etc.).
+Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Configurable keyword casing, layout density, and comma style. Preserves `--` and `/* */` comments — trailing, leading, inside procedure bodies, between parameters and `AS` — and never drops one. The test suite checks that formatting never changes what a statement means: every fixture's ScriptDom syntax tree must be the same before and after. Emits `go` batch separators where required and keeps a repeat count (`GO 5`); a script made only of comments is kept as written. Integrates with editor extensions that support Prettier (VS Code, etc.).
 
 **DML**
 
@@ -42,9 +42,9 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 
 **DDL**
 
-- [`CREATE TABLE`](docs/examples.md#create-table) (columns, constraints, computed columns `AS expr [PERSISTED]`, column- and table-level `INDEX` definitions, `WITH` options such as `DATA_COMPRESSION`, `MEMORY_OPTIMIZED`), [`ALTER TABLE`](docs/examples.md#alter-table) (ADD/DROP column, `DEFAULT … WITH VALUES`, ADD/DROP/ENABLE/DISABLE constraint, `DEFAULT … FOR` constraints, `ADD PERIOD FOR SYSTEM_TIME`, `ADD INDEX`, ALTER COLUMN, SET, REBUILD [PARTITION = n | ALL], SWITCH, partition numbers as variables), `CREATE INDEX` (UNIQUE/CLUSTERED/NONCLUSTERED, ASC/DESC, INCLUDE), `ALTER INDEX … REBUILD/REORGANIZE/DISABLE`, `DROP INDEX` (with `WITH (ONLINE = …, MOVE TO …)`, and the legacy `table.index` form)
+- [`CREATE TABLE`](docs/examples.md#create-table) (columns, constraints, computed columns `AS expr [PERSISTED]`, column- and table-level `INDEX` definitions, `WITH` options such as `DATA_COMPRESSION`, `MEMORY_OPTIMIZED`, `DISTRIBUTION`, `LEDGER`, `CLUSTERED COLUMNSTORE INDEX`; ledger and temporal `GENERATED ALWAYS AS …` columns; `CREATE TABLE … AS SELECT`; hash indexes), [`ALTER TABLE`](docs/examples.md#alter-table) (ADD/DROP column, `DEFAULT … WITH VALUES`, ADD/DROP/ENABLE/DISABLE constraint, `DEFAULT … FOR` constraints, `ADD PERIOD FOR SYSTEM_TIME`, `ADD INDEX`, ALTER COLUMN, SET, REBUILD [PARTITION = n | ALL], SWITCH, partition numbers as variables), `CREATE INDEX` (UNIQUE/CLUSTERED/NONCLUSTERED, ASC/DESC, INCLUDE, columnstore `ORDER`), `UPDATE STATISTICS` (with all options), `ALTER INDEX … REBUILD/REORGANIZE/DISABLE`, `DROP INDEX` (with `WITH (ONLINE = …, MOVE TO …)`, and the legacy `table.index` form)
 - Storage clauses on tables, indexes and constraints: `ON filegroup`, `ON scheme(column)`, `TEXTIMAGE_ON`, `FILESTREAM_ON`
-- [`CREATE/ALTER/CREATE OR ALTER PROCEDURE`](docs/examples.md#create-procedure) (including `FOR REPLICATION`), `CREATE/ALTER/CREATE OR ALTER FUNCTION` (parameter defaults, `READONLY` table parameters), [`CREATE/ALTER/CREATE OR ALTER VIEW`](docs/examples.md#create-view) (including bodies that start with `WITH` CTEs)
+- [`CREATE/ALTER/CREATE OR ALTER PROCEDURE`](docs/examples.md#create-procedure) (including `FOR REPLICATION`, numbered `proc;2`, and CLR `AS EXTERNAL NAME` bodies, also for triggers and table-valued functions), `CREATE/ALTER/CREATE OR ALTER FUNCTION` (parameter defaults, `READONLY` table parameters), [`CREATE/ALTER/CREATE OR ALTER VIEW`](docs/examples.md#create-view) (including bodies that start with `WITH` CTEs)
 - `CREATE/ALTER TRIGGER` — DML triggers (AFTER/INSTEAD OF INSERT/UPDATE/DELETE), DDL triggers `ON DATABASE` / `ON ALL SERVER`, `WITH` options (`EXECUTE AS`, `ENCRYPTION`, …), `NOT FOR REPLICATION`
 - `CREATE/ALTER/DROP SEQUENCE` with full options (START WITH, INCREMENT BY, MINVALUE/NO MINVALUE, MAXVALUE/NO MAXVALUE, CYCLE/NO CYCLE, CACHE/NO CACHE)
 - `BULK INSERT … FROM … WITH (options)`
@@ -55,14 +55,14 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - `CREATE PARTITION SCHEME` (AS PARTITION, ALL TO / TO filegroup list), `ALTER PARTITION SCHEME` (NEXT USED), `DROP PARTITION SCHEME`
 - `DROP TABLE/PROCEDURE/VIEW/FUNCTION/INDEX/TRIGGER/SEQUENCE/SYNONYM/SCHEMA` (with `IF EXISTS`)
 - `DROP DATABASE` (with `IF EXISTS`, multiple databases)
-- `CREATE DATABASE` (with optional `COLLATE`, file group specs, snapshot)
+- `CREATE DATABASE` (with optional `COLLATE`, file group specs, snapshot; forms with `WITH` options, `CONTAINMENT` or `FOR ATTACH` are kept as written)
 - `ALTER DATABASE` — `SET` (any option with proper keyword reconstruction, including SQL Server 2025 options such as `AUTOMATIC_INDEX_COMPACTION`), `COLLATE`, `MODIFY NAME`, `ADD/REMOVE FILE`, `ADD/REMOVE FILEGROUP`, `MODIFY FILE`, `MODIFY FILEGROUP`, `REBUILD LOG`, `SCOPED CONFIGURATION SET/CLEAR`
 
 **Database Administration**
 
 - `DBCC` commands — any command name, literal arguments, `WITH` options
-- `BACKUP DATABASE` / `BACKUP LOG` — `TO DISK/TAPE/URL`, `MIRROR TO`, `WITH` options
-- `RESTORE DATABASE` / `RESTORE LOG` / `RESTORE FILELISTONLY` / `RESTORE HEADERONLY` / `RESTORE VERIFYONLY` — `FROM DISK/TAPE/URL`, `WITH` options
+- `BACKUP DATABASE` / `BACKUP LOG` — `TO DISK/TAPE/URL` (or a logical device), `WITH` options; forms with `FILE` / `FILEGROUP` lists, `MIRROR TO` or `ENCRYPTION` are kept as written
+- `RESTORE DATABASE` / `RESTORE LOG` / `RESTORE FILELISTONLY` / `RESTORE HEADERONLY` / `RESTORE VERIFYONLY` — `FROM DISK/TAPE/URL`, `WITH` options; forms with `FILE` / `FILEGROUP` / `PAGE` lists, snapshot sources, `STOPATMARK` / `STOPBEFOREMARK` or `FILESTREAM` options are kept as written
 
 **Procedural / Control Flow**
 
@@ -88,11 +88,10 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 
 ## Pending implementation
 
-The constructs below are parsed correctly but emitted as-is (original source text preserved). Open a ticket to request formatting support for any of these.
+The constructs below are parsed correctly but have no printer yet. They are emitted exactly as written — same case and spacing, comments inside them kept in place — up to the next statement or `GO`, followed by a `;`. Nothing is dropped or changed. Open a ticket to request formatting support for any of these.
 
 ### DDL object model
 
-- Ledger table syntax — `CREATE TABLE ... WITH (LEDGER = ON, ...)` table options
 - Assemblies (`CREATE/ALTER/DROP ASSEMBLY`)
 - XML schema collections (`CREATE/ALTER/DROP XML SCHEMA COLLECTION`)
 - Full-text catalogs and indexes (`CREATE/ALTER/DROP FULLTEXT CATALOG`, `CREATE/ALTER/DROP FULLTEXT INDEX`)
@@ -115,7 +114,13 @@ The constructs below are parsed correctly but emitted as-is (original source tex
 
 ### External Data
 
-- `CREATE/ALTER/DROP EXTERNAL TABLE`, `CREATE/ALTER/DROP EXTERNAL DATA SOURCE`, `CREATE/ALTER/DROP EXTERNAL FILE FORMAT`, `CREATE/ALTER/DROP EXTERNAL RESOURCE POOL`
+- `CREATE/ALTER/DROP EXTERNAL LANGUAGE`, `CREATE/ALTER/DROP EXTERNAL LIBRARY`, `CREATE/ALTER/DROP EXTERNAL TABLE`, `CREATE/ALTER/DROP EXTERNAL DATA SOURCE`, `CREATE/ALTER/DROP EXTERNAL FILE FORMAT`, `CREATE/ALTER/DROP EXTERNAL RESOURCE POOL`
+
+### Rarer forms of formatted statements
+
+- `CREATE DATABASE` with `WITH` options, `CONTAINMENT` or `FOR ATTACH`
+- `BACKUP` with `FILE` / `FILEGROUP`, `MIRROR TO` or `ENCRYPTION`; `RESTORE` with `FILE` / `FILEGROUP` / `PAGE`, snapshot sources, `STOPATMARK` / `STOPBEFOREMARK` or `FILESTREAM`
+- Rarely used `ALTER TABLE` forms (for example `FILETABLE_NAMESPACE`, `CLUSTER BY`)
 
 ### Audit
 
@@ -185,13 +190,13 @@ SELECT Books.BookId,Books.Title,Books.Price,Authors.LastName FROM Books INNER JO
 
 ```sql
 select
-    Books.BookId,
-    Books.Title,
-    Books.Price,
-    Authors.LastName
+  Books.BookId,
+  Books.Title,
+  Books.Price,
+  Authors.LastName
 from
-    Books
-    inner join Authors on Books.AuthorId = Authors.Id
+  Books
+  inner join Authors on Books.AuthorId = Authors.Id
 where Books.InStock = 1
 order by Books.Title asc;
 ```

@@ -49,7 +49,7 @@ private static SqlNode? BuildStatement(TSqlStatement stmt) => stmt switch {
     SelectStatement sel => BuildSelectStatement(sel),
     InsertStatement ins => BuildInsertStatement(ins),
     ...
-    _ => Leaf("Statement", stmt, RawText(stmt)), // unhandled kinds preserve original text
+    _ => LeafStatement(stmt), // unhandled kinds keep their original text (comments included)
 };
 ```
 
@@ -59,7 +59,8 @@ Key helpers:
 private static SqlNode Leaf(string type, TSqlFragment f, string? text = null)
 private static SqlNode Node(string type, TSqlFragment f, Dictionary<string, object?> props)
 private static List<object?>? MapList<T>(IList<T>? items, Func<T, object?> map)
-private static string RawText(TSqlFragment f) // reconstructs SQL text via ScriptTokenStream
+private static string RawText(TSqlFragment f, bool keepComments = false) // reconstructs SQL text via ScriptTokenStream
+private static SqlNode LeafStatement(TSqlStatement stmt) // a statement kept as its source text, extended to the next statement / GO
 ```
 
 There is no `BuildProps` helper in this file (that's pgsql's `AstBuilder.cs`) — build the

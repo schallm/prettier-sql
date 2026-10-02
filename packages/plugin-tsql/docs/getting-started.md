@@ -144,6 +144,7 @@ and restart SSMS.
 | SSMS compatibility unconfirmed | PrettierX64 targets VS 2022/2026 but has not been tested inside SSMS 22 specifically. Microsoft marks third-party SSMS extensions as unsupported.                                |
 | `.sql` file detection          | SQL is not a default Prettier file type. Detection relies on `prettier-plugin-tsql` registering the `.sql` extension and PrettierX64 passing the filename to Prettier's API.     |
 | .NET DLL loading               | `prettier-plugin-tsql` loads a native .NET assembly at runtime via `node-api-dotnet`. Behavior inside the Visual Studio process (which is itself a .NET host) is untested.       |
+| Statements kept as written | A few statements the plugin has no printer for are emitted exactly as you wrote them (no reformatting); nothing is dropped. See the README's "Pending implementation". |
 
 ### Troubleshooting
 

@@ -14,7 +14,7 @@ flowchart TD
 
     subgraph cs ["Layer 1 — C# Parser"]
         direction LR
-        CS1["TSql160Parser"] --> CS2["AstBuilder"] --> CS3["TsqlParser.Parse()"]
+        CS1["TSql180Parser"] --> CS2["AstBuilder"] --> CS3["TsqlParser.Parse()"]
     end
 
     subgraph bridge ["Layer 2 — Parser Bridge"]
@@ -45,18 +45,26 @@ T-SQL is a complex dialect. Rather than maintaining a hand-written parser, the p
 
 | File                  | Purpose                                                                               |
 | --------------------- | ------------------------------------------------------------------------------------- |
-| `SqlScriptDom.csproj` | .NET 8.0 project; references `Microsoft.SqlServer.TransactSql.ScriptDom` v161.\*      |
+| `SqlScriptDom.csproj` | .NET 8.0 project; references `Microsoft.SqlServer.TransactSql.ScriptDom` v180.\*      |
 | `SqlNode.cs`          | Serializable record: `type`, `startOffset`, `endOffset`, optional `text` and `props`  |
 | `AstBuilder.cs`       | `TSqlFragmentVisitor` subclass; walks the ScriptDom tree and builds `SqlNode` objects |
 | `TsqlParser.cs`        | Static `Parse(string sql)` entry point; extracts comment tokens; returns JSON         |
 
 ### Parse flow
 
-1. `TSql160Parser.Parse()` returns a `TSqlFragment` (the full ScriptDom tree) and a list of `ParseError`.
+1. `TsqlParser` blanks any `GO <count>` repeat count (ScriptDom doesn't accept one; the counts are returned with the offsets of their `GO` lines), then `TSql180Parser.Parse()` returns a `TSqlFragment` (the full ScriptDom tree) and a list of `ParseError`.
 2. If there are errors, the JSON response contains only the errors array.
-3. Otherwise, `AstBuilder` visits the fragment using the visitor pattern and builds a simplified `SqlNode` tree. Only the fields the printer needs are included — there are no circular references.
+3. Otherwise, `AstBuilder` visits the fragment and builds a simplified `SqlNode` tree. Only the fields the printer needs are included — there are no circular references.
 4. Comments are extracted separately from `fragment.ScriptTokenStream` (ScriptDom strips them from the AST). Their byte offsets are computed using a `lineStarts` array built from the source text.
 5. The result is serialized as `{ ast: SqlNode, comments: CommentToken[] }`.
+
+### Statements printed from their source text
+
+A statement kind `BuildStatement` has no builder for — or a rare form of one it does model (`CREATE DATABASE` with `CONTAINMENT`, `FOR ATTACH` or `WITH` options, `BACKUP` with `FILE` / `MIRROR TO` / `ENCRYPTION`, `RESTORE` with `FILE` / `STOPATMARK` / snapshot sources, rarer `ALTER TABLE` forms) — becomes a `Statement` node whose `text` is its original source, built by `LeafStatement`. The printer emits that text unchanged (same case, same spacing) followed by `;`.
+
+- **Extent.** ScriptDom's fragment for some statements stops before their last tokens, so `LeafStatement` extends the text over the real tokens that follow, up to the next statement, the `GO`, or the end of the script. `StatementLimitIndexer` records that limit (the token index where the next sibling starts) for every statement in a batch or `BEGIN … END` / `TRY` list; an `IF` / `WHILE` body ends where the `IF` / `WHILE` does, and a `THEN` body with an `ELSE` ends at that `ELSE`. The last statement of a block that has no limit runs to the `END` or `ELSE` that closes it (a `CASE … END` inside doesn't count).
+- **Comments.** `RawText(fragment, keepComments: true)` keeps comments inside the text. `attachComments()` in `parser/index.ts` therefore marks every comment inside a text-only `*Statement` node as already used, so it is printed once, in place, and not attached anywhere else. For all other nodes `RawText` leaves comments out, because they are attached to the tree and printed there.
+- **Scripts with no statement.** A script holding only comments and `GO` lines has nothing to attach comments to, so the parser stores the trimmed source as `commentsOnly` on the script and the printer writes it back unchanged.
 
 ### SqlNode structure
 
@@ -103,7 +111,7 @@ For each statement (and each VALUES row inside INSERT), look for a `--` line com
 
 **Pass 2 — Leading and pre-body comments**
 
-Remaining comments are sorted by offset. For each one:
+Remaining comments are sorted by offset (comments inside a statement kept as its source text are skipped: they are already part of that text). For each one:
 
 - If it falls **inside** a statement's source span, the comment is checked against the statement's body boundary (`bodyStart`, which `AstBuilder` records as `StatementList.StartOffset` — the offset of the `BEGIN` keyword for procedures and functions, or the body node's own offset for views). If the comment is before that boundary:
     - Comments after the last parameter are stored in `node.postParamComments` (printed between the parameter list and `AS`).
@@ -183,7 +191,7 @@ The `sqlDensity` option is threaded through every printer function as part of th
 
 ### GO emission
 
-Batch-isolating statement types are tracked in a `BATCH_ISOLATING` set. After printing each batch, `printScript` emits `go` if the batch contains an isolating statement or if there are multiple batches.
+Batch-isolating statement types are tracked in a `BATCH_ISOLATING` set. After printing each batch, `printScript` emits `go` if the batch contains an isolating statement or if there are multiple batches. A `GO` that was written with a repeat count (`GO 5`) keeps it: the parser records the count of each `GO` line, and a bare `GO` that follows the first one is a no-op and is dropped, while a counted one is kept. The word is a keyword, so `sqlKeywordCase` applies to it; a name `[go]` keeps its brackets so it is never read as a batch separator.
 
 ---
 
@@ -244,7 +252,7 @@ prettier-plugin-tsql/
 
 The process is the same as for statements, but targeting different switches:
 
-1. **C# (`AstBuilder.cs`)** — add a case in `BuildScalarExpression()` (for scalar expressions) or `BuildTableReference()` (for table references) and a corresponding builder method. Use `RawText(fragment)` to capture data-type text verbatim (preserving length/precision) rather than navigating the AST for individual identifier parts.
+1. **C# (`AstBuilder.cs`)** — add a case in `BuildScalarExpression()` (for scalar expressions) or `BuildTableReference()` (for table references) and a corresponding builder method. Use `RawText(fragment)` to capture text (a data type's length/precision, say) rather than navigating the AST for individual identifier parts; the printer normalises the spacing of a type's size to `(10, 2)`. If a statement kind can't be modelled yet, `LeafStatement(stmt)` keeps it as written.
 
 2. **TypeScript printer** — add a `case 'NodeType':` branch in `printExpression()` or `printTableRef()` in `printer/expressions.ts` and the corresponding `printXxx()` function.
 

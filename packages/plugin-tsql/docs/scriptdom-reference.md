@@ -251,6 +251,26 @@ Block comment text includes `/*` and `*/`; strip 2 chars from each end.
 
 ---
 
+## Statement fragments that stop short
+
+For some statement kinds ScriptDom's `FragmentLength` ends before the statement's last tokens
+(`CREATE EXTERNAL LANGUAGE ... FROM (...)` ends before the `FROM` clause, for example). A
+statement kept as its source text therefore can't trust its own fragment: `LeafStatement`
+extends it over the real tokens that follow, up to the next statement (`FirstTokenIndex` of the
+next sibling), the `GO`, or the end of the script. The limits come from `StatementLimitIndexer`.
+The last statement of a `BEGIN ... END`, `TRY` or `IF` has no next sibling; it runs to the `END` or
+`ELSE` that closes it (a `CASE ... END` inside it doesn't count).
+
+---
+
+## `GO` with a repeat count
+
+`GO 5` is a sqlcmd / SSMS feature; ScriptDom rejects the count. `TsqlParser.BlankGoCounts` blanks
+the count out (same length, so every offset still holds) before parsing and records it, and the
+printer writes it back after the `go`.
+
+---
+
 ## `SchemaObjectName` structure
 
 ```
