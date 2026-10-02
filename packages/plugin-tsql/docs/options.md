@@ -30,15 +30,15 @@ where Books.InStock = 1;
 
 <!-- prettier-ignore -->
 ```sql
-select
+SELECT
   Books.Id,
   Books.Title
-from Books
-where Books.InStock = 1;
+FROM Books
+WHERE Books.InStock = 1;
 ```
 
 **`preserve`**
-Input casing is kept as-is. Useful when your team has mixed conventions and you only want layout formatting.
+Keywords follow the file: if its keywords are mostly upper case they are printed upper case, otherwise lower case (the choice is made once per file, not per keyword). Useful when your team keeps either convention and you only want layout formatting.
 
 ---
 
@@ -84,13 +84,8 @@ Tries to keep everything on as few lines as possible, wrapping only when a line 
 
 <!-- prettier-ignore -->
 ```sql
-select
-  Books.BookId,
-  Books.Title,
-  Books.Price
-from
-  Books
-  inner join Authors on Books.AuthorId = Authors.Id
+select Books.BookId, Books.Title, Books.Price
+from Books inner join Authors on Books.AuthorId = Authors.Id
 where Books.InStock = 1
 order by Books.Title asc;
 ```
@@ -107,9 +102,12 @@ select
   Books.Price
 from
   Books
-  inner join Authors on Books.AuthorId = Authors.Id
-where Books.InStock = 1
-order by Books.Title asc;
+  inner join Authors on
+    Books.AuthorId = Authors.Id
+where
+  Books.InStock = 1
+order by
+  Books.Title asc;
 ```
 
 ---
@@ -150,19 +148,28 @@ where BookId = @id;
 <!-- prettier-ignore -->
 ```sql
 select
-  Id,
-  Title,
-  Price
+  Id
+  , Title
+  , Price
 from Books;
 
-insert into Books (Title, Price)
+insert into Books (
+  Title
+  , Price
+)
 values
-  ('A', 1.00),
-  ('B', 2.00);
+  (
+    'A'
+    , 1.00
+  )
+  , (
+    'B'
+    , 2.00
+  );
 
 update Books
 set
-  Title = @title, Price = @price
+  Title = @title , Price = @price
 where BookId = @id;
 ```
 
