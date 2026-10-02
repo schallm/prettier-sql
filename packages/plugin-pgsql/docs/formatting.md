@@ -2,6 +2,8 @@
 
 Comprehensive formatting rules organized by statement type. All examples use default options (lowercase keywords, standard density, trailing commas) unless noted.
 
+A few uncommon top-level statements have no printer yet (`CREATE CAST`, `CREATE DOMAIN`, `CREATE EVENT TRIGGER`, `CREATE STATISTICS`, `ALTER DEFAULT PRIVILEGES`, `CREATE DATABASE`, ...) and are kept exactly as written. A construct inside a supported statement that the formatter can't print raises an `Unsupported ...` error instead of being dropped.
+
 ---
 
 ## SELECT
@@ -46,6 +48,35 @@ where
   and author_id = 3;
 ```
 
+### AND / OR outside WHERE
+
+In `WHERE`, `HAVING` and `ON CONFLICT ... WHERE`, each predicate of an `AND` / `OR` chain goes on its own line, as above; a short parenthesised group inside stays on one line (`(a.tier = 'gold' or a.tier = 'silver')`).
+
+Everywhere else — select list, `JOIN ... ON`, `CASE WHEN`, function arguments, `CHECK`, policies, trigger `WHEN` — `AND` / `OR` stays on one line when it fits, and otherwise hangs indented under the first operand:
+
+```sql
+select
+  a.id,
+  a.active and a.verified as ok,
+  case
+    when a.age >= 18 and a.country = 'US' then 'adult'
+    else 'minor'
+  end as bucket
+from
+  accounts as a
+  join profiles as p on p.account_id = a.id and p.deleted_at is null
+where
+  a.region = 'eu'
+  and (a.tier = 'gold' or a.tier = 'silver')
+  and a.created_at > now() - interval '30 days';
+
+alter table accounts
+  add constraint valid_period check (starts_at is not null
+    and ends_at is not null
+    and ends_at > starts_at
+    and starts_at > '2000-01-01');
+```
+
 ### JOIN types
 
 All JOIN types are supported. `INNER JOIN` is normalised to `JOIN`. Each JOIN goes on its own line at the same indent level as `FROM`.
@@ -63,6 +94,8 @@ from
 ```
 
 ### JOIN condition — ON vs USING
+
+`ON` conditions use the inline `AND` / `OR` layout described under "AND / OR outside WHERE": one line when it fits, otherwise hanging under the first operand.
 
 ```sql
 -- ON
@@ -517,6 +550,8 @@ where price is distinct from 0;
 
 ### CASE expression
 
+`ELSE` is indented with the `WHEN` branches.
+
 ```sql
 select
   id,
@@ -844,6 +879,21 @@ alter table orders
 
 alter table orders
   alter column notes drop not null;
+```
+
+#### Other subcommands
+
+Every `ALTER TABLE` subcommand PostgreSQL's parser produces is printed, one per line (identity, statistics, storage, compression, options, triggers, rules, row security, replica identity, partitions, ownership, ...):
+
+```sql
+alter table only t
+  owner to current_user,
+  alter column a set statistics 100,
+  alter column b set storage external,
+  alter column c add generated always as identity,
+  enable row level security,
+  replica identity full,
+  set (fillfactor = 70);
 ```
 
 #### Add / drop column
