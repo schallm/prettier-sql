@@ -2474,6 +2474,34 @@ from Books;
 go
 ```
 
+#### A line comment never swallows code
+
+A `--` comment runs to the end of the line, so the printer never puts code after one. When a comment sits where the output would continue on the same line — after an `if` condition, in a function header, after a CTE's opening parenthesis — the code that follows moves to its own line:
+
+```sql
+if @Count > 0
+  -- anything left?
+  print 'rows';
+```
+
+#### Comments in statements kept as written
+
+A statement the formatter prints from its source text (see [Statements kept as written](#statements-kept-as-written)) keeps the comments inside it where they were, exactly once; a trailing comment stays after the statement's `;`:
+
+```sql
+CREATE   DATABASE Archive CONTAINMENT = PARTIAL; -- keep
+```
+
+#### Scripts that are only comments
+
+A script with no statement — only comments and `go` lines — is kept as written:
+
+```sql
+-- nothing to format here
+/* just comments */
+go 3
+```
+
 #### Commented-out predicates
 
 Line or block comments inside a `where` clause (e.g. a temporarily disabled predicate) are preserved between the surrounding predicates:
@@ -2514,7 +2542,7 @@ go
 
 ### Identifiers and bracket quoting
 
-Square-bracket quoting (`[name]`) is preserved only when the identifier requires it — that is, when the name contains spaces, special characters, starts with a digit, or is a T-SQL reserved word (such as `key` or `value`). Redundant brackets around plain identifiers are stripped.
+Square-bracket quoting (`[name]`) is preserved only when the identifier requires it — that is, when the name contains spaces, special characters, starts with a digit, or is a T-SQL reserved word (such as `key` or `value`). A name starting with `@` (`[@col]`, which is a variable without the brackets) and a name `[go]` (alone on a line, a batch separator) also keep theirs. Redundant brackets around plain identifiers are stripped.
 
 ```sql
 -- input: brackets around plain names are dropped
@@ -2574,6 +2602,37 @@ from Authors;
 go
 ```
 
+### GO with a repeat count
+
+`go 5` (sqlcmd / SSMS repeat count) is kept; the count is not part of the T-SQL grammar, so the plugin sets it aside while parsing and writes it back after `go`. A bare `go` that follows another one is a no-op and is dropped; a counted one is kept.
+
+```sql
+select 1;
+go 5
+
+select 2;
+go
+```
+
+### Statements kept as written
+
+Statements the plugin has no printer for (assemblies, Service Broker, certificates and keys, Extended Events, external data objects, audits, … — see the README's "Pending implementation") and a few rare forms of statements it does format (`create database` with `containment`, `for attach` or `with` options; `backup` with `file` / `filegroup`, `mirror to` or `encryption`; `restore` with `file` / `filegroup` / `page`, snapshot sources, `stopatmark` / `stopbeforemark` or `filestream`; rarely used `alter table` forms) are emitted from their source text: same case and spacing, followed by `;`. Nothing is dropped or changed, the comments inside are kept in place, and the text runs from the statement's first token to the next statement (or `go`), so tokens that ScriptDom's own fragment leaves out — the `FROM (...)` of `create external language`, say — are included:
+
+```sql
+CREATE   ASSEMBLY a  /* c */ FROM 'x.dll'; -- end
+```
+
+Inside an `if`, `else` or `while` with a single-statement body, such a statement ends where the body ends, not at the next `end` or `go`.
+
+### Type sizes
+
+The size of a built-in type is written `(10, 2)` wherever it appears — column definitions, `alter column`, `cast` / `convert`, `declare`, parameters — whatever spacing the input used. A user-defined type keeps its schema and the case it was written in (`dbo.BookTitle`), as does an `xml` schema collection (`xml(dbo.Sc)`), also with `sqlKeywordCase: upper`.
+
+```sql
+declare @p decimal(10, 2);
+declare @t dbo.BookTitle;
+```
+
 ---
 
 ## Database administration
@@ -2614,8 +2673,8 @@ backup log Bookstore
 
 `BACKUP DATABASE` / `BACKUP LOG` keywords are reformatted. Device type keywords (`DISK`, `TAPE`,
 `URL`) and all option names (`COMPRESSION`, `NOFORMAT`, `STATS`, `NAME`, etc.) follow
-`sqlKeywordCase`. `TO`, `MIRROR TO`, and `WITH` are indented on new lines; multiple devices each
-on their own line.
+`sqlKeywordCase`. `TO` and `WITH` are indented on new lines; multiple devices each
+on their own line. `BACKUP DATABASE` with a `FILE` / `FILEGROUP` list, `MIRROR TO` or `ENCRYPTION (...)` is kept as written.
 
 When the `WITH` option list is short it stays on one line; when it would exceed `printWidth` every
 option wraps to its own indented line:
@@ -2650,7 +2709,7 @@ restore database Bookstore
 
 `RESTORE DATABASE` / `RESTORE LOG` / `RESTORE FILELISTONLY` / `RESTORE HEADERONLY` /
 `RESTORE VERIFYONLY` are all supported. `FROM` and `WITH` are indented on new lines.
-The `WITH` option list follows the same inline/wrap behaviour as `BACKUP`.
+The `WITH` option list follows the same inline/wrap behaviour as `BACKUP`. `RESTORE` with `FILE` / `FILEGROUP` / `PAGE` lists, a snapshot source, `STOPATMARK` / `STOPBEFOREMARK` or `FILESTREAM` options is kept as written.
 
 ### CREATE DATABASE
 
@@ -2665,7 +2724,7 @@ collate Latin1_General_CI_AS;
 create database SalesSnap as snapshot of SalesDB;
 ```
 
-For databases with file group or log-on clauses, the file spec raw text is preserved.
+For databases with file group or log-on clauses, the file spec raw text is preserved. A `create database` with `containment`, `for attach` or `with` options is kept as written (see [Statements kept as written](#statements-kept-as-written)).
 
 ### ALTER DATABASE
 
