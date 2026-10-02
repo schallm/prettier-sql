@@ -728,17 +728,12 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
             const tableRefs = propArr(from, 'tableReferences');
             const fromDocs = tableRefs.map((tr) => printTableRef(tr, opts, printFn));
             // standard: single table (no joins) stays inline; multiple/joins each on own line
-            // InlineDerivedTable uses a softline so it stays inline when it fits but breaks
-            // FROM onto its own line (with the values block indented) when it doesn't
             const singleTable =
                 density === 'standard' &&
                 tableRefs.length === 1 &&
                 tableRefs[0]!.type !== 'QualifiedJoin' &&
-                tableRefs[0]!.type !== 'UnqualifiedJoin' &&
-                tableRefs[0]!.type !== 'InlineDerivedTable';
-            if (tableRefs.length === 1 && tableRefs[0]!.type === 'InlineDerivedTable') {
-                parts.push(hardline, group([keyword('FROM', opts), indent([line, fromDocs[0]!])]));
-            } else if (singleTable) {
+                tableRefs[0]!.type !== 'UnqualifiedJoin';
+            if (singleTable) {
                 parts.push(hardline, keyword('FROM', opts), ' ', fromDocs[0]!);
             } else {
                 parts.push(hardline, keyword('FROM', opts), indent([hardline, join(hardSep(opts), fromDocs)]));
@@ -1579,20 +1574,18 @@ function printInlineDerivedTable(node: SqlNode, opts: Options, printFn: PrintFn)
     const colsDef: Doc = columns?.length ? ['(', columns.join(', '), ')'] : '';
     const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias, colsDef] : '';
     // compact: fill-pack rows — as many per line as fit, wrapping only when needed
-    // standard/spacious: all-or-nothing group (all inline or each on own line)
-    const rowsDoc: Doc =
-        getDensity(opts) === 'compact' && rows.length > 1
-            ? commaFill(rowDocs)
-            : join([',', line], rowDocs);
-    return group([
+    // standard/spacious: the rows always go on their own lines, like a standalone VALUES
+    if (getDensity(opts) === 'compact') {
+        const rowsDoc: Doc = rows.length > 1 ? commaFill(rowDocs) : join([',', line], rowDocs);
+        return group(['(', keyword('VALUES', opts), ' ', indent([softline, rowsDoc]), softline, ')', aliasPart]);
+    }
+    return [
         '(',
-        keyword('VALUES', opts),
-        ' ',
-        indent([softline, rowsDoc]),
-        softline,
+        indent([hardline, keyword('VALUES', opts), indent([hardline, join([',', hardline], rowDocs)])]),
+        hardline,
         ')',
         aliasPart,
-    ]);
+    ];
 }
 
 function printQueryDerivedTable(node: SqlNode, opts: Options, printFn: PrintFn): Doc {

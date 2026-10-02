@@ -150,7 +150,11 @@ In each diff block, `-` lines are the raw input and `+` lines are the formatted 
 + select
 +   v.Id,
 +   v.Name
-+ from (values (1, 'Alice'), (2, 'Bob')) as v(Id, Name);
++ from (
++   values
++     (1, 'Alice'),
++     (2, 'Bob')
++ ) as v(Id, Name);
 ```
 
 ### EXISTS

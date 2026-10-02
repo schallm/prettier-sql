@@ -641,29 +641,17 @@ where AvgPrice > 25;
 
 #### Inline VALUES derived table
 
-A `VALUES(...)` constructor used as a derived table in `FROM` is formatted inline when it fits within `printWidth`, or broken across lines when it exceeds it. The alias and column list follow with no space between the alias name and the column list:
+A `VALUES(...)` constructor used as a derived table in `FROM` always puts its rows on their own lines, one per row, like a standalone `VALUES`. The alias and column list follow the closing parenthesis with no space between the alias name and the column list. (In `compact` density the rows are packed and stay inline when they fit.)
 
 ```sql
--- fits within printWidth: stays inline with from
 select
   v.Id,
   v.Name
-from (values (1, 'Alice'), (2, 'Bob')) as v(Id, Name);
-```
-
-```sql
--- exceeds printWidth: from breaks to its own line and rows indent further
-select
-  v.ProductId,
-  v.Name,
-  v.Price
-from
-  (values
-    (101, 'Widget Pro', 29.99),
-    (102, 'Gadget Plus', 49.99),
-    (103, 'Doohickey', 9.99)
-  ) as v(ProductId, Name, Price)
-where v.Price < 40;
+from (
+  values
+    (1, 'Alice'),
+    (2, 'Bob')
+) as v(Id, Name);
 ```
 
 #### Subqueries
