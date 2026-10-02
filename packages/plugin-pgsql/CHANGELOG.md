@@ -1,5 +1,32 @@
 # prettier-plugin-postgresql
 
+## 0.3.3
+
+### Patch Changes
+
+- c91f89f: Keep the `COLLATE` clause of `ALTER COLUMN ... TYPE`, instead of silently dropping it.
+- b2820c7: Keep the OID of `ALTER LARGE OBJECT`, the `ADD USER` / `DROP USER` member list of `ALTER GROUP`, and `OWNER TO current_user` (and the other role keywords), instead of printing a statement that means something else.
+- 40eb725: Format the remaining `ALTER TABLE` / `ALTER INDEX` / `ALTER VIEW` / `ALTER MATERIALIZED VIEW` / `ALTER FOREIGN TABLE` / `ALTER SEQUENCE` subcommands: `OWNER TO`, `SET TABLESPACE`, `SET (...)` / `RESET (...)`, identity (`ADD GENERATED`, `SET GENERATED`, `RESTART`, `DROP IDENTITY`), `DROP EXPRESSION`, `SET EXPRESSION`, `SET STATISTICS`, `SET STORAGE`, `SET COMPRESSION`, `VALIDATE` / `ALTER CONSTRAINT`, trigger and rule enable/disable, row level security, `CLUSTER ON`, `SET LOGGED` / `UNLOGGED`, `INHERIT`, `OF`, `REPLICA IDENTITY`, `ATTACH` / `DETACH PARTITION`, and foreign table `OPTIONS`. These used to make the formatter fail. A partition bound value it cannot print now fails loudly instead of being dropped.
+- 7516b64: Keep the subscripts and field names of INSERT and UPDATE targets (`set a[1] = 2`, `insert into t (a.b)`), the `UNLOGGED` of `SELECT ... INTO UNLOGGED`, and `OVERRIDING ... VALUE` in `MERGE ... INSERT`, instead of silently dropping them.
+- b239857: Lay out `AND`/`OR` outside WHERE/HAVING-style clauses on one line when it fits (select lists, `JOIN ... ON`, `CASE`, function arguments, CHECK, policies, triggers), hanging indented otherwise, instead of starting each operand at column 0. Parenthesised `AND`/`OR` groups stay on one line when short.
+- 9752bcb: Indent `ELSE` in a `CASE` expression to line up with its `WHEN` branches, as the T-SQL plugin does.
+- 8ac17f4: Print the real syntax for `COMMENT ON` constraint, trigger, rule, policy, domain constraint, operator class / family, transform and cast targets, and keep the OID of `COMMENT ON LARGE OBJECT`.
+- 1288baf: Keep the objects created inside `CREATE SCHEMA ... CREATE TABLE ... CREATE VIEW ...`, instead of dropping them.
+- 12c7fca: Keep the `OF type` and `WITH OPTIONS` of typed tables, the `STORAGE` and `COMPRESSION` column clauses, and `IF NOT EXISTS` on `CREATE FOREIGN TABLE`, instead of silently dropping them.
+- 84925e0: Format `DEFAULT` in `VALUES` and `SET`, multi-column assignment (`SET (a, b) = (1, 2)`, `= (SELECT ...)`), `expr COLLATE "C"`, `WHERE CURRENT OF cursor`, `merge_action()` and bit-string literals (`B'101'`, `X'ff'`), which used to make the formatter fail.
+- 3dccb55: Format `CREATE FUNCTION ... TRANSFORM FOR TYPE ...` and `CREATE TABLE ... AS EXECUTE ...`, which used to make the formatter fail.
+- 0e6f783: Print every GRANT / REVOKE object type correctly: `FOREIGN SERVER`, `TYPE`, `DOMAIN`, `LARGE OBJECT`, `PARAMETER`, `ALL PROCEDURES IN SCHEMA` and the rest, instead of an internal name or a missing object name.
+- f90ac46: Print `expr IS DOCUMENT` as a postfix predicate instead of the invalid `is document(expr)`.
+- 63316c0: Keep the options, option values and target of `CLUSTER`, `REINDEX`, `VACUUM` and `ANALYZE`: `cluster verbose`, `cluster (verbose) t using i`, `reindex schema s`, `reindex database d`, `reindex system d`, `reindex (tablespace ts)`, and the case of quoted option values.
+- c080785: Keep the whole `PARTITION BY` element (`((lower(a)))`, `COLLATE`, operator class), `PARTITION OF` with its columns, storage and `IF NOT EXISTS`/`UNLOGGED`, foreign tables' `PARTITION OF` and `INHERITS` and column `OPTIONS` before constraints, and `CREATE [OR REPLACE] AGGREGATE` arguments (`ORDER BY`, `*`, `VARIADIC`, argument names). `DROP`/`ALTER`/`COMMENT ON AGGREGATE a(*)` keep their `*`.
+- 607882c: Keep argument modes and names in function and aggregate signatures of `DROP`, `ALTER`, `COMMENT` and `GRANT` (`DROP FUNCTION f(IN a int, OUT b text)`, `DROP PROCEDURE p(INOUT x int)`, `VARIADIC`), which were reduced to bare input types.
+- 0fe7f52: Print `SECURITY LABEL ON` domain, type, function, large object and other targets correctly instead of an internal object-type name.
+- 1d8536d: Keep the interval of `SET TIME ZONE INTERVAL '1' HOUR TO MINUTE` instead of turning it into the plain string `'1'`.
+- c4b1484: Format SQL-standard function bodies (`CREATE FUNCTION ... RETURN expr`, `BEGIN ATOMIC ... END` for functions and procedures), expressions in partition bounds (`FOR VALUES FROM (date '2020-01-01') TO (...)`, `IN (1 + 1)`) and `GENERATED ... AS IDENTITY (SEQUENCE NAME s)`, which used to make the formatter fail.
+- c4b1484: Format the rest of the SQL/JSON syntax, which used to make the formatter fail: `x IS [NOT] JSON [VALUE | ARRAY | OBJECT | SCALAR] [WITH UNIQUE KEYS]`, `JSON_SCALAR`, `JSON_SERIALIZE`, `JSON(...)` and `JSON_ARRAY(SELECT ...)`. `XMLTABLE(XMLNAMESPACES(...), ...)` and the column list of an `XMLTABLE` / `JSON_TABLE` alias (`AS t(a, b)`) were silently dropped and are kept now.
+- 15e4822: Print `(a, b) OVERLAPS (c, d)`, `x IS [NOT] [NFC] NORMALIZED`, `NORMALIZE(x, NFC)`, `SYSTEM_USER`, `COLLATION FOR (x)` and `XMLEXISTS(path PASSING doc)` as SQL syntax instead of the `pg_catalog` function call they parse to, which meant something else.
+- 1bd3331: Keep `VARIADIC` in function calls (`f(VARIADIC arr)`), operator-valued options (`commutator = ===`, `sortop = <`) and numeric options of `CREATE AGGREGATE` / `OPERATOR` / `TYPE`, `t.a%TYPE` in function signatures, and the comments of a script that has no statements; these were silently dropped. An option value of a kind the formatter cannot print now raises an error instead of vanishing.
+
 ## 0.3.2
 
 ### Patch Changes
