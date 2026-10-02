@@ -14,7 +14,9 @@ export function builtinTypeDoc(dataType: string, opts: Options): Doc {
     const open = dataType.indexOf('(');
     if (open < 0 || !dataType.endsWith(')')) return keyword(dataType, opts);
     const inner = dataType.slice(open + 1, -1);
-    if (/^[\s\d,]*$/.test(inner) || /^\s*max\s*$/i.test(inner)) return keyword(dataType, opts);
+    // Sizes are written `(10, 2)` whatever the input spacing, as in a column definition
+    if (/^[\s\d,]*$/.test(inner)) return keyword(`${dataType.slice(0, open)}(${inner.trim().split(/\s*,\s*/).join(', ')})`, opts);
+    if (/^\s*max\s*$/i.test(inner)) return keyword(dataType, opts);
     const xml = /^(\s*)(content|document)(\s+)([\s\S]*)$/i.exec(inner);
     return [keyword(dataType.slice(0, open), opts), '(', xml ? [xml[1]!, keyword(xml[2]!, opts), xml[3]!, xml[4]!] : inner, ')'];
 }
