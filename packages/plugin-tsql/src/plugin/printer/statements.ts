@@ -266,8 +266,11 @@ function fillList(docs: Doc[], opts: Options): Doc {
             // leading: break point before ', item' so comma leads the new line
             // trailing: 'item,' then break point so comma trails the old line
             // After a line comment the break is forced, or the next item joins the comment
-            const brk = hasLineSuffix(docs[i - 1]!) ? hardline : line;
-            return leading ? ([brk, [', ', d]] as Doc[]) : ([[',', brk], d] as Doc[]);
+            const forced = hasLineSuffix(docs[i - 1]!);
+            // leading: the ', ' already carries the space, so a flat break must print nothing
+            return leading
+                ? ([forced ? hardline : softline, [', ', d]] as Doc[])
+                : ([[',', forced ? hardline : line], d] as Doc[]);
         }),
     );
 }
