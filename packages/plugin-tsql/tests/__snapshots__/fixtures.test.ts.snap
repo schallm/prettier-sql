@@ -3970,6 +3970,23 @@ unpivot (
 "
 `;
 
+exports[`fixtures > select/quantified-subqueries.sql 1`] = `
+"select a
+from t
+where
+  c > all (
+    select 1
+  )
+  and d = any (
+    select b
+    from u
+  )
+  and e <> any (
+    select 2
+  );
+"
+`;
+
 exports[`fixtures > select/query-hints-and-table-hints.sql 1`] = `
 "-- OPTION (...) query hints and table hints keep their names, values and identifier case
 select a

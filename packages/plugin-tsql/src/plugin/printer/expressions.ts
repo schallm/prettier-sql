@@ -1067,9 +1067,9 @@ function printSubqueryComparison(node: SqlNode, opts: Options, printFn: PrintFn)
     const op = cmpOp(propStr(node, 'operator') ?? '');
     const quantifier = propStr(node, 'quantifier'); // ALL, ANY, or null
     const subquery = prop(node, 'subquery');
-    const subDoc = subquery
-        ? group(['(', indent([softline, printQueryExpression(subquery, opts, printFn)]), softline, ')'])
-        : '';
+    // standard + spacious: the subquery goes on its own lines; compact keeps a short one inline
+    const brk = getDensity(opts) === 'compact' ? softline : hardline;
+    const subDoc = subquery ? group(['(', indent([brk, printQueryExpression(subquery, opts, printFn)]), brk, ')']) : '';
     return group([
         expr ? printExpression(expr, opts, printFn) : '',
         ' ',
