@@ -360,44 +360,35 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
     return argsDoc;
 }
 
-// Flatten a left-recursive chain of the given operators into leaf terms.
-// Stops at any other operator so e.g. the `a * b` in `a * b + c` stays grouped.
-// Keeping ops separate (Add/Concatenate vs Concat) prevents mixing + and || chains.
-function collectBinaryChain(node: SqlNode, ...ops: string[]): SqlNode[] {
+// Flatten a left-recursive chain of the given operators into its terms, each paired with
+// the operator that precedes it. Stops at any other operator so e.g. the `a * b` in
+// `a * b + c` stays grouped. Keeping + - and || chains separate prevents mixing them.
+function collectBinaryChain(node: SqlNode, ops: Set<string>): { op: string; term: SqlNode }[] {
     const op = propStr(node, 'operator');
-    if (node.type !== 'BinaryExpression' || !ops.includes(op ?? '')) {
-        return [node];
+    if (node.type !== 'BinaryExpression' || !ops.has(op ?? '')) {
+        return [{ op: '', term: node }];
     }
     const left = prop(node, 'left');
     const right = prop(node, 'right');
-    return [...(left ? collectBinaryChain(left, ...ops) : []), ...(right ? [right] : [])];
+    return [...(left ? collectBinaryChain(left, ops) : []), ...(right ? [{ op: mapBinaryOp(op!), term: right }] : [])];
 }
 
-function buildFillChain(termDocs: Doc[], sep: string): Doc {
-    const parts: Doc[] = [termDocs[0]!];
-    for (let i = 1; i < termDocs.length; i++) {
-        parts.push(indent([line, sep]));
-        parts.push(termDocs[i]!);
-    }
-    return fill(parts);
+const ADDITIVE_OPS = new Set(['Add', 'Subtract', 'Concatenate']);
+const CONCAT_OPS = new Set(['Concat']);
+
+// Fill: as many terms per line as fit, each continuation line indented and led by its
+// operator. Flat: "a + b - c". Filling: "a + b\n  + c - d".
+function buildChain(terms: { op: string; term: Doc }[]): Doc {
+    const [first, ...rest] = terms;
+    return fill([first!.term, ...rest.flatMap((t): Doc[] => [indent([line, t.op, ' ']), t.term])]);
 }
 
 function printBinaryExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const op = propStr(node, 'operator') ?? '+';
 
-    // For + chains: flatten the whole tree and use fill so that terms pack
-    // onto each line up to printWidth, breaking before + only when the next
-    // term would overflow. Flat: "a + b + c". Filling: "a + b\n+ c + d".
-    // This prevents Prettier from descending into function args to break there.
-    if (op === 'Add' || op === 'Concatenate') {
-        const terms = collectBinaryChain(node, 'Add', 'Concatenate');
-        return buildFillChain(terms.map((t) => printExpression(t, opts, printFn)), '+ ');
-    }
-
-    // || chains work the same way but keep their own operator symbol.
-    if (op === 'Concat') {
-        const terms = collectBinaryChain(node, 'Concat');
-        return buildFillChain(terms.map((t) => printExpression(t, opts, printFn)), '|| ');
+    const chainOps = ADDITIVE_OPS.has(op) ? ADDITIVE_OPS : CONCAT_OPS.has(op) ? CONCAT_OPS : null;
+    if (chainOps) {
+        return buildChain(collectBinaryChain(node, chainOps).map((t) => ({ op: t.op, term: printExpression(t.term, opts, printFn) })));
     }
 
     const left = prop(node, 'left');

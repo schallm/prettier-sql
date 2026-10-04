@@ -209,19 +209,26 @@ function operandPrecs(prec: number): { left: number; right: number } {
 // Expressions
 // ---------------------------------------------------------------------------
 
-const CONCAT_OPS = new Set(['+', '||']);
+// Operators that chain: a run of `a + b - c` or `a || b || c` prints as one list of terms.
+const ADDITIVE_OPS = new Set(['+', '-']);
+const CONCAT_OPS = new Set(['||']);
 
-// Flatten a left-recursive chain of the same concatenation operator into its
-// terms, parenthesizing any term that binds more loosely than the operator.
-function collectConcatChain(node: SqlNode, op: string, printNode: PrintFn): Doc[] {
+function chainOf(op: string): Set<string> | null {
+    return ADDITIVE_OPS.has(op) ? ADDITIVE_OPS : CONCAT_OPS.has(op) ? CONCAT_OPS : null;
+}
+
+// Flatten a left-recursive chain of operators from `ops` into its terms, each after the
+// operator that precedes it, parenthesizing any term that binds more loosely.
+function collectChain(node: SqlNode, ops: Set<string>, printNode: PrintFn): { op: string; term: Doc }[] {
+    const op    = propStr(node, 'op') ?? '';
     const { left: leftPrec, right: rightPrec } = operandPrecs(binaryOpPrec(op));
     const left  = prop(node, 'left');
     const right = prop(node, 'right');
-    const leftTerms: Doc[] = !left ? []
-        : left.type === 'BinaryExpr' && propStr(left, 'op') === op && prop(left, 'left')
-            ? collectConcatChain(left, op, printNode)
-            : [printOperand(left, leftPrec, printNode)];
-    return [...leftTerms, ...(right ? [printOperand(right, rightPrec, printNode)] : [])];
+    const leftTerms = !left ? []
+        : left.type === 'BinaryExpr' && ops.has(propStr(left, 'op') ?? '') && prop(left, 'left')
+            ? collectChain(left, ops, printNode)
+            : [{ op: '', term: printOperand(left, leftPrec, printNode) }];
+    return [...leftTerms, ...(right ? [{ op, term: printOperand(right, rightPrec, printNode) }] : [])];
 }
 
 function printBinaryExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -235,17 +242,13 @@ function printBinaryExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
         return [op, right ? printOperand(right, PREC.UNARY + 1, printNode) : ''];
     }
 
-    // For + / || chains: flatten and fill with indented continuation lines.
+    // For + - / || chains: flatten into terms and fill, as many per line as fit, each
+    // continuation line indented and led by its operator.
     // Flat: "a || b || c". Wrapping: "a || b\n    || c || d".
-    if (CONCAT_OPS.has(op)) {
-        const opStr = op === '||' ? '|| ' : '+ ';
-        const terms = collectConcatChain(node, op, printNode);
-        const parts: Doc[] = [terms[0]!];
-        for (let i = 1; i < terms.length; i++) {
-            parts.push(indent([line, opStr]));
-            parts.push(terms[i]!);
-        }
-        return fill(parts);
+    const chain = chainOf(op);
+    if (chain) {
+        const [first, ...rest] = collectChain(node, chain, printNode);
+        return fill([first!.term, ...rest.flatMap((t): Doc[] => [indent([line, t.op, ' ']), t.term])]);
     }
 
     const opDoc: Doc = /^[A-Z]/.test(op) ? keyword(op, opts) : op;

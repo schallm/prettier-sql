@@ -3733,6 +3733,28 @@ group by Name;
 "
 `;
 
+exports[`fixtures > select/long-arithmetic.sql 1`] = `
+"select a.very_long_column_name_one
+  + a.very_long_column_name_two * a.very_long_column_name_three
+  - a.very_long_column_name_four as total
+from t as a;
+
+select a.very_long_column_name_one + ' - ' + a.very_long_column_name_two + ' - '
+  + a.very_long_column_name_three as c
+from t as a;
+
+select
+  a + b - c,
+  a * b + c as d
+from t;
+
+select a
+from t
+where a.very_long_column_name_one + a.very_long_column_name_two
+  - a.very_long_column_name_three > 1000000;
+"
+`;
+
 exports[`fixtures > select/long-calls.sql 1`] = `
 "select coalesce(
   a.very_long_column_name_one,
