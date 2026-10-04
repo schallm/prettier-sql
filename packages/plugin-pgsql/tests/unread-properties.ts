@@ -121,10 +121,6 @@ export const unreachable: Record<string, string> = {
  * and printer, add a fixture, and take the entry out.
  */
 export const dropped: Record<string, string> = {
-    'CreateForeignServerStmt.IfNotExists': 'CREATE SERVER IF NOT EXISTS loses IF NOT EXISTS',
-    'CreateForeignServerStmt.Servertype': "CREATE SERVER s TYPE 'pg' loses the TYPE",
-    'CreateForeignServerStmt.Version': "CREATE SERVER s VERSION '16' loses the VERSION",
-    'CreateUserMappingStmt.IfNotExists': 'CREATE USER MAPPING IF NOT EXISTS loses IF NOT EXISTS',
     'CreateTableSpaceStmt.Options': 'CREATE TABLESPACE ... WITH (seq_page_cost = 1) loses the WITH options',
     'DefineStmt.IfNotExists': 'CREATE COLLATION / TYPE / ... IF NOT EXISTS loses IF NOT EXISTS',
     'IndexElem.Opclassopts': 'an operator class\'s parameters, (a gist_trgm_ops (siglen = 32)), are dropped',

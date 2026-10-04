@@ -3407,7 +3407,11 @@ public class AstBuilder {
     private static SqlNode BuildCreateForeignServer(CreateForeignServerStmt s, int start, int end) {
         var options = BuildDefElemOptions(s.Options);
         return new SqlNode("CreateForeignServerStatement", start, end, null, BuildProps(
+            ("ifNotExists", s.IfNotExists ? true : null),
             ("name",    Ident.QuoteOpt(s.Servername)),
+            // TYPE 'server_type' VERSION 'server_version'
+            ("serverType", string.IsNullOrEmpty(s.Servertype) ? null : $"'{s.Servertype.Replace("'", "''")}'"),
+            ("version",    string.IsNullOrEmpty(s.Version) ? null : $"'{s.Version.Replace("'", "''")}'"),
             ("fdwName", Ident.QuoteOpt(s.Fdwname)),
             ("options", OptionsToObject(options))
         ));
@@ -3442,6 +3446,7 @@ public class AstBuilder {
         };
         var options = BuildDefElemOptions(s.Options);
         return new SqlNode("CreateUserMappingStatement", start, end, null, BuildProps(
+            ("ifNotExists", s.IfNotExists ? true : null),
             ("user",       roleText),
             ("serverName", Ident.QuoteOpt(s.Servername)),
             ("options",    OptionsToObject(options))

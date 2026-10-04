@@ -2393,6 +2393,14 @@ into local_schema options (import_default 'true');
 import foreign schema public except (t3)
 from server my_server
 into local_schema;
+
+create server if not exists reporting
+type 'postgres'
+version '16'
+foreign data wrapper postgres_fdw options (host 'reporting.internal');
+
+create user mapping if not exists for current_user
+server reporting options (user 'report_reader');
 "
 `;
 

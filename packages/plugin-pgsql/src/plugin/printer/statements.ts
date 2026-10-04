@@ -1874,9 +1874,18 @@ function printCreateForeignServer(node: SqlNode, opts: Options): Doc {
     const makeKeyword      = (k: string) => keyword(k, opts);
     const name    = propStr(node, 'name') ?? '';
     const fdwName = propStr(node, 'fdwName') ?? '';
+    const ifNotExists: Doc = propBool(node, 'ifNotExists') ? [makeKeyword('IF NOT EXISTS'), ' '] : '';
+    const serverType = propStr(node, 'serverType');
+    const version = propStr(node, 'version');
+    // TYPE 'server_type' VERSION 'server_version', each on a line before FOREIGN DATA WRAPPER
+    const typeVersion: Doc[] = [
+        serverType ? [makeKeyword('TYPE'), ' ', serverType] : '',
+        version ? [makeKeyword('VERSION'), ' ', version] : '',
+    ].filter((d) => d !== '').map((d): Doc => [d, hardline]);
 
     return [
-        [makeKeyword('CREATE SERVER'), ' ', name, hardline,
+        [makeKeyword('CREATE SERVER'), ' ', ifNotExists, name, hardline,
+         ...typeVersion,
          indent([makeKeyword('FOREIGN DATA WRAPPER'), ' ', fdwName]),
          printFdwOptions(node, opts)],
         ';',
@@ -1915,7 +1924,7 @@ function printCreateUserMapping(node: SqlNode, opts: Options): Doc {
     const serverName = propStr(node, 'serverName') ?? '';
 
     return [
-        [makeKeyword('CREATE USER MAPPING FOR'), ' ', makeKeyword(user), hardline,
+        [makeKeyword(propBool(node, 'ifNotExists') ? 'CREATE USER MAPPING IF NOT EXISTS FOR' : 'CREATE USER MAPPING FOR'), ' ', makeKeyword(user), hardline,
          indent([makeKeyword('SERVER'), ' ', serverName]),
          printFdwOptions(node, opts)],
         ';',
