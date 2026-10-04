@@ -1050,15 +1050,23 @@ function printRevoke(node: SqlNode, opts: Options): Doc {
 // CREATE / ALTER ROLE
 // ---------------------------------------------------------------------------
 
+/**
+ * The options of CREATE / ALTER ROLE, starting on a new line: on one line when they fit,
+ * otherwise one per line, indented. (Options are plain text, so whether they fit is a plain length check.)
+ */
+function roleOptions(options: string[], opts: Options): Doc {
+    const docs = options.map((o) => keyword(o, opts));
+    if (options.join(' ').length <= opts.printWidth) return [hardline, join(' ', docs)];
+    return indent([hardline, join(hardline, docs)]);
+}
+
 function printCreateRole(node: SqlNode, opts: Options): Doc {
     const makeKeyword      = (k: string) => keyword(k, opts);
     const stmtType = propStr(node, 'stmtType') ?? 'ROLE';
     const name    = propStr(node, 'name') ?? '';
     const options = (node.props?.['options'] as string[] | undefined) ?? [];
 
-    const parts: Doc[] = [[makeKeyword(`CREATE ${stmtType}`), ' ', name]];
-    if (options.length > 0) parts.push(join(' ', options.map(makeKeyword)));
-    return [join(hardline, parts), ';'];
+    return [[makeKeyword(`CREATE ${stmtType}`), ' ', name], options.length > 0 ? roleOptions(options, opts) : '', ';'];
 }
 
 function printAlterRole(node: SqlNode, opts: Options): Doc {
@@ -1071,9 +1079,7 @@ function printAlterRole(node: SqlNode, opts: Options): Doc {
         return [[makeKeyword('ALTER GROUP'), ' ', name, ' ', makeKeyword(`${propStr(node, 'membersAction')} USER`), ' ', members], ';'];
     }
 
-    const parts: Doc[] = [[makeKeyword('ALTER ROLE'), ' ', name]];
-    if (options.length > 0) parts.push(join(' ', options.map(makeKeyword)));
-    return [join(hardline, parts), ';'];
+    return [[makeKeyword('ALTER ROLE'), ' ', name], options.length > 0 ? roleOptions(options, opts) : '', ';'];
 }
 
 // ---------------------------------------------------------------------------

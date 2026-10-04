@@ -999,6 +999,34 @@ cycle;
 "
 `;
 
+exports[`fixtures > ddl/long-role-options.sql 1`] = `
+"create role some_long_role_name
+  login
+  password 'secret'
+  valid until '2030-01-01'
+  in role admins
+  sysid 100
+  role trainee1, trainee2
+  admin mentor;
+
+create role short_role
+login password 'secret';
+
+alter role some_long_role_name
+  nosuperuser
+  nocreatedb
+  nocreaterole
+  noinherit
+  nologin
+  noreplication
+  nobypassrls
+  connection limit 5;
+
+create user u2
+password 'p' createdb;
+"
+`;
+
 exports[`fixtures > ddl/object-signatures.sql 1`] = `
 "-- Argument types identify an overload, and an operator always needs them
 drop operator === (integer, integer);
@@ -1187,7 +1215,13 @@ login password 'MixedCase''Pwd';
 
 -- VALID UNTIL, IN ROLE, ROLE, ADMIN, SYSID
 create role dave
-login password 'x' valid until '2030-01-01' in role admins sysid 100 role trainee1, trainee2 admin mentor;
+  login
+  password 'x'
+  valid until '2030-01-01'
+  in role admins
+  sysid 100
+  role trainee1, trainee2
+  admin mentor;
 
 -- ALTER ROLE with VALID UNTIL
 alter role alice
