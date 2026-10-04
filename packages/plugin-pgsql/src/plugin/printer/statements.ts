@@ -9,7 +9,6 @@ import {
     group,
     softline,
     softSep,
-    hardSep,
     getDensity,
     line,
     commaFill,
@@ -17,10 +16,10 @@ import {
 } from '@prettier-sql/core/printer/utils';
 import {
     valuesRow, valuesDoc, setClauseDoc, setOpDoc, joinStatements, boolClauseDoc,
-    selectListDoc, fromClauseDoc, listClauseDoc, windowClauseDoc, withClauseDoc,
+    selectListDoc, fromClauseDoc, listClauseDoc, windowClauseDoc, withClauseDoc, joinOnDoc, mergeActionDoc,
 } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions } from './helpers.js';
-import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, boolTerms, tableAliasDoc } from './expressions.js';
+import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, boolTerms, isBoolChain, tableAliasDoc } from './expressions.js';
 
 // ---------------------------------------------------------------------------
 // Script root
@@ -1324,7 +1323,7 @@ function printMerge(node: SqlNode, opts: Options): Doc {
 
     parts.push([makeKeyword('MERGE INTO'), ' ', target ? printNode(target) : '']);
     parts.push([makeKeyword('USING'), ' ', source ? printNode(source) : '']);
-    parts.push([makeKeyword('ON'), ' ', on ? printNode(on) : '']);
+    if (on) parts.push(joinOnDoc(makeKeyword('ON'), printNode(on), isBoolChain(on)));
 
     for (const w of whens) {
         const matchKind = propStr(w, 'matchKind') ?? 'MATCHED';
@@ -1335,7 +1334,6 @@ function printMerge(node: SqlNode, opts: Options): Doc {
 
         let whenLine: Doc = [makeKeyword('WHEN'), ' ', makeKeyword(matchKind)];
         if (condition) whenLine = [whenLine, ' ', makeKeyword('AND'), ' ', printNode(condition)];
-        whenLine = [whenLine, ' ', makeKeyword('THEN')];
 
         let actionDoc: Doc;
         if (cmd === 'DO NOTHING') {
@@ -1344,8 +1342,7 @@ function printMerge(node: SqlNode, opts: Options): Doc {
             actionDoc = makeKeyword('DELETE');
         } else if (cmd === 'UPDATE') {
             // ResTarget: name=column, val=value → "col = val"
-            const assignments: Doc[] = targets.map((t) => printAssignment(t, printNode));
-            actionDoc = [makeKeyword('UPDATE SET'), indent([hardline, join(hardSep(opts), assignments)])];
+            actionDoc = [makeKeyword('UPDATE'), ' ', setClauseDoc(targets.map((t) => printAssignment(t, printNode)), opts)];
         } else { // INSERT
             const cols = targets.filter((t) => t.type === 'ResTarget').map((t) => printAssignTarget(t, printNode));
             const colList: Doc = cols.length > 0 ? [' (', join(', ', cols), ')'] : '';
@@ -1357,7 +1354,7 @@ function printMerge(node: SqlNode, opts: Options): Doc {
             actionDoc = [makeKeyword('INSERT'), colList, overrideDoc, hardline, valList];
         }
 
-        parts.push([whenLine, indent([hardline, actionDoc])]);
+        parts.push([whenLine, ' ', mergeActionDoc(makeKeyword('THEN'), actionDoc, opts)]);
     }
 
     if (returning.length > 0) {

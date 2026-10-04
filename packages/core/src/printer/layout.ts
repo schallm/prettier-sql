@@ -253,6 +253,14 @@ export function subqueryDoc(query: Doc, opts: Options): Doc {
     return group(['(', indent([brk, query]), brk, ')']);
 }
 
+/**
+ * `THEN action` of a MERGE's `WHEN …` clause: the action on an indented line of its own,
+ * or on the THEN line in compact density.
+ */
+export function mergeActionDoc(thenKw: Doc, action: Doc, opts: Options): Doc {
+    return getDensity(opts) === 'compact' ? [thenKw, ' ', action] : [thenKw, indent([hardline, action])];
+}
+
 /** `lhs UNION rhs` (or INTERSECT / EXCEPT): the operator stands alone between blank lines. */
 export function setOpDoc(lhs: Doc, opKw: Doc, rhs: Doc): Doc {
     return [lhs, hardline, hardline, opKw, hardline, hardline, rhs];

@@ -16,9 +16,8 @@ import {
     appendTrailingLines,
     parenList,
     optionItems,
-    hasLineSuffix,
 } from '@prettier-sql/core/printer/utils';
-import { valuesRow, valuesDoc, setClauseDoc, joinStatements, withClauseDoc } from '@prettier-sql/core/printer/layout';
+import { valuesRow, valuesDoc, setClauseDoc, joinStatements, withClauseDoc, joinOnDoc, mergeActionDoc } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, assignmentOp, takeTrailingComment, unprintedComments, withTrailingComment, takeLeadingComments } from './helpers.js';
 import {
     printExpression,
@@ -167,8 +166,8 @@ export function printNode(node: SqlNode, opts: Options): Doc {
  * a WHILE or IF condition) was claimed and then never printed inline — it only
  * resurfaced via the statement-level unprintedComments fallback, at the very end.
  */
-export function printBool(node: SqlNode, opts: Options): Doc {
-    return boolWithTrailing(node, printBoolExpr(node, opts, (n) => printNode(n, opts)));
+export function printBool(node: SqlNode, opts: Options, grouped = false): Doc {
+    return boolWithTrailing(node, printBoolExpr(node, opts, (n) => printNode(n, opts), grouped));
 }
 
 /** Print a query expression node via the expression dispatcher. */
@@ -1062,24 +1061,8 @@ function printMerge(node: SqlNode, opts: Options): Doc {
 
     const topDoc: Doc = topNode ? [renderTopFilter(topNode, opts), ' '] : '';
     const sourceDoc: Doc = source ? printTable(source, opts) : '';
-    // A trailing `--` comment on the source (e.g. `USING s -- src`) queues as a
-    // lineSuffix that only flushes at the next hardline — without one here it would
-    // flush past `ON ...`, landing on the wrong line. Force a break so it lands right
-    // after the source, in place of the usual space before `ON`.
-    const sourceSep: Doc = hasLineSuffix(sourceDoc) ? hardline : ' ';
-
-    const density = getDensity(opts);
-    let onDoc: Doc = '';
-    if (on) {
-        const isMultiple = on.type === 'BooleanBinary';
-        if (density === 'compact') {
-            onDoc = [sourceSep, keyword('ON', opts), ' ', printBool(on, opts)];
-        } else if (density === 'standard' && !isMultiple) {
-            onDoc = [sourceSep, keyword('ON', opts), group([indent([line, printBool(on, opts)])])];
-        } else {
-            onDoc = [sourceSep, keyword('ON', opts), indent([hardline, printBool(on, opts)])];
-        }
-    }
+    // ON on a line of its own, after the source (which also flushes a `--` comment on the source)
+    const onDoc: Doc = on ? [hardline, joinOnDoc(keyword('ON', opts), printBool(on, opts, true), on.type === 'BooleanBinary')] : '';
 
     const parts: Doc[] = [
         ...ctesDocs,
@@ -1128,26 +1111,13 @@ function printMergeClause(node: SqlNode, opts: Options): Doc {
     const predDoc = predicate ? printBool(predicate, opts) : undefined;
     const predPart: Doc = predDoc ? [' ', keyword('AND', opts), ' ', predDoc] : '';
     const actionDoc = action ? printMergeAction(action, opts) : '';
-    const density = getDensity(opts);
-    const thenSep: Doc = needsBreak ? hardline : ' ';
-    const thenAction: Doc =
-        density === 'compact'
-            ? [thenSep, keyword('THEN', opts), ' ', actionDoc]
-            : [thenSep, keyword('THEN', opts), indent([hardline, actionDoc])];
-
-    return [condKw, predPart, thenAction];
+    return [condKw, predPart, needsBreak ? hardline : ' ', mergeActionDoc(keyword('THEN', opts), actionDoc, opts)];
 }
 
 function printMergeAction(node: SqlNode, opts: Options): Doc {
     switch (node.type) {
         case 'MergeUpdateAction': {
-            const setParts = propArr(node, 'set').map((sc) => printSetClauseItem(sc, opts));
-            const density = getDensity(opts);
-            const setBody: Doc =
-                density !== 'spacious' && setParts.length === 1
-                    ? [' ', setParts[0]!]
-                    : indent([hardline, join(hardSep(opts), setParts)]);
-            return [keyword('UPDATE SET', opts), setBody];
+            return [keyword('UPDATE', opts), ' ', setClauseDoc(propArr(node, 'set').map((sc) => printSetClauseItem(sc, opts)), opts)];
         }
         case 'MergeInsertAction': {
             const columns = propArr(node, 'columns');

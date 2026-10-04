@@ -2091,7 +2091,8 @@ option (hash join);
 merge into t as tgt
 using (
   select 1 as id
-) as src (id) on tgt.id = src.id
+) as src (id)
+on tgt.id = src.id
 when matched then
   update set tgt.a = 1
 when not matched by target and src.id > 0 then
@@ -2593,20 +2594,20 @@ using (
     Price,
     InStock
   from BookUpdates
-) as src on tgt.Id = src.Id
+) as src
+on tgt.Id = src.Id
 when matched and src.InStock = 0 then
   delete
 when matched then
   update set
-    tgt.Title = src.Title,
-    tgt.Price = src.Price,
-    tgt.InStock = src.InStock
+    tgt.Title = src.Title, tgt.Price = src.Price, tgt.InStock = src.InStock
 when not matched by target then
   insert (Title, Price, InStock)
   values (src.Title, src.Price, src.InStock);
 
 merge into Books as tgt
-using BookUpdates as src on tgt.Id = src.Id
+using BookUpdates as src
+on tgt.Id = src.Id
 when matched and tgt.Price <> src.Price then
   update set tgt.Price = src.Price
 when not matched by target then
@@ -2616,11 +2617,11 @@ when not matched by source then
   update set tgt.InStock = 0;
 
 merge into Books as tgt
-using BookUpdates as src on tgt.Id = src.Id
+using BookUpdates as src
+on tgt.Id = src.Id
 when matched then
   update set
-    tgt.Title = src.Title,
-    tgt.Price = src.Price
+    tgt.Title = src.Title, tgt.Price = src.Price
 when not matched by target then
   insert (Title, Price, InStock)
   values (src.Title, src.Price, src.InStock)
@@ -2633,9 +2634,8 @@ exports[`fixtures > merge/comments.sql 1`] = `
 -- they followed, not move to the end of the statement.
 merge into t
 using s -- src
-on
-  t.id = s.id
-  -- on
+on t.id = s.id
+-- on
 when matched then
   update set a = s.a -- upd
 when not matched then
@@ -2648,7 +2648,8 @@ exports[`fixtures > merge/predicate-comment.sql 1`] = `
 "-- A trailing comment on a WHEN MATCHED/NOT MATCHED predicate stays right after the
 -- predicate, on its own line, and doesn't swallow the THEN that follows it.
 merge into t as target
-using s as source on target.id = source.id
+using s as source
+on target.id = source.id
 when matched and target.a = 1
 -- m
 then
@@ -2663,7 +2664,8 @@ then
 
 exports[`fixtures > merge/with-top.sql 1`] = `
 "merge top (1000) into dbo.Target as t
-using dbo.Source as s on t.Id = s.Id
+using dbo.Source as s
+on t.Id = s.Id
 when matched then
   update set t.Name = s.Name
 when not matched then

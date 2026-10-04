@@ -1992,8 +1992,7 @@ using source as s
 on t.id = s.id
 when matched then
   update set
-    name = s.name,
-    updated_at = now()
+    name = s.name, updated_at = now()
 when not matched then
   insert (id, name, created_at)
   values (s.id, s.name, now());
@@ -2005,8 +2004,7 @@ on inv.product_id = inc.product_id
 when matched and inc.quantity = 0 then
   delete
 when matched then
-  update set
-    quantity = inv.quantity + inc.quantity
+  update set quantity = inv.quantity + inc.quantity
 when not matched then
   insert (product_id, quantity)
   values (inc.product_id, inc.quantity);
@@ -2016,8 +2014,7 @@ merge into employees as e
 using new_roster as nr
 on e.id = nr.id
 when matched then
-  update set
-    name = nr.name
+  update set name = nr.name
 when not matched then
   insert (id, name)
   values (nr.id, nr.name)
@@ -2317,8 +2314,7 @@ copy (
   using s
   on t.id = s.id
   when matched then
-    update set
-      x = 1
+    update set x = 1
   returning x
 ) to stdout;
 
@@ -2956,8 +2952,7 @@ merge into t
 using u
 on t.a = u.a
 when matched then
-  update set
-    a[1] = 1;
+  update set a[1] = 1;
 
 select *
 into unlogged new_t
@@ -3157,19 +3152,17 @@ merge into t
 using u
 on t.a = u.a
 when matched then
-  update set
-    (a, b) = (u.a, u.b);
+  update set (a, b) = (u.a, u.b);
 
 merge into t
 using u
 on t.a = u.a
 when matched then
-  update set
-    (a, b) = (
-      select
-        1,
-        2
-    );
+  update set (a, b) = (
+    select
+      1,
+      2
+  );
 
 select a collate "C"
 from t;
