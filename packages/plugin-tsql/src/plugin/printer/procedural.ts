@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
-import { keyword, hardline, softline, join, indent, group, onOffKw, line, getDensity, parenList, parenListFill, parenItems, commaFill, willBreak } from '@prettier-sql/core/printer/utils';
+import { keyword, hardline, softline, join, indent, group, onOffKw, line, getDensity, parenList, parenListFill, optionItems, commaFill, willBreak } from '@prettier-sql/core/printer/utils';
 import { boolEndsWithPendingComment } from './expressions.js';
 import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, assignmentOp, withTrailingComment, markSingleBody, isSingleBody } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
@@ -462,7 +462,7 @@ function printExecuteOptions(node: SqlNode, opts: Options): Doc {
     if (options.length === 0) return '';
     const docs = options.map((o): Doc =>
         o.type === 'ResultSetsOption'
-            ? [keyword('RESULT SETS', opts), ' ', parenItems(propStrArr(o, 'definitions'), opts)]
+            ? [keyword('RESULT SETS', opts), ' ', optionItems(propStrArr(o, 'definitions'), opts)]
             : keyword(o.text ?? '', opts),
     );
     return [' ', keyword('WITH', opts), ' ', join(', ', docs)];

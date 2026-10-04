@@ -1,6 +1,6 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
-import { keyword, parenItems, type Options } from '@prettier-sql/core/printer/utils';
+import { keyword, optionItems, type Options } from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, propStrArr } from '@prettier-sql/core/printer/helpers';
 export { prop, propArr, propStr, propBool, propStrArr };
 
@@ -36,5 +36,5 @@ export function printFdwOptions(node: SqlNode, opts: Options): Doc {
         const val = propStr(o, 'val') ?? '';
         return [key, " '", val.replace(/'/g, "''"), "'"].join('') as Doc;
     });
-    return [' ', keyword('OPTIONS', opts), ' ', parenItems(pairs, opts)];
+    return [' ', keyword('OPTIONS', opts), ' ', optionItems(pairs, opts)];
 }

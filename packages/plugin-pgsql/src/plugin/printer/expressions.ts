@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options, PrintFn } from '@prettier-sql/core/printer/utils';
-import { keyword, join, indent, hardline, softline, group, fill, line, getDensity, aliasDoc, parenList, parenItems, bracketItems, willBreak } from '@prettier-sql/core/printer/utils';
+import { keyword, join, indent, hardline, softline, group, fill, line, getDensity, aliasDoc, parenList, parenItems, optionItems, bracketItems, willBreak } from '@prettier-sql/core/printer/utils';
 import { printStatement, printQueryExpr } from './statements.js';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, onlyPrefix, printFdwOptions } from './helpers.js';
 
@@ -892,9 +892,9 @@ function printAlterCmd(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
         case 'SET STATISTICS':
             return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('SET STATISTICS'), ' ', value !== null ? value : makeKeyword('DEFAULT')];
         case 'SET COLUMN OPTIONS':
-            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('SET'), ' ', parenItems(propStrArr(node, 'options'), opts)];
+            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('SET'), ' ', optionItems(propStrArr(node, 'options'), opts)];
         case 'RESET COLUMN OPTIONS':
-            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('RESET'), ' ', parenItems(propStrArr(node, 'options'), opts)];
+            return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('RESET'), ' ', optionItems(propStrArr(node, 'options'), opts)];
         case 'SET STORAGE':
             return [makeKeyword('ALTER COLUMN'), ' ', name, ' ', makeKeyword('SET STORAGE'), ' ', makeKeyword(value ?? '')];
         case 'SET COMPRESSION':
@@ -904,7 +904,7 @@ function printAlterCmd(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
         case 'ALTER COLUMN OPTIONS':
             return [makeKeyword('ALTER COLUMN'), ' ', name, printAlterOptions(node, opts)];
         case 'OPTIONS':
-            return [makeKeyword('OPTIONS'), ' ', parenItems(alterOptionDocs(node, opts), opts)];
+            return [makeKeyword('OPTIONS'), ' ', optionItems(alterOptionDocs(node, opts), opts)];
         case 'ALTER CONSTRAINT':
             return [
                 makeKeyword('ALTER CONSTRAINT'), ' ', name, ' ',
@@ -912,9 +912,9 @@ function printAlterCmd(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
                 propBool(node, 'initDeferred') ? [' ', makeKeyword('INITIALLY DEFERRED')] : '',
             ];
         case 'SET REL OPTIONS':
-            return [makeKeyword('SET'), ' ', parenItems(propStrArr(node, 'options'), opts)];
+            return [makeKeyword('SET'), ' ', optionItems(propStrArr(node, 'options'), opts)];
         case 'RESET REL OPTIONS':
-            return [makeKeyword('RESET'), ' ', parenItems(propStrArr(node, 'options'), opts)];
+            return [makeKeyword('RESET'), ' ', optionItems(propStrArr(node, 'options'), opts)];
         case 'INHERIT':
         case 'NO INHERIT': {
             const parent = prop(node, 'parent');
@@ -956,7 +956,7 @@ function alterOptionDocs(node: SqlNode, opts: Options): Doc[] {
 }
 
 function printAlterOptions(node: SqlNode, opts: Options): Doc {
-    return [' ', keyword('OPTIONS', opts), ' ', parenItems(alterOptionDocs(node, opts), opts)];
+    return [' ', keyword('OPTIONS', opts), ' ', optionItems(alterOptionDocs(node, opts), opts)];
 }
 
 /** `FOR VALUES FROM (...) TO (...)`, `FOR VALUES IN (...)`, `FOR VALUES WITH (MODULUS m, REMAINDER r)` or `DEFAULT`. */

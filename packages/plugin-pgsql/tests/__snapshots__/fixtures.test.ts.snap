@@ -500,7 +500,9 @@ create unique index concurrently if not exists i on only t (
   a desc nulls last,
   lower(b) text_pattern_ops,
   c collate "C" nulls first
-) include (d) nulls not distinct with (fillfactor = 80) tablespace fast where e is not null;
+) include (d) nulls not distinct with (
+  fillfactor = 80
+) tablespace fast where e is not null;
 
 create index i on t ((a + b), (x::text));
 
@@ -763,7 +765,9 @@ create unique index concurrently if not exists i on only t (
   a desc nulls last,
   lower(b) text_pattern_ops,
   c collate "C" nulls first
-) include (d) nulls not distinct with (fillfactor = 80) tablespace fast where e is not null;
+) include (d) nulls not distinct with (
+  fillfactor = 80
+) tablespace fast where e is not null;
 "
 `;
 

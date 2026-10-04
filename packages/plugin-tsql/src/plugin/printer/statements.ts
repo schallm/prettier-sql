@@ -16,7 +16,7 @@ import {
     lineSuffix,
     appendTrailingLines,
     parenList,
-    parenItems,
+    optionItems,
     fill,
     hasLineSuffix,
 } from '@prettier-sql/core/printer/utils';
@@ -869,7 +869,7 @@ export function printSelectBody(node: SqlNode, opts: Options): Doc {
 /** OPTION (RECOMPILE, MAXDOP 1, ...): query hints, which any SELECT or DML statement can end with. */
 function optionClause(node: SqlNode, opts: Options): Doc {
     const hints = (node.props?.['optimizerHints'] as string[] | undefined) ?? [];
-    return hints.length > 0 ? [hardline, keyword('OPTION', opts), ' ', parenItems(hints.map((h) => optimizerHintDoc(h, opts)), opts)] : '';
+    return hints.length > 0 ? [hardline, keyword('OPTION', opts), ' ', optionItems(hints.map((h) => optimizerHintDoc(h, opts)), opts)] : '';
 }
 
 // ---------------------------------------------------------------------------

@@ -149,6 +149,16 @@ export function parenItems(items: Doc[], opts: Options, packed = false, hug = tr
     return bracketItems('(', ')', items, opts, packed, hug);
 }
 
+/**
+ * The `(opt, opt, ...)` of a WITH / OPTIONS clause: like parenItems, but a single option
+ * that doesn't fit also goes on its own line, since an option can be long on its own
+ * (`WAIT_AT_LOW_PRIORITY (MAX_DURATION = 10 MINUTES, ABORT_AFTER_WAIT = BLOCKERS)`).
+ */
+export function optionItems(items: Doc[], opts: Options): Doc {
+    if (items.length === 1 && !utils.willBreak(items[0]!)) return group(['(', indent([softline, items[0]!]), softline, ')']);
+    return parenItems(items, opts);
+}
+
 /** parenItems with other delimiters, such as the `[` `]` of an ARRAY. */
 export function bracketItems(open: string, close: string, items: Doc[], opts: Options, packed = false, hug = true): Doc {
     if (items.length < 2 || (hug && items.some((i) => utils.willBreak(i)))) return [open, join(', ', items), close];
