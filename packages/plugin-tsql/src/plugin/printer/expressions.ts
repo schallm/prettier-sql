@@ -236,7 +236,15 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
     const over = prop(node, 'over');
     const uniqueRowFilter = propStr(node, 'uniqueRowFilter');
     const distinctDoc = uniqueRowFilter === 'Distinct' ? [keyword('DISTINCT', opts), ' '] : [];
+    // [ABSENT ON NULL | NULL ON NULL] [RETURNING type], last inside the parentheses
     const nullOnNullDoc = printNullOnNullClause(node, opts);
+    const returnType = propStr(node, 'returnType');
+    const tailClauses: Doc[] = [];
+    if (nullOnNullDoc) tailClauses.push(nullOnNullDoc);
+    if (returnType) {
+        tailClauses.push([keyword('RETURNING', opts), ' ', propBool(node, 'returnIsUdt') ? returnType : builtinTypeDoc(returnType, opts)]);
+    }
+    const tailDoc: Doc = tailClauses.map((c) => [' ', c]);
 
     // TRIM([LEADING|TRAILING|BOTH] [chars] FROM str) — SQL Server 2022+
     // ScriptDOM always uses FROM syntax when TRIM has 2 params, with or without a direction keyword.
@@ -276,11 +284,10 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
     const jsonParams = propArr(node, 'jsonParams');
     if (jsonParams.length > 0) {
         const pairs = jsonParams.map((kv) => printJsonKeyValue(kv, opts, printFn));
-        const nullClause: Doc = nullOnNullDoc ? [' ', nullOnNullDoc] : '';
         return group([
             keyword(name, opts),
             '(',
-            indent([softline, join([',', line], pairs), nullClause]),
+            indent([softline, join([',', line], pairs), tailDoc]),
             softline,
             ')',
         ]);
@@ -290,11 +297,10 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
     const jsonOrderBy = prop(node, 'jsonOrderBy');
     if (jsonOrderBy && name.toUpperCase() === 'JSON_ARRAYAGG') {
         const orderByDoc = [keyword('ORDER BY', opts), ' ', join(', ', orderByItems(jsonOrderBy, opts, printFn))];
-        const nullClause: Doc = nullOnNullDoc ? [' ', nullOnNullDoc] : '';
         return group([
             keyword(name, opts),
             '(',
-            indent([softline, join([',', line], args), ' ', orderByDoc, nullClause]),
+            indent([softline, join([',', line], args), ' ', orderByDoc, tailDoc]),
             softline,
             ')',
         ]);
@@ -309,7 +315,6 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
         : callTarget
           ? [callTarget, callTargetSep]
           : '';
-    const nullClause: Doc = nullOnNullDoc ? [' ', nullOnNullDoc] : '';
     // compact: fill-pack args — as many per line as fit, wrap only when required
     // standard/spacious: all-or-nothing group (all inline or each on its own line)
     const argsListDoc: Doc =
@@ -320,13 +325,13 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
     // schema-qualified), so only it gets keyword casing. Anything with a call target keeps
     // its name as written: CLR/xml methods (h.GetAncestor, x.value) are case-sensitive.
     const nameDoc: Doc = callTargetPrefix ? name : keyword(name, opts);
-    const hasArgs = args.length > 0 || distinctDoc.length > 0 || nullClause !== '';
+    const hasArgs = args.length > 0 || distinctDoc.length > 0 || tailClauses.length > 0;
     const argsDoc = group([
         callTargetPrefix,
         nameDoc,
         '(',
         // f(): nothing to wrap, so no line breaks inside the parentheses
-        hasArgs ? [indent([softline, ...distinctDoc, argsListDoc, nullClause]), softline] : '',
+        hasArgs ? [indent([softline, ...distinctDoc, argsListDoc, tailDoc]), softline] : '',
         ')',
     ]);
 

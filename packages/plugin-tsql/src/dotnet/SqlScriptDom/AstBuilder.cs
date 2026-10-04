@@ -311,6 +311,8 @@ public class AstBuilder : TSqlFragmentVisitor {
         var jsonOrderBy = fc.JsonOrderByClause != null ? BuildOrderByClause(fc.JsonOrderByClause) : null;
         // WITHIN GROUP (ORDER BY ...) for STRING_AGG, PERCENTILE_CONT/DISC etc.
         var withinGroup = fc.WithinGroupClause != null ? BuildOrderByClause(fc.WithinGroupClause.OrderByClause) : null;
+        // RETURNING type on JSON_VALUE and the JSON constructors (SQL Server 2025)
+        var returnType = fc.ReturnType?.FirstOrDefault();
         return new SqlNode(
             "FunctionCall",
             fc.StartOffset,
@@ -339,6 +341,8 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["nullOnNull"] = nullOnNull,
                 ["jsonOrderBy"] = jsonOrderBy,
                 ["withinGroup"] = withinGroup,
+                ["returnType"] = DataTypeText(returnType),
+                ["returnIsUdt"] = UdtFlag(returnType),
             });
     }
 
