@@ -366,11 +366,14 @@ function printFunctionCall(node: SqlNode, opts: Options, printNode: PrintFn): Do
     const withinGroup = propBool(node, 'withinGroup');
     const itemDocs: Doc[] = [...argDocs];
     if (itemDocs.length > 0) itemDocs[0] = [distinctPrefix, itemDocs[0]!];
-    if (aggOrder.length > 0 && !withinGroup && itemDocs.length > 0) {
-        itemDocs[itemDocs.length - 1] = [itemDocs[itemDocs.length - 1]!, ' ', orderByDoc];
-    }
 
-    let callDoc: Doc = [makeKeyword(name), parenItems(itemDocs, opts)];
+    let callDoc: Doc;
+    if (aggOrder.length > 0 && !withinGroup && itemDocs.length > 0) {
+        // The ORDER BY ends the argument list, on a line of its own when the list breaks
+        callDoc = [makeKeyword(name), group(['(', indent([softline, join([',', line], itemDocs), line, orderByDoc]), softline, ')'])];
+    } else {
+        callDoc = [makeKeyword(name), parenItems(itemDocs, opts)];
+    }
     if (withinGroup) callDoc = [callDoc, ' ', makeKeyword('WITHIN GROUP'), ' (', orderByDoc, ')'];
 
     return printAggregateTail(callDoc, node, opts, printNode);
@@ -383,7 +386,7 @@ function printAggregateTail(callDoc: Doc, node: SqlNode, opts: Options, printNod
     const over = prop(node, 'over');
     // FILTER (WHERE ...) after the call, before OVER
     if (filter) {
-        callDoc = [callDoc, ' ', makeKeyword('FILTER'), ' (', makeKeyword('WHERE'), ' ', printNode(filter), ')'];
+        callDoc = [callDoc, ' ', makeKeyword('FILTER'), ' ', group(['(', indent([softline, makeKeyword('WHERE'), ' ', printNode(filter)]), softline, ')'])];
     }
 
     if (!over) return callDoc;

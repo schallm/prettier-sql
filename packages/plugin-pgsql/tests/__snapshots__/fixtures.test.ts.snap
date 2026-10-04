@@ -4486,6 +4486,38 @@ where
 "
 `;
 
+exports[`fixtures > select/long-aggregates.sql 1`] = `
+"select array_agg(
+  a.very_long_column_name_one
+  order by a.very_long_column_name_two
+) filter (where a.x > 1) as agg
+from t as a;
+
+select string_agg(
+  a.very_long_column_name_one,
+  ', '
+  order by a.very_long_column_name_two, a.very_long_column_name_three
+) as agg
+from t as a;
+
+select
+  array_agg(a.x order by a.y) as agg,
+  count(*) filter (where a.status = 'active') as active
+from t as a;
+
+select sum(a.amount) filter (
+  where a.very_long_column_name_one = 'some long value'
+    and a.very_long_column_name_two > 100
+) as total
+from t as a;
+
+select sum(a.amount) filter (where a.x > 1) over (
+  partition by a.account_id
+) as running
+from t as a;
+"
+`;
+
 exports[`fixtures > select/long-alias-columns.sql 1`] = `
 "select *
 from generate_series(1, 100) as very_long_alias_name(
@@ -4592,7 +4624,8 @@ from t as a;
 
 select string_agg(
   a.very_long_column_name_one,
-  ', ' order by a.very_long_column_name_two, a.very_long_column_name_three
+  ', '
+  order by a.very_long_column_name_two, a.very_long_column_name_three
 ) as agg
 from t as a;
 
