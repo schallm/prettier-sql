@@ -771,12 +771,13 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
             if (withCleanup) {
                 withPart = [' ', keyword('WITH CLEANUP', opts)];
             } else if (errorCode) {
-                withPart = [
-                    ' ', keyword('WITH ERROR =', opts), ' ', errorCode,
-                    ' ', keyword('DESCRIPTION =', opts), ' ', errorDesc ?? "''",
-                ];
+                // the error and its description each on their own line when the statement doesn't fit
+                withPart = indent([
+                    line, keyword('WITH ERROR =', opts), ' ', errorCode,
+                    line, keyword('DESCRIPTION =', opts), ' ', errorDesc ?? "''",
+                ]);
             }
-            return [[keyword('END CONVERSATION', opts), ' ', handle, withPart], ';'];
+            return [group([keyword('END CONVERSATION', opts), ' ', handle, withPart]), ';'];
         }
 
         default: {

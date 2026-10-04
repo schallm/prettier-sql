@@ -1,0 +1,10 @@
+create column master key CMK1 with (key_store_provider_name = 'MSSQL_CERTIFICATE_STORE', key_path = 'CurrentUser/My/abc');
+create column master key CMK2 with (key_store_provider_name = 'MSSQL_CERTIFICATE_STORE', key_path = 'CurrentUser/My/abc', enclave_computations (signature = 0x1234));
+create column master key CMK3 with (key_store_provider_name = 'A', key_path = 'p');
+create column encryption key CEK1 with values (column_master_key = CMK1, algorithm = 'RSA_OAEP', encrypted_value = 0xABCD1234);
+alter column encryption key CEK1 add value (column_master_key = CMK2, algorithm = 'RSA_OAEP', encrypted_value = 0xEF01);
+end conversation @handle with error = 50001 description = 'Order processing failed';
+end conversation @handle with error = 1 description = 'x';
+end conversation @handle with cleanup;
+select * from dbo.t with (keepidentity, keepdefaults, ignore_constraints, ignore_triggers, holdlock, tablock);
+select * from dbo.t with (nolock);

@@ -1651,9 +1651,8 @@ export function printCreateColumnMasterKey(node: SqlNode, opts: Options): Doc {
         name,
         ' ',
         keyword('WITH', opts),
-        ' (',
-        join(', ', withParts),
-        ')',
+        ' ',
+        optionItems(withParts, opts),
         ';',
     ];
 }
@@ -1666,7 +1665,7 @@ function printColumnEncryptionKeyValue(v: SqlNode, opts: Options): Doc {
     if (columnMasterKey) parts.push([keyword('COLUMN_MASTER_KEY', opts), ' = ', columnMasterKey]);
     if (algorithm) parts.push([keyword('ALGORITHM', opts), ' = ', algorithm]);
     if (encryptedValue) parts.push([keyword('ENCRYPTED_VALUE', opts), ' = ', encryptedValue]);
-    return ['(', join(', ', parts), ')'];
+    return optionItems(parts, opts);
 }
 
 export function printCreateColumnEncryptionKey(node: SqlNode, opts: Options): Doc {

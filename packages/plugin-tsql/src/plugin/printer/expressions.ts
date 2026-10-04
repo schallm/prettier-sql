@@ -1376,12 +1376,11 @@ function printNamedTableRef(node: SqlNode, opts: Options, printFn: PrintFn): Doc
         ? [
               ' ',
               keyword('WITH', opts),
-              ' (',
-              join(
-                  ', ',
+              ' ',
+              optionItems(
                   hints.map((h) => tableHintDoc(h, opts)),
+                  opts,
               ),
-              ')',
           ]
         : '';
     const tableSample = prop(node, 'tableSample');
