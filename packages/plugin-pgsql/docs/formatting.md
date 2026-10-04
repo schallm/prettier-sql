@@ -2240,6 +2240,18 @@ Identity and sequence options, `PARTITION BY (...)`, `DISTINCT ON (...)`, partit
 
 An aggregate with `ORDER BY` puts it on its own line after the arguments, and its `FILTER (WHERE ...)` condition breaks inside its parentheses.
 
+`DROP` and `TRUNCATE` fill the names on an indented line and put `ON`, `USING`, `RESTART IDENTITY` and `CASCADE` on lines of their own, and `RENAME` moves to an indented line below the object:
+
+```sql
+drop table if exists
+  some_long_table_name_one, some_long_table_name_two,
+  some_long_table_name_three, some_long_table_name_four
+cascade;
+
+alter table some_long_table_name
+  rename column some_long_old_column_name to some_long_new_column_name;
+```
+
 Function parameters and parenthesized option lists (`WITH (...)`, `COPY ... (...)`, `OPTIONS (...)`, `EXPLAIN (...)`) break one per line:
 
 ```sql
