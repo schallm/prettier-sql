@@ -260,10 +260,6 @@ function printSelectBody(node: SqlNode, opts: Options): Doc {
 
     const parts: Doc[] = [];
 
-    if (ctes) {
-        parts.push(...printCtes(ctes, opts, printNode));
-    }
-
     const distinctOn = propArr(node, 'distinctOn');
     const selectKw: Doc = distinctOn.length > 0
         ? [makeKeyword('SELECT'), ' ', makeKeyword('DISTINCT ON'), ' ', optionItems(distinctOn.map(printNode), opts)]
@@ -298,7 +294,9 @@ function printSelectBody(node: SqlNode, opts: Options): Doc {
     // compact: use line so clauses can collapse to one line when they fit (e.g. inside EXISTS)
     // standard/spacious: hardline always breaks between clauses
     const clauseSep: Doc = getDensity(opts) === 'compact' ? line : hardline;
-    return group(join(clauseSep, parts));
+    // The query's own clauses group apart from the CTEs, which always span lines
+    const query = group(join(clauseSep, parts));
+    return ctes ? [join(hardline, printCtes(ctes, opts, printNode)), hardline, query] : query;
 }
 
 function printSelect(node: SqlNode, opts: Options): Doc {
@@ -1432,7 +1430,8 @@ function printSelectInto(node: SqlNode, opts: Options): Doc {
     if (limit)  parts.push([makeKeyword('LIMIT'), ' ', printNode(limit)]);
     if (offset) parts.push([makeKeyword('OFFSET'), ' ', printNode(offset)]);
 
-    return [join(hardline, parts), ';'];
+    // compact: the clauses collapse to one line when they fit, as in a SELECT
+    return [group(join(getDensity(opts) === 'compact' ? line : hardline, parts)), ';'];
 }
 
 // ---------------------------------------------------------------------------

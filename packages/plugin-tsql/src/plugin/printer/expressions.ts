@@ -289,7 +289,7 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
     // JSON_ARRAYAGG(expr [ORDER BY ...] [ABSENT ON NULL | NULL ON NULL]) — SQL Server 2022+
     const jsonOrderBy = prop(node, 'jsonOrderBy');
     if (jsonOrderBy && name.toUpperCase() === 'JSON_ARRAYAGG') {
-        const orderByDoc = printOrderByClause(jsonOrderBy, opts, printFn);
+        const orderByDoc = [keyword('ORDER BY', opts), ' ', join(', ', orderByItems(jsonOrderBy, opts, printFn))];
         const nullClause: Doc = nullOnNullDoc ? [' ', nullOnNullDoc] : '';
         return group([
             keyword(name, opts),
@@ -341,7 +341,7 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
             ' ',
             keyword('WITHIN GROUP', opts),
             ' (',
-            printOrderByClause(withinGroup, opts, printFn),
+            keyword('ORDER BY', opts), ' ', join(', ', orderByItems(withinGroup, opts, printFn)),
             ')',
         ];
         if (over)
