@@ -2871,6 +2871,8 @@ public class AstBuilder : TSqlFragmentVisitor {
         Node("FullTextPredicate", ftp, new Dictionary<string, object?> {
             ["functionType"] = ftp.FullTextFunctionType.ToString(),
             ["columns"] = ftp.Columns?.Select(c => (object?)BuildColumnRef(c)).ToList(),
+            // CONTAINS(PROPERTY(column, 'name'), ...): search one property of the column
+            ["propertyName"] = RawTextOrNull(ftp.PropertyName),
             ["value"] = BuildScalarExpression(ftp.Value),
             ["language"] = RawTextOrNull(ftp.LanguageTerm),
         });
@@ -2880,6 +2882,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["functionType"] = ftt.FullTextFunctionType.ToString(),
             ["tableName"] = BuildSchemaObjectName(ftt.TableName),
             ["columns"] = ftt.Columns?.Select(c => (object?)BuildColumnRef(c)).ToList(),
+            // CONTAINS(PROPERTY(column, 'name'), ...): search one property of the column
+            ["propertyName"] = RawTextOrNull(ftt.PropertyName),
             ["searchCondition"] = BuildScalarExpression(ftt.SearchCondition),
             ["topN"] = BuildScalarExpression(ftt.TopN),
             ["language"] = RawTextOrNull(ftt.Language),

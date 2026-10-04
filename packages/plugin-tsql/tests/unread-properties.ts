@@ -70,8 +70,6 @@ export const dropped: Record<string, string> = {
     'ExpressionGroupingSpecification.DistributedAggregation': 'GROUP BY a WITH (DISTRIBUTED_AGG) loses the hint',
     'ForeignKeyConstraintDefinition.IsEnforced': 'FOREIGN KEY ... NOT ENFORCED loses NOT ENFORCED',
     'UniqueConstraintDefinition.IsEnforced': 'PRIMARY KEY / UNIQUE ... NOT ENFORCED loses NOT ENFORCED',
-    'FullTextPredicate.PropertyName': 'CONTAINS(PROPERTY(Doc, \'Title\'), ...) prints as CONTAINS(Doc, ...)',
-    'FullTextTableReference.PropertyName': 'CONTAINSTABLE(t, PROPERTY(Doc, \'Title\'), ...) prints as CONTAINSTABLE(t, Doc, ...)',
     'FunctionCall.WithArrayWrapper': 'JSON_QUERY(d, \'$.a\' WITH ARRAY WRAPPER) loses WITH ARRAY WRAPPER',
     'InsertSpecification.InsertOption': 'INSERT OVER t prints as INSERT INTO t (INSERT t and INSERT INTO t are equivalent)',
     'OpenRowsetTableReference.WithColumns': 'OPENROWSET(...) WITH (a int) loses the WITH column list',

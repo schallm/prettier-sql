@@ -1407,8 +1407,11 @@ function printOpenQueryTableRef(node: SqlNode, opts: Options): Doc {
 // Full-text: CONTAINS / FREETEXT predicates and CONTAINSTABLE / FREETEXTTABLE
 // ---------------------------------------------------------------------------
 
-/** Render the column-list argument: single column → bare name, multiple → (a, b), wildcard → * */
-function fullTextColumnsPart(columns: SqlNode[], printFn: PrintFn): Doc {
+/** Render the column-list argument: single column → bare name, multiple → (a, b), wildcard → *, PROPERTY(column, 'name') */
+function fullTextColumnsPart(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
+    const columns = propArr(node, 'columns');
+    const propertyName = propStr(node, 'propertyName');
+    if (propertyName && columns.length === 1) return [keyword('PROPERTY', opts), '(', printFn(columns[0]!), ', ', propertyName, ')'];
     if (columns.length === 0) return '*';
     if (columns.length === 1 && columns[0]!.type === 'WildcardColumn') return '*';
     if (columns.length === 1) return printFn(columns[0]!);
@@ -1418,12 +1421,11 @@ function fullTextColumnsPart(columns: SqlNode[], printFn: PrintFn): Doc {
 function printFullTextPredicate(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const fnType = propStr(node, 'functionType') ?? 'Contains';
     const fnKw = fnType === 'FreeText' ? keyword('FREETEXT', opts) : keyword('CONTAINS', opts);
-    const columns = propArr(node, 'columns');
     const value = prop(node, 'value');
     const language = propStr(node, 'language');
 
     const args: Doc[] = [
-        fullTextColumnsPart(columns, printFn),
+        fullTextColumnsPart(node, opts, printFn),
         ', ',
         value ? printExpression(value, opts, printFn) : '',
     ];
@@ -1436,7 +1438,6 @@ function printFullTextTableRef(node: SqlNode, opts: Options, printFn: PrintFn): 
     const fnType = propStr(node, 'functionType') ?? 'Contains';
     const fnKw = fnType === 'FreeText' ? keyword('FREETEXTTABLE', opts) : keyword('CONTAINSTABLE', opts);
     const tableName = prop(node, 'tableName');
-    const columns = propArr(node, 'columns');
     const searchCondition = prop(node, 'searchCondition');
     const topN = prop(node, 'topN');
     const language = propStr(node, 'language');
@@ -1445,7 +1446,7 @@ function printFullTextTableRef(node: SqlNode, opts: Options, printFn: PrintFn): 
     const args: Doc[] = [
         schemaObjectName(tableName),
         ', ',
-        fullTextColumnsPart(columns, printFn),
+        fullTextColumnsPart(node, opts, printFn),
         ', ',
         searchCondition ? printExpression(searchCondition, opts, printFn) : '',
     ];
