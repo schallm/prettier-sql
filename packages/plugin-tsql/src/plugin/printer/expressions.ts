@@ -848,14 +848,7 @@ export function printOverClause(node: SqlNode, opts: Options, printFn: PrintFn):
     const parts: Doc[] = [];
 
     if (partitions.length > 0) {
-        parts.push(
-            keyword('PARTITION BY', opts),
-            ' ',
-            join(
-                [',', line],
-                partitions.map((p) => printExpression(p, opts, printFn)),
-            ),
-        );
+        parts.push(keyword('PARTITION BY', opts), ' ', partitionItems(partitions, opts, printFn));
     }
 
     if (orderBy) {
@@ -869,6 +862,14 @@ export function printOverClause(node: SqlNode, opts: Options, printFn: PrintFn):
     }
 
     return group(['(', indent([softline, ...parts]), softline, ')']);
+}
+
+/**
+ * The PARTITION BY columns: one line when they fit, otherwise continued on indented lines.
+ * (A group of their own, so the hard breaks between the window's clauses don't split them.)
+ */
+function partitionItems(partitions: SqlNode[], opts: Options, printFn: PrintFn): Doc {
+    return group(indent(join([',', line], partitions.map((p) => printExpression(p, opts, printFn)))));
 }
 
 function printWindowFrame(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
@@ -921,14 +922,7 @@ function printWindowDefinition(node: SqlNode, opts: Options, printFn: PrintFn): 
     if (refWindowName) inner.push(refWindowName);
     if (partitions.length > 0) {
         if (inner.length > 0) inner.push(hardline);
-        inner.push(
-            keyword('PARTITION BY', opts),
-            ' ',
-            join(
-                [',', line],
-                partitions.map((p) => printExpression(p, opts, printFn)),
-            ),
-        );
+        inner.push(keyword('PARTITION BY', opts), ' ', partitionItems(partitions, opts, printFn));
     }
     if (orderBy) {
         if (inner.length > 0) inner.push(hardline);
