@@ -821,6 +821,7 @@ export function printAlterIndex(node: SqlNode, opts: Options): Doc {
     const indexName = propStr(node, 'indexName');
     const table = prop(node, 'table');
     const alterType = propStr(node, 'alterType') ?? 'Rebuild';
+    if (alterType === 'UpdateSelectiveXmlPaths') return printAlterSelectiveXmlIndex(node, opts);
     const typeKwMap: Record<string, string> = {
         Rebuild: 'REBUILD',
         Reorganize: 'REORGANIZE',
@@ -850,6 +851,33 @@ export function printAlterIndex(node: SqlNode, opts: Options): Doc {
         withPart,
         ';',
     ];
+}
+
+/** ALTER INDEX ix ON t [WITH XMLNAMESPACES (...)] FOR (ADD p = '/a' AS SQL int, REMOVE q) */
+function printAlterSelectiveXmlIndex(node: SqlNode, opts: Options): Doc {
+    const namespaces = propStrArr(node, 'xmlNamespaces');
+    const paths = propArr(node, 'paths').map((p): Doc => {
+        const name = propStr(p, 'name') ?? '';
+        const path = propStr(p, 'path');
+        if (!path) return [keyword('REMOVE', opts), ' ', name];
+        const sqlType = propStr(p, 'sqlType');
+        const xqueryType = propStr(p, 'xqueryType');
+        const maxLength = propStr(p, 'maxLength');
+        return [
+            keyword('ADD', opts), ' ', name, ' = ', path,
+            sqlType ? [' ', keyword('AS SQL', opts), ' ', propBool(p, 'sqlTypeIsUdt') ? sqlType : builtinTypeDoc(sqlType, opts)] : '',
+            xqueryType ? [' ', keyword('AS XQUERY', opts), ' ', xqueryType] : '',
+            maxLength ? [' ', keyword('MAXLENGTH', opts), '(', maxLength, ')'] : '',
+            propBool(p, 'singleton') ? [' ', keyword('SINGLETON', opts)] : '',
+        ];
+    });
+    const head: Doc = [keyword('ALTER INDEX', opts), ' ', propStr(node, 'indexName') ?? '', ' ', keyword('ON', opts), ' ', schemaObjectName(prop(node, 'table'))];
+    const forDoc: Doc = [keyword('FOR', opts), ' ', optionItems(paths, opts)];
+    // With namespaces, each clause on a line of its own
+    if (namespaces.length > 0) {
+        return [head, hardline, keyword('WITH XMLNAMESPACES', opts), ' ', optionItems(namespaces, opts), hardline, forDoc, ';'];
+    }
+    return [head, ' ', forDoc, ';'];
 }
 
 // ---------------------------------------------------------------------------

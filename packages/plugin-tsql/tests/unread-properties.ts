@@ -63,8 +63,6 @@ export const dropped: Record<string, string> = {
     'AlterDatabaseModifyFileGroupStatement.NewFileGroupName': 'MODIFY FILEGROUP fg NAME = fg2 prints as MODIFY FILEGROUP fg none',
     'AlterDatabaseModifyFileGroupStatement.Termination': 'MODIFY FILEGROUP ... WITH ROLLBACK IMMEDIATE loses the WITH clause',
     'AlterDatabaseSetStatement.WithManualCutover': 'WITH MANUAL_CUTOVER is dropped',
-    'AlterIndexStatement.PromotedPaths': 'ALTER INDEX ... FOR (ADD p = ...) prints as UPDATESELECTIVEXMLPATHS, which does not parse',
-    'AlterIndexStatement.XmlNamespaces': 'ALTER INDEX ... WITH XMLNAMESPACES (...) is dropped',
     'AsymmetricKeyCreateLoginSource.Credential': 'CREATE LOGIN ... FROM ASYMMETRIC KEY k WITH CREDENTIAL = c loses the credential',
     'CertificateCreateLoginSource.Credential': 'CREATE LOGIN ... FROM CERTIFICATE c WITH CREDENTIAL = c loses the credential',
     'ExpressionGroupingSpecification.DistributedAggregation': 'GROUP BY a WITH (DISTRIBUTED_AGG) loses the hint',

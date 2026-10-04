@@ -3131,6 +3131,21 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["alterType"] = ai.AlterIndexType.ToString(),
             ["indexOptions"] = MapList(ai.IndexOptions, o => (object?)SerializeIndexOption(o)),
             ["partition"] = ai.Partition != null ? RawText(ai.Partition) : null,
+            // Selective XML index: [WITH XMLNAMESPACES (...)] FOR (ADD p = '/a' ..., REMOVE q)
+            ["xmlNamespaces"] = MapList(ai.XmlNamespaces?.XmlNamespacesElements, e => (object?)BuildXmlNamespaceElement(e)),
+            ["paths"] = MapList(ai.PromotedPaths, p => (object?)BuildPromotedPath(p)),
+        });
+
+    // ADD name = 'path' [AS SQL type | AS XQUERY 'type' [MAXLENGTH(n)]] [SINGLETON], or REMOVE name (no path)
+    private static SqlNode BuildPromotedPath(SelectiveXmlIndexPromotedPath p) =>
+        Node("SelectiveXmlPath", p, new Dictionary<string, object?> {
+            ["name"] = QuotedName(p.Name),
+            ["path"] = RawTextOrNull(p.Path),
+            ["sqlType"] = DataTypeText(p.SQLDataType),
+            ["sqlTypeIsUdt"] = UdtFlag(p.SQLDataType),
+            ["xqueryType"] = RawTextOrNull(p.XQueryDataType),
+            ["maxLength"] = RawTextOrNull(p.MaxLength),
+            ["singleton"] = p.IsSingleton ? true : null,
         });
 
     // -------------------------------------------------------------------------

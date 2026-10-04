@@ -2445,6 +2445,23 @@ alter index ix on dbo.t rebuild with (online = on);
 "
 `;
 
+exports[`fixtures > index/alter-selective-xml-index.sql 1`] = `
+"-- Selective XML index: add and remove promoted paths
+alter index sxi_Orders on dbo.Orders for (
+  add CustomerId = '/order/@customerId' as sql int singleton,
+  add Status = '/order/status' as xquery 'xs:string' maxlength(20),
+  add Lines = '/order/lines' as xquery 'node()',
+  remove OldPath
+);
+
+alter index sxi_Orders on dbo.Orders
+with xmlnamespaces ('http://example.com/orders' AS o)
+for (add Total = '/o:order/o:total' as sql decimal(10, 2));
+
+alter index sxi_Orders on dbo.Orders for (remove Status);
+"
+`;
+
 exports[`fixtures > index/basic.sql 1`] = `
 "create index IX_Books_Title on Books (Title asc);
 
