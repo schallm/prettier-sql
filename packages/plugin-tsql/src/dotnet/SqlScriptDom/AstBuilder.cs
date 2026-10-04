@@ -3629,9 +3629,10 @@ public class AstBuilder : TSqlFragmentVisitor {
         // A named filegroup is FILEGROUP name ...; PRIMARY and an unnamed list come with the files' own text
         var name = fg.Name == null ? "" : "FILEGROUP " + QuotedName(fg.Name);
         var suffix = new StringBuilder();
-        if (fg.IsDefault) suffix.Append(" DEFAULT");
+        // FILEGROUP name [CONTAINS FILESTREAM | CONTAINS MEMORY_OPTIMIZED_DATA] [DEFAULT]: DEFAULT comes last
         if (fg.ContainsFileStream) suffix.Append(" CONTAINS FILESTREAM");
         if (fg.ContainsMemoryOptimizedData) suffix.Append(" CONTAINS MEMORY_OPTIMIZED_DATA");
+        if (fg.IsDefault) suffix.Append(" DEFAULT");
         var fileParts = fg.FileDeclarations?
             .Select(f => RawText(f))
             .Where(s => !string.IsNullOrEmpty(s))

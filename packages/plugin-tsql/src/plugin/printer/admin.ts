@@ -221,9 +221,11 @@ function fileGroupItems(text: string, opts: Options): Doc[] {
     if (open < 0) return [text];
     const head = text.slice(0, open).trim();
     const specs = splitTopLevel(text.slice(open));
-    if (/^FILEGROUP\b/i.test(head)) {
-        const [kw, ...rest] = head.split(/\s+/);
-        const headDoc: Doc = [keyword(kw!, opts), ' ', rest[0] ?? '', ...rest.slice(1).map((w): Doc => [' ', keyword(w, opts)])];
+    // FILEGROUP name [CONTAINS FILESTREAM] [DEFAULT]: the name is one token, even [with spaces]
+    const named = /^(FILEGROUP)\s+(\[(?:[^\]]|\]\])*\]|"(?:[^"]|"")*"|\S+)(.*)$/is.exec(head);
+    if (named) {
+        const [, kw, name, rest] = named;
+        const headDoc: Doc = [keyword(kw!, opts), ' ', name!, ...rest!.trim().split(/\s+/).filter(Boolean).map((w): Doc => [' ', keyword(w, opts)])];
         return [[headDoc, indent([hardline, join([',', hardline], specs.map((s) => fileSpecDoc(s, opts)))])]];
     }
     return specs.map((s, i): Doc => [i === 0 && head ? [keyword(head, opts), ' '] : '', fileSpecDoc(s, opts)]);

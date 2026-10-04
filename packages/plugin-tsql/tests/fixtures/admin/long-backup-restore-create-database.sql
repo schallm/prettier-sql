@@ -8,3 +8,4 @@ create database SalesDatabase containment = partial on primary (name = SalesData
 create database SalesDatabaseSnapshot on (name = SalesData, filename = 'D:\data\SalesData.ss'), (name = SalesData2, filename = 'D:\data\SalesData2.ss') as snapshot of SalesDatabase;
 create database RestoredDatabase on (filename = 'D:\data\SalesData.mdf'), (filename = 'E:\log\SalesLog.ldf') for attach with enable_broker;
 create database d (edition = 'basic', service_objective = 'basic', maxsize = 2 gb);
+create database Archive on primary (name = ArchiveData, filename = 'D:\data\Archive.mdf'), filegroup [Archive Data] contains filestream default (name = ArchiveFiles, filename = 'D:\data\ArchiveFiles');

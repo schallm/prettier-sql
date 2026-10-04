@@ -567,6 +567,12 @@ create database d (
   service_objective = 'basic',
   maxsize = 2 gb
 );
+
+create database Archive
+on
+  primary (name = ArchiveData, filename = 'D:\\data\\Archive.mdf'),
+  filegroup [Archive Data] contains filestream default
+    (name = ArchiveFiles, filename = 'D:\\data\\ArchiveFiles');
 "
 `;
 
