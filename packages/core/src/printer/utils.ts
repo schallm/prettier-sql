@@ -133,11 +133,12 @@ export function hasLineSuffix(doc: Doc): boolean {
 /**
  * Fill-pack a comma-separated list: as many items per line as fit. An item ending in a
  * line comment always ends its line, so the next item can't land inside the comment.
- * Each comma is part of its item, so the fit check counts it.
+ * Each comma is part of its item, and so is `tail` (text that follows the list on its line, such as
+ * a `;`) for the last one, so the fit check counts them.
  */
-export function commaFill(items: Doc[]): Doc {
+export function commaFill(items: Doc[], tail: Doc = ''): Doc {
     const last = items.length - 1;
-    return fill(items.flatMap((d, i): Doc[] => (i === last ? [d] : [[d, ','], hasLineSuffix(d) ? hardline : line])));
+    return fill(items.flatMap((d, i): Doc[] => (i === last ? [[d, tail]] : [[d, ','], hasLineSuffix(d) ? hardline : line])));
 }
 
 /**

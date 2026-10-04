@@ -941,14 +941,16 @@ function printTruncate(node: SqlNode, opts: Options): Doc {
     const cascade   = propBool(node, 'cascade');
 
     // On one line when it fits; otherwise the tables fill an indented line and each option follows on its own
+    // the `;` goes into the last piece, so the line filling counts it
+    const namesEnd = !restart && !cascade;
     return [
         group([
             makeKeyword('TRUNCATE TABLE'),
-            indent([line, commaFill(relations.map((r): Doc => [onlyPrefix(r, opts), rangeVarName(r)]))]),
+            indent([line, commaFill(relations.map((r): Doc => [onlyPrefix(r, opts), rangeVarName(r)]), namesEnd ? ';' : '')]),
             restart ? [line, makeKeyword('RESTART IDENTITY')] : '',
             cascade ? [line, makeKeyword('CASCADE')] : '',
         ]),
-        ';',
+        namesEnd ? '' : ';',
     ];
 }
 
@@ -966,12 +968,14 @@ function printDrop(node: SqlNode, opts: Options): Doc {
 
     // On one line when it fits; otherwise the names fill an indented line and ON / USING / CASCADE
     // each follow on a line of their own
+    // the `;` goes into the last name when nothing follows them, so the line filling counts it
+    const namesEnd = names.length > 0 && !castSource && !transformType && !onTable && !using && !cascade;
     return [
         group([
             makeKeyword('DROP'), ' ', makeKeyword(objectType),
             propBool(node, 'concurrent') ? [' ', makeKeyword('CONCURRENTLY')] : '',
             ifExists ? [' ', makeKeyword('IF EXISTS')] : '',
-            names.length > 0 ? indent([line, commaFill(names)]) : '',
+            names.length > 0 ? indent([line, commaFill(names, namesEnd ? ';' : '')]) : '',
             castSource ? [' (', keyword(castSource, opts), ' ', makeKeyword('AS'), ' ', keyword(propStr(node, 'castTarget') ?? '', opts), ')'] : '',
             transformType
                 ? [' ', makeKeyword('FOR'), ' ', keyword(transformType, opts), ' ', makeKeyword('LANGUAGE'), ' ', propStr(node, 'transformLanguage') ?? '']
@@ -980,7 +984,7 @@ function printDrop(node: SqlNode, opts: Options): Doc {
             using ? [line, makeKeyword('USING'), ' ', using] : '',
             cascade ? [line, makeKeyword('CASCADE')] : '',
         ]),
-        ';',
+        namesEnd ? '' : ';',
     ];
 }
 

@@ -925,7 +925,8 @@ drop function if exists
   other_schema.another_function_name(integer);
 
 drop index concurrently if exists
-  some_long_index_name_one, some_long_index_name_two, some_long_index_name_three;
+  some_long_index_name_one, some_long_index_name_two,
+  some_long_index_name_three;
 
 drop cast (text as integer);
 "
