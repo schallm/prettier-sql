@@ -1231,15 +1231,17 @@ export function printCreateView(node: SqlNode, opts: Options): Doc {
           ]
         : '';
 
-    const preBodyPart = commentsBlock(node.preBodyComments);
+    // Comments between the header and AS go after AS, above the query: a line comment
+    // before it would swallow the AS that ends the header
+    const preBodyPart: Doc = (node.preBodyComments ?? []).map((c): Doc => [c, hardline]);
     const withCheckOption = node.props?.['withCheckOption'];
     const checkOptionPart: Doc = withCheckOption ? [hardline, keyword('WITH CHECK OPTION', opts)] : '';
 
     return group([
         asQueryDoc(
-            [kw, ' ', schemaObjectName(prop(node, 'name')), colsPart, withPart, preBodyPart],
+            [kw, ' ', schemaObjectName(prop(node, 'name')), colsPart, withPart],
             keyword('AS', opts),
-            [...printCtes(node, opts), body ? qexpr(body, opts) : ''],
+            [preBodyPart, ...printCtes(node, opts), body ? qexpr(body, opts) : ''],
         ),
         checkOptionPart,
         ';',

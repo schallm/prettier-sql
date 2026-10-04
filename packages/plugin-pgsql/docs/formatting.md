@@ -956,8 +956,7 @@ alter table products
 ### CREATE / REPLACE VIEW
 
 ```sql
-create view active_customers
-as
+create view active_customers as
 select
   id,
   name,
@@ -969,8 +968,7 @@ where active = true;
 Optional column aliases immediately after the view name:
 
 ```sql
-create view order_summary
-as
+create view order_summary as
 select
   id,
   amount,
@@ -981,8 +979,7 @@ from orders;
 `CREATE OR REPLACE VIEW` preserves existing grants and other dependencies:
 
 ```sql
-create view active_users
-as
+create view active_users as
 select
   id,
   name,
@@ -998,8 +995,7 @@ where
 A materialized view stores the query result on disk. It must be refreshed explicitly.
 
 ```sql
-create materialized view user_stats
-as
+create materialized view user_stats as
 select
   user_id,
   count(*) as order_count,
@@ -1767,14 +1763,12 @@ notify my_channel, 'payload text';
 ### Cursors
 
 ```sql
-declare my_cursor cursor
-for
+declare my_cursor cursor for
 select
   id,
   name
 from users;
-declare scroll_cursor scroll cursor
-for
+declare scroll_cursor scroll cursor for
 select id
 from orders;
 fetch next from my_cursor;

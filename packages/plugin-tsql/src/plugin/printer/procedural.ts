@@ -172,14 +172,7 @@ export function printSetVariable(node: SqlNode, opts: Options): Doc {
             Array.isArray(cursorOptions) && cursorOptions.length > 0
                 ? [' ', join(' ', cursorOptions.map((o) => keyword(o as string, opts)))]
                 : '';
-        valuePart = group([
-            keyword('CURSOR', opts),
-            optPart,
-            hardline,
-            keyword('FOR', opts),
-            hardline,
-            cursorSelect ? qexpr(cursorSelect, opts) : '',
-        ]);
+        valuePart = group(asQueryDoc([keyword('CURSOR', opts), optPart], keyword('FOR', opts), cursorSelect ? qexpr(cursorSelect, opts) : ''));
     } else {
         valuePart = val ? printNode(val, opts) : '';
     }

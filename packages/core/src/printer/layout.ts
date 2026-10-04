@@ -313,10 +313,10 @@ export function optionLinesDoc(header: Doc, options: Doc[]): Doc {
 
 /**
  * A statement defined by a query — `CREATE VIEW v AS`, `CREATE TABLE t AS`,
- * `DECLARE c CURSOR FOR` — with AS / FOR on a line of its own and the query below it.
+ * `DECLARE c CURSOR FOR` — with AS / FOR ending the header and the query below it.
  */
 export function asQueryDoc(header: Doc, kw: Doc, query: Doc): Doc {
-    return [header, hardline, kw, hardline, query];
+    return [header, ' ', kw, hardline, query];
 }
 
 /**

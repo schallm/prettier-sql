@@ -1168,26 +1168,22 @@ create table dbo.Employees (
 
 exports[`fixtures > create-table/ctas.sql 1`] = `
 "-- CREATE TABLE AS SELECT (Synapse / Fabric): the SELECT and WITH options are part of the table
-create table dbo.t
-as
+create table dbo.t as
 select 1 as a;
 
 create table dbo.t
-with (distribution = round_robin)
-as
+with (distribution = round_robin) as
 select 1 as a;
 
 create table dbo.t
-with (distribution = hash(a, b), clustered columnstore index)
-as
+with (distribution = hash(a, b), clustered columnstore index) as
 select
   a,
   b
 from dbo.u;
 
 create table dbo.t (x, y)
-with (distribution = replicate, heap)
-as
+with (distribution = replicate, heap) as
 select
   a,
   b
@@ -1195,16 +1191,14 @@ from dbo.u
 where a > 1;
 
 create table dbo.t
-with (distribution = hash(a), clustered index (a desc, b))
-as
+with (distribution = hash(a), clustered index (a desc, b)) as
 select
   a,
   b
 from dbo.u;
 
 create table dbo.t
-with (distribution = round_robin, clustered columnstore index order (a, b))
-as
+with (distribution = round_robin, clustered columnstore index order (a, b)) as
 select
   a,
   b
@@ -1800,8 +1794,7 @@ create schema s authorization dbo
 go
 
 create schema s
-  create view v
-  as
+  create view v as
   select 1 as a
   create table t2 (
     b int
@@ -2831,8 +2824,7 @@ alter database d
 set automatic_index_compaction = on;
 
 create table dbo.c
-with (distribution = hash(a), heap)
-as
+with (distribution = hash(a), heap) as
 select 1 as a;
 /* d */
 go
@@ -2924,17 +2916,14 @@ return;
 
 exports[`fixtures > procedural/cursor-forms.sql 1`] = `
 "-- GLOBAL cursor references, and the ISO DECLARE ... INSENSITIVE SCROLL CURSOR form
-declare c insensitive scroll cursor
-for
+declare c insensitive scroll cursor for
 select a
 from t
 for read only;
-declare c insensitive cursor
-for
+declare c insensitive cursor for
 select a
 from t;
-declare c cursor global scroll dynamic
-for
+declare c cursor global scroll dynamic for
 select a
 from t
 for update of a;
@@ -2953,8 +2942,7 @@ exports[`fixtures > procedural/cursors.sql 1`] = `
 "declare @bookId int;
 declare @title nvarchar(200);
 declare @price decimal(10, 2);
-declare BookCursor cursor
-for
+declare BookCursor cursor for
 select
   Id,
   Title,
@@ -2973,8 +2961,7 @@ end
 
 close BookCursor;
 deallocate BookCursor;
-declare ScrollCursor cursor scroll
-for
+declare ScrollCursor cursor scroll for
 select
   Id,
   Title
@@ -2990,8 +2977,7 @@ close ScrollCursor;
 deallocate ScrollCursor;
 -- CURSOR VARIABLES: declare @var cursor, set @var = cursor for ..., open/fetch/close/deallocate
 declare @cur cursor;
-set @cur = cursor
-for
+set @cur = cursor for
 select
   Id,
   Name
@@ -3003,8 +2989,7 @@ close @cur;
 deallocate @cur;
 -- cursor variable with options
 declare @scrollCur cursor;
-set @scrollCur = cursor local static scroll
-for
+set @scrollCur = cursor local static scroll for
 select
   Id,
   Title
@@ -3810,8 +3795,7 @@ where [key] = 2;
 delete from [order]
 where [key] = 1;
 
-declare [cursor] cursor
-for
+declare [cursor] cursor for
 select 1;
 open [cursor];
 fetch next from [cursor];
@@ -3819,8 +3803,7 @@ close [cursor];
 deallocate [cursor];
 go
 
-create view [view]
-as
+create view [view] as
 select [key]
 from [order];
 go
@@ -6429,8 +6412,7 @@ where Publishers.Country = 'UK';
 `;
 
 exports[`fixtures > view/basic.sql 1`] = `
-"create view AvailableBooks
-as
+"create view AvailableBooks as
 select
   b.Id,
   b.Title,
@@ -6447,8 +6429,7 @@ go
 exports[`fixtures > view/check-option.sql 1`] = `
 "-- WITH CHECK OPTION prevents inserts/updates that would hide the row from the view
 create view dbo.ActiveOrders
-with schemabinding
-as
+with schemabinding as
 select
   Id,
   CustomerId,
@@ -6461,36 +6442,47 @@ go
 `;
 
 exports[`fixtures > view/comments.sql 1`] = `
-"create or alter view dbo.ExampleView
+"create or alter view dbo.ExampleView as
 /* with encryption */
-as
 select BookId
 from Books;
 go
 
 -- view description
-create or alter view TestBooksView
-as
+create or alter view TestBooksView as
 select 1 as x;
 go
 
-create or alter view BooksView
+create or alter view BooksView as
 /* with encryption */
-as
 select 1 as x;
 go
 
-create or alter view AuthorsView
-as
+create or alter view AuthorsView as
 select 2 as y;
+go
+
+create view dbo.ActiveOrders as
+-- open orders only
+select OrderId
+from dbo.Orders
+where Status = 'open';
+go
+
+create view dbo.ClosedOrders
+with schemabinding as
+-- closed orders
+/* archived nightly */
+select OrderId
+from dbo.Orders
+where Status = 'closed';
 go
 "
 `;
 
 exports[`fixtures > view/cte-body.sql 1`] = `
 "-- A view body can start with WITH (CTEs, XMLNAMESPACES); view column names keep their brackets
-create or alter view v
-as
+create or alter view v as
 with
   c as (
     select 1 as a
@@ -6500,8 +6492,7 @@ from c;
 go
 
 create view dbo.v ([my col], b)
-with schemabinding
-as
+with schemabinding as
 with
   x as (
     select a
@@ -6517,8 +6508,7 @@ select
 from y;
 go
 
-alter view v
-as
+alter view v as
 with
   xmlnamespaces (
     'urn:x' as x
@@ -6530,8 +6520,7 @@ go
 
 exports[`fixtures > view/schemabinding.sql 1`] = `
 "create view dbo.BookSummary
-with schemabinding
-as
+with schemabinding as
 select
   b.Id,
   b.Title,
@@ -7000,8 +6989,7 @@ create table order_items (
 `;
 
 exports[`shared fixtures > ddl/create-view.sql 1`] = `
-"create view available_books
-as
+"create view available_books as
 select
   id,
   title,

@@ -1522,8 +1522,7 @@ go
 ### CREATE / ALTER VIEW
 
 ```sql
-create or alter view AvailableBooksView
-as
+create or alter view AvailableBooksView as
 select
   Id,
   Title
@@ -1535,9 +1534,8 @@ go
 Block comments between the view name and `as` are preserved in place:
 
 ```sql
-create or alter view SensitivePricesView
+create or alter view SensitivePricesView as
 /* with encryption */
-as
 select
   Id,
   Price
@@ -2141,8 +2139,7 @@ end catch
 `declare … cursor for` puts the cursor name and `cursor` keyword on the first line. The `for` keyword and the query each appear on their own line:
 
 ```sql
-declare BookCursor cursor
-for
+declare BookCursor cursor for
 select
   Id,
   Title
@@ -2153,8 +2150,7 @@ where InStock = 1;
 Cursor options (e.g. `SCROLL`, `READ_ONLY`) appear between the cursor name and the `cursor` keyword:
 
 ```sql
-declare BookCursor cursor scroll
-for
+declare BookCursor cursor scroll for
 select Id
 from Books;
 ```
@@ -2547,8 +2543,7 @@ Block comments are preserved in their original relative position. A block commen
 
 ```sql
 /* legacy view — do not remove */
-create or alter view LegacyBooksView
-as
+create or alter view LegacyBooksView as
 select *
 from Books;
 go
@@ -2664,16 +2659,14 @@ The following statement types must be alone in a batch and automatically get a `
 When multiple such statements appear in a file (separated by `go` in the input), each batch is separated by a blank line in the output:
 
 ```sql
-create or alter view BooksView
-as
+create or alter view BooksView as
 select
   Id,
   Title
 from Books;
 go
 
-create or alter view AuthorsView
-as
+create or alter view AuthorsView as
 select
   Id,
   FirstName,
