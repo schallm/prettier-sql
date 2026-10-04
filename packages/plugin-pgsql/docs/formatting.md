@@ -2163,6 +2163,42 @@ select json_value(
 from t;
 ```
 
+A `FOREIGN KEY` or `CHECK` constraint that doesn't fit keeps its name on the first line and puts each clause on an indented line of its own:
+
+```sql
+create table orders (
+  order_identifier integer,
+  constraint fk_orders_customer
+    foreign key (customer_identifier)
+    references customers (customer_identifier)
+    on delete cascade
+    deferrable initially deferred
+);
+```
+
+Role options, `GRANT` privileges and long `COMMENT ON` texts wrap the same way: one option per line under the role name, the privileges on an indented line before `ON`, and the comment text on an indented line after `IS`:
+
+```sql
+create role reporting_service
+  login
+  password 'secret'
+  valid until '2030-01-01'
+  in role analysts
+  connection limit 10;
+
+grant
+  select, insert, update, delete, truncate, references, trigger
+on table some_long_table_name
+to some_role;
+
+comment on column some_long_table_name.very_long_column_name_one is
+  'a very long comment about this column';
+```
+
+Identity and sequence options, `PARTITION BY (...)`, `DISTINCT ON (...)`, partition bounds and a single long index column all break the same way as other lists, and a `SET` value list (`search_path`) fills an indented line after the `=`.
+
+An aggregate with `ORDER BY` puts it on its own line after the arguments, and its `FILTER (WHERE ...)` condition breaks inside its parentheses.
+
 Function parameters and parenthesized option lists (`WITH (...)`, `COPY ... (...)`, `OPTIONS (...)`, `EXPLAIN (...)`) break one per line:
 
 ```sql
