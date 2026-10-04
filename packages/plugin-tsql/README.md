@@ -55,14 +55,14 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - `CREATE PARTITION SCHEME` (AS PARTITION, ALL TO / TO filegroup list), `ALTER PARTITION SCHEME` (NEXT USED), `DROP PARTITION SCHEME`
 - `DROP TABLE/PROCEDURE/VIEW/FUNCTION/INDEX/TRIGGER/SEQUENCE/SYNONYM/SCHEMA` (with `IF EXISTS`)
 - `DROP DATABASE` (with `IF EXISTS`, multiple databases)
-- `CREATE DATABASE` (with optional `COLLATE`, file group specs, snapshot; forms with `WITH` options, `CONTAINMENT` or `FOR ATTACH` are kept as written)
+- `CREATE DATABASE` (with optional `CONTAINMENT`, file group specs, `COLLATE`, `FOR ATTACH` / `ATTACH_REBUILD_LOG`, snapshot, and `WITH` options, including Azure's parenthesized form)
 - `ALTER DATABASE` — `SET` (any option with proper keyword reconstruction, including SQL Server 2025 options such as `AUTOMATIC_INDEX_COMPACTION`), `COLLATE`, `MODIFY NAME`, `ADD/REMOVE FILE`, `ADD/REMOVE FILEGROUP`, `MODIFY FILE`, `MODIFY FILEGROUP`, `REBUILD LOG`, `SCOPED CONFIGURATION SET/CLEAR`
 
 **Database Administration**
 
 - `DBCC` commands — any command name, literal arguments, `WITH` options
-- `BACKUP DATABASE` / `BACKUP LOG` — `TO DISK/TAPE/URL` (or a logical device), `WITH` options; forms with `FILE` / `FILEGROUP` lists, `MIRROR TO` or `ENCRYPTION` are kept as written
-- `RESTORE DATABASE` / `RESTORE LOG` / `RESTORE FILELISTONLY` / `RESTORE HEADERONLY` / `RESTORE VERIFYONLY` — `FROM DISK/TAPE/URL`, `WITH` options; forms with `FILE` / `FILEGROUP` / `PAGE` lists, snapshot sources, `STOPATMARK` / `STOPBEFOREMARK` or `FILESTREAM` options are kept as written
+- `BACKUP DATABASE` / `BACKUP LOG` — `TO DISK/TAPE/URL` (or a logical device), `FILE` / `FILEGROUP` lists, `MIRROR TO`, `WITH` options including `ENCRYPTION (...)`
+- `RESTORE DATABASE` / `RESTORE LOG` / `RESTORE FILELISTONLY` / `RESTORE HEADERONLY` / `RESTORE VERIFYONLY` — `FILE` / `FILEGROUP` / `PAGE` lists, `FROM DISK/TAPE/URL` or `DATABASE_SNAPSHOT`, `WITH` options including `STOPATMARK` / `STOPBEFOREMARK` and `FILESTREAM`
 
 **Procedural / Control Flow**
 
@@ -118,8 +118,6 @@ The constructs below are parsed correctly but have no printer yet. They are emit
 
 ### Rarer forms of formatted statements
 
-- `CREATE DATABASE` with `WITH` options, `CONTAINMENT` or `FOR ATTACH`
-- `BACKUP` with `FILE` / `FILEGROUP`, `MIRROR TO` or `ENCRYPTION`; `RESTORE` with `FILE` / `FILEGROUP` / `PAGE`, snapshot sources, `STOPATMARK` / `STOPBEFOREMARK` or `FILESTREAM`
 - Rarely used `ALTER TABLE` forms (for example `FILETABLE_NAMESPACE`, `CLUSTER BY`)
 
 ### Audit

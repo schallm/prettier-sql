@@ -2577,7 +2577,7 @@ if @Count > 0
 A statement the formatter prints from its source text (see [Statements kept as written](#statements-kept-as-written)) keeps the comments inside it where they were, exactly once; a trailing comment stays after the statement's `;`:
 
 ```sql
-CREATE   DATABASE Archive CONTAINMENT = PARTIAL; -- keep
+CREATE   EXTERNAL   LANGUAGE l FROM (CONTENT = 'x', FILE_NAME = 'y', PLATFORM = WINDOWS); -- keep
 ```
 
 #### Scripts that are only comments
@@ -2704,7 +2704,7 @@ go
 
 ### Statements kept as written
 
-Statements the plugin has no printer for (assemblies, Service Broker, certificates and keys, Extended Events, external data objects, audits, … — see the README's "Pending implementation") and a few rare forms of statements it does format (`create database` with `containment`, `for attach` or `with` options; `backup` with `file` / `filegroup`, `mirror to` or `encryption`; `restore` with `file` / `filegroup` / `page`, snapshot sources, `stopatmark` / `stopbeforemark` or `filestream`; rarely used `alter table` forms) are emitted from their source text: same case and spacing, followed by `;`. Nothing is dropped or changed, the comments inside are kept in place, and the text runs from the statement's first token to the next statement (or `go`), so tokens that ScriptDom's own fragment leaves out — the `FROM (...)` of `create external language`, say — are included:
+Statements the plugin has no printer for (assemblies, Service Broker, certificates and keys, Extended Events, external data objects, audits, … — see the README's "Pending implementation") and a few rare forms of statements it does format (`backup` with an encryptor that isn't a server certificate or asymmetric key; `restore` with a `filestream` option that isn't a directory name; `create database` with an unusual attach mode; rarely used `alter table` forms) are emitted from their source text: same case and spacing, followed by `;`. Nothing is dropped or changed, the comments inside are kept in place, and the text runs from the statement's first token to the next statement (or `go`), so tokens that ScriptDom's own fragment leaves out — the `FROM (...)` of `create external language`, say — are included:
 
 ```sql
 CREATE   ASSEMBLY a  /* c */ FROM 'x.dll'; -- end
@@ -2762,7 +2762,7 @@ backup log Bookstore
 `BACKUP DATABASE` / `BACKUP LOG` keywords are reformatted. Device type keywords (`DISK`, `TAPE`,
 `URL`) and all option names (`COMPRESSION`, `NOFORMAT`, `STATS`, `NAME`, etc.) follow
 `sqlKeywordCase`. `TO` and `WITH` are indented on new lines; multiple devices each
-on their own line. `BACKUP DATABASE` with a `FILE` / `FILEGROUP` list, `MIRROR TO` or `ENCRYPTION (...)` is kept as written.
+on their own line. A `FILE` / `FILEGROUP` list goes on a line of its own before `TO`, and each `MIRROR TO` clause follows the devices on its own line. `ENCRYPTION (ALGORITHM = ..., SERVER CERTIFICATE = ...)` is an option like the others and wraps when it doesn't fit.
 
 When the `WITH` option list is short it stays on one line; when it would exceed `printWidth` every
 option wraps to its own indented line:
@@ -2797,7 +2797,7 @@ restore database Bookstore
 
 `RESTORE DATABASE` / `RESTORE LOG` / `RESTORE FILELISTONLY` / `RESTORE HEADERONLY` /
 `RESTORE VERIFYONLY` are all supported. `FROM` and `WITH` are indented on new lines.
-The `WITH` option list follows the same inline/wrap behaviour as `BACKUP`. `RESTORE` with `FILE` / `FILEGROUP` / `PAGE` lists, a snapshot source, `STOPATMARK` / `STOPBEFOREMARK` or `FILESTREAM` options is kept as written.
+The `WITH` option list follows the same inline/wrap behaviour as `BACKUP`. A `FILE` / `FILEGROUP` / `PAGE` list goes on a line before `FROM`; `FROM DATABASE_SNAPSHOT = ...`, `STOPATMARK` / `STOPBEFOREMARK ... AFTER ...` and `FILESTREAM (DIRECTORY_NAME = ...)` are printed like the other options.
 
 ### CREATE DATABASE
 
@@ -2812,7 +2812,19 @@ collate Latin1_General_CI_AS;
 create database SalesSnap as snapshot of SalesDB;
 ```
 
-For databases with file group or log-on clauses, the file spec raw text is preserved. A `create database` with `containment`, `for attach` or `with` options is kept as written (see [Statements kept as written](#statements-kept-as-written)).
+`CONTAINMENT` stays on the name's line; `ON` file specs, `LOG ON`, `COLLATE`, `FOR ATTACH` / `AS SNAPSHOT OF` (after files) and `WITH` options each start a line. A file spec stays on one line when it fits and otherwise puts one option per line; a `FILEGROUP` puts its specs on indented lines. Azure's parenthesized form `create database d (edition = 'basic', ...)` stays parenthesized:
+
+```sql
+create database SalesDb containment = partial
+on
+  primary (name = SalesData, filename = 'D:\data\SalesData.mdf', size = 100mb),
+  filegroup Archive
+    (name = SalesArchive, filename = 'D:\data\SalesArchive.ndf')
+log on
+  (name = SalesLog, filename = 'E:\log\SalesLog.ldf')
+collate Latin1_General_100_CI_AS_SC
+with ledger = on, trustworthy off;
+```
 
 ### ALTER DATABASE
 

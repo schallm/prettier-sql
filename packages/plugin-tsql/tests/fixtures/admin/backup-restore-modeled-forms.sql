@@ -1,0 +1,13 @@
+backup database d file = 'f', filegroup = 'g' to disk = 'a' mirror to disk = 'c' with format;
+backup database d to disk = 'x' with encryption (algorithm = aes_256, server certificate = c);
+backup database d to disk = 'x' mirror to disk = 'y', disk = 'z' mirror to url = 'u' with init, stats = 10;
+backup database d read_write_filegroups to disk = 'x';
+backup log d to Dev1 with encryption (algorithm = triple_des_3key, server asymmetric key = k1), compression;
+restore database d filegroup = 'g' from disk = 'x' with partial;
+restore database d page = '1:57' from disk = 'x';
+restore database d from database_snapshot = 's';
+restore database d from disk = 'x' with stopatmark = 'm' after '2020-01-01';
+restore database d from disk = 'x' with stopbeforemark = 'lsn:15000000040000037';
+restore database d from disk = 'x' with stopat = '2020-01-01';
+restore database d from disk = 'x' with filestream (directory_name = 'dn'), norecovery;
+restore log d from disk = 'x' with stopatmark = @mark;

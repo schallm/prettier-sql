@@ -1,4 +1,4 @@
--- CREATE DATABASE options, containment and attach forms stay as written
+-- CREATE DATABASE options (WITH and the parenthesized Azure form), containment and attach forms
 create database d collate latin1_general_100_ci_as_sc with catalog_collation = sql_latin1_general_cp1_ci_as, ledger = on
 
 create database d with trustworthy on, db_chaining on

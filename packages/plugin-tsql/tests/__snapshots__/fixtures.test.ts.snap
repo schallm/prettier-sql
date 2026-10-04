@@ -79,18 +79,32 @@ drop database Bookstore, BookstoreDev;
 `;
 
 exports[`fixtures > admin/backup-restore-forms.sql 1`] = `
-"-- BACKUP / RESTORE forms the formatter doesn't model stay as written
-backup database d file = 'f', filegroup = 'g' to disk = 'a' mirror to disk = 'c' with format;
+"-- BACKUP / RESTORE forms: FILE / FILEGROUP / PAGE lists, MIRROR TO, ENCRYPTION, DATABASE_SNAPSHOT, STOPATMARK
+backup database d
+  file = 'f', filegroup = 'g'
+  to disk = 'a'
+  mirror to disk = 'c'
+  with format;
 
-backup database d to disk = 'x' with encryption (algorithm = aes_256, server certificate = c);
+backup database d
+  to disk = 'x'
+  with encryption (algorithm = aes_256, server certificate = c);
 
-restore database d filegroup = 'g' from disk = 'x' with partial;
+restore database d
+  filegroup = 'g'
+  from disk = 'x'
+  with partial;
 
-restore database d page = '1:57' from disk = 'x';
+restore database d
+  page = '1:57'
+  from disk = 'x';
 
-restore database d from database_snapshot = 's';
+restore database d
+  from database_snapshot = 's';
 
-restore database d from disk = 'x' with stopatmark = 'm' after '2020-01-01';
+restore database d
+  from disk = 'x'
+  with stopatmark = 'm' after '2020-01-01';
 
 restore database d
   from disk = 'x'
@@ -110,6 +124,68 @@ backup database d
 
 restore database d
   from Dev1;
+"
+`;
+
+exports[`fixtures > admin/backup-restore-modeled-forms.sql 1`] = `
+"backup database d
+  file = 'f', filegroup = 'g'
+  to disk = 'a'
+  mirror to disk = 'c'
+  with format;
+
+backup database d
+  to disk = 'x'
+  with encryption (algorithm = aes_256, server certificate = c);
+
+backup database d
+  to disk = 'x'
+  mirror to disk = 'y',
+  disk = 'z'
+  mirror to url = 'u'
+  with init, stats = 10;
+
+backup database d
+  read_write_filegroups
+  to disk = 'x';
+
+backup log d
+  to Dev1
+  with
+    encryption (algorithm = triple_des_3key, server asymmetric key = k1),
+    compression;
+
+restore database d
+  filegroup = 'g'
+  from disk = 'x'
+  with partial;
+
+restore database d
+  page = '1:57'
+  from disk = 'x';
+
+restore database d
+  from database_snapshot = 's';
+
+restore database d
+  from disk = 'x'
+  with stopatmark = 'm' after '2020-01-01';
+
+restore database d
+  from disk = 'x'
+  with stopbeforemark = 'lsn:15000000040000037';
+
+restore database d
+  from disk = 'x'
+  with stopat = '2020-01-01';
+
+restore database d
+  from disk = 'x'
+  with filestream (directory_name = 'dn'), norecovery;
+
+restore log d
+  from disk = 'x'
+  with stopatmark = @mark;
 "
 `;
 
@@ -139,7 +215,7 @@ exports[`fixtures > admin/create-database-filegroups.sql 1`] = `
 "-- CREATE DATABASE with ON PRIMARY file spec — file group content must not be dropped
 create database TestDb
 on
-   primary (name = 'TestDb', filename = 'C:\\data\\TestDb.mdf', size = 100mb)
+  primary (name = 'TestDb', filename = 'C:\\data\\TestDb.mdf', size = 100mb)
 log on
   (name = 'TestDb_log', filename = 'C:\\data\\TestDb_log.ldf', size = 10mb)
 collate Latin1_General_CI_AS;
@@ -147,16 +223,165 @@ collate Latin1_General_CI_AS;
 `;
 
 exports[`fixtures > admin/create-database-options.sql 1`] = `
-"-- CREATE DATABASE options, containment and attach forms stay as written
-create database d collate latin1_general_100_ci_as_sc with catalog_collation = sql_latin1_general_cp1_ci_as, ledger = on;
+"-- CREATE DATABASE options (WITH and the parenthesized Azure form), containment and attach forms
+create database d
+collate latin1_general_100_ci_as_sc
+with catalog_collation = sql_latin1_general_cp1_ci_as, ledger = on;
 
-create database d with trustworthy on, db_chaining on;
+create database d
+with trustworthy on, db_chaining on;
 
 create database d containment = partial;
 
 create database d (edition = 'basic', service_objective = 'basic');
 
-create database s on (name = f1, filename = 'c:\\s1.ss') as snapshot of d;
+create database s
+on
+  (name = f1, filename = 'c:\\s1.ss')
+as snapshot of d;
+"
+`;
+
+exports[`fixtures > admin/create-database-with-options.sql 1`] = `
+"create database d
+with db_chaining on;
+
+create database d
+with db_chaining off;
+
+create database d
+with trustworthy on;
+
+create database d
+with default_language = us_english;
+
+create database d
+with default_language = 1033;
+
+create database d
+with default_fulltext_language = 1033;
+
+create database d
+with nested_triggers = on;
+
+create database d
+with nested_triggers = off;
+
+create database d
+with transform_noise_words = on;
+
+create database d
+with two_digit_year_cutoff = 2049;
+
+create database d
+with ledger = on;
+
+create database d
+with ledger = off;
+
+create database d
+with catalog_collation = database_default;
+
+create database d
+with catalog_collation = sql_latin1_general_cp1_ci_as;
+
+create database d
+with filestream (non_transacted_access = full, directory_name = 'dn');
+
+create database d
+with filestream (non_transacted_access = off);
+
+create database d
+with filestream (directory_name = 'dn');
+
+create database d
+on
+  (filename = 'x')
+for attach
+with enable_broker;
+
+create database d
+on
+  (filename = 'x')
+for attach
+with new_broker;
+
+create database d
+on
+  (filename = 'x')
+for attach
+with error_broker_conversations;
+
+create database d
+on
+  (filename = 'x')
+for attach
+with restricted_user;
+
+create database d
+on
+  (filename = 'x')
+for attach
+with db_chaining on, trustworthy on;
+
+create database d
+on
+  (filename = 'x')
+for attach_rebuild_log;
+
+create database d
+collate latin1_general_100_ci_as_sc
+with catalog_collation = sql_latin1_general_cp1_ci_as, ledger = on;
+
+create database d containment = partial;
+
+create database d
+on
+  primary (name = a, filename = 'x')
+for attach;
+
+create database d
+on
+  (filename = 'x')
+for attach_rebuild_log;
+
+create database d as snapshot of src;
+
+create database d
+on
+  (name = a, filename = 'x')
+as snapshot of src;
+
+create database d
+with
+  db_chaining on,
+  trustworthy off,
+  default_language = us_english,
+  nested_triggers = on,
+  two_digit_year_cutoff = 2049;
+
+create database d
+on
+  (name = a, filename = 'x')
+for attach
+with enable_broker;
+
+create database d
+with filestream (non_transacted_access = full, directory_name = 'dn');
+
+create database d containment = none
+on
+  primary (
+    name = a,
+    filename = 'x',
+    size = 10mb,
+    maxsize = unlimited,
+    filegrowth = 5%
+  )
+log on
+  (name = l, filename = 'y')
+collate latin1_general_ci_as
+with trustworthy on;
 "
 `;
 
@@ -215,17 +440,109 @@ go 3
 "
 `;
 
+exports[`fixtures > admin/long-backup-restore-create-database.sql 1`] = `
+"backup database SalesDatabase
+  file = 'SalesData1', file = 'SalesData2', filegroup = 'SalesFileGroup'
+  to disk = 'D:\\backups\\SalesDatabase_full_20240101.bak',
+  disk = 'E:\\backups\\SalesDatabase_full_20240101.bak'
+  mirror to disk = 'F:\\mirror\\SalesDatabase_full_20240101.bak',
+  disk = 'G:\\mirror\\SalesDatabase_full_20240101.bak'
+  with
+    format,
+    init,
+    compression,
+    checksum,
+    stats = 10,
+    encryption (
+      algorithm = aes_256,
+      server certificate = BackupEncryptionCertificate
+    );
+
+backup log SalesDatabase
+  to disk = 'D:\\backups\\SalesDatabase_log.trn'
+  with
+    noinit,
+    compression,
+    encryption (algorithm = aes_256, server asymmetric key = BackupKey);
+
+restore database SalesDatabase
+  filegroup = 'SalesFileGroup', page = '1:57'
+  from disk = 'D:\\backups\\SalesDatabase_full_20240101.bak'
+  with
+    norecovery,
+    move 'SalesData' to 'D:\\data\\SalesData.mdf',
+    move 'SalesLog' to 'E:\\log\\SalesLog.ldf',
+    stats = 5,
+    partial;
+
+restore log SalesDatabase
+  from disk = 'D:\\backups\\SalesDatabase_log.trn'
+  with stopatmark = 'MarkedTransaction' after '2024-01-01T12:00:00', norecovery;
+
+restore database SalesDatabase
+  from disk = 'D:\\backups\\SalesDatabase_full.bak'
+  with
+    filestream (directory_name = 'SalesFileStreamDirectory'),
+    recovery,
+    replace;
+
+restore database SalesDatabase
+  from database_snapshot = 'SalesDatabaseSnapshot20240101';
+
+create database SalesDatabase containment = partial
+on
+  primary (
+    name = SalesData,
+    filename = 'D:\\data\\SalesData.mdf',
+    size = 100mb,
+    maxsize = unlimited,
+    filegrowth = 10%
+  ),
+  filegroup SalesFileGroup
+    (name = SalesData2, filename = 'D:\\data\\SalesData2.ndf')
+log on
+  (name = SalesLog, filename = 'E:\\log\\SalesLog.ldf', size = 50mb)
+collate latin1_general_100_ci_as_sc
+with
+  catalog_collation = sql_latin1_general_cp1_ci_as,
+  ledger = on,
+  trustworthy off,
+  db_chaining on,
+  nested_triggers = on,
+  default_language = us_english;
+
+create database SalesDatabaseSnapshot
+on
+  (name = SalesData, filename = 'D:\\data\\SalesData.ss'),
+  (name = SalesData2, filename = 'D:\\data\\SalesData2.ss')
+as snapshot of SalesDatabase;
+
+create database RestoredDatabase
+on
+  (filename = 'D:\\data\\SalesData.mdf'),
+  (filename = 'E:\\log\\SalesLog.ldf')
+for attach
+with enable_broker;
+
+create database d (
+  edition = 'basic',
+  service_objective = 'basic',
+  maxsize = 2 gb
+);
+"
+`;
+
 exports[`fixtures > admin/raw-statement-before-end-conversation.sql 1`] = `
 "-- A statement kept as written must stop before END CONVERSATION, not swallow its keywords
-create database d with ledger = on;
+create external language l from (content = 'x', file_name = 'y', platform = windows);
 
 end conversation @h;
 
-backup database d to disk = 'x' with encryption (algorithm = aes_256, server certificate = c);
+create external language m from (content = 'a', file_name = 'b', platform = linux);
 
 end conversation @h with cleanup;
 
-create database e collate latin1_general_100_ci_as_sc with catalog_collation = sql_latin1_general_cp1_ci_as;
+create external library lib from (content = 0x01) with (language = 'R');
 
 end conversation @h with error = 50001 description = 'failed';
 "
@@ -233,7 +550,7 @@ end conversation @h with error = 50001 description = 'failed';
 
 exports[`fixtures > admin/raw-statement-comments.sql 1`] = `
 "/* lead */
-create database d containment = partial /* inside */;
+create external language l from (content = 'x', file_name = 'y', platform = windows) /* inside */;
 
 backup database d
   to disk = 'x.bak'; -- trailing

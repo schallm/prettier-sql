@@ -1,4 +1,4 @@
--- BACKUP / RESTORE forms the formatter doesn't model stay as written
+-- BACKUP / RESTORE forms: FILE / FILEGROUP / PAGE lists, MIRROR TO, ENCRYPTION, DATABASE_SNAPSHOT, STOPATMARK
 backup database d file = 'f', filegroup = 'g' to disk = 'a' mirror to disk = 'c' with format
 
 backup database d to disk = 'x' with encryption (algorithm = aes_256, server certificate = c)

@@ -1,4 +1,4 @@
-/* lead */ create database d containment = partial /* inside */;
+/* lead */ create external language l from (content = 'x', file_name = 'y', platform = windows) /* inside */;
 backup database d to disk = 'x.bak' -- trailing
 go
 select 1

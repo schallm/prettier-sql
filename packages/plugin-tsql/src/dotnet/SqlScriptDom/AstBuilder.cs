@@ -3418,6 +3418,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             DeviceType.Tape => "TAPE",
             DeviceType.Url => "URL",
             DeviceType.VirtualDevice => "VIRTUAL_DEVICE",
+            DeviceType.DatabaseSnapshot => "DATABASE_SNAPSHOT",
             _ => "DISK",
         };
         return $"{typeSql} = {(d.PhysicalDevice != null ? RawText(d.PhysicalDevice) : "")}";
@@ -3448,15 +3449,51 @@ public class AstBuilder : TSqlFragmentVisitor {
         return $"{name} = {rawVal}";
     }
 
+    // FILE = f, FILEGROUP = g, READ_WRITE_FILEGROUPS, PAGE = 'p' of BACKUP / RESTORE
+    private static string BackupRestoreFileText(BackupRestoreFileInfo f) {
+        var kind = f.ItemKind.ToString() switch {
+            "Files" => "FILE",
+            "FileGroups" => "FILEGROUP",
+            "Page" => "PAGE",
+            // READ_WRITE_FILEGROUPS, READ_ONLY_FILEGROUPS: one word in SQL, two in the enum
+            var other => System.Text.RegularExpressions.Regex
+                         .Replace(other, "(?<=[a-z])(?=[A-Z])", "_").ToUpperInvariant().Replace("FILE_GROUPS", "FILEGROUPS"),
+        };
+        return f.Items.Count == 0 ? kind : $"{kind} = {string.Join(", ", f.Items.Select(i => RawText(i).Trim()))}";
+    }
+
+    // ENCRYPTION (ALGORITHM = AES_256, SERVER CERTIFICATE = c)
+    private static string BackupEncryptionText(BackupEncryptionOption o) {
+        var algorithm = o.Algorithm.ToString() switch {
+            "Aes128" => "AES_128",
+            "Aes192" => "AES_192",
+            "Aes256" => "AES_256",
+            "TripleDes3Key" => "TRIPLE_DES_3KEY",
+            var other => other.ToUpperInvariant(),
+        };
+        return $"ENCRYPTION (ALGORITHM = {algorithm}, {BackupEncryptorKind(o)} = {QuotedName(o.Encryptor.Identifier)})";
+    }
+
+    // SERVER CERTIFICATE / SERVER ASYMMETRIC KEY; null for an encryptor that isn't modelled
+    private static string? BackupEncryptorKind(BackupEncryptionOption o) =>
+        o.Encryptor?.Identifier == null ? null
+        : o.Encryptor.CryptoMechanismType == CryptoMechanismType.Certificate ? "SERVER CERTIFICATE"
+        : o.Encryptor.CryptoMechanismType == CryptoMechanismType.AsymmetricKey ? "SERVER ASYMMETRIC KEY"
+        : null;
+
     private static SqlNode BuildBackupStatement(string type, BackupStatement stmt) {
-        // FILE / FILEGROUP lists, MIRROR TO and ENCRYPTION (...) are not modelled: keep the statement as written
-        if ((stmt is BackupDatabaseStatement { Files.Count: > 0 }) || stmt.MirrorToClauses.Count > 0
-            || stmt.Options.Any(o => o is BackupEncryptionOption))
+        // An encryptor other than a server certificate or asymmetric key stays as written
+        if (stmt.Options.Any(o => o is BackupEncryptionOption enc && BackupEncryptorKind(enc) == null))
             return LeafStatement(stmt);
+        var files = (stmt as BackupDatabaseStatement)?.Files;
         return Node(type, stmt, new Dictionary<string, object?> {
             ["database"] = RawTextOrNull(stmt.DatabaseName),
+            ["files"] = files?.Count > 0 ? MapList(files, f => (object?)BackupRestoreFileText(f)) : null,
             ["devices"] = MapList(stmt.Devices, d => (object?)BuildDeviceInfoText(d)),
-            ["options"] = MapList(stmt.Options, o => (object?)BackupOptionText(o)),
+            ["mirrorTo"] = stmt.MirrorToClauses.Count > 0
+                ? MapList(stmt.MirrorToClauses, m => (object?)m.Devices.Select(BuildDeviceInfoText).ToList())
+                : null,
+            ["options"] = MapList(stmt.Options, o => (object?)(o is BackupEncryptionOption enc ? BackupEncryptionText(enc) : BackupOptionText(o))),
         });
     }
 
@@ -3491,18 +3528,25 @@ public class AstBuilder : TSqlFragmentVisitor {
             return $"MOVE {RawText(move.LogicalFileName)} TO {RawText(move.OSFileName)}";
         if (o is ScalarExpressionRestoreOption sro && sro.Value != null)
             return $"{sro.OptionKind.ToString().ToUpperInvariant()} = {RawText(sro.Value).Trim()}";
+        // STOPATMARK = 'mark' [AFTER 'datetime'] / STOPBEFOREMARK = ...
+        if (o is StopRestoreOption stop) {
+            var after = stop.After != null ? $" AFTER {RawText(stop.After).Trim()}" : "";
+            return $"{(stop.IsStopAt ? "STOPATMARK" : "STOPBEFOREMARK")} = {RawText(stop.Mark).Trim()}{after}";
+        }
+        // FILESTREAM (DIRECTORY_NAME = 'dir')
+        if (o is FileStreamRestoreOption fso && fso.FileStreamOption?.DirectoryName != null)
+            return $"FILESTREAM (DIRECTORY_NAME = {RawText(fso.FileStreamOption.DirectoryName).Trim()})";
         return RawText(o).Trim();
     }
 
     private static SqlNode BuildRestore(RestoreStatement stmt) {
-        // FILE / FILEGROUP / PAGE lists, FROM DATABASE_SNAPSHOT, STOPAT / STOPATMARK and FILESTREAM options
-        // are not modelled: keep the statement as written
-        if (stmt.Files.Count > 0 || stmt.Devices.Any(d => d.DeviceType.ToString() == "DatabaseSnapshot")
-            || stmt.Options.Any(o => o is StopRestoreOption or FileStreamRestoreOption))
+        // A FILESTREAM option with anything but a directory name stays as written
+        if (stmt.Options.Any(o => o is FileStreamRestoreOption { FileStreamOption.DirectoryName: null }))
             return LeafStatement(stmt);
         return Node("RestoreStatement", stmt, new Dictionary<string, object?> {
             ["kind"] = RestoreKindToSql(stmt.Kind),
             ["database"] = RawTextOrNull(stmt.DatabaseName),
+            ["files"] = stmt.Files.Count > 0 ? MapList(stmt.Files, f => (object?)BackupRestoreFileText(f)) : null,
             ["devices"] = MapList(stmt.Devices, d => (object?)BuildDeviceInfoText(d)),
             ["options"] = MapList(stmt.Options, o => (object?)RestoreOptionText(o)),
         });
@@ -3510,7 +3554,8 @@ public class AstBuilder : TSqlFragmentVisitor {
 
     // FileGroupDefinition.StartOffset is unreliable — reconstruct from structured properties.
     private static string BuildFileGroupText(FileGroupDefinition fg) {
-        var name = QuotedName(fg.Name) ?? "";
+        // A named filegroup is FILEGROUP name ...; PRIMARY and an unnamed list come with the files' own text
+        var name = fg.Name == null ? "" : "FILEGROUP " + QuotedName(fg.Name);
         var suffix = new StringBuilder();
         if (fg.IsDefault) suffix.Append(" DEFAULT");
         if (fg.ContainsFileStream) suffix.Append(" CONTAINS FILESTREAM");
@@ -3520,17 +3565,24 @@ public class AstBuilder : TSqlFragmentVisitor {
             .Where(s => !string.IsNullOrEmpty(s))
             .ToList();
         var fileStr = fileParts?.Count > 0 ? " " + string.Join(", ", fileParts) : "";
-        return name + suffix + fileStr;
+        return (name + suffix + fileStr).Trim();
     }
 
     private static SqlNode BuildCreateDatabase(CreateDatabaseStatement stmt) {
-        // WITH / (...) options, CONTAINMENT, FOR ATTACH, and AS SNAPSHOT/COPY OF with files
-        // stay as written: the options' fragments don't carry their keywords or separators
-        if (stmt.Options.Count > 0 || stmt.Containment != null || stmt.AttachMode != AttachMode.None
-            || ((stmt.DatabaseSnapshot != null || stmt.CopyOf != null) && stmt.FileGroups.Count > 0))
+        // FOR ATTACH_FORCE_REBUILD_LOG and the like have no keyword form here: keep the statement as written
+        if (stmt.AttachMode is not (AttachMode.None or AttachMode.Attach or AttachMode.AttachRebuildLog))
             return LeafStatement(stmt);
         return Node("CreateDatabaseStatement", stmt, new Dictionary<string, object?> {
             ["name"] = QuotedName(stmt.DatabaseName),
+            ["containment"] = stmt.Containment == null ? null : stmt.Containment.Value.ToString().ToUpperInvariant(),
+            ["attach"] = stmt.AttachMode switch {
+                AttachMode.Attach => "ATTACH",
+                AttachMode.AttachRebuildLog => "ATTACH_REBUILD_LOG",
+                _ => null,
+            },
+            ["options"] = MapList(stmt.Options, o => (object?)DatabaseOptionText(stmt, o)),
+            // Azure's CREATE DATABASE d (EDITION = 'basic', ...) writes the options in parentheses, without WITH
+            ["optionsParen"] = stmt.Options.Count > 0 && PreviousSignificantToken(stmt, stmt.Options[0].StartOffset)?.TokenType == TSqlTokenType.LeftParenthesis ? (object?)true : null,
             ["collation"] = stmt.Collation?.Value,
             ["snapshot"] = QuotedName(stmt.DatabaseSnapshot),
             ["copyOf"] = RawTextOrNull(stmt.CopyOf),
@@ -3550,13 +3602,27 @@ public class AstBuilder : TSqlFragmentVisitor {
     /// (AUTOMATIC_INDEX_COMPACTION = ON, TARGET_RECOVERY_TIME = 60 SECONDS) or not (AUTO_CLOSE ON,
     /// RECOVERY FULL) is read from the token just before the option's fragment.
     /// </summary>
-    private static string DatabaseOptionText(AlterDatabaseStatement stmt, DatabaseOption o) {
+    private static TSqlParserToken? PreviousSignificantToken(TSqlStatement stmt, int offset) =>
+        stmt.ScriptTokenStream?
+            .Where(t => t.Offset < offset && t.TokenType is not (TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment))
+            .OrderByDescending(t => t.Offset)
+            .FirstOrDefault();
+
+    private static string DatabaseOptionText(TSqlStatement stmt, DatabaseOption o) {
         var name = DatabaseOptionKindToSql(o.OptionKind);
         var sep = " ";
         var stream = stmt.ScriptTokenStream;
         if (stream != null) {
+            bool Significant(TSqlParserToken t) => t.TokenType is not (TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment);
+            // In ALTER DATABASE the fragment starts after the option's name, so an `=` is the token before it;
+            // in CREATE DATABASE it starts at the name, so an `=` is the second token in it (and the name's
+            // own spelling, DB_CHAINING where the enum gives DBCHAINING, is the first)
+            var inside = stream.Where(t => t.Offset >= o.StartOffset && t.Offset < o.StartOffset + o.FragmentLength && Significant(t)).ToList();
+            if (inside.Count >= 2 && inside[1].TokenType == TSqlTokenType.EqualsSign) sep = " = ";
+            if (inside.Count >= 1 && inside[0].Text.Replace("_", "").Equals(name.Replace("_", ""), StringComparison.OrdinalIgnoreCase))
+                name = inside[0].Text.ToUpperInvariant();
             var prev = stream
-                .Where(t => t.Offset < o.StartOffset && t.TokenType is not (TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment))
+                .Where(t => t.Offset < o.StartOffset && Significant(t))
                 .OrderByDescending(t => t.Offset)
                 .FirstOrDefault();
             if (prev?.TokenType == TSqlTokenType.EqualsSign) sep = " = ";

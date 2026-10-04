@@ -1,9 +1,9 @@
 -- A statement kept as written must stop before END CONVERSATION, not swallow its keywords
-create database d with ledger = on;
+create external language l from (content = 'x', file_name = 'y', platform = windows);
 end conversation @h;
 
-backup database d to disk = 'x' with encryption (algorithm = aes_256, server certificate = c);
+create external language m from (content = 'a', file_name = 'b', platform = linux);
 end conversation @h with cleanup;
 
-create database e collate latin1_general_100_ci_as_sc with catalog_collation = sql_latin1_general_cp1_ci_as;
+create external library lib from (content = 0x01) with (language = 'R');
 end conversation @h with error = 50001 description = 'failed';

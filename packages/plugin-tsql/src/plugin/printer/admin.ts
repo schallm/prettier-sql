@@ -54,9 +54,34 @@ const MOVE_OPT_RE = /^(MOVE)\s+(.*?)\s+(TO)\s+(.+)$/i;
 // "STATS = 10", or "MOVE N'...' TO N'...'". Only the keyword portions are cased;
 // string literals and numeric values are emitted verbatim.
 function kwOpt(opt: string, opts: Options): Doc {
+    // ENCRYPTION (ALGORITHM = AES_256, SERVER CERTIFICATE = name): the key name keeps its case
+    const enc = /^ENCRYPTION \(ALGORITHM = (\w+), (SERVER CERTIFICATE|SERVER ASYMMETRIC KEY) = (.+)\)$/.exec(opt);
+    if (enc) {
+        return [
+            keyword('ENCRYPTION', opts), ' ',
+            group([
+                '(',
+                indent([
+                    softline, keyword('ALGORITHM', opts), ' = ', keyword(enc[1]!, opts), ',', line,
+                    keyword(enc[2]!, opts), ' = ', enc[3]!,
+                ]),
+                softline, ')',
+            ]),
+        ];
+    }
+    // STOPATMARK = 'mark' [AFTER 'datetime'] / STOPBEFOREMARK = ...
+    const stop = /^(STOPATMARK|STOPBEFOREMARK) = ((?:N?'(?:[^']|'')*'|[^ ]+))(?: AFTER (.+))?$/.exec(opt);
+    if (stop) {
+        return [keyword(stop[1]!, opts), ' = ', stop[2]!, stop[3] ? [' ', keyword('AFTER', opts), ' ', stop[3]] : ''];
+    }
+    // FILESTREAM (DIRECTORY_NAME = 'dir')
+    const fileStream = /^FILESTREAM \(DIRECTORY_NAME = (.+)\)$/.exec(opt);
+    if (fileStream) return [keyword('FILESTREAM', opts), ' (', keyword('DIRECTORY_NAME', opts), ' = ', fileStream[1]!, ')'];
     const eqIdx = opt.indexOf(' = ');
     if (eqIdx >= 0) {
-        return [keyword(opt.slice(0, eqIdx), opts), ' = ', opt.slice(eqIdx + 3)];
+        const value = opt.slice(eqIdx + 3);
+        // ON / OFF are keywords; any other value is kept as written
+        return [keyword(opt.slice(0, eqIdx), opts), ' = ', /^(ON|OFF)$/i.test(value) ? keyword(value, opts) : value];
     }
     // MOVE N'logical' TO N'physical' — keyword MOVE and TO, literals verbatim
     const moveMatch = opt.match(MOVE_OPT_RE);
@@ -81,7 +106,11 @@ function printBackupBase(verb: Doc, node: SqlNode, opts: Options): Doc {
     const database = propStr(node, 'database') ?? '';
     const devices = node.props?.['devices'] as string[] | undefined;
     const options = node.props?.['options'] as string[] | undefined;
-    const mirrorTo = node.props?.['mirrorTo'] as string[] | undefined;
+    const mirrorTo = node.props?.['mirrorTo'] as string[][] | undefined;
+    const files = node.props?.['files'] as string[] | undefined;
+
+    // FILE = f, FILEGROUP = g, ...: between the database and TO
+    const filesPart: Doc = files?.length ? [hardline, join(', ', files.map((f) => kwOpt(f, opts)))] : '';
 
     const toPart: Doc = devices?.length
         ? [
@@ -96,7 +125,7 @@ function printBackupBase(verb: Doc, node: SqlNode, opts: Options): Doc {
         : '';
 
     const mirrorParts: Doc[] =
-        mirrorTo?.map((m) => [hardline, keyword('MIRROR TO', opts), ' ', kwOpt(m, opts)] as Doc) ?? [];
+        mirrorTo?.map((m) => [hardline, keyword('MIRROR TO', opts), ' ', join([',', hardline], m.map((d) => deviceDoc(d, opts)))] as Doc) ?? [];
 
     const withPart: Doc = options?.length
         ? [
@@ -114,7 +143,7 @@ function printBackupBase(verb: Doc, node: SqlNode, opts: Options): Doc {
           ]
         : '';
 
-    return group([verb, ' ', database, indent([toPart, ...mirrorParts, withPart]), ';']);
+    return group([verb, ' ', database, indent([filesPart, toPart, ...mirrorParts, withPart]), ';']);
 }
 
 export function printBackupDatabase(node: SqlNode, opts: Options): Doc {
@@ -136,6 +165,8 @@ export function printRestore(node: SqlNode, opts: Options): Doc {
     const options = node.props?.['options'] as string[] | undefined;
 
     const dbPart: Doc = database ? [' ', database] : '';
+    const files = node.props?.['files'] as string[] | undefined;
+    const filesPart: Doc = files?.length ? [hardline, join(', ', files.map((f) => kwOpt(f, opts)))] : '';
 
     const fromPart: Doc = devices?.length
         ? [
@@ -165,43 +196,98 @@ export function printRestore(node: SqlNode, opts: Options): Doc {
           ]
         : '';
 
-    return group([keyword('RESTORE', opts), ' ', keyword(kind, opts), dbPart, indent([fromPart, withPart]), ';']);
+    return group([keyword('RESTORE', opts), ' ', keyword(kind, opts), dbPart, indent([filesPart, fromPart, withPart]), ';']);
 }
 
 // ---------------------------------------------------------------------------
 // CREATE DATABASE
 // ---------------------------------------------------------------------------
 
+/** Splits `text` at the commas that aren't inside quotes or parentheses. */
+function splitTopLevel(text: string): string[] {
+    const out: string[] = [];
+    let depth = 0;
+    let quote = false;
+    let start = 0;
+    for (let i = 0; i < text.length; i++) {
+        const c = text[i]!;
+        if (c === "'") quote = !quote;
+        else if (!quote && c === '(') depth++;
+        else if (!quote && c === ')') depth--;
+        else if (!quote && depth === 0 && c === ',') {
+            out.push(text.slice(start, i).trim());
+            start = i + 1;
+        }
+    }
+    out.push(text.slice(start).trim());
+    return out.filter((s) => s !== '');
+}
+
+/** One file spec, `(NAME = a, FILENAME = 'x', SIZE = 10MB)`: inline when it fits, one option per line when not. */
+function fileSpecDoc(spec: string, opts: Options): Doc {
+    const m = /^\((.*)\)$/s.exec(spec);
+    if (!m) return spec;
+    const options = splitTopLevel(m[1]!).map((o) => kwOpt(o, opts));
+    return group(['(', indent([softline, join([',', line], options)]), softline, ')']);
+}
+
+/**
+ * The items of a CREATE DATABASE ON list. A named filegroup (`FILEGROUP fg [DEFAULT] (spec), (spec)`) is one
+ * item with its specs on indented lines; `PRIMARY (spec)` and a bare `(spec)` are items of their own.
+ */
+function fileGroupItems(text: string, opts: Options): Doc[] {
+    const open = text.indexOf('(');
+    if (open < 0) return [text];
+    const head = text.slice(0, open).trim();
+    const specs = splitTopLevel(text.slice(open));
+    if (/^FILEGROUP\b/i.test(head)) {
+        const [kw, ...rest] = head.split(/\s+/);
+        const headDoc: Doc = [keyword(kw!, opts), ' ', rest[0] ?? '', ...rest.slice(1).map((w): Doc => [' ', keyword(w, opts)])];
+        return [[headDoc, indent([hardline, join([',', hardline], specs.map((s) => fileSpecDoc(s, opts)))])]];
+    }
+    return specs.map((s, i): Doc => [i === 0 && head ? [keyword(head, opts), ' '] : '', fileSpecDoc(s, opts)]);
+}
+
 export function printCreateDatabase(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name') ?? '';
+    const containment = propStr(node, 'containment');
     const collation = propStr(node, 'collation');
     const snapshot = propStr(node, 'snapshot');
     const copyOf = propStr(node, 'copyOf');
+    const attach = propStr(node, 'attach');
     const fileGroups = node.props?.['fileGroups'] as string[] | undefined;
     const logOn = node.props?.['logOn'] as string[] | undefined;
     const options = node.props?.['options'] as string[] | undefined;
+    const optionsParen = node.props?.['optionsParen'] === true;
 
+    // CREATE DATABASE name [CONTAINMENT = x] [ON files [LOG ON files]] [COLLATE c]
+    //   [FOR ATTACH | AS SNAPSHOT OF s | AS COPY OF d] [WITH options]
     const parts: Doc[] = [keyword('CREATE DATABASE', opts), ' ', name];
 
-    if (snapshot) parts.push(' ', keyword('AS SNAPSHOT OF', opts), ' ', snapshot);
-    if (copyOf) parts.push(' ', keyword('AS COPY OF', opts), ' ', copyOf);
+    if (containment) parts.push(' ', keyword('CONTAINMENT', opts), ' = ', keyword(containment, opts));
     if (fileGroups?.length) {
         parts.push(hardline, keyword('ON', opts));
-        parts.push(indent([hardline, join([',', hardline], fileGroups)]));
+        parts.push(indent([hardline, join([',', hardline], fileGroups.flatMap((g) => fileGroupItems(g, opts)))]));
     }
     if (logOn?.length) {
         parts.push(hardline, keyword('LOG ON', opts));
-        parts.push(indent([hardline, join([',', hardline], logOn)]));
+        parts.push(indent([hardline, join([',', hardline], logOn.flatMap((g) => fileGroupItems(g, opts)))]));
     }
     if (collation) parts.push(hardline, keyword('COLLATE', opts), ' ', collation);
-    if (options?.length)
+    if (attach) parts.push(hardline, keyword(`FOR ${attach}`, opts));
+    // AS SNAPSHOT OF / AS COPY OF stay on the name's line unless files precede them
+    const asSep: Doc = fileGroups?.length ? hardline : ' ';
+    if (snapshot) parts.push(asSep, keyword('AS SNAPSHOT OF', opts), ' ', snapshot);
+    if (copyOf) parts.push(asSep, keyword('AS COPY OF', opts), ' ', copyOf);
+    if (options?.length) {
+        // WITH opt, opt (or, for Azure, (opt, opt)): on the line below when it fits, otherwise one option per line
+        const optionDocs = options.map((o) => kwOpt(o, opts));
         parts.push(
-            hardline,
-            join(
-                [',', hardline],
-                options.map((o) => kwOpt(o, opts)),
-            ),
+            optionsParen
+                ? [' ', group(['(', indent([softline, join([',', line], optionDocs)]), softline, ')'])]
+                : [hardline, group([keyword('WITH', opts), indent([line, join([',', line], optionDocs)])])],
         );
+    }
 
     parts.push(';');
     return group(parts);
