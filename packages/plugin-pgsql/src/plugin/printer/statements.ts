@@ -316,7 +316,8 @@ function printSelectBody(node: SqlNode, opts: Options): Doc {
           ? [makeKeyword('SELECT'), ' ', makeKeyword('DISTINCT')]
           : makeKeyword('SELECT');
     const density = getDensity(opts);
-    const selectInline = density !== 'spacious' && targets.length === 1;
+    // A CASE spans lines, so it starts on a line of its own even as the only column
+    const selectInline = density !== 'spacious' && targets.length === 1 && !(density === 'standard' && prop(targets[0]!, 'val')?.type === 'CaseExpr');
     const targetDocs = targets.map(printNode);
     const targetDoc: Doc = selectInline
         ? targetDocs[0]!

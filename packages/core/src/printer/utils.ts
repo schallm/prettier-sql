@@ -168,7 +168,7 @@ export function hasLine(doc: Doc): boolean {
 /**
  * The `(a, b, c)` of a call or list: inline when it fits, otherwise one item per line
  * between the parentheses (compact density, or `packed`, fills several per line).
- * A single item keeps the parentheses hugging it, so `sum(case ... end)` stays as it is.
+ * A single item that doesn't fit, or spans lines (`sum(case ... end)`), goes on a line of its own.
  * An item that spans lines (a CASE, a subquery) makes the list break, one item per line.
  */
 export function parenItems(items: Doc[], opts: Options, packed = false): Doc {
@@ -187,7 +187,8 @@ export function optionItems(items: Doc[], opts: Options): Doc {
 
 /** parenItems with other delimiters, such as the `[` `]` of an ARRAY. */
 export function bracketItems(open: string, close: string, items: Doc[], opts: Options, packed = false): Doc {
-    if (items.length < 2) return [open, join(', ', items), close];
+    if (items.length === 0) return [open, close];
+    if (items.length === 1) return group([open, indent([softline, items[0]!]), softline, close]);
     // Items that span lines can't be packed several to a line
     const inner = (packed || getDensity(opts) === 'compact') && !items.some(hasHardline) ? commaFill(items) : joinItems(items);
     return group([open, indent([softline, inner]), softline, close]);

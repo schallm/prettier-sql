@@ -5017,10 +5017,12 @@ select
 from t as a;
 
 select
-  sum(case
-    when a = 1 then 1
-    else 0
-  end),
+  sum(
+    case
+      when a = 1 then 1
+      else 0
+    end
+  ),
   now(),
   count(*)
 from t;
@@ -5028,34 +5030,39 @@ from t;
 `;
 
 exports[`fixtures > select/long-case-arms.sql 1`] = `
-"select case a.very_long_column_name_one
-  when 1 then 'a very long string result here that goes on and on'
-  when 2 then 'another very long string result for two'
-  else 'a fallback result that is also quite long indeed'
-end as c
+"select
+  case a.very_long_column_name_one
+    when 1 then 'a very long string result here that goes on and on'
+    when 2 then 'another very long string result for two'
+    else 'a fallback result that is also quite long indeed'
+  end as c
 from t as a;
 
-select case
-  when a.x = 1 then 'short'
-  when a.very_long_column_name_one = 2
-    then 'a very long string result that does not fit on the line'
-  else 'z'
-end as c
+select
+  case
+    when a.x = 1 then 'short'
+    when a.very_long_column_name_one = 2
+      then 'a very long string result that does not fit on the line'
+    else 'z'
+  end as c
 from t as a;
 
-select case
-  when a.x = 1 then 'one'
-  else 'other'
-end as c
+select
+  case
+    when a.x = 1 then 'one'
+    else 'other'
+  end as c
 from t as a;
 
-select case
-  when a.x = 1 then case
-    when a.y = 2 then 'nested one'
-    else 'nested other'
-  end
-  else 'outer'
-end as c
+select
+  case
+    when a.x = 1 then
+      case
+        when a.y = 2 then 'nested one'
+        else 'nested other'
+      end
+    else 'outer'
+  end as c
 from t as a;
 "
 `;
@@ -5335,9 +5342,13 @@ from
   t
   inner join u on (t.a = u.a or t.b = u.b) and t.c = 1;
 
-select case
-  when (a or b) and c then 1
-end
+select
+  case
+    when
+      (a or b)
+      and c
+    then 1
+  end
 from t;
 
 select count(*) filter (where (a or b) and c)
@@ -5860,10 +5871,12 @@ where a.status in (
 
 select
   a.id,
-  sum(case
-    when a.x = 1 then a.very_long_column_name_one
-    else a.very_long_column_name_two
-  end) as total
+  sum(
+    case
+      when a.x = 1 then a.very_long_column_name_one
+      else a.very_long_column_name_two
+    end
+  ) as total
 from t as a
 group by a.id;
 

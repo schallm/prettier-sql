@@ -18,6 +18,37 @@ export function caseArm(head: Doc, tail: Doc): Doc {
     return group([head, indent([line, tail])]);
 }
 
+/** A CASE's result: `nested` when it is itself a CASE, which starts on a line of its own. */
+export interface CaseResult {
+    doc: Doc;
+    nested: boolean;
+}
+
+/** One `WHEN cond THEN result`; `boolChain` when cond is an AND/OR of several predicates. */
+export interface CaseWhen {
+    when: Doc;
+    then: CaseResult;
+    boolChain: boolean;
+}
+
+/**
+ * `CASE [input] WHEN … THEN … ELSE … END`, each arm on its own indented line. In a searched
+ * CASE (no input), an AND/OR condition — or any condition in spacious density — goes on
+ * indented lines of its own under WHEN, with THEN on the line after it. A nested CASE as a
+ * result starts on an indented line after THEN / ELSE.
+ */
+export function caseDoc(input: Doc | null, whens: CaseWhen[], elseResult: CaseResult | null, opts: Options): Doc {
+    const kw = (k: string): Doc => keyword(k, opts);
+    const result = (head: Doc, r: CaseResult): Doc => (r.nested ? [head, indent([hardline, r.doc])] : [head, ' ', r.doc]);
+    const breakWhen = input === null && getDensity(opts) === 'spacious';
+    const arms = whens.map((w): Doc => {
+        if (input === null && (w.boolChain || breakWhen)) return [kw('WHEN'), indent([hardline, w.when]), hardline, result(kw('THEN'), w.then)];
+        return w.then.nested ? [kw('WHEN'), ' ', w.when, ' ', result(kw('THEN'), w.then)] : caseArm([kw('WHEN'), ' ', w.when], [kw('THEN'), ' ', w.then.doc]);
+    });
+    const elseArm: Doc = !elseResult ? '' : elseResult.nested ? [hardline, result(kw('ELSE'), elseResult)] : [hardline, caseArm(kw('ELSE'), elseResult.doc)];
+    return group([kw('CASE'), input ? [' ', input] : '', indent([...arms.map((a): Doc => [hardline, a]), elseArm]), hardline, kw('END')]);
+}
+
 /**
  * `head low AND high`: on one line when it fits; otherwise the AND bound goes on an indented
  * line of its own; and when even `head low` doesn't fit, the bounds each go on an indented line.

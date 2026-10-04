@@ -2,7 +2,7 @@ import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options, PrintFn } from '@prettier-sql/core/printer/utils';
 import { keyword, join, indent, hardline, softline, group, line, getDensity, aliasDoc, parenList, parenItems, optionItems, bracketItems, willBreak, hasHardline, hasLine } from '@prettier-sql/core/printer/utils';
-import { caseArm, betweenDoc, operatorChain } from '@prettier-sql/core/printer/layout';
+import { caseDoc, betweenDoc, operatorChain, type CaseResult } from '@prettier-sql/core/printer/layout';
 import { printStatement, printQueryExpr } from './statements.js';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, onlyPrefix, printFdwOptions } from './helpers.js';
 
@@ -595,25 +595,22 @@ function printSubLink(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 }
 
 function printCaseExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const makeKeyword = (kw: string) => keyword(kw, opts);
     const arg = prop(node, 'arg');
-    const whens = propArr(node, 'whens');
     const else_ = prop(node, 'else');
-
-    const whenDocs = whens.map((w) => {
+    const result = (expr: SqlNode | null): CaseResult => ({ doc: expr ? printNode(expr) : '', nested: expr?.type === 'CaseExpr' });
+    const whens = propArr(node, 'whens').map((w) => {
         const cond = prop(w, 'condition');
-        const result = prop(w, 'result');
-        return caseArm([makeKeyword('WHEN'), ' ', cond ? printNode(cond) : ''], [makeKeyword('THEN'), ' ', result ? printNode(result) : '']);
+        // An AND/OR condition of a searched CASE goes on lines of its own, one predicate to a line
+        const boolChain = !arg && isBoolChain(cond);
+        const when = !cond ? '' : boolChain && getDensity(opts) !== 'compact' ? printBoolFlat(cond, opts, printNode) : printNode(cond);
+        return { when, then: result(prop(w, 'result')), boolChain };
     });
+    return caseDoc(arg ? printNode(arg) : null, whens, else_ ? result(else_) : null, opts);
+}
 
-    return [
-        makeKeyword('CASE'), arg ? [' ', printNode(arg)] : '',
-        indent([
-            hardline, join(hardline, whenDocs),
-            else_ ? [hardline, caseArm(makeKeyword('ELSE'), printNode(else_))] : '',
-        ]),
-        hardline, makeKeyword('END'),
-    ];
+/** True for an AND / OR of several predicates. */
+export function isBoolChain(node: SqlNode | null): boolean {
+    return node?.type === 'BoolExpr' && propStr(node, 'op') !== 'NOT';
 }
 
 function printNullTest(node: SqlNode, opts: Options, printNode: PrintFn): Doc {

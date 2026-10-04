@@ -22,7 +22,7 @@ import {
     commaFill,
     hasLineSuffix,
 } from '@prettier-sql/core/printer/utils';
-import { caseArm, betweenDoc, operatorChain, setOpDoc } from '@prettier-sql/core/printer/layout';
+import { caseDoc, betweenDoc, operatorChain, setOpDoc, type CaseResult, type CaseWhen } from '@prettier-sql/core/printer/layout';
 import {
     prop, propArr, propStr, propStrArr, propBool, schemaObjectName, builtinTypeDoc, assignmentOp, splitTopLevel, sortOrderDoc,
     claimTrailingComment, isCommentClaimed, takeTrailingComment, withTrailingComment, appendComments,
@@ -446,46 +446,19 @@ function printCaseExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const elseExpr = prop(node, 'else');
     const input = prop(node, 'input');
 
-    const density = getDensity(opts);
-    const whenDocs = whens.map((w) => {
-        const whenExpr = prop(w, 'when');
-        const thenExpr = prop(w, 'then');
-        const isSearched = caseType === 'searched';
-        const whenPart =
-            isSearched && whenExpr
-                ? printBoolExpr(whenExpr, opts, printFn)
-                : whenExpr
-                  ? printExpression(whenExpr, opts, printFn)
-                  : keyword('NULL', opts);
-        const thenPart = thenExpr ? printExpression(thenExpr, opts, printFn) : keyword('NULL', opts);
-        // Nested CASE: break after THEN and indent the inner case block.
-        const thenDoc: Doc =
-            thenExpr?.type === 'CaseExpression'
-                ? [keyword('THEN', opts), indent([hardline, thenPart])]
-                : [keyword('THEN', opts), ' ', thenPart];
-        const inline = isSearched && density !== 'spacious' && whenExpr?.type !== 'BooleanBinary';
-        if (!isSearched || inline) {
-            return caseArm([keyword('WHEN', opts), ' ', whenPart], thenDoc);
-        }
-        return [keyword('WHEN', opts), indent([hardline, whenPart]), hardline, thenDoc];
+    const isSearched = caseType === 'searched';
+    const result = (expr: SqlNode | null): CaseResult => ({
+        doc: expr ? printExpression(expr, opts, printFn) : keyword('NULL', opts),
+        nested: expr?.type === 'CaseExpression',
     });
-
-    const elseDoc = elseExpr ? printExpression(elseExpr, opts, printFn) : null;
-    const elsePart: Doc[] = elseDoc
-        ? elseExpr?.type === 'CaseExpression'
-            ? [hardline, keyword('ELSE', opts), indent([hardline, elseDoc])]
-            : [hardline, caseArm(keyword('ELSE', opts), elseDoc)]
-        : [];
-
-    const inputPart = input ? [' ', printExpression(input, opts, printFn)] : [];
-
-    return group([
-        keyword('CASE', opts),
-        ...inputPart,
-        indent([...whenDocs.map((w) => [hardline, w] as Doc), ...elsePart]),
-        hardline,
-        keyword('END', opts),
-    ]);
+    const whenDocs = whens.map((w): CaseWhen => {
+        const whenExpr = prop(w, 'when');
+        const whenPart = !whenExpr ? keyword('NULL', opts)
+            : isSearched ? printBoolExpr(whenExpr, opts, printFn)
+            : printExpression(whenExpr, opts, printFn);
+        return { when: whenPart, then: result(prop(w, 'then')), boolChain: whenExpr?.type === 'BooleanBinary' };
+    });
+    return caseDoc(input ? printExpression(input, opts, printFn) : null, whenDocs, elseExpr ? result(elseExpr) : null, opts);
 }
 
 /** A data type: a keyword, unless it names a user-defined type (an identifier, whose case is kept). */
