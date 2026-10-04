@@ -297,6 +297,15 @@ export function checkDoc(kw: Doc, condition: Doc): Doc {
     return [kw, ' ', parenGroup(condition)];
 }
 
+/**
+ * `GRANT privileges` followed by its clauses (ON …, TO …, WITH GRANT OPTION, …), each on
+ * a line of its own. The privileges follow the verb when they fit, otherwise they pack
+ * onto indented lines below it.
+ */
+export function grantDoc(verb: Doc, privileges: Doc[], clauses: Doc[]): Doc {
+    return [group([verb, indent([line, commaFill(privileges)])]), clauses.map((c): Doc => [hardline, c]), ';'];
+}
+
 /** `lhs UNION rhs` (or INTERSECT / EXCEPT): the operator stands alone between blank lines. */
 export function setOpDoc(lhs: Doc, opKw: Doc, rhs: Doc): Doc {
     return [lhs, hardline, hardline, opKw, hardline, hardline, rhs];

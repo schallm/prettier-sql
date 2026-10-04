@@ -8,9 +8,9 @@ import {
     indent,
     group,
     line,
-    softline,
     parenList,
 } from '@prettier-sql/core/printer/utils';
+import { grantDoc } from '@prettier-sql/core/printer/layout';
 import { propStr, propBool, printDropSingleObject } from './helpers.js';
 
 // ---------------------------------------------------------------------------
@@ -86,25 +86,17 @@ export function printGrantDenyRevoke(node: SqlNode, verb: string, opts: Options)
     const principalDocs = principals.map((p) => printSecurityPrincipal(p, opts));
 
     // Verb + optional "GRANT OPTION FOR" prefix (REVOKE only)
-    const verbParts: Doc[] = [keyword(verb, opts)];
-    if (grantOptFor) verbParts.push(' ', keyword('GRANT OPTION FOR', opts));
+    const verbDoc: Doc = [keyword(verb, opts), grantOptFor ? [' ', keyword('GRANT OPTION FOR', opts)] : ''];
 
-    // Permissions: wrap only when they exceed printWidth
-    const permPart: Doc = [' ', group([indent([softline, join([',', line], permDocs)])])];
-
-    const parts: Doc[] = [...verbParts, permPart];
-
-    if (target) parts.push([hardline, keyword('ON', opts), ' ', printSecurityTarget(target, opts)]);
-
+    const clauses: Doc[] = [];
+    if (target) clauses.push([keyword('ON', opts), ' ', printSecurityTarget(target, opts)]);
     const direction = verb === 'REVOKE' ? 'FROM' : 'TO';
-    parts.push([hardline, group([keyword(direction, opts), indent([line, join([',', line], principalDocs)])])]);
+    clauses.push(group([keyword(direction, opts), indent([line, join([',', line], principalDocs)])]));
+    if (withGrant) clauses.push(keyword('WITH GRANT OPTION', opts));
+    if (cascade) clauses.push(keyword('CASCADE', opts));
+    if (asClause) clauses.push([keyword('AS', opts), ' ', asClause]);
 
-    if (withGrant) parts.push([hardline, keyword('WITH GRANT OPTION', opts)]);
-    if (cascade) parts.push([hardline, keyword('CASCADE', opts)]);
-    if (asClause) parts.push([hardline, keyword('AS', opts), ' ', asClause]);
-
-    parts.push(';');
-    return parts;
+    return grantDoc(verbDoc, permDocs, clauses);
 }
 
 // ---------------------------------------------------------------------------

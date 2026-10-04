@@ -705,53 +705,70 @@ as $$select 1$$;
 
 exports[`fixtures > ddl/grant-options.sql 1`] = `
 "-- Column lists, GRANT OPTION FOR, GRANTED BY and pseudo-roles
-grant select, insert (a, "B"), update (c) on table t
+grant select, insert (a, "B"), update (c)
+on table t
 to r
 with grant option;
-grant all privileges on table t
+grant all privileges
+on table t
 to "Role Name", public;
-grant select on table t
+grant select
+on table t
 to current_user, session_user;
-grant select on table t
+grant select
+on table t
 to r
 granted by current_user;
-revoke grant option for select on table t
+revoke grant option for select
+on table t
 from r
 cascade;
-revoke update (c) on table t
+revoke update (c)
+on table t
 from r;
-grant usage on schema s
+grant usage
+on schema s
 to r;
-grant select on all tables in schema s
+grant select
+on all tables in schema s
 to r;
-grant execute on function f(integer)
+grant execute
+on function f(integer)
 to r;
 "
 `;
 
 exports[`fixtures > ddl/grant-revoke.sql 1`] = `
 "-- GRANT on specific tables
-grant select, insert on table books
+grant select, insert
+on table books
 to alice;
-grant all privileges on table orders
+grant all privileges
+on table orders
 to bob;
 -- GRANT on schema
-grant usage on schema myschema
+grant usage
+on schema myschema
 to alice;
 -- GRANT on all tables in schema
-grant select on all tables in schema public
+grant select
+on all tables in schema public
 to alice;
 -- GRANT to public
-grant execute on function get_count(integer)
+grant execute
+on function get_count(integer)
 to public;
 -- REVOKE
-revoke select on table books
+revoke select
+on table books
 from alice;
-revoke all privileges on table orders
+revoke all privileges
+on table orders
 from bob
 cascade;
 -- WITH GRANT OPTION
-grant select on table books
+grant select
+on table books
 to alice
 with grant option;
 "
@@ -985,19 +1002,20 @@ as $$select 1$$;
 `;
 
 exports[`fixtures > ddl/long-grant.sql 1`] = `
-"grant
-  select, insert, update, delete, truncate, references, trigger
+"grant select, insert, update, delete, truncate, references, trigger
 on table some_long_table_name
 to some_long_role_name, another_role_name
 with grant option;
-grant select on table t
+grant select
+on table t
 to u;
 grant
   select (very_long_column_name_one, very_long_column_name_two),
   update (very_long_column_name_three)
 on table some_long_table_name
 to u;
-grant all privileges on all tables in schema some_long_schema_name
+grant all privileges
+on all tables in schema some_long_schema_name
 to some_long_role_name;
 revoke grant option for
   select, insert, update, delete, truncate, references, trigger
@@ -1298,7 +1316,8 @@ comment on function f(integer) is 'x';
 
 drop aggregate my_agg(integer);
 
-grant execute on function f(integer, text)
+grant execute
+on function f(integer, text)
 to r;
 "
 `;
@@ -3053,7 +3072,8 @@ create schema s authorization u
   before insert on t
   for each row
   execute function f()
-  grant select on table t
+  grant select
+  on table t
   to u;
 
 create schema if not exists s;
@@ -3283,62 +3303,90 @@ execute p(1);
 `;
 
 exports[`fixtures > p5/grant-object-types.sql 1`] = `
-"grant usage on foreign server s
+"grant usage
+on foreign server s
 to u;
-grant usage on foreign data wrapper w
+grant usage
+on foreign data wrapper w
 to u;
-grant usage on type t
+grant usage
+on type t
 to u;
-grant usage on type public.t, s.t2
+grant usage
+on type public.t, s.t2
 to u;
-grant usage on domain d
+grant usage
+on domain d
 to u;
-grant usage on language plpgsql
+grant usage
+on language plpgsql
 to u;
-grant select on large object 1234
+grant select
+on large object 1234
 to u;
-grant all privileges on large object 1, 2
+grant all privileges
+on large object 1, 2
 to u;
-grant create on tablespace ts
+grant create
+on tablespace ts
 to u;
-grant execute on function f(integer), g()
+grant execute
+on function f(integer), g()
 to u;
-grant execute on procedure p(integer)
+grant execute
+on procedure p(integer)
 to u;
-grant execute on routine r(integer)
+grant execute
+on routine r(integer)
 to u;
-grant usage on sequence q
+grant usage
+on sequence q
 to u;
-grant select on all tables in schema s
+grant select
+on all tables in schema s
 to u;
-grant usage on all sequences in schema s, t
+grant usage
+on all sequences in schema s, t
 to u;
-grant execute on all functions in schema s
+grant execute
+on all functions in schema s
 to u;
-grant execute on all procedures in schema s
+grant execute
+on all procedures in schema s
 to u;
-grant execute on all routines in schema s
+grant execute
+on all routines in schema s
 to u;
-grant set on parameter work_mem
+grant set
+on parameter work_mem
 to u;
-grant alter system on parameter work_mem, log_statement
+grant alter system
+on parameter work_mem, log_statement
 to u;
-revoke grant option for usage on foreign server s
+revoke grant option for usage
+on foreign server s
 from u
 cascade;
-revoke usage on type t
+revoke usage
+on type t
 from u;
-grant select on table t
+grant select
+on table t
 to u;
-grant select on table t, u
+grant select
+on table t, u
 to public;
-grant connect on database d
+grant connect
+on database d
 to u;
-grant usage on schema s
+grant usage
+on schema s
 to u;
-grant all privileges on schema s
+grant all privileges
+on schema s
 to u;
-grant select (a, b) on table t
+grant select (a, b)
+on table t
 to u;
 
 grant a to b;
@@ -3644,7 +3692,8 @@ drop aggregate a(integer, integer);
 alter function f(a integer, variadic b integer[]) rename to g;
 
 comment on function f(in a integer, out b integer) is 'x';
-grant execute on function f(a integer, variadic b integer[])
+grant execute
+on function f(a integer, variadic b integer[])
 to u;
 
 alter aggregate a(x integer, y integer) rename to b;
@@ -5560,7 +5609,8 @@ as $$ select 1 $$;
 
 drop table "T", "S"."U";
 
-grant select on table "T"
+grant select
+on table "T"
 to "Role Name";
 
 create schema "My Schema";

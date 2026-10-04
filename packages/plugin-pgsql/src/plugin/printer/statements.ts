@@ -16,7 +16,7 @@ import {
 } from '@prettier-sql/core/printer/utils';
 import {
     valuesRow, valuesDoc, setClauseDoc, setOpDoc, joinStatements, boolClauseDoc,
-    selectListDoc, fromClauseDoc, listClauseDoc, windowClauseDoc, withClauseDoc, joinOnDoc, mergeActionDoc, createIndexDoc, alterTableDoc,
+    selectListDoc, fromClauseDoc, listClauseDoc, windowClauseDoc, withClauseDoc, joinOnDoc, mergeActionDoc, createIndexDoc, alterTableDoc, grantDoc,
 } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions } from './helpers.js';
 import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, boolTerms, isBoolChain, tableAliasDoc } from './expressions.js';
@@ -900,28 +900,22 @@ function printGrantRevoke(node: SqlNode, opts: Options, isGrant: boolean): Doc {
         const columns = propStrArr(p, 'columns');
         return [makeKeyword(propStr(p, 'name') ?? ''), columns.length > 0 ? [' (', join(', ', columns), ')'] : ''];
     });
-    // The privileges fill the line when there are many
-    const privsDoc: Doc = privDocs.length > 0 ? commaFill(privDocs) : makeKeyword('ALL PRIVILEGES');
-    const verb: Doc = isGrant ? makeKeyword('GRANT') : makeKeyword('REVOKE');
+    const verb: Doc = [isGrant ? makeKeyword('GRANT') : makeKeyword('REVOKE'), !isGrant && grantOption ? [' ', makeKeyword('GRANT OPTION FOR')] : ''];
     const toFrom: Doc = isGrant ? makeKeyword('TO') : makeKeyword('FROM');
 
     const objectsDoc: Doc = objects.length > 0
         ? join(', ', objects.map(printNode))
         : '';
 
-    const parts: Doc[] = [
-        // GRANT privileges ON object: on one line when it fits, otherwise the privileges on an
-        // indented line of their own and ON on the next
-        group([verb, !isGrant && grantOption ? [' ', makeKeyword('GRANT OPTION FOR')] : '', indent([line, privsDoc]), line,
-         makeKeyword('ON'), ' ', makeKeyword(objtype), objectsDoc ? [' ', objectsDoc] : '']),
+    const clauses: Doc[] = [
+        [makeKeyword('ON'), ' ', makeKeyword(objtype), objectsDoc ? [' ', objectsDoc] : ''],
         [toFrom, ' ', roleListDoc(grantees, opts)],
     ];
+    if (isGrant && grantOption) clauses.push(makeKeyword('WITH GRANT OPTION'));
+    if (grantedBy)              clauses.push([makeKeyword('GRANTED BY'), ' ', roleListDoc([grantedBy], opts)]);
+    if (!isGrant && cascade)    clauses.push(makeKeyword('CASCADE'));
 
-    if (isGrant && grantOption) parts.push(makeKeyword('WITH GRANT OPTION'));
-    if (grantedBy)              parts.push([makeKeyword('GRANTED BY'), ' ', roleListDoc([grantedBy], opts)]);
-    if (!isGrant && cascade)    parts.push(makeKeyword('CASCADE'));
-
-    return [join(hardline, parts), ';'];
+    return grantDoc(verb, privDocs.length > 0 ? privDocs : [makeKeyword('ALL PRIVILEGES')], clauses);
 }
 
 function printGrant(node: SqlNode, opts: Options): Doc {
