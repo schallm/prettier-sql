@@ -878,7 +878,8 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
             const seqOptions = propStrArr(node, 'identityOptions');
             return [
                 namePrefix, makeKeyword('GENERATED'), ' ', makeKeyword(when), ' ', makeKeyword('AS IDENTITY'),
-                seqOptions.length > 0 ? [' (', join(' ', seqOptions.map((o) => keyword(o, opts))), ')'] : '',
+                // sequence options are separated by spaces, not commas: one per line when they don't fit
+                seqOptions.length > 0 ? [' ', group(['(', indent([softline, join(line, seqOptions.map((o) => keyword(o, opts)))]), softline, ')'])] : '',
             ];
         }
 
