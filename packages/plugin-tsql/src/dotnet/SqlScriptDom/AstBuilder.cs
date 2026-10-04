@@ -309,8 +309,9 @@ public class AstBuilder : TSqlFragmentVisitor {
             : null;
         // ORDER BY inside JSON_ARRAYAGG (SQL Server 2022+)
         var jsonOrderBy = fc.JsonOrderByClause != null ? BuildOrderByClause(fc.JsonOrderByClause) : null;
-        // WITHIN GROUP (ORDER BY ...) for STRING_AGG, PERCENTILE_CONT/DISC etc.
-        var withinGroup = fc.WithinGroupClause != null ? BuildOrderByClause(fc.WithinGroupClause.OrderByClause) : null;
+        // WITHIN GROUP (ORDER BY ...) for STRING_AGG, PERCENTILE_CONT/DISC etc.;
+        // WITHIN GROUP (GRAPH PATH) for an aggregate over a SHORTEST_PATH, with no ORDER BY
+        var withinGroup = fc.WithinGroupClause?.OrderByClause != null ? BuildOrderByClause(fc.WithinGroupClause.OrderByClause) : null;
         // RETURNING type on JSON_VALUE and the JSON constructors (SQL Server 2025)
         var returnType = fc.ReturnType?.FirstOrDefault();
         return new SqlNode(
@@ -341,6 +342,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["nullOnNull"] = nullOnNull,
                 ["jsonOrderBy"] = jsonOrderBy,
                 ["withinGroup"] = withinGroup,
+                ["withinGroupGraphPath"] = fc.WithinGroupClause?.HasGraphPath == true ? true : null,
                 ["returnType"] = DataTypeText(returnType),
                 ["returnIsUdt"] = UdtFlag(returnType),
             });
@@ -495,6 +497,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["rows"] = rows,
             ["alias"] = alias,
             ["columns"] = columns,
+            ["forPath"] = idt.ForPath ? true : null,
         });
     }
 
@@ -788,6 +791,8 @@ public class AstBuilder : TSqlFragmentVisitor {
         return Node("NamedTableReference", named, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(named.SchemaObject),
             ["alias"] = QuotedName(named.Alias),
+            // Person FOR PATH AS n: a graph node or edge table in SHORTEST_PATH
+            ["forPath"] = named.ForPath ? true : null,
             ["hints"] = hints,
             ["tableSample"] = named.TableSampleClause != null ? BuildTableSample(named.TableSampleClause) : null,
             ["temporal"] = named.TemporalClause != null ? BuildTemporalClause(named.TemporalClause) : null,
@@ -821,6 +826,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["alias"] = QuotedName(sub.Alias),
             // (SELECT ...) AS s (a, b): names for the derived table's columns
             ["columns"] = MapList(sub.Columns, c => (object?)QuotedName(c)),
+            ["forPath"] = sub.ForPath ? true : null,
         });
 
     private static SqlNode BuildSchemaObjectFunctionTableRef(SchemaObjectFunctionTableReference tvf) {

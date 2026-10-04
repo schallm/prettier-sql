@@ -339,14 +339,18 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
     const nullsModifier = propStr(node, 'nulls');
     const nullsDoc: Doc = nullsModifier ? [' ', keyword(nullsModifier.toUpperCase(), opts)] : '';
 
-    // WITHIN GROUP (ORDER BY ...) for STRING_AGG, PERCENTILE_CONT/DISC etc.
+    // WITHIN GROUP (ORDER BY ...) for STRING_AGG, PERCENTILE_CONT/DISC etc.;
+    // WITHIN GROUP (GRAPH PATH) for an aggregate over a SHORTEST_PATH
     const withinGroup = prop(node, 'withinGroup');
-    if (withinGroup) {
+    const graphPath = propBool(node, 'withinGroupGraphPath');
+    if (withinGroup || graphPath) {
         const withinDoc: Doc = [
             ' ',
             keyword('WITHIN GROUP', opts),
             ' (',
-            keyword('ORDER BY', opts), ' ', join(', ', orderByItems(withinGroup, opts, printFn)),
+            withinGroup
+                ? [keyword('ORDER BY', opts), ' ', join(', ', orderByItems(withinGroup, opts, printFn))]
+                : keyword('GRAPH PATH', opts),
             ')',
         ];
         if (over)
@@ -583,12 +587,9 @@ function printQueryExpressionInner(node: SqlNode, opts: Options, printFn: PrintF
         }
         case 'QueryDerivedTable': {
             const q = prop(node, 'query');
-            const alias = propStr(node, 'alias');
             const inner = q ? printQueryExpression(q, opts, printFn) : '/* query */';
             const sep = getDensity(opts) === 'compact' ? softline : hardline;
-            return alias
-                ? group(['(', indent([sep, inner]), sep, ') ', keyword('AS', opts), ' ', alias, derivedColumns(node, opts)])
-                : group(['(', indent([sep, inner]), sep, ')']);
+            return group(['(', indent([sep, inner]), sep, ')', tableAliasDoc(node, opts)]);
         }
         default:
             return node.text ?? `/* ${node.type} */`;
@@ -1181,10 +1182,9 @@ export function optimizerHintDoc(hint: string, opts: Options): Doc {
 }
 
 function printNamedTableRef(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
-    const alias = propStr(node, 'alias');
     const hints = node.props?.['hints'] as string[] | undefined;
     const nameDoc: Doc = schemaObjectName(prop(node, 'name'));
-    const aliasPart: Doc = aliasDoc(alias, opts);
+    const aliasPart: Doc = tableAliasDoc(node, opts);
     const hintsDoc: Doc = hints?.length
         ? [
               ' ',
@@ -1336,22 +1336,23 @@ function printJoinParenthesis(node: SqlNode, opts: Options, printFn: PrintFn): D
 
 function printInlineDerivedTable(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const rows = propArr(node, 'rows');
-    const alias = propStr(node, 'alias');
     const rowDocs = rows.map((r) => valuesRow(propArr(r, 'values').map((v) => printExpression(v, opts, printFn)), opts));
     const valuesBody = valuesDoc(rowDocs, rows[0] ? propArr(rows[0], 'values').length : 0, opts);
-    const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias, derivedColumns(node, opts)] : '';
     // The VALUES list on lines of its own, as a subquery's SELECT would be
-    return ['(', indent([hardline, valuesBody]), hardline, ')', aliasPart];
+    return ['(', indent([hardline, valuesBody]), hardline, ')', tableAliasDoc(node, opts)];
 }
 
 function printQueryDerivedTable(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const query = prop(node, 'query');
-    const alias = propStr(node, 'alias');
     const queryDoc = query ? printQueryExpression(query, opts, printFn) : '/* query */';
-    if (alias) {
-        return ['(', indent([hardline, queryDoc]), hardline, ') ', keyword('AS', opts), ' ', alias, derivedColumns(node, opts)];
-    }
-    return ['(', indent([hardline, queryDoc]), hardline, ')'];
+    return ['(', indent([hardline, queryDoc]), hardline, ')', tableAliasDoc(node, opts)];
+}
+
+/** What follows a table reference: [FOR PATH] [AS alias [(a, b)]]. */
+function tableAliasDoc(node: SqlNode, opts: Options): Doc {
+    const forPath: Doc = propBool(node, 'forPath') ? [' ', keyword('FOR PATH', opts)] : '';
+    const alias = propStr(node, 'alias');
+    return [forPath, alias ? [aliasDoc(alias, opts), derivedColumns(node, opts)] : ''];
 }
 
 /** A derived table's column names: (SELECT ...) AS s (a, b). */
