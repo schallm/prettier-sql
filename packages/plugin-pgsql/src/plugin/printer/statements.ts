@@ -14,6 +14,7 @@ import {
     getCommaStyle,
     fill,
     line,
+    commaFill,
     parenItems, optionItems,
 } from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions } from './helpers.js';
@@ -1017,7 +1018,8 @@ function printGrantRevoke(node: SqlNode, opts: Options, isGrant: boolean): Doc {
         const columns = propStrArr(p, 'columns');
         return [makeKeyword(propStr(p, 'name') ?? ''), columns.length > 0 ? [' (', join(', ', columns), ')'] : ''];
     });
-    const privsDoc: Doc = privDocs.length > 0 ? join(', ', privDocs) : makeKeyword('ALL PRIVILEGES');
+    // The privileges fill the line when there are many
+    const privsDoc: Doc = privDocs.length > 0 ? commaFill(privDocs) : makeKeyword('ALL PRIVILEGES');
     const verb: Doc = isGrant ? makeKeyword('GRANT') : makeKeyword('REVOKE');
     const toFrom: Doc = isGrant ? makeKeyword('TO') : makeKeyword('FROM');
 
@@ -1026,8 +1028,10 @@ function printGrantRevoke(node: SqlNode, opts: Options, isGrant: boolean): Doc {
         : '';
 
     const parts: Doc[] = [
-        [verb, !isGrant && grantOption ? [' ', makeKeyword('GRANT OPTION FOR')] : '', ' ', privsDoc, ' ',
-         makeKeyword('ON'), ' ', makeKeyword(objtype), objectsDoc ? [' ', objectsDoc] : ''],
+        // GRANT privileges ON object: on one line when it fits, otherwise the privileges on an
+        // indented line of their own and ON on the next
+        group([verb, !isGrant && grantOption ? [' ', makeKeyword('GRANT OPTION FOR')] : '', indent([line, privsDoc]), line,
+         makeKeyword('ON'), ' ', makeKeyword(objtype), objectsDoc ? [' ', objectsDoc] : '']),
         [toFrom, ' ', roleListDoc(grantees, opts)],
     ];
 
