@@ -144,7 +144,10 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   author_id,
 +   price,
 +   row_number() over (partition by author_id order by price desc) as rank,
-+   sum(price) over (partition by author_id rows between unbounded preceding and current row) as running_total
++   sum(price) over (
++     partition by author_id
++     rows between unbounded preceding and current row
++   ) as running_total
 + from books;
 ```
 

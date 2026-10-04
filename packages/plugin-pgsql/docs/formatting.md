@@ -2103,6 +2103,34 @@ create table orders (
 );
 ```
 
+Column lists — index and `INCLUDE` columns, view and `CREATE TABLE AS` columns, alias column lists, `USING (...)` and constraint keys — break one per line:
+
+```sql
+create index ix_orders_customer_created on orders (
+  customer_identifier,
+  created_at_timestamp
+) include (status, total_amount);
+
+select *
+from generate_series(1, 100) as numbered_rows(
+  row_number_one,
+  row_number_two,
+  row_number_three
+);
+```
+
+`JSON_QUERY` and `JSON_VALUE` keep the context and path on the first line and put each clause on its own line:
+
+```sql
+select json_value(
+  doc, '$.price'
+  returning numeric
+  default 0 on empty
+  default -1 on error
+) as price
+from t;
+```
+
 Function parameters and parenthesized option lists (`WITH (...)`, `COPY ... (...)`, `OPTIONS (...)`, `EXPLAIN (...)`) break one per line:
 
 ```sql
