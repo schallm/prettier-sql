@@ -1412,18 +1412,12 @@ public class AstBuilder : TSqlFragmentVisitor {
         });
     }
 
-    private static string BuildXmlNamespaceElement(XmlNamespacesElement e) {
-        if (e is XmlNamespacesDefaultElement def) {
-            var uri = def.String?.Value ?? "";
-            return $"DEFAULT '{uri}'";
-        }
-        if (e is XmlNamespacesAliasElement alias) {
-            var uri = alias.String?.Value ?? "";
-            var name = QuotedName(alias.Identifier) ?? "";
-            return $"'{uri}' AS {name}";
-        }
-        return RawText(e);
-    }
+    // 'uri' AS prefix | DEFAULT 'uri': the URI literal as written (quotes doubled), the prefix as a name
+    private static SqlNode BuildXmlNamespaceElement(XmlNamespacesElement e) =>
+        Node("XmlNamespace", e, new Dictionary<string, object?> {
+            ["uri"] = RawTextOrNull(e.String),
+            ["prefix"] = e is XmlNamespacesAliasElement alias ? QuotedName(alias.Identifier) : null,
+        });
 
     private static string BuildOptimizerHint(OptimizerHint hint) {
         // USE HINT ('hint1', 'hint2', ...) — UseHintList.HintKind is Unspecified (0)

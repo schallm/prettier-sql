@@ -2514,7 +2514,7 @@ alter index sxi_Orders on dbo.Orders for (
 );
 
 alter index sxi_Orders on dbo.Orders
-with xmlnamespaces ('http://example.com/orders' AS o)
+with xmlnamespaces ('http://example.com/orders' as o)
 for (add Total = '/o:order/o:total' as sql decimal(10, 2));
 
 alter index sxi_Orders on dbo.Orders for (remove Status);
@@ -4308,14 +4308,23 @@ for browse;
 -- WITH XMLNAMESPACES must be preserved
 with
   xmlnamespaces (
-    'http://schemas.example.com/orders' AS ord,
-    DEFAULT 'http://schemas.example.com/default'
+    'http://schemas.example.com/orders' as ord,
+    default 'http://schemas.example.com/default'
   )
 select
   o.Id,
   o.Amount
 from dbo.Orders as o
 for xml path('Order'), root('Orders');
+
+-- A quote inside a namespace URI stays doubled
+with
+  xmlnamespaces (
+    'urn:example:it''s' as e
+  )
+select o.Id as [e:Id]
+from dbo.Orders as o
+for xml path('e:Order');
 "
 `;
 
@@ -6512,7 +6521,7 @@ alter view v
 as
 with
   xmlnamespaces (
-    'urn:x' AS x
+    'urn:x' as x
   )
 select 1 as a;
 go

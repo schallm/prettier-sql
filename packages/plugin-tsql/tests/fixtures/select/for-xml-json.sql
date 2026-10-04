@@ -32,3 +32,7 @@ with xmlnamespaces (
 select o.Id, o.Amount
 from dbo.Orders as o
 for xml path('Order'), root('Orders')
+
+
+-- A quote inside a namespace URI stays doubled
+with xmlnamespaces ('urn:example:it''s' as e) select o.Id as [e:Id] from dbo.Orders as o for xml path('e:Order')

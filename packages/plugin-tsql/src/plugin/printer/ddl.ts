@@ -20,7 +20,7 @@ import { createIndexDoc, alterTableDoc, constraintDoc, checkDoc, optionLinesDoc,
 import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment, splitTopLevel, sortOrderDoc } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
-import { joinBodyStatements, printSelectBody, printNode, printBool, printBoolClause, qexpr, printCtes, printStatement } from './statements.js';
+import { joinBodyStatements, printSelectBody, printNode, printBool, printBoolClause, qexpr, printCtes, printStatement, xmlNamespaceDocs } from './statements.js';
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -877,7 +877,7 @@ export function printAlterIndex(node: SqlNode, opts: Options): Doc {
 
 /** ALTER INDEX ix ON t [WITH XMLNAMESPACES (...)] FOR (ADD p = '/a' AS SQL int, REMOVE q) */
 function printAlterSelectiveXmlIndex(node: SqlNode, opts: Options): Doc {
-    const namespaces = propStrArr(node, 'xmlNamespaces');
+    const namespaces = xmlNamespaceDocs(node, opts);
     const paths = propArr(node, 'paths').map((p): Doc => {
         const name = propStr(p, 'name') ?? '';
         const path = propStr(p, 'path');

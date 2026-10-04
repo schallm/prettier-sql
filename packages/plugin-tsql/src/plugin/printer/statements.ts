@@ -742,9 +742,18 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
 // SELECT
 // ---------------------------------------------------------------------------
 
+/** The XMLNAMESPACES of a WITH: 'uri' AS prefix | DEFAULT 'uri'. */
+export function xmlNamespaceDocs(node: SqlNode, opts: Options): Doc[] {
+    return propArr(node, 'xmlNamespaces').map((ns): Doc => {
+        const uri = propStr(ns, 'uri') ?? "''";
+        const prefix = propStr(ns, 'prefix');
+        return prefix ? [uri, ' ', keyword('AS', opts), ' ', prefix] : [keyword('DEFAULT', opts), ' ', uri];
+    });
+}
+
 export function printCtes(node: SqlNode, opts: Options): Doc[] {
     const ctes = propArr(node, 'ctes');
-    const xmlNamespaces = node.props?.['xmlNamespaces'] as string[] | undefined;
+    const xmlNamespaces = xmlNamespaceDocs(node, opts);
     const changeTrackingCtx = propStr(node, 'changeTrackingContext');
 
     // WITH CHANGE_TRACKING_CONTEXT emits as a separate statement prefix
@@ -752,12 +761,12 @@ export function printCtes(node: SqlNode, opts: Options): Doc[] {
         ? [[keyword('WITH CHANGE_TRACKING_CONTEXT', opts), ' (', changeTrackingCtx, ')'], hardline]
         : [];
 
-    if (ctes.length === 0 && !xmlNamespaces?.length) return ctxPrefix;
+    if (ctes.length === 0 && !xmlNamespaces.length) return ctxPrefix;
 
     // Collect all items for the WITH clause: XMLNAMESPACES first, then CTEs.
     const allItems: Doc[] = [];
 
-    if (xmlNamespaces?.length) {
+    if (xmlNamespaces.length) {
         allItems.push([
             keyword('XMLNAMESPACES', opts),
             ' (',
