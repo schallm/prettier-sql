@@ -3426,6 +3426,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             // Third argument: either an ad-hoc query string or a remote schema object name
             ["query"] = RawTextOrNull(or.Query),
             ["object"] = or.Object != null ? BuildSchemaObjectName(or.Object) : null,
+            ["withColumns"] = MapList(or.WithColumns, c => (object?)Leaf("RowsetColumn", c, RawText(c))),
             ["alias"] = QuotedName(or.Alias),
         });
 
@@ -3433,6 +3434,8 @@ public class AstBuilder : TSqlFragmentVisitor {
         Node("BulkOpenRowset", bulk, new Dictionary<string, object?> {
             ["dataFiles"] = MapList(bulk.DataFiles, f => (object?)RawText(f)),
             ["options"] = MapList(bulk.Options, o => (object?)RawText(o)),
+            // OPENROWSET(BULK ...) WITH (a int, b varchar(10) 2, c int '$.c'): the columns to read
+            ["withColumns"] = MapList(bulk.WithColumns, c => (object?)Leaf("RowsetColumn", c, RawText(c))),
             ["alias"] = QuotedName(bulk.Alias),
         });
 

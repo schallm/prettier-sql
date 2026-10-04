@@ -1532,6 +1532,8 @@ function printOpenRowsetTableRef(node: SqlNode, opts: Options): Doc {
     // Third argument: either an ad-hoc query string or a remote schema object name
     const third: Doc = query ? query : schemaObjectName(obj);
 
+    const withColumns = propArr(node, 'withColumns');
+    const withPart: Doc = withColumns.length ? rowsetWithClause(withColumns, opts) : '';
     const aliasPart: Doc = aliasDoc(alias, opts);
     return [
         group([
@@ -1541,6 +1543,7 @@ function printOpenRowsetTableRef(node: SqlNode, opts: Options): Doc {
             softline,
             ')',
         ]),
+        withPart,
         aliasPart,
     ];
 }
@@ -1553,8 +1556,10 @@ function printBulkOpenRowset(node: SqlNode, opts: Options): Doc {
     const dataFile = dataFiles?.[0] ?? '';
     const allArgs: Doc[] = [keyword('BULK', opts), ' ', dataFile, ...(options ?? []).map((o): Doc => [',', line, o])];
 
+    const withColumns = propArr(node, 'withColumns');
+    const withPart: Doc = withColumns.length ? rowsetWithClause(withColumns, opts) : '';
     const aliasPart: Doc = aliasDoc(alias, opts);
-    return [group([keyword('OPENROWSET', opts), '(', indent([softline, ...allArgs]), softline, ')']), aliasPart];
+    return [group([keyword('OPENROWSET', opts), '(', indent([softline, ...allArgs]), softline, ')']), withPart, aliasPart];
 }
 
 // ---------------------------------------------------------------------------

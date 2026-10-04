@@ -65,6 +65,4 @@ export const dropped: Record<string, string> = {
     'CertificateCreateLoginSource.Credential': 'CREATE LOGIN ... FROM CERTIFICATE c WITH CREDENTIAL = c loses the credential',
     'ExpressionGroupingSpecification.DistributedAggregation': 'GROUP BY a WITH (DISTRIBUTED_AGG) loses the hint',
     'InsertSpecification.InsertOption': 'INSERT OVER t prints as INSERT INTO t (INSERT t and INSERT INTO t are equivalent)',
-    'OpenRowsetTableReference.WithColumns': 'OPENROWSET(...) WITH (a int) loses the WITH column list',
-    'BulkOpenRowset.WithColumns': 'OPENROWSET(BULK ...) WITH (a int) loses the WITH column list',
 };
