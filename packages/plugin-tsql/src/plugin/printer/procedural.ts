@@ -2,6 +2,7 @@ import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
 import { keyword, hardline, softline, join, indent, group, onOffKw, line, getDensity, parenList, parenListFill, optionItems, commaFill, willBreak, hardSep } from '@prettier-sql/core/printer/utils';
+import { asQueryDoc } from '@prettier-sql/core/printer/layout';
 import { boolEndsWithPendingComment } from './expressions.js';
 import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, assignmentOp, withTrailingComment, markSingleBody, isSingleBody } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
@@ -512,14 +513,11 @@ export function printDeclareCursor(node: SqlNode, opts: Options): Doc {
     // DECLARE c INSENSITIVE SCROLL CURSOR FOR ...
     const isoForm = Array.isArray(options) && (options as string[]).includes('INSENSITIVE');
     return group([
-        keyword('DECLARE', opts),
-        ' ',
-        name,
-        isoForm ? [optPart, ' ', keyword('CURSOR', opts)] : [' ', keyword('CURSOR', opts), optPart],
-        hardline,
-        keyword('FOR', opts),
-        hardline,
-        select ? qexpr(select, opts) : '',
+        asQueryDoc(
+            [keyword('DECLARE', opts), ' ', name, isoForm ? [optPart, ' ', keyword('CURSOR', opts)] : [' ', keyword('CURSOR', opts), optPart]],
+            keyword('FOR', opts),
+            select ? qexpr(select, opts) : '',
+        ),
         ';',
     ]);
 }

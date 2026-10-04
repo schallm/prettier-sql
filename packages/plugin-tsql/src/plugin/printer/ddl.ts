@@ -16,7 +16,7 @@ import {
     parenItems,
     willBreak,
 } from '@prettier-sql/core/printer/utils';
-import { createIndexDoc, alterTableDoc, constraintDoc, checkDoc, optionLinesDoc } from '@prettier-sql/core/printer/layout';
+import { createIndexDoc, alterTableDoc, constraintDoc, checkDoc, optionLinesDoc, asQueryDoc } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment, splitTopLevel, sortOrderDoc } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
@@ -156,15 +156,11 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
     if (ctasSelect) {
         const ctasColumns = propStrArr(node, 'ctasColumns');
         return group([
-            keyword('CREATE TABLE', opts),
-            ' ',
-            schemaObjectName(prop(node, 'name')),
-            ctasColumns.length ? [' ', parenList(ctasColumns)] : '',
-            withPart,
-            hardline,
-            keyword('AS', opts),
-            hardline,
-            printSelectBody(ctasSelect, opts),
+            asQueryDoc(
+                [keyword('CREATE TABLE', opts), ' ', schemaObjectName(prop(node, 'name')), ctasColumns.length ? [' ', parenList(ctasColumns)] : '', withPart],
+                keyword('AS', opts),
+                printSelectBody(ctasSelect, opts),
+            ),
             ';',
         ]);
     }
@@ -1189,17 +1185,11 @@ export function printCreateView(node: SqlNode, opts: Options): Doc {
     const checkOptionPart: Doc = withCheckOption ? [hardline, keyword('WITH CHECK OPTION', opts)] : '';
 
     return group([
-        kw,
-        ' ',
-        schemaObjectName(prop(node, 'name')),
-        colsPart,
-        withPart,
-        preBodyPart,
-        hardline,
-        keyword('AS', opts),
-        hardline,
-        ...printCtes(node, opts),
-        body ? qexpr(body, opts) : '',
+        asQueryDoc(
+            [kw, ' ', schemaObjectName(prop(node, 'name')), colsPart, withPart, preBodyPart],
+            keyword('AS', opts),
+            [...printCtes(node, opts), body ? qexpr(body, opts) : ''],
+        ),
         checkOptionPart,
         ';',
     ]);

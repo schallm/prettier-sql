@@ -311,6 +311,14 @@ export function optionLinesDoc(header: Doc, options: Doc[]): Doc {
     return [header, indent(options.map((o): Doc => [hardline, o])), ';'];
 }
 
+/**
+ * A statement defined by a query — `CREATE VIEW v AS`, `CREATE TABLE t AS`,
+ * `DECLARE c CURSOR FOR` — with AS / FOR on a line of its own and the query below it.
+ */
+export function asQueryDoc(header: Doc, kw: Doc, query: Doc): Doc {
+    return [header, hardline, kw, hardline, query];
+}
+
 /** `lhs UNION rhs` (or INTERSECT / EXCEPT): the operator stands alone between blank lines. */
 export function setOpDoc(lhs: Doc, opKw: Doc, rhs: Doc): Doc {
     return [lhs, hardline, hardline, opKw, hardline, hardline, rhs];

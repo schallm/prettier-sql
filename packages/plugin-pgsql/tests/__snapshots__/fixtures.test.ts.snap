@@ -423,7 +423,8 @@ create index idx_events_gin on events using gin (data) with (fastupdate = off);
 
 exports[`fixtures > ddl/create-table-as.sql 1`] = `
 "-- CREATE TABLE AS SELECT
-create table archived_orders as
+create table archived_orders
+as
 select
   id,
   customer_id,
@@ -432,7 +433,8 @@ from orders
 where status = 'cancelled';
 
 -- CREATE MATERIALIZED VIEW
-create materialized view mv_active_users as
+create materialized view mv_active_users
+as
 select
   id,
   name,
@@ -492,21 +494,25 @@ create table t (
 )
 using heap;
 
-create temporary table t as
+create temporary table t
+as
 select 1;
 
 create unlogged table t (x, y)
-with (fillfactor = 50) as
+with (fillfactor = 50)
+as
 select
   1,
   2
 with no data;
 
-create materialized view mv (x) as
+create materialized view mv (x)
+as
 select 1
 with no data;
 
-create materialized view if not exists mv as
+create materialized view if not exists mv
+as
 select 1;
 "
 `;
@@ -826,7 +832,8 @@ create table t2 (
   very_long_column_name_one,
   very_long_column_name_two,
   very_long_column_name_three
-) as
+)
+as
 select
   1,
   2,
@@ -1171,7 +1178,8 @@ foreign data wrapper postgres_fdw options (
 );
 
 create materialized view mv_events
-with (fillfactor = 70, autovacuum_enabled = false, toast_tuple_target = 4096) as
+with (fillfactor = 70, autovacuum_enabled = false, toast_tuple_target = 4096)
+as
 select 1;
 
 create sequence events_seq
@@ -1705,7 +1713,8 @@ where
   and deleted_at is null;
 
 -- CREATE MATERIALIZED VIEW
-create materialized view user_stats as
+create materialized view user_stats
+as
 select
   user_id,
   count(*) as order_count,
@@ -1865,24 +1874,30 @@ where id in (
 `;
 
 exports[`fixtures > dml/cursors.sql 1`] = `
-"declare my_cursor cursor for
+"declare my_cursor cursor
+for
 select
   id,
   name
 from users;
-declare scroll_cursor scroll cursor for
+declare scroll_cursor scroll cursor
+for
 select id
 from orders;
-declare held_cursor scroll cursor with hold for
+declare held_cursor scroll cursor with hold
+for
 select id
 from orders;
-declare binary_cursor insensitive binary cursor for
+declare binary_cursor insensitive binary cursor
+for
 select id
 from orders;
-declare asensitive_cursor asensitive cursor for
+declare asensitive_cursor asensitive cursor
+for
 select id
 from orders;
-declare no_scroll_cursor no scroll cursor for
+declare no_scroll_cursor no scroll cursor
+for
 select id
 from orders;
 fetch next from my_cursor;
@@ -2344,12 +2359,14 @@ on t.id = s.id
 when matched then
   delete;
 
-explain create materialized view mv as
+explain create materialized view mv
+as
 select 1;
 
 explain execute p;
 
-explain declare c cursor for
+explain declare c cursor
+for
 select 1;
 "
 `;
@@ -3287,17 +3304,21 @@ transform for type public.t
 volatile
 as $$select 1$$;
 
-create table x as
+create table x
+as
 execute p(1);
 
-create table x as
+create table x
+as
 execute p;
 
-create temporary table x as
+create temporary table x
+as
 execute p(1, 'a')
 with no data;
 
-create table if not exists x (a, b) as
+create table if not exists x (a, b)
+as
 execute p(1);
 "
 `;

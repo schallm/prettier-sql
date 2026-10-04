@@ -16,7 +16,7 @@ import {
 } from '@prettier-sql/core/printer/utils';
 import {
     valuesRow, valuesDoc, setClauseDoc, setOpDoc, joinStatements, boolClauseDoc,
-    selectListDoc, fromClauseDoc, listClauseDoc, windowClauseDoc, withClauseDoc, joinOnDoc, mergeActionDoc, createIndexDoc, alterTableDoc, grantDoc, optionLinesDoc,
+    selectListDoc, fromClauseDoc, listClauseDoc, windowClauseDoc, withClauseDoc, joinOnDoc, mergeActionDoc, createIndexDoc, alterTableDoc, grantDoc, optionLinesDoc, asQueryDoc,
 } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions } from './helpers.js';
 import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, boolTerms, isBoolChain, tableAliasDoc } from './expressions.js';
@@ -681,11 +681,15 @@ function printCreateView(node: SqlNode, opts: Options): Doc {
     const createKw = ['CREATE', propBool(node, 'orReplace') ? ' OR REPLACE' : '', persistence ? ` ${persistence}` : '', ' VIEW'].join('');
 
     return [
-        makeKeyword(createKw), ' ', rangeVarName(name),
-        columns.length > 0 ? [' ', parenItems(columns, opts)] : '',
-        options.length > 0 ? [hardline, makeKeyword('WITH'), ' ', optionItems(options, opts)] : '',
-        hardline, makeKeyword('AS'), hardline,
-        body ? printQueryExpr(body, opts) : '',
+        asQueryDoc(
+            [
+                makeKeyword(createKw), ' ', rangeVarName(name),
+                columns.length > 0 ? [' ', parenItems(columns, opts)] : '',
+                options.length > 0 ? [hardline, makeKeyword('WITH'), ' ', optionItems(options, opts)] : '',
+            ],
+            makeKeyword('AS'),
+            body ? printQueryExpr(body, opts) : '',
+        ),
         checkOption ? [hardline, makeKeyword(`WITH ${checkOption} CHECK OPTION`)] : '',
         ';',
     ];
@@ -1126,11 +1130,11 @@ function printCreateAsQuery(node: SqlNode, opts: Options, kw: string): Doc {
     const qname = qualifiedName(schema, name);
     const createKw = kw === 'CREATE TABLE' ? createTableKeyword(node, opts) : makeKeyword(kw);
     return [
-        createKw, ' ', ifNotExistsDoc(node, opts), qname,
-        columns.length > 0 ? [' ', parenItems(columns, opts)] : '',
-        tableStorageClauses(node, opts),
-        ' ', makeKeyword('AS'),
-        hardline, query ? printQueryExpr(query, opts) : '',
+        asQueryDoc(
+            [createKw, ' ', ifNotExistsDoc(node, opts), qname, columns.length > 0 ? [' ', parenItems(columns, opts)] : '', tableStorageClauses(node, opts)],
+            makeKeyword('AS'),
+            query ? printQueryExpr(query, opts) : '',
+        ),
         propBool(node, 'withNoData') ? [hardline, makeKeyword('WITH NO DATA')] : '',
         ';',
     ];
@@ -1565,12 +1569,8 @@ function printDeclareCursor(node: SqlNode, opts: Options): Doc {
           : '';
     const holdKw: Doc = withHold ? [' ', makeKeyword('WITH HOLD')] : '';
 
-    return [
-        [makeKeyword('DECLARE'), ' ', name, scrollKw, ' ', insensKw, binaryKw, makeKeyword('CURSOR'), holdKw, ' ', makeKeyword('FOR')],
-        hardline,
-        query ? printQueryExpr(query, opts) : '',
-        ';',
-    ];
+    const header: Doc = [makeKeyword('DECLARE'), ' ', name, scrollKw, ' ', insensKw, binaryKw, makeKeyword('CURSOR'), holdKw];
+    return [asQueryDoc(header, makeKeyword('FOR'), query ? printQueryExpr(query, opts) : ''), ';'];
 }
 
 function printFetch(node: SqlNode, opts: Options): Doc {
