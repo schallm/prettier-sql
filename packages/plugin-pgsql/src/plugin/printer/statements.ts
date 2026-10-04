@@ -908,14 +908,26 @@ function printCreateIndex(node: SqlNode, opts: Options): Doc {
     if (ifNotExists) parts.push(' ', makeKeyword('IF NOT EXISTS'));
     const options    = propStrArr(node, 'options');
     const tablespace = propStr(node, 'tablespace');
-    parts.push(' ', indexName, ' ', makeKeyword('ON'), ' ', onlyPrefix(relation, opts), rangeVarName(relation));
-    if (accessMethod) parts.push(' ', makeKeyword('USING'), ' ', accessMethod);
-    parts.push(' ', optionItems(columns.map(printNode), opts));
-    if (including.length > 0) parts.push(' ', makeKeyword('INCLUDE'), ' ', optionItems(including.map(printNode), opts));
-    if (propBool(node, 'nullsNotDistinct')) parts.push(' ', makeKeyword('NULLS NOT DISTINCT'));
-    if (options.length > 0) parts.push(' ', makeKeyword('WITH'), ' ', optionItems(options, opts));
-    if (tablespace) parts.push(' ', makeKeyword('TABLESPACE'), ' ', tablespace);
-    if (where) parts.push(' ', makeKeyword('WHERE'), ' ', printNode(where));
+    parts.push(' ', indexName);
+    const onTable: Doc[] = [makeKeyword('ON'), ' ', onlyPrefix(relation, opts), rangeVarName(relation)];
+    if (accessMethod) onTable.push(' ', makeKeyword('USING'), ' ', accessMethod);
+    onTable.push(' ', optionItems(columns.map(printNode), opts));
+    // `ON table USING method (` is plain text, so whether it fits after the name is a length check:
+    // when it doesn't, it moves to an indented line of its own
+    const headLength = [
+        unique ? 'create unique index' : 'create index', concurrent ? ' concurrently' : '', ifNotExists ? ' if not exists' : '',
+        ' ', indexName, ' on ', relation && propBool(relation, 'only') ? 'only ' : '', rangeVarName(relation), accessMethod ? ` using ${accessMethod}` : '', ' (',
+    ].join('').length;
+    parts.push(headLength > opts.printWidth ? indent([hardline, ...onTable]) : [' ', ...onTable]);
+    // INCLUDE, WITH, TABLESPACE and WHERE follow on the same line when they all fit, otherwise
+    // each goes on an indented line of its own
+    const tail: Doc[] = [];
+    if (including.length > 0) tail.push([makeKeyword('INCLUDE'), ' ', parenItems(including.map(printNode), opts)]);
+    if (propBool(node, 'nullsNotDistinct')) tail.push(makeKeyword('NULLS NOT DISTINCT'));
+    if (options.length > 0) tail.push([makeKeyword('WITH'), ' ', optionItems(options, opts)]);
+    if (tablespace) tail.push([makeKeyword('TABLESPACE'), ' ', tablespace]);
+    if (where) tail.push([makeKeyword('WHERE'), ' ', printNode(where)]);
+    if (tail.length > 0) parts.push(group(indent(tail.map((c) => [line, c]))));
     parts.push(';');
     return parts;
 }

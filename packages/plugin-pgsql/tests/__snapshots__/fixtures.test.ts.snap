@@ -503,9 +503,12 @@ create unique index concurrently if not exists i on only t (
   a desc nulls last,
   lower(b) text_pattern_ops,
   c collate "C" nulls first
-) include (d) nulls not distinct with (
-  fillfactor = 80
-) tablespace fast where e is not null;
+)
+  include (d)
+  nulls not distinct
+  with (fillfactor = 80)
+  tablespace fast
+  where e is not null;
 
 create index i on t ((a + b), (x::text));
 
@@ -767,9 +770,12 @@ create unique index concurrently if not exists i on only t (
   a desc nulls last,
   lower(b) text_pattern_ops,
   c collate "C" nulls first
-) include (d) nulls not distinct with (
-  fillfactor = 80
-) tablespace fast where e is not null;
+)
+  include (d)
+  nulls not distinct
+  with (fillfactor = 80)
+  tablespace fast
+  where e is not null;
 "
 `;
 
@@ -834,6 +840,22 @@ alter table t
   add constraint ck_very_long_constraint_name
     check (very_long_column_name_one > 0 and very_long_column_name_two > 0)
     not valid;
+"
+`;
+
+exports[`fixtures > ddl/long-create-index.sql 1`] = `
+"create index concurrently ix_very_long_index_name
+  on some_long_table_name using gin (very_long_column_name_one jsonb_path_ops);
+
+create unique index concurrently if not exists ix_orders_customer_identifier_created_at
+  on only some_schema.orders_table (customer_identifier, created_at)
+  include (status)
+  where deleted_at is null;
+
+create index ix_short on t (a, b);
+
+create index ix_events_with_long_options on events (id)
+  with (fillfactor = 70, deduplicate_items = off);
 "
 `;
 
@@ -944,12 +966,13 @@ with (
   parallel_workers = 4
 );
 
-create index ix_events_with_long_options on events (id) with (
-  fillfactor = 70,
-  deduplicate_items = off,
-  buffering = auto,
-  fastupdate = off
-);
+create index ix_events_with_long_options on events (id)
+  with (
+    fillfactor = 70,
+    deduplicate_items = off,
+    buffering = auto,
+    fastupdate = off
+  );
 
 alter table events
   alter column payload set (
@@ -1126,9 +1149,8 @@ create table t3
 partition of t
 for values with (modulus 4, remainder 1);
 
-create index concurrently ix_very_long_index_name on some_long_table_name using gin (
-  very_long_column_name_one jsonb_path_ops
-);
+create index concurrently ix_very_long_index_name
+  on some_long_table_name using gin (very_long_column_name_one jsonb_path_ops);
 
 create index ix_short on t (a);
 
