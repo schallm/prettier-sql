@@ -171,6 +171,10 @@ function printExpressionInner(node: SqlNode, opts: Options, printFn: PrintFn): D
             return printExtractFrom(node, opts, printFn);
         case 'OverClause':
             return printOverClause(node, opts, printFn);
+        case 'DistributedAggSpec': {
+            const expr = prop(node, 'expression');
+            return [expr ? printExpression(expr, opts, printFn) : '', ' ', keyword('WITH', opts), ' (', keyword('DISTRIBUTED_AGG', opts), ')'];
+        }
         case 'RollupSpec':
             return printGroupingSet('ROLLUP', node, opts, printFn);
         case 'CubeSpec':

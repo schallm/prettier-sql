@@ -61,6 +61,5 @@ export const unreachable: Record<string, string> = {
  */
 export const dropped: Record<string, string> = {
     'AlterDatabaseSetStatement.WithManualCutover': 'WITH MANUAL_CUTOVER is dropped',
-    'ExpressionGroupingSpecification.DistributedAggregation': 'GROUP BY a WITH (DISTRIBUTED_AGG) loses the hint',
     'InsertSpecification.InsertOption': 'INSERT OVER t prints as INSERT INTO t (INSERT t and INSERT INTO t are equivalent)',
 };

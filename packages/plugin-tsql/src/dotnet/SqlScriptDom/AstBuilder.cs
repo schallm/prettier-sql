@@ -951,6 +951,9 @@ public class AstBuilder : TSqlFragmentVisitor {
     }
 
     private static SqlNode? BuildGroupingSpec(GroupingSpecification gs) => gs switch {
+        // GROUP BY a WITH (DISTRIBUTED_AGG): a hint on one grouping column (Azure Synapse)
+        ExpressionGroupingSpecification { DistributedAggregation: true } expr =>
+            Node("DistributedAggSpec", expr, new Dictionary<string, object?> { ["expression"] = BuildScalarExpression(expr.Expression) }),
         ExpressionGroupingSpecification expr => BuildScalarExpression(expr.Expression),
         RollupGroupingSpecification rollup => Node("RollupSpec", rollup, new Dictionary<string, object?> { ["expressions"] = rollup.Arguments?.Select(e => (object?)BuildGroupingSpec(e)).ToList() }),
         CubeGroupingSpecification cube => Node("CubeSpec", cube, new Dictionary<string, object?> { ["expressions"] = cube.Arguments?.Select(e => (object?)BuildGroupingSpec(e)).ToList() }),

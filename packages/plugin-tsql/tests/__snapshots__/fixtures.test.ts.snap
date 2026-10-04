@@ -4416,6 +4416,31 @@ from (
 "
 `;
 
+exports[`fixtures > select/group-by-distributed-agg.sql 1`] = `
+"-- WITH (DISTRIBUTED_AGG) on a grouping column (Azure Synapse)
+select
+  CustomerId,
+  sum(Amount)
+from dbo.Sales
+group by CustomerId with (distributed_agg);
+
+select
+  Region,
+  CustomerId,
+  sum(Amount)
+from dbo.Sales
+group by
+  Region,
+  CustomerId with (distributed_agg);
+
+select
+  Region,
+  sum(Amount)
+from dbo.Sales
+group by rollup(Region with (distributed_agg));
+"
+`;
+
 exports[`fixtures > select/inline-values.sql 1`] = `
 "select
   v.Id,
