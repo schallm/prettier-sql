@@ -67,7 +67,6 @@ export const dropped: Record<string, string> = {
     'AlterIndexStatement.XmlNamespaces': 'ALTER INDEX ... WITH XMLNAMESPACES (...) is dropped',
     'AsymmetricKeyCreateLoginSource.Credential': 'CREATE LOGIN ... FROM ASYMMETRIC KEY k WITH CREDENTIAL = c loses the credential',
     'CertificateCreateLoginSource.Credential': 'CREATE LOGIN ... FROM CERTIFICATE c WITH CREDENTIAL = c loses the credential',
-    'DropSchemaStatement.DropBehavior': 'DROP SCHEMA s CASCADE prints as DROP SCHEMA s',
     'ExpressionGroupingSpecification.DistributedAggregation': 'GROUP BY a WITH (DISTRIBUTED_AGG) loses the hint',
     'ForeignKeyConstraintDefinition.IsEnforced': 'FOREIGN KEY ... NOT ENFORCED loses NOT ENFORCED',
     'UniqueConstraintDefinition.IsEnforced': 'PRIMARY KEY / UNIQUE ... NOT ENFORCED loses NOT ENFORCED',

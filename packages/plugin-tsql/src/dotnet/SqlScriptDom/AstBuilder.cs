@@ -2716,6 +2716,8 @@ public class AstBuilder : TSqlFragmentVisitor {
         Node("DropSchemaStatement", stmt, new Dictionary<string, object?> {
             ["name"] = BuildSchemaObjectName(stmt.Schema),
             ["ifExists"] = stmt.IsIfExists,
+            // DROP SCHEMA s CASCADE | RESTRICT
+            ["dropBehavior"] = stmt.DropBehavior == DropSchemaBehavior.None ? null : stmt.DropBehavior.ToString().ToUpperInvariant(),
         });
 
     // -------------------------------------------------------------------------

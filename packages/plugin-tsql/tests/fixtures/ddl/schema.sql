@@ -17,3 +17,8 @@ go
 drop synonym MyAlias;
 go
 drop synonym if exists dbo.MyAlias;
+
+go
+drop schema Staging cascade;
+go
+drop schema if exists Archive restrict;

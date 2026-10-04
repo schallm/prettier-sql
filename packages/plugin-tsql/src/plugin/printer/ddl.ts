@@ -1467,7 +1467,10 @@ export function printAlterSchema(node: SqlNode, opts: Options): Doc {
 }
 
 export function printDropSchema(node: SqlNode, opts: Options): Doc {
-    return printDropSingleObject('DROP SCHEMA', node, opts, schemaObjectName(prop(node, 'name')));
+    // DROP SCHEMA s CASCADE | RESTRICT
+    const behavior = propStr(node, 'dropBehavior');
+    const name = schemaObjectName(prop(node, 'name'));
+    return printDropSingleObject('DROP SCHEMA', node, opts, behavior ? [name, ' ', keyword(behavior, opts)] : name);
 }
 
 // ---------------------------------------------------------------------------
