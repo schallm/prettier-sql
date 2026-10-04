@@ -16,6 +16,7 @@ import {
     appendTrailingLines,
     parenList,
     hasLine,
+    willBreak,
     parenItems, optionItems,
     aliasDoc,
     commaFill,
@@ -430,6 +431,15 @@ function printParenExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     return ['(', expr ? printExpression(expr, opts, printFn) : '', ')'];
 }
 
+/**
+ * One arm of a CASE, `WHEN cond THEN result` or `ELSE result`: the tail goes on an indented
+ * line of its own when the arm doesn't fit, unless a part is forced to break (it spans lines, or has a line comment).
+ */
+function caseArm(head: Doc, tail: Doc): Doc {
+    if (willBreak(head) || willBreak(tail)) return [head, ' ', tail];
+    return group([head, indent([line, tail])]);
+}
+
 function printCaseExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const caseType = propStr(node, 'caseType');
     const whens = propArr(node, 'whens');
@@ -455,7 +465,7 @@ function printCaseExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
                 : [keyword('THEN', opts), ' ', thenPart];
         const inline = isSearched && density !== 'spacious' && whenExpr?.type !== 'BooleanBinary';
         if (!isSearched || inline) {
-            return [keyword('WHEN', opts), ' ', whenPart, ' ', thenDoc];
+            return caseArm([keyword('WHEN', opts), ' ', whenPart], thenDoc);
         }
         return [keyword('WHEN', opts), indent([hardline, whenPart]), hardline, thenDoc];
     });
@@ -464,7 +474,7 @@ function printCaseExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const elsePart: Doc[] = elseDoc
         ? elseExpr?.type === 'CaseExpression'
             ? [hardline, keyword('ELSE', opts), indent([hardline, elseDoc])]
-            : [hardline, keyword('ELSE', opts), ' ', elseDoc]
+            : [hardline, caseArm(keyword('ELSE', opts), elseDoc)]
         : [];
 
     const inputPart = input ? [' ', printExpression(input, opts, printFn)] : [];
@@ -472,7 +482,7 @@ function printCaseExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     return group([
         keyword('CASE', opts),
         ...inputPart,
-        indent([...whenDocs.map((w) => [hardline, ...w] as Doc), ...elsePart]),
+        indent([...whenDocs.map((w) => [hardline, w] as Doc), ...elsePart]),
         hardline,
         keyword('END', opts),
     ]);

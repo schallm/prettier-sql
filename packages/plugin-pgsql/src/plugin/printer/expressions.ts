@@ -591,6 +591,15 @@ function printSubLink(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     return subDoc;
 }
 
+/**
+ * One arm of a CASE, `WHEN cond THEN result` or `ELSE result`: the tail goes on an indented
+ * line of its own when the arm doesn't fit, unless a part is forced to break (it spans lines, or has a line comment).
+ */
+function caseArm(head: Doc, tail: Doc): Doc {
+    if (willBreak(head) || willBreak(tail)) return [head, ' ', tail];
+    return group([head, indent([line, tail])]);
+}
+
 function printCaseExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (kw: string) => keyword(kw, opts);
     const arg = prop(node, 'arg');
@@ -600,14 +609,14 @@ function printCaseExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const whenDocs = whens.map((w) => {
         const cond = prop(w, 'condition');
         const result = prop(w, 'result');
-        return [makeKeyword('WHEN'), ' ', cond ? printNode(cond) : '', ' ', makeKeyword('THEN'), ' ', result ? printNode(result) : ''];
+        return caseArm([makeKeyword('WHEN'), ' ', cond ? printNode(cond) : ''], [makeKeyword('THEN'), ' ', result ? printNode(result) : '']);
     });
 
     return [
         makeKeyword('CASE'), arg ? [' ', printNode(arg)] : '',
         indent([
             hardline, join(hardline, whenDocs),
-            else_ ? [hardline, makeKeyword('ELSE'), ' ', printNode(else_)] : '',
+            else_ ? [hardline, caseArm(makeKeyword('ELSE'), printNode(else_))] : '',
         ]),
         hardline, makeKeyword('END'),
     ];
