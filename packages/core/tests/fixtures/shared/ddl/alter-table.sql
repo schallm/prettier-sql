@@ -1,7 +1,3 @@
-alter table books add summary varchar(500);
-
-alter table books add is_featured integer not null default 0;
-
 alter table books drop column summary;
 
 alter table books add constraint uq_books_title unique (title);

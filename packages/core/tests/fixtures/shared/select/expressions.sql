@@ -1,7 +1,3 @@
-select cast(price as integer) from books;
-
-select cast(title as varchar(100)) from books;
-
 select coalesce(deleted_at, current_timestamp) from books;
 
 select nullif(price, 0) from books;

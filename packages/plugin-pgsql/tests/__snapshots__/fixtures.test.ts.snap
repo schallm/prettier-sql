@@ -57,6 +57,16 @@ alter procedure p(integer)
 "
 `;
 
+exports[`fixtures > ddl/alter-table-add-column.sql 1`] = `
+"-- ADD prints as ADD COLUMN, which T-SQL doesn't accept
+alter table books
+  add column summary varchar(500);
+
+alter table books
+  add column is_featured integer not null default 0;
+"
+`;
+
 exports[`fixtures > ddl/alter-table-extended.sql 1`] = `
 "-- RENAME COLUMN
 alter table users rename column email to email_address;
@@ -4280,6 +4290,16 @@ from
 "
 `;
 
+exports[`fixtures > select/cast.sql 1`] = `
+"-- CAST: PostgreSQL prints it as ::, T-SQL keeps CAST
+select price::integer
+from books;
+
+select title::varchar(100)
+from books;
+"
+`;
+
 exports[`fixtures > select/comments.sql 1`] = `
 "-- single leading comment
 select
@@ -6222,12 +6242,6 @@ LIMIT 10;
 
 exports[`shared fixtures > ddl/alter-table.sql 1`] = `
 "alter table books
-  add column summary varchar(500);
-
-alter table books
-  add column is_featured integer not null default 0;
-
-alter table books
   drop column summary;
 
 alter table books
@@ -6506,13 +6520,7 @@ order by author_id;
 `;
 
 exports[`shared fixtures > select/expressions.sql 1`] = `
-"select price::integer
-from books;
-
-select title::varchar(100)
-from books;
-
-select coalesce(deleted_at, current_timestamp)
+"select coalesce(deleted_at, current_timestamp)
 from books;
 
 select nullif(price, 0)

@@ -702,6 +702,15 @@ add
 "
 `;
 
+exports[`fixtures > alter-table/add-column-short.sql 1`] = `
+"alter table books
+add summary varchar(500);
+
+alter table books
+add is_featured integer default 0 not null;
+"
+`;
+
 exports[`fixtures > alter-table/add-elements.sql 1`] = `
 "-- ALTER TABLE ADD: DEFAULT ... WITH VALUES, PERIOD FOR SYSTEM_TIME, INDEX; masking functions with quotes
 alter table t
@@ -3764,6 +3773,15 @@ go
 "
 `;
 
+exports[`fixtures > select/cast.sql 1`] = `
+"select cast(price as integer)
+from books;
+
+select cast(title as varchar(100))
+from books;
+"
+`;
+
 exports[`fixtures > select/change-tracking-context.sql 1`] = `
 "-- WITH CHANGE_TRACKING_CONTEXT must be preserved as prefix before DML
 with change_tracking_context (@ctx)
@@ -6606,12 +6624,6 @@ ORDER BY b.Title ASC;
 
 exports[`shared fixtures > ddl/alter-table.sql 1`] = `
 "alter table books
-add summary varchar(500);
-
-alter table books
-add is_featured integer default 0 not null;
-
-alter table books
 drop column summary;
 
 alter table books
@@ -6675,7 +6687,7 @@ create table books (
   id integer not null,
   title varchar(200) not null,
   author_id integer not null,
-  price decimal(10, 2) not null,
+  price numeric(10, 2) not null,
   in_stock integer default 1 not null,
   constraint pk_books primary key (id),
   constraint fk_books_author foreign key (author_id) references authors (id),
@@ -6686,7 +6698,7 @@ create table order_items (
   order_id integer not null,
   book_id integer not null,
   quantity integer default 1 not null,
-  unit_price decimal(10, 2) not null,
+  unit_price numeric(10, 2) not null,
   constraint pk_order_items primary key (order_id, book_id),
   constraint fk_order_items_order foreign key (order_id) references orders (id),
   constraint fk_order_items_book foreign key (book_id) references books (id)
@@ -6908,13 +6920,7 @@ order by author_id asc;
 `;
 
 exports[`shared fixtures > select/expressions.sql 1`] = `
-"select cast(price as integer)
-from books;
-
-select cast(title as varchar(100))
-from books;
-
-select coalesce(deleted_at, current_timestamp)
+"select coalesce(deleted_at, current_timestamp)
 from books;
 
 select nullif(price, 0)
