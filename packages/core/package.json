@@ -11,6 +11,7 @@
     "./options": "./dist/options.js",
     "./printer/utils": "./dist/printer/utils.js",
     "./printer/helpers": "./dist/printer/helpers.js",
+    "./printer/layout": "./dist/printer/layout.js",
     "./parser": "./dist/parser/loadDotnet.js"
   },
   "scripts": {

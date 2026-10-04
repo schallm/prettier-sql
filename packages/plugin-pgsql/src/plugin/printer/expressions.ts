@@ -1,7 +1,8 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options, PrintFn } from '@prettier-sql/core/printer/utils';
-import { keyword, join, indent, hardline, softline, group, fill, line, getDensity, aliasDoc, parenList, parenItems, optionItems, bracketItems, willBreak, hasHardline, hasLine, conditionalGroup } from '@prettier-sql/core/printer/utils';
+import { keyword, join, indent, hardline, softline, group, line, getDensity, aliasDoc, parenList, parenItems, optionItems, bracketItems, willBreak, hasHardline, hasLine } from '@prettier-sql/core/printer/utils';
+import { caseArm, betweenDoc, operatorChain } from '@prettier-sql/core/printer/layout';
 import { printStatement, printQueryExpr } from './statements.js';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, onlyPrefix, printFdwOptions } from './helpers.js';
 
@@ -53,7 +54,7 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'RowExpr': return [propBool(node, 'explicit') ? keyword('ROW', opts) : '', '(', join(', ', propArr(node, 'args').map(printNode)), ')'];
         case 'ParamRef': return node.text ?? '$?';
         case 'SqlvalueFunction': return keyword(node.text ?? '', opts);
-        case 'CTE': return printCteInline(node, opts, printNode);
+        case 'CTE': return printCte(node, opts, printNode);
         case 'WithClause': return '';
         case 'InExpr':         return printInExpr(node, opts, printNode);
         case 'BetweenExpr':    return printBetweenExpr(node, opts, printNode);
@@ -246,15 +247,9 @@ function printBinaryExpr(node: SqlNode, opts: Options, printNode: PrintFn, tail:
         return [op, right ? printOperand(right, PREC.UNARY + 1, printNode) : ''];
     }
 
-    // For + - / || chains: flatten into terms and fill, as many per line as fit, each
-    // continuation line indented and led by its operator.
-    // Flat: "a || b || c". Wrapping: "a || b\n    || c || d".
+    // + - and || chains: flattened into terms that fill as many to a line as fit
     const chain = chainOf(op);
-    if (chain) {
-        const [first, ...rest] = collectChain(node, chain, printNode);
-        const pieces = rest.map((t, i): Doc => indent([t.op, ' ', t.term, i === rest.length - 1 ? tail : '']));
-        return fill([first!.term, ...pieces.flatMap((piece): Doc[] => [indent(line), piece])]);
-    }
+    if (chain) return operatorChain(collectChain(node, chain, printNode), tail);
 
     const opDoc: Doc = /^[A-Z]/.test(op) ? keyword(op, opts) : op;
     const { left: leftPrec, right: rightPrec } = operandPrecs(binaryOpPrec(op));
@@ -597,15 +592,6 @@ function printSubLink(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     if (type === 'ROWCOMPARE') return [lhs, op ?? '=', ' ', subDoc];
     if (type === 'ARRAY') return [makeKeyword('ARRAY'), subDoc];
     return subDoc;
-}
-
-/**
- * One arm of a CASE, `WHEN cond THEN result` or `ELSE result`: the tail goes on an indented
- * line of its own when the arm doesn't fit, unless a part is forced to break (it spans lines, or has a line comment).
- */
-function caseArm(head: Doc, tail: Doc): Doc {
-    if (willBreak(head) || willBreak(tail)) return [head, ' ', tail];
-    return group([head, indent([line, tail])]);
 }
 
 function printCaseExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -1062,17 +1048,30 @@ function printCoalesce(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     return [makeKeyword('COALESCE'), parenItems(args.map(printNode), opts)];
 }
 
-function printCteInline(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+/** One CTE of a WITH: `name(cols) AS [NOT] MATERIALIZED (query)`, then any SEARCH / CYCLE. */
+function printCte(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (kw: string) => keyword(kw, opts);
     const name = propStr(node, 'name') ?? '';
     const columns = propStrArr(node, 'columns');
     const materialized = propStr(node, 'materialized');
     const query = prop(node, 'query');
-    return [
+    const search = prop(node, 'search');
+    const cycle = prop(node, 'cycle');
+    const parts: Doc[] = [
         name, columns.length > 0 ? ['(', join(', ', columns), ')'] : '',
         ' ', makeKeyword('AS'), materialized ? [' ', makeKeyword(materialized)] : '',
         ' (', indent([hardline, query ? printNode(query) : '']), hardline, ')',
     ];
+    if (search) {
+        const firstLast = propBool(search, 'breadthFirst') ? makeKeyword('BREADTH FIRST') : makeKeyword('DEPTH FIRST');
+        parts.push(hardline, makeKeyword('SEARCH'), ' ', firstLast, ' ', makeKeyword('BY'), ' ', join(', ', propStrArr(search, 'columns')),
+            ' ', makeKeyword('SET'), ' ', propStr(search, 'seqColumn') ?? '');
+    }
+    if (cycle) {
+        parts.push(hardline, makeKeyword('CYCLE'), ' ', join(', ', propStrArr(cycle, 'columns')), ' ', makeKeyword('SET'), ' ',
+            propStr(cycle, 'markColumn') ?? '', ' ', makeKeyword('USING'), ' ', propStr(cycle, 'pathColumn') ?? '');
+    }
+    return parts;
 }
 
 // ---------------------------------------------------------------------------
@@ -1090,18 +1089,6 @@ function printInExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const items  = values ? propArr(values, 'items').map(printNode) : [];
     const literals = (values ? propArr(values, 'items') : []).every((v) => v.type === 'Literal');
     return [left ? printOperand(left, PREC.LIKE + 1, printNode) : '', ' ', keywordDoc, ' ', parenItems(items, opts, literals)];
-}
-
-/**
- * `head low AND high`: on one line when it fits; otherwise the AND bound goes on an indented
- * line of its own; and when even `head low` doesn't fit, the bounds each go on an indented line.
- */
-function betweenDoc(head: Doc, low: Doc, andHigh: Doc): Doc {
-    return conditionalGroup([
-        [head, ' ', low, ' ', andHigh],
-        [head, ' ', low, indent([hardline, andHigh])],
-        [head, indent([hardline, low, hardline, andHigh])],
-    ]);
 }
 
 function printBetweenExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {

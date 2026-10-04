@@ -17,9 +17,9 @@ import {
     appendTrailingLines,
     parenList,
     optionItems,
-    fill,
     hasLineSuffix,
 } from '@prettier-sql/core/printer/utils';
+import { valuesRow, valuesDoc, setClauseDoc, joinStatements } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, assignmentOp, claimTrailingComment, takeTrailingComment, unprintedComments, withTrailingComment, takeLeadingComments } from './helpers.js';
 import {
     printExpression,
@@ -30,6 +30,8 @@ import {
     printQueryExpression,
     boolWithTrailing,
     boolEndsWithPendingComment,
+    printTop,
+    rightmostPred,
 } from './expressions.js';
 import {
     printCreateTable,
@@ -232,17 +234,10 @@ export function printStatementWithComments(s: SqlNode, opts: Options): Doc {
     return withTrailing;
 }
 
-// Walk to the rightmost non-BooleanBinary leaf (mirrors the one in expressions.ts).
-function rightmostBoolLeaf(node: SqlNode | null | undefined): SqlNode | null {
-    if (!node) return null;
-    if (node.type === 'BooleanBinary') return rightmostBoolLeaf(prop(node, 'right'));
-    return node;
-}
-
 // Append any trailing comment on the rightmost predicate leaf — covers single-predicate
 // WHERE with a comment below it, and comments after the last predicate in a multi-predicate WHERE.
 function printBoolDoc(where: SqlNode, opts: Options): Doc {
-    const leaf = rightmostBoolLeaf(where);
+    const leaf = rightmostPred(where);
     if (leaf?.trailingComment) claimTrailingComment(leaf);
     const base = printBool(where, opts);
     return appendTrailingLines(base, takeTrailingComment(leaf));
@@ -250,31 +245,6 @@ function printBoolDoc(where: SqlNode, opts: Options): Doc {
 
 function printTable(node: SqlNode, opts: Options): Doc {
     return printTableRef(node, opts, (n) => printNode(n, opts));
-}
-
-/**
- * Fill-pack a list of docs using commas — wraps at printWidth, keeping each
- * item together with its associated comma. Used for UPDATE SET, INSERT columns,
- * etc. in standard/compact density.
- *
- * Trailing commas: `item1, item2,\n    item3`
- * Leading commas:  `item1\n, item2\n, item3`
- */
-function fillList(docs: Doc[], opts: Options): Doc {
-    const leading = getCommaStyle(opts) === 'leading';
-    return fill(
-        docs.flatMap((d, i) => {
-            if (i === 0) return [d] as Doc[];
-            // leading: break point before ', item' so comma leads the new line
-            // trailing: 'item,' then break point so comma trails the old line
-            // After a line comment the break is forced, or the next item joins the comment
-            const forced = hasLineSuffix(docs[i - 1]!);
-            // leading: the ', ' already carries the space, so a flat break must print nothing
-            return leading
-                ? ([forced ? hardline : softline, [', ', d]] as Doc[])
-                : ([[',', forced ? hardline : line], d] as Doc[]);
-        }),
-    );
 }
 
 /**
@@ -410,15 +380,7 @@ export function isMinor(node: SqlNode): boolean {
  * top-level batches.
  */
 export function joinBodyStatements(stmts: SqlNode[], opts: Options): Doc {
-    if (stmts.length === 0) return '';
-    const parts: Doc[] = [printStatementWithComments(stmts[0]!, opts)];
-    for (let i = 1; i < stmts.length; i++) {
-        const prev = stmts[i - 1]!;
-        const curr = stmts[i]!;
-        const sep: Doc = isMinor(prev) && isMinor(curr) ? hardline : [hardline, hardline];
-        parts.push(sep, printStatementWithComments(curr, opts));
-    }
-    return parts;
+    return joinStatements(stmts, isMinor, (s) => printStatementWithComments(s, opts));
 }
 
 function printBatch(node: SqlNode, opts: Options): Doc {
@@ -934,43 +896,21 @@ function printValuesSource(node: SqlNode, opts: Options): Doc {
 
     const rowDocs = rows.map((row) => {
         const rowNode = row as SqlNode;
-        const vals = propArr(rowNode, 'values').map((v) => printNode(v, opts));
-        const rowDoc = group(['(', indent([softline, join(softSep(opts), vals)]), softline, ')']);
+        const rowDoc = valuesRow(propArr(rowNode, 'values').map((v) => printNode(v, opts)), opts);
         const rowComment = takeTrailingComment(rowNode);
         return rowComment ? [rowDoc, lineSuffix([' ', rowComment])] : rowDoc;
     });
 
-    if (rows.length === 1) {
-        return [hardline, keyword('VALUES', opts), ' ', rowDocs[0]!];
-    }
-
-    const density  = getDensity(opts);
-    const colCount = propArr((rows[0] as SqlNode), 'values').length;
-    // compact: fill-pack all multi-row inserts
-    // standard + 1-column rows: fill-pack (rows are short)
-    // standard + multi-column rows: one per line
-    // spacious: always one per line
-    const useFill = density === 'compact' || (density === 'standard' && colCount === 1);
-    return [
-        hardline,
-        keyword('VALUES', opts),
-        indent([hardline, useFill ? fillList(rowDocs, opts) : join(hardSep(opts), rowDocs)]),
-    ];
+    return [hardline, valuesDoc(rowDocs, propArr(rows[0] as SqlNode, 'values').length, opts)];
 }
 
 // ---------------------------------------------------------------------------
 // Shared SET-clause renderer (UPDATE and MERGE UPDATE)
 // ---------------------------------------------------------------------------
 
-/** Render TOP (n) [PERCENT] [WITH TIES] for DELETE and UPDATE statements. */
+/** TOP (n) [PERCENT] [WITH TIES] of an INSERT, UPDATE, DELETE or MERGE. */
 function renderTopFilter(topNode: SqlNode, opts: Options): Doc {
-    const expr = prop(topNode, 'expression');
-    const isPercent = propBool(topNode, 'percent');
-    const withTies = propBool(topNode, 'withTies');
-    const parts: Doc[] = [keyword('TOP', opts), ' (', expr ? printNode(expr, opts) : '', ')'];
-    if (isPercent) parts.push(' ', keyword('PERCENT', opts));
-    if (withTies) parts.push(' ', keyword('WITH TIES', opts));
-    return parts;
+    return printTop(topNode, opts, (n) => printNode(n, opts));
 }
 
 /**
@@ -1000,7 +940,6 @@ function printSetClauseItem(sc: SqlNode, opts: Options): Doc {
 
 function printUpdate(node: SqlNode, opts: Options): Doc {
     const ctesDocs = printCtes(node, opts);
-    const density = getDensity(opts);
     const topNode = prop(node, 'top');
     const target = prop(node, 'target');
     const setClauses = propArr(node, 'set');
@@ -1019,12 +958,7 @@ function printUpdate(node: SqlNode, opts: Options): Doc {
         ' ',
         target ? printTable(target, opts) : '',
         hardline,
-        keyword('SET', opts),
-        density !== 'spacious' && setParts.length === 1
-            ? [' ', setParts[0]!]
-            : density === 'spacious'
-              ? indent([hardline, join(hardSep(opts), setParts)])
-              : indent([hardline, fillList(setParts, opts)]),
+        setClauseDoc(setParts, opts),
     ];
 
     // OUTPUT comes before FROM in UPDATE (and multi-table DELETE)

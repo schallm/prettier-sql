@@ -16,15 +16,15 @@ import {
     appendTrailingLines,
     parenList,
     hasLine,
-    conditionalGroup,
     willBreak,
     parenItems, optionItems,
     aliasDoc,
     commaFill,
     hasLineSuffix,
 } from '@prettier-sql/core/printer/utils';
+import { caseArm, betweenDoc, operatorChain } from '@prettier-sql/core/printer/layout';
 import {
-    prop, propArr, propStr, propStrArr, propBool, schemaObjectName, builtinTypeDoc, assignmentOp,
+    prop, propArr, propStr, propStrArr, propBool, schemaObjectName, builtinTypeDoc, assignmentOp, splitTopLevel,
     claimTrailingComment, isCommentClaimed, takeTrailingComment, withTrailingComment, appendComments,
 } from './helpers.js';
 
@@ -382,14 +382,6 @@ function collectBinaryChain(node: SqlNode, ops: Set<string>): { op: string; term
 const ADDITIVE_OPS = new Set(['Add', 'Subtract', 'Concatenate']);
 const CONCAT_OPS = new Set(['Concat']);
 
-// Fill: as many terms per line as fit, each continuation line indented and led by its
-// operator. Flat: "a + b - c". Filling: "a + b\n  + c - d".
-function buildChain(terms: { op: string; term: Doc }[], tail: Doc = ''): Doc {
-    const [first, ...rest] = terms;
-    const pieces = rest.map((t, i): Doc => indent([t.op, ' ', t.term, i === rest.length - 1 ? tail : '']));
-    return fill([first!.term, ...pieces.flatMap((piece): Doc[] => [indent(line), piece])]);
-}
-
 /**
  * A + - || chain with `tail` (a select item's ` AS alias`) taken into its last piece, so the
  * line-filling counts it; null when `node` isn't a chain.
@@ -399,7 +391,7 @@ function printChainWithTail(node: SqlNode, tail: Doc, opts: Options, printFn: Pr
     const chainOps = node.type === 'BinaryExpression' ? (ADDITIVE_OPS.has(op) ? ADDITIVE_OPS : CONCAT_OPS.has(op) ? CONCAT_OPS : null) : null;
     if (!chainOps) return null;
     const terms = collectBinaryChain(node, chainOps).map((t) => ({ op: t.op, term: printExpression(t.term, opts, printFn) }));
-    return withTrailingComment(node, buildChain(terms, tail));
+    return withTrailingComment(node, operatorChain(terms, tail));
 }
 
 function printBinaryExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
@@ -407,7 +399,7 @@ function printBinaryExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
 
     const chainOps = ADDITIVE_OPS.has(op) ? ADDITIVE_OPS : CONCAT_OPS.has(op) ? CONCAT_OPS : null;
     if (chainOps) {
-        return buildChain(collectBinaryChain(node, chainOps).map((t) => ({ op: t.op, term: printExpression(t.term, opts, printFn) })));
+        return operatorChain(collectBinaryChain(node, chainOps).map((t) => ({ op: t.op, term: printExpression(t.term, opts, printFn) })));
     }
 
     const left = prop(node, 'left');
@@ -446,15 +438,6 @@ function printUnaryExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
 function printParenExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     return ['(', expr ? printExpression(expr, opts, printFn) : '', ')'];
-}
-
-/**
- * One arm of a CASE, `WHEN cond THEN result` or `ELSE result`: the tail goes on an indented
- * line of its own when the arm doesn't fit, unless a part is forced to break (it spans lines, or has a line comment).
- */
-function caseArm(head: Doc, tail: Doc): Doc {
-    if (willBreak(head) || willBreak(tail)) return [head, ' ', tail];
-    return group([head, indent([line, tail])]);
 }
 
 function printCaseExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
@@ -773,19 +756,14 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
 
     if (orderBy) parts.push(sep, printOrderByClause(orderBy, opts, printFn));
 
-    if (offsetNode) {
-        parts.push(sep, keyword('OFFSET', opts), ' ', printExpression(offsetNode, opts, printFn), ' ', keyword('ROWS', opts));
-        if (fetchNode) {
-            parts.push(sep, keyword('FETCH NEXT', opts), ' ', printExpression(fetchNode, opts, printFn), ' ', keyword('ROWS ONLY', opts));
-        }
-    }
+    parts.push(...offsetFetch(offsetNode, fetchNode, sep, opts, printFn));
 
     if (forClause) parts.push(sep, printForClause(forClause, opts));
 
     return group(parts);
 }
 
-function printTop(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
+export function printTop(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expression');
     const isPercent = propBool(node, 'percent');
     const withTies = propBool(node, 'withTies');
@@ -838,26 +816,15 @@ function printBinaryQuery(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     ];
 
     if (orderBy) parts.push(hardline, printOrderByClause(orderBy, opts, printFn));
-    if (offsetNode) {
-        parts.push(
-            hardline,
-            keyword('OFFSET', opts),
-            ' ',
-            printExpression(offsetNode, opts, printFn),
-            ' ',
-            keyword('ROWS', opts),
-        );
-        if (fetchNode) {
-            parts.push(
-                hardline,
-                keyword('FETCH NEXT', opts),
-                ' ',
-                printExpression(fetchNode, opts, printFn),
-                ' ',
-                keyword('ROWS ONLY', opts),
-            );
-        }
-    }
+    parts.push(...offsetFetch(offsetNode, fetchNode, hardline, opts, printFn));
+    return parts;
+}
+
+/** `OFFSET n ROWS` and `FETCH NEXT n ROWS ONLY`, each after `sep`, at the end of a query. */
+function offsetFetch(offset: SqlNode | null, fetch: SqlNode | null, sep: Doc, opts: Options, printFn: PrintFn): Doc[] {
+    if (!offset) return [];
+    const parts: Doc[] = [sep, keyword('OFFSET', opts), ' ', printExpression(offset, opts, printFn), ' ', keyword('ROWS', opts)];
+    if (fetch) parts.push(sep, keyword('FETCH NEXT', opts), ' ', printExpression(fetch, opts, printFn), ' ', keyword('ROWS ONLY', opts));
     return parts;
 }
 
@@ -1067,7 +1034,7 @@ function printSubqueryComparison(node: SqlNode, opts: Options, printFn: PrintFn)
 }
 
 // Walk to the rightmost non-BooleanBinary leaf of a boolean subtree.
-function rightmostPred(node: SqlNode | null | undefined): SqlNode | null {
+export function rightmostPred(node: SqlNode | null | undefined): SqlNode | null {
     if (!node) return null;
     if (node.type === 'BooleanBinary') return rightmostPred(prop(node, 'right'));
     return node;
@@ -1267,18 +1234,6 @@ function printExistsPredicate(node: SqlNode, opts: Options, printFn: PrintFn): D
     ]);
 }
 
-/**
- * `head low AND high`: on one line when it fits; otherwise the AND bound goes on an indented
- * line of its own; and when even `head low` doesn't fit, the bounds each go on an indented line.
- */
-function betweenDoc(head: Doc, low: Doc, andHigh: Doc): Doc {
-    return conditionalGroup([
-        [head, ' ', low, ' ', andHigh],
-        [head, ' ', low, indent([hardline, andHigh])],
-        [head, indent([hardline, low, hardline, andHigh])],
-    ]);
-}
-
 function printBetween(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     const from = prop(node, 'from');
@@ -1357,26 +1312,6 @@ function printTableRefInner(node: SqlNode, opts: Options, printFn: PrintFn): Doc
 export function tableHintDoc(hint: string, opts: Options): Doc {
     const m = /^(INDEX|FORCESEEK)(\s*=\s*|\()([\s\S]*)$/.exec(hint);
     return m ? [keyword(m[1]!, opts), m[2]!, m[3]!] : keyword(hint, opts);
-}
-
-/** Splits at the commas that are not inside parentheses or quotes. */
-function splitTopLevel(text: string): string[] {
-    const parts: string[] = [];
-    let depth = 0;
-    let quote = false;
-    let start = 0;
-    for (let i = 0; i < text.length; i++) {
-        const c = text[i]!;
-        if (c === "'") quote = !quote;
-        else if (!quote && c === '(') depth++;
-        else if (!quote && c === ')') depth--;
-        else if (!quote && depth === 0 && c === ',') {
-            parts.push(text.slice(start, i).trim());
-            start = i + 1;
-        }
-    }
-    parts.push(text.slice(start).trim());
-    return parts;
 }
 
 /** An OPTION (...) query hint serialized by the builder; TABLE HINT (object, hints) keeps the object's case. */

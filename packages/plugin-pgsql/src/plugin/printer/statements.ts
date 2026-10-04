@@ -11,12 +11,12 @@ import {
     softSep,
     hardSep,
     getDensity,
-    getCommaStyle,
     fill,
     line,
     commaFill,
     parenItems, optionItems,
 } from '@prettier-sql/core/printer/utils';
+import { valuesRow, valuesDoc, setClauseDoc, joinStatements } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions } from './helpers.js';
 import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, printOperand, printBoolFlat, PREC, tableAliasDoc } from './expressions.js';
 
@@ -63,20 +63,8 @@ export function printScript(node: SqlNode, opts: Options): Doc {
         const comments = propStrArr(node, 'comments');
         return comments.length > 0 ? [join(hardline, comments), hardline] : '';
     }
-    const docs = statements.map((s) => printStatementWithComments(s, opts));
-    const parts: Doc[] = [];
-    for (let i = 0; i < docs.length; i++) {
-        if (i > 0) {
-            const prev = statements[i - 1]!;
-            const curr = statements[i]!;
-            const sep = MINOR_STATEMENT_TYPES.has(prev.type) && MINOR_STATEMENT_TYPES.has(curr.type)
-                ? hardline
-                : [hardline, hardline];
-            parts.push(sep);
-        }
-        parts.push(docs[i]!);
-    }
-    return [...parts, hardline];
+    const isMinor = (s: SqlNode): boolean => MINOR_STATEMENT_TYPES.has(s.type);
+    return [...joinStatements(statements, isMinor, (s) => printStatementWithComments(s, opts)), hardline];
 }
 
 function printStatementWithComments(node: SqlNode, opts: Options): Doc {
@@ -299,30 +287,7 @@ function printCtes(ctes: SqlNode, opts: Options, printNode: PrintFn): Doc[] {
     const cteList   = propArr(ctes, 'ctes');
     const recursive = propBool(ctes, 'recursive');
     const cteKw     = recursive ? makeKeyword('WITH RECURSIVE') : makeKeyword('WITH');
-    const cteDocs = cteList.map((cte) => {
-        const name  = propStr(cte, 'name') ?? '';
-        const columns = propStrArr(cte, 'columns');
-        const materialized = propStr(cte, 'materialized');
-        const query = prop(cte, 'query');
-        const search = prop(cte, 'search');
-        const cycle  = prop(cte, 'cycle');
-        const parts: Doc[] = [name, columns.length > 0 ? ['(', join(', ', columns), ')'] : '', ' ', makeKeyword('AS'),
-            materialized ? [' ', makeKeyword(materialized)] : '', ' (', indent([hardline, query ? printNode(query) : '']), hardline, ')'];
-        if (search) {
-            const breadthFirst = propBool(search, 'breadthFirst');
-            const cols = propStrArr(search, 'columns');
-            const seqCol = propStr(search, 'seqColumn') ?? '';
-            const firstLast = breadthFirst ? makeKeyword('BREADTH FIRST') : makeKeyword('DEPTH FIRST');
-            parts.push(hardline, makeKeyword('SEARCH'), ' ', firstLast, ' ', makeKeyword('BY'), ' ', join(', ', cols), ' ', makeKeyword('SET'), ' ', seqCol);
-        }
-        if (cycle) {
-            const cols = propStrArr(cycle, 'columns');
-            const markCol = propStr(cycle, 'markColumn') ?? '';
-            const pathCol = propStr(cycle, 'pathColumn') ?? '';
-            parts.push(hardline, makeKeyword('CYCLE'), ' ', join(', ', cols), ' ', makeKeyword('SET'), ' ', markCol, ' ', makeKeyword('USING'), ' ', pathCol);
-        }
-        return parts;
-    });
+    const cteDocs = cteList.map(printNode);
     return [[cteKw, indent([hardline, join([',', hardline], cteDocs)])]];
 }
 
@@ -449,16 +414,6 @@ function printInsert(node: SqlNode, opts: Options): Doc {
 // UPDATE
 // ---------------------------------------------------------------------------
 
-function fillList(docs: Doc[], opts: Options): Doc {
-    const leading = getCommaStyle(opts) === 'leading';
-    return fill(
-        docs.flatMap((d, i) => {
-            if (i === 0) return [d] as Doc[];
-            return leading ? ([line, [', ', d]] as Doc[]) : ([[',', line], d] as Doc[]);
-        }),
-    );
-}
-
 function printUpdateBody(node: SqlNode, opts: Options): Doc {
     const makeKeyword = (k: string) => keyword(k, opts);
     const printNode = printWith(opts);
@@ -469,21 +424,13 @@ function printUpdateBody(node: SqlNode, opts: Options): Doc {
     const from      = propArr(node, 'from');
     const where     = prop(node, 'where');
     const returning = propArr(node, 'returning');
-    const density   = getDensity(opts);
 
     const setDocs = sets.map((s) => printAssignment(s, printNode));
 
     const parts: Doc[] = ctes ? printCtes(ctes, opts, printNode) : [];
     parts.push(
         [makeKeyword('UPDATE'), ' ', onlyPrefix(target, opts), rangeVarName(target), target ? tableAliasDoc(target, opts) : ''],
-        [
-            makeKeyword('SET'),
-            density !== 'spacious' && setDocs.length === 1
-                ? [' ', setDocs[0]!]
-                : density === 'spacious'
-                  ? indent([hardline, join(hardSep(opts), setDocs)])
-                  : indent([hardline, fillList(setDocs, opts)]),
-        ],
+        setClauseDoc(setDocs, opts),
     );
 
     if (from.length > 0) {
@@ -623,17 +570,10 @@ function printSetOp(node: SqlNode, opts: Options): Doc {
 // VALUES
 // ---------------------------------------------------------------------------
 
-/**
- * Render VALUES rows without a trailing semicolon — used as INSERT source.
- * Uses softSep within each row and hardSep between rows, matching tsql style.
- */
+/** VALUES rows without a trailing semicolon, after a line break — the source of an INSERT. */
 function printValuesRows(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const makeKeyword      = (k: string) => keyword(k, opts);
     const rows    = propArr(node, 'rows');
-    const rowDocs = rows.map((row) => {
-        const items = propArr(row, 'items').map(printNode);
-        return group(['(', indent([softline, join(softSep(opts), items)]), softline, ')']);
-    });
+    const rowDocs = rows.map((row) => valuesRow(propArr(row, 'items').map(printNode), opts));
 
     // VALUES (1), (2) ORDER BY 1 LIMIT 1
     const tail: Doc[] = printQueryTail(node, opts, printNode).map((d) => [hardline, d]);
@@ -642,18 +582,7 @@ function printValuesRows(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
     // Flat, so the doc still starts with the hardline stripLeadingHardline removes
     const head: Doc[] = ctes ? printCtes(ctes, opts, printNode).flatMap((d) => [hardline, d]) : [];
 
-    if (rowDocs.length === 1) {
-        return [...head, hardline, makeKeyword('VALUES'), ' ', rowDocs[0]!, tail];
-    }
-
-    const density  = getDensity(opts);
-    const colCount = propArr(rows[0]!, 'items').length;
-    // compact: fill-pack all multi-row inserts
-    // standard + 1-column rows: fill-pack (rows are short)
-    // standard + multi-column rows: one per line
-    // spacious: always one per line
-    const useFill = density === 'compact' || (density === 'standard' && colCount === 1);
-    return [...head, hardline, makeKeyword('VALUES'), indent([hardline, useFill ? fillList(rowDocs, opts) : join(hardSep(opts), rowDocs)]), tail];
+    return [...head, hardline, valuesDoc(rowDocs, propArr(rows[0]!, 'items').length, opts), tail];
 }
 
 function printValues(node: SqlNode, opts: Options): Doc {
@@ -694,17 +623,9 @@ function printOnConflict(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
     // DO UPDATE SET
     const setDocs = sets.map((s) => printAssignment(s, printNode));
 
-    const density = getDensity(opts);
     const parts: Doc[] = [
         [makeKeyword('ON CONFLICT'), targetDoc, ' ', makeKeyword('DO UPDATE')],
-        [
-            makeKeyword('SET'),
-            density !== 'spacious' && setDocs.length === 1
-                ? [' ', setDocs[0]!]
-                : density === 'spacious'
-                  ? indent([hardline, join(hardSep(opts), setDocs)])
-                  : indent([hardline, fillList(setDocs, opts)]),
-        ],
+        setClauseDoc(setDocs, opts),
     ];
 
     if (where) parts.push(printBoolClause('WHERE', where, opts, printNode));

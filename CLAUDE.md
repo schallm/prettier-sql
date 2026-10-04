@@ -58,6 +58,7 @@ Sub-path exports from `packages/core/package.json`:
 | `@prettier-sql/core/options` | `src/options.ts` — `sqlKeywordCase`, `sqlDensity`, `sqlCommaStyle` |
 | `@prettier-sql/core/printer/utils` | `src/printer/utils.ts` — `keyword()`, `parenList()`, `parenItems()`, `aliasDoc()`, `hardSep()`, `softSep()`, `commentsBlock()`, etc. |
 | `@prettier-sql/core/printer/helpers` | `src/printer/helpers.ts` — `prop()`, `propArr()`, `propStr()`, `propBool()` |
+| `@prettier-sql/core/printer/layout` | `src/printer/layout.ts` — layouts both dialects share, over docs each plugin prints: `caseArm()`, `betweenDoc()`, `operatorChain()`, `fillList()`, `valuesDoc()`, `setClauseDoc()`, `joinStatements()`, etc. |
 
 ### C# — `PrettierSql.Core` namespace
 
@@ -80,6 +81,12 @@ Standard SQL that both dialects must format identically:
 
 Each plugin's `tests/fixtures.test.ts` runs these under a `shared fixtures` describe block
 and also runs its own dialect-specific fixtures.
+
+`packages/plugin-pgsql/tests/parity.test.ts` formats every shared fixture with both plugins
+(default, compact and spacious density) and requires the same output, ignoring T-SQL's `GO`
+lines. A statement whose output differs only by a dialect spelling (`CAST` vs `::`,
+`ADD` vs `ADD COLUMN`) belongs in each plugin's own fixtures, not the shared ones. Layout
+that both dialects need goes in `@prettier-sql/core/printer/layout`.
 
 ### Meaning check
 

@@ -26,6 +26,7 @@ const filesToCopy = [
     ['types.js', '_core/types.js'],
     ['printer/helpers.js', '_core/printer/helpers.js'],
     ['printer/utils.js', '_core/printer/utils.js'],
+    ['printer/layout.js', '_core/printer/layout.js'],
     ['parser/loadDotnet.js', '_core/parser/loadDotnet.js'],
 ];
 
@@ -51,6 +52,7 @@ const REPLACEMENTS = [
     ['@prettier-sql/core/types', (p) => `${p}/types.js`],
     ['@prettier-sql/core/printer/utils', (p) => `${p}/printer/utils.js`],
     ['@prettier-sql/core/printer/helpers', (p) => `${p}/printer/helpers.js`],
+    ['@prettier-sql/core/printer/layout', (p) => `${p}/printer/layout.js`],
     ['@prettier-sql/core/parser', (p) => `${p}/parser/loadDotnet.js`],
 ];
 
