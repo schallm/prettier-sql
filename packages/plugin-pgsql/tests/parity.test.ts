@@ -20,7 +20,6 @@ const VARIANTS: Record<string, unknown>[] = [{}, { sqlDensity: 'compact' }, { sq
 // Shared fixtures the two dialects still format differently
 const KNOWN_DIVERGENT = new Set([
     'ddl/alter-table.sql',
-    'ddl/create-index.sql',
     'ddl/create-table.sql',
 ]);
 

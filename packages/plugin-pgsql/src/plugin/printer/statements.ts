@@ -16,7 +16,7 @@ import {
 } from '@prettier-sql/core/printer/utils';
 import {
     valuesRow, valuesDoc, setClauseDoc, setOpDoc, joinStatements, boolClauseDoc,
-    selectListDoc, fromClauseDoc, listClauseDoc, windowClauseDoc, withClauseDoc, joinOnDoc, mergeActionDoc,
+    selectListDoc, fromClauseDoc, listClauseDoc, windowClauseDoc, withClauseDoc, joinOnDoc, mergeActionDoc, createIndexDoc,
 } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions } from './helpers.js';
 import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, boolTerms, isBoolChain, tableAliasDoc } from './expressions.js';
@@ -770,34 +770,26 @@ function printCreateIndex(node: SqlNode, opts: Options): Doc {
     const accessMethod = propStr(node, 'accessMethod');
     const where       = prop(node, 'where');
 
-    const keyword1 = unique ? makeKeyword('CREATE UNIQUE INDEX') : makeKeyword('CREATE INDEX');
-    const parts: Doc[] = [keyword1];
-    if (concurrent)  parts.push(' ', makeKeyword('CONCURRENTLY'));
-    if (ifNotExists) parts.push(' ', makeKeyword('IF NOT EXISTS'));
+    const head: Doc[] = [unique ? makeKeyword('CREATE UNIQUE INDEX') : makeKeyword('CREATE INDEX')];
+    if (concurrent)  head.push(' ', makeKeyword('CONCURRENTLY'));
+    if (ifNotExists) head.push(' ', makeKeyword('IF NOT EXISTS'));
     const options    = propStrArr(node, 'options');
     const tablespace = propStr(node, 'tablespace');
-    parts.push(' ', indexName);
+    head.push(' ', indexName);
     const onTable: Doc[] = [makeKeyword('ON'), ' ', onlyPrefix(relation, opts), rangeVarName(relation)];
     if (accessMethod) onTable.push(' ', makeKeyword('USING'), ' ', accessMethod);
     onTable.push(' ', optionItems(columns.map(printNode), opts));
-    // `ON table USING method (` is plain text, so whether it fits after the name is a length check:
-    // when it doesn't, it moves to an indented line of its own
-    const headLength = [
+    const headText = [
         unique ? 'create unique index' : 'create index', concurrent ? ' concurrently' : '', ifNotExists ? ' if not exists' : '',
         ' ', indexName, ' on ', relation && propBool(relation, 'only') ? 'only ' : '', rangeVarName(relation), accessMethod ? ` using ${accessMethod}` : '', ' (',
-    ].join('').length;
-    parts.push(headLength > opts.printWidth ? indent([hardline, ...onTable]) : [' ', ...onTable]);
-    // INCLUDE, WITH, TABLESPACE and WHERE follow on the same line when they all fit, otherwise
-    // each goes on an indented line of its own
+    ].join('');
     const tail: Doc[] = [];
     if (including.length > 0) tail.push([makeKeyword('INCLUDE'), ' ', parenItems(including.map(printNode), opts)]);
     if (propBool(node, 'nullsNotDistinct')) tail.push(makeKeyword('NULLS NOT DISTINCT'));
     if (options.length > 0) tail.push([makeKeyword('WITH'), ' ', optionItems(options, opts)]);
     if (tablespace) tail.push([makeKeyword('TABLESPACE'), ' ', tablespace]);
     if (where) tail.push([makeKeyword('WHERE'), ' ', printNode(where)]);
-    if (tail.length > 0) parts.push(group(indent(tail.map((c) => [line, c]))));
-    parts.push(';');
-    return parts;
+    return createIndexDoc(head, headText, onTable, tail, opts);
 }
 
 function printTruncate(node: SqlNode, opts: Options): Doc {

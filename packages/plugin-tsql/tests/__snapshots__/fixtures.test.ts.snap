@@ -1443,18 +1443,9 @@ create table t (
   a int constraint pk primary key on ps(a)
 );
 
-create unique index ix
-  on t (
-    a
-  )
-on ps(a);
+create unique index ix on t (a) on ps(a);
 
-create index ix
-  on t (
-    a
-  )
-on [PRIMARY]
-filestream_on fs;
+create index ix on t (a) on [PRIMARY] filestream_on fs;
 
 create clustered columnstore index cci
 on t
@@ -1752,19 +1743,10 @@ go
 `;
 
 exports[`fixtures > ddl/filtered-index.sql 1`] = `
-"create index IX_Books_InStock
-  on Books (
-    Price asc
-  )
-  where InStock = 1;
+"create index IX_Books_InStock on Books (Price asc) where InStock = 1;
 
-create unique index UQ_Orders_Active
-  on Orders (
-    CustomerId asc
-  )
-  where
-    Status <> 'Cancelled'
-    and Total > 0;
+create unique index UQ_Orders_Active on Orders (CustomerId asc)
+  where Status <> 'Cancelled' and Total > 0;
 "
 `;
 
@@ -1785,18 +1767,17 @@ with (ledger = off);
 `;
 
 exports[`fixtures > ddl/long-option-lists.sql 1`] = `
-"create nonclustered index ix_orders_customer_created
-  on dbo.Orders (
-    CustomerId,
-    CreatedAt
-  )
-with (
-  pad_index = on,
-  fillfactor = 80,
-  sort_in_tempdb = on,
-  online = on,
-  data_compression = page
-);
+"create nonclustered index ix_orders_customer_created on dbo.Orders (
+  CustomerId,
+  CreatedAt
+)
+  with (
+    pad_index = on,
+    fillfactor = 80,
+    sort_in_tempdb = on,
+    online = on,
+    data_compression = page
+  );
 
 alter table dbo.Orders
 drop constraint PK_Orders with (
@@ -2436,45 +2417,25 @@ alter index ix on dbo.t rebuild with (online = on);
 `;
 
 exports[`fixtures > index/basic.sql 1`] = `
-"create index IX_Books_Title
-  on Books (
-    Title asc
-  );
+"create index IX_Books_Title on Books (Title asc);
 
-create unique index UX_Books_Isbn
-  on Books (
-    Isbn asc
-  );
+create unique index UX_Books_Isbn on Books (Isbn asc);
 
-create clustered index CX_Orders_Date
-  on Orders (
-    OrderDate desc
-  );
+create clustered index CX_Orders_Date on Orders (OrderDate desc);
 
-create nonclustered index IX_Books_Genre_Price
-  on Books (
-    GenreId asc,
-    Price desc
-  )
-  include (Title, InStock);
+create nonclustered index IX_Books_Genre_Price on Books (
+  GenreId asc,
+  Price desc
+) include (Title, InStock);
 
-create unique nonclustered index UX_Authors_Email
-  on Authors (
-    Email asc
-  )
+create unique nonclustered index UX_Authors_Email on Authors (Email asc)
   where Email is not null;
 
-create clustered index IX_Orders_Id
-  on Orders (
-    Id asc
-  )
-with (fillfactor = 80, pad_index = on);
+create clustered index IX_Orders_Id on Orders (Id asc)
+  with (fillfactor = 80, pad_index = on);
 
-create nonclustered index IX_Orders_Status
-  on Orders (
-    Status asc
-  )
-with (online = on, sort_in_tempdb = on);
+create nonclustered index IX_Orders_Status on Orders (Status asc)
+  with (online = on, sort_in_tempdb = on);
 
 alter index IX_Books_Title on Books rebuild;
 
@@ -3695,11 +3656,7 @@ create table dbo.[order] (
   index [index] ([select])
 );
 
-create index [index]
-  on [order] (
-    [select] desc
-  )
-  include ([from]);
+create index [index] on [order] ([select] desc) include ([from]);
 
 alter table [order]
 add [column] int;
@@ -3766,11 +3723,7 @@ select
   dbo.[order]()
 from t;
 
-create index ix
-  on t (
-    a
-  )
-on [primary];
+create index ix on t (a) on [primary];
 go
 "
 `;
@@ -6616,32 +6569,15 @@ drop constraint fk_books_publisher;
 `;
 
 exports[`shared fixtures > ddl/create-index.sql 1`] = `
-"create index ix_books_author_id
-  on books (
-    author_id
-  );
+"create index ix_books_author_id on books (author_id);
 
-create unique index ux_books_title
-  on books (
-    title
-  );
+create unique index ux_books_title on books (title);
 
-create index ix_books_price_desc
-  on books (
-    price desc
-  );
+create index ix_books_price_desc on books (price desc);
 
-create index ix_books_genre_price
-  on books (
-    genre_id,
-    price desc
-  );
+create index ix_books_genre_price on books (genre_id, price desc);
 
-create index ix_books_in_stock
-  on books (
-    author_id
-  )
-  where in_stock = 1;
+create index ix_books_in_stock on books (author_id) where in_stock = 1;
 "
 `;
 

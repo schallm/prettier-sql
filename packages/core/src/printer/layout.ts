@@ -261,6 +261,22 @@ export function mergeActionDoc(thenKw: Doc, action: Doc, opts: Options): Doc {
     return getDensity(opts) === 'compact' ? [thenKw, ' ', action] : [thenKw, indent([hardline, action])];
 }
 
+/**
+ * `CREATE INDEX name ON table (columns)` and its tail (INCLUDE, WITH, WHERE, …).
+ * `ON table (` follows the name when it fits — `headText` is the plain text up to and
+ * including that `(`, for the length check — and otherwise moves to an indented line.
+ * The tail follows on the same line when it all fits, otherwise each part goes on an
+ * indented line of its own.
+ */
+export function createIndexDoc(head: Doc, headText: string, on: Doc, tail: Doc[], opts: Options): Doc {
+    return [
+        head,
+        headText.length > opts.printWidth ? indent([hardline, on]) : [' ', on],
+        tail.length > 0 ? group(indent(tail.map((c): Doc => [line, c]))) : '',
+        ';',
+    ];
+}
+
 /** `lhs UNION rhs` (or INTERSECT / EXCEPT): the operator stands alone between blank lines. */
 export function setOpDoc(lhs: Doc, opKw: Doc, rhs: Doc): Doc {
     return [lhs, hardline, hardline, opKw, hardline, hardline, rhs];

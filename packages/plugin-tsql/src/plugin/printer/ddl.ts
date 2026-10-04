@@ -13,8 +13,10 @@ import {
     commentsBlock,
     parenList,
     optionItems,
+    parenItems,
     willBreak,
 } from '@prettier-sql/core/printer/utils';
+import { createIndexDoc } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment, splitTopLevel, sortOrderDoc } from './helpers.js';
 import { boolEndsWithPendingComment } from './expressions.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
@@ -858,51 +860,22 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
               ? [keyword('NONCLUSTERED', opts), ' ']
               : '';
 
-    const onClause: Doc = [
-        keyword('ON', opts),
-        ' ',
-        schemaObjectName(table),
-        ' (',
-        indent([softline, join([',', line], colDocs)]),
-        softline,
-        ')',
-    ];
+    const onClause: Doc = [keyword('ON', opts), ' ', schemaObjectName(table), ' ', optionItems(colDocs, opts)];
+    const headText = ['create ', isUnique ? 'unique ' : '', clusteredProp === true ? 'clustered ' : clusteredProp === false ? 'nonclustered ' : '',
+        'index ', indexName, ' on ', schemaObjectName(table), ' ('].join('');
 
-    const includePart: Doc =
-        includeColumns.length > 0
-            ? [hardline, keyword('INCLUDE', opts), ' ', parenList(includeColumns)]
-            : '';
-
-    const filterPart: Doc = filterPredicateNode
-        ? [hardline, printBoolClause('WHERE', filterPredicateNode, opts)]
-        : '';
-
+    const tail: Doc[] = [];
+    if (includeColumns.length > 0) tail.push([keyword('INCLUDE', opts), ' ', parenItems(includeColumns, opts)]);
+    if (filterPredicateNode) tail.push([keyword('WHERE', opts), ' ', printBool(filterPredicateNode, opts, true)]);
     const indexOptions = propStrArr(node, 'indexOptions');
-    const withPart: Doc =
-        indexOptions.length > 0
-            ? [hardline, keyword('WITH', opts), ' ', optionItems(indexOptions, opts)]
-            : '';
-
+    if (indexOptions.length > 0) tail.push([keyword('WITH', opts), ' ', optionItems(indexOptions, opts)]);
     const onFileGroup = propStr(node, 'onFileGroup');
+    if (onFileGroup) tail.push([keyword('ON', opts), ' ', onFileGroup]);
     const fileStreamOn = propStr(node, 'fileStreamOn');
-    const fileGroupPart: Doc = [
-        onFileGroup ? [hardline, keyword('ON', opts), ' ', onFileGroup] : '',
-        fileStreamOn ? [hardline, keyword('FILESTREAM_ON', opts), ' ', fileStreamOn] : '',
-    ];
+    if (fileStreamOn) tail.push([keyword('FILESTREAM_ON', opts), ' ', fileStreamOn]);
 
-    return group([
-        keyword('CREATE', opts),
-        ' ',
-        uniqueKw,
-        clusteredKw,
-        keyword('INDEX', opts),
-        ' ',
-        indexName,
-        indent([hardline, onClause, includePart, filterPart]),
-        withPart,
-        fileGroupPart,
-        ';',
-    ]);
+    const head: Doc = [keyword('CREATE', opts), ' ', uniqueKw, clusteredKw, keyword('INDEX', opts), ' ', indexName];
+    return createIndexDoc(head, headText, onClause, tail, opts);
 }
 
 // ---------------------------------------------------------------------------
