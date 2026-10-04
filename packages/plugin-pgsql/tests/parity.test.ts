@@ -22,10 +22,6 @@ const KNOWN_DIVERGENT = new Set([
     'ddl/alter-table.sql',
     'ddl/create-index.sql',
     'ddl/create-table.sql',
-    'dml/update.sql',
-    'select/joins.sql',
-    'select/predicates.sql',
-    'select/subqueries.sql',
 ]);
 
 // A T-SQL batch that must stand alone (CREATE VIEW) ends with GO; PostgreSQL has no batches

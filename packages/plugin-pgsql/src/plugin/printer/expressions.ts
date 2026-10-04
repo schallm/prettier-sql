@@ -2,7 +2,7 @@ import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options, PrintFn } from '@prettier-sql/core/printer/utils';
 import { keyword, join, indent, hardline, softline, group, line, getDensity, aliasDoc, parenList, parenItems, optionItems, bracketItems, willBreak, hasHardline, hasLine } from '@prettier-sql/core/printer/utils';
-import { caseDoc, betweenDoc, operatorChain, boolGroup, boolLines, joinOnDoc, parenGroup, clauseItems, windowSpecDoc, type BoolTerm, type CaseResult } from '@prettier-sql/core/printer/layout';
+import { caseDoc, betweenDoc, operatorChain, boolGroup, boolLines, joinOnDoc, parenGroup, clauseItems, windowSpecDoc, subqueryDoc, type BoolTerm, type CaseResult } from '@prettier-sql/core/printer/layout';
 import { printStatement, printQueryExpr } from './statements.js';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, onlyPrefix, printFdwOptions } from './helpers.js';
 
@@ -283,7 +283,12 @@ function printBoolExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
         // NOT is_normalized(x): x IS NOT NORMALIZED (the same tree)
         if (arg?.type === 'JsonIsPredicate') return printJsonIsPredicate(arg, true, opts, printNode);
         if (arg && isNormalizedCall(arg)) return printIsNormalizedForm(propArr(arg, 'args'), true, opts, printNode);
-        return [makeKeyword('NOT'), ' ', arg ? printOperand(arg, PREC.NOT, printNode) : ''];
+        // NOT x IN (subquery): x NOT IN (subquery), the same tree
+        if (arg?.type === 'SubLink' && propStr(arg, 'type') === 'ANY' && !propStr(arg, 'op')) return printSubLink(arg, opts, printNode, true);
+        // A comparison under NOT gets parentheses it doesn't need, for readability: NOT (a = 1).
+        // (a, b) OVERLAPS (c, d) is already in parentheses.
+        const readable = arg && precedence(arg) <= PREC.LIKE && arg.type !== 'FunctionCall';
+        return [makeKeyword('NOT'), ' ', arg ? printOperand(arg, readable ? PREC.ATOM : PREC.NOT, printNode) : ''];
     }
 
     // Outside a WHERE/HAVING-style clause (see `printBoolFlat`) the operands stay on
@@ -533,7 +538,8 @@ function printCast(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     return [arg ? printOperand(arg, PREC.CAST, printNode) : '', '::', keyword(typeName, opts)];
 }
 
-function printSubLink(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+/** A subquery in an expression; `not` prints `x IN (subquery)` as `x NOT IN (subquery)`. */
+function printSubLink(node: SqlNode, opts: Options, printNode: PrintFn, not = false): Doc {
     const makeKeyword = (kw: string) => keyword(kw, opts);
     const type     = propStr(node, 'type') ?? 'SCALAR';
     const subquery = prop(node, 'subquery');
@@ -543,7 +549,7 @@ function printSubLink(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     // symbol such as = or < is printed as is
     const op: Doc | null = rawOp?.startsWith('OPERATOR(') ? makeKeyword(rawOp) : rawOp;
     const inner    = subquery ? printNode(subquery) : '';
-    const subDoc: Doc = ['(', indent([hardline, inner]), hardline, ')'];
+    const subDoc = subqueryDoc(inner, opts);
 
     if (type === 'EXISTS') {
         const density = getDensity(opts);
@@ -571,7 +577,7 @@ function printSubLink(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const lhs: Doc = testexpr ? [printOperand(testexpr, precedence(node) + 1, printNode), ' '] : '';
     if (type === 'ANY') {
         // IN (subquery) parses as an ANY sublink with no operator; = ANY names it
-        return op ? [lhs, op, ' ', makeKeyword('ANY'), ' ', subDoc] : [lhs, makeKeyword('IN'), ' ', subDoc];
+        return op ? [lhs, op, ' ', makeKeyword('ANY'), ' ', subDoc] : [lhs, makeKeyword(not ? 'NOT IN' : 'IN'), ' ', subDoc];
     }
     if (type === 'ALL') return [lhs, op ?? '=', ' ', makeKeyword('ALL'), ' ', subDoc];
     // (a, b) < (SELECT x, y): a row comparison with a single-row subquery

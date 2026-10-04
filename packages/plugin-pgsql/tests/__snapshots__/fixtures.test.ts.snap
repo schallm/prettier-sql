@@ -3138,7 +3138,8 @@ set (a) = 1;
 
 update t
 set
-  a = 1, (b, c) = (
+  a = 1,
+  (b, c) = (
     select
       x,
       y
@@ -3355,10 +3356,10 @@ exports[`fixtures > p5/is-document.sql 1`] = `
 "select a is document
 from t;
 
-select not a is document
+select not (a is document)
 from t;
 
-select not a is document
+select not (a is document)
 from t;
 
 select *
@@ -6778,7 +6779,7 @@ select
   id,
   title
 from books
-where not in_stock = 0;
+where not (in_stock = 0);
 
 select
   id,
@@ -6937,7 +6938,7 @@ select
   id,
   title
 from books
-where not author_id in (
+where author_id not in (
   select author_id
   from banned_authors
 );

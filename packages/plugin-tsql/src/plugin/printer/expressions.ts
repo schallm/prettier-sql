@@ -19,7 +19,7 @@ import {
     commaFill,
     hasLineSuffix,
 } from '@prettier-sql/core/printer/utils';
-import { caseDoc, betweenDoc, operatorChain, setOpDoc, boolGroup, boolLines, boolClauseDoc, joinOnDoc, parenGroup, selectListDoc, fromClauseDoc, listClauseDoc, clauseItems, windowSpecDoc, windowClauseDoc, type BoolTerm, type CaseResult, type CaseWhen } from '@prettier-sql/core/printer/layout';
+import { caseDoc, betweenDoc, operatorChain, setOpDoc, boolGroup, boolLines, boolClauseDoc, joinOnDoc, parenGroup, selectListDoc, fromClauseDoc, listClauseDoc, clauseItems, windowSpecDoc, windowClauseDoc, subqueryDoc, type BoolTerm, type CaseResult, type CaseWhen } from '@prettier-sql/core/printer/layout';
 import {
     prop, propArr, propStr, propStrArr, propBool, schemaObjectName, builtinTypeDoc, assignmentOp, splitTopLevel, sortOrderDoc,
     claimTrailingComment, isCommentClaimed, takeTrailingComment, withTrailingComment, appendComments,
@@ -552,8 +552,7 @@ function printAtTimeZone(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
 function printScalarSubquery(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const query = prop(node, 'query');
     if (!query) return '(/* subquery */)';
-    const sep = getDensity(opts) === 'compact' ? softline : hardline;
-    return group(['(', indent([sep, printQueryExpression(query, opts, printFn)]), sep, ')']);
+    return subqueryDoc(printQueryExpression(query, opts, printFn), opts);
 }
 
 // ---------------------------------------------------------------------------
@@ -876,9 +875,7 @@ function printSubqueryComparison(node: SqlNode, opts: Options, printFn: PrintFn)
     const op = cmpOp(propStr(node, 'operator') ?? '');
     const quantifier = propStr(node, 'quantifier'); // ALL, ANY, or null
     const subquery = prop(node, 'subquery');
-    // standard + spacious: the subquery goes on its own lines; compact keeps a short one inline
-    const brk = getDensity(opts) === 'compact' ? softline : hardline;
-    const subDoc = subquery ? group(['(', indent([brk, printQueryExpression(subquery, opts, printFn)]), brk, ')']) : '';
+    const subDoc = subquery ? subqueryDoc(printQueryExpression(subquery, opts, printFn), opts) : '';
     return group([
         expr ? printExpression(expr, opts, printFn) : '',
         ' ',
@@ -978,9 +975,17 @@ export function boolClause(kw: string, node: SqlNode, opts: Options, printFn: Pr
     return boolClauseDoc(kw, terms, opts);
 }
 
+// Predicates that read as `operand operator operand`
+const OPERATOR_PREDICATES = new Set([
+    'BooleanComparison', 'IsNullExpression', 'LikePredicate', 'InPredicate', 'BetweenExpression',
+    'DistinctPredicate', 'SubqueryComparisonPredicate',
+]);
+
 function printBoolNot(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
-    return [keyword('NOT', opts), ' ', expr ? printBoolExpr(expr, opts, printFn, true) : ''];
+    const exprDoc = expr ? printBoolExpr(expr, opts, printFn, true) : '';
+    // A comparison under NOT gets parentheses it doesn't need, for readability: NOT (a = 1)
+    return [keyword('NOT', opts), ' ', expr && OPERATOR_PREDICATES.has(expr.type) ? parenGroup(exprDoc) : exprDoc];
 }
 
 function printBoolParen(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
@@ -1019,8 +1024,7 @@ function printInPredicate(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     ];
 
     if (subquery) {
-        // Subquery: keep existing softline/indent behaviour
-        return [...lhs, ' (', indent([softline, printQueryExpression(subquery, opts, printFn)]), softline, ')'];
+        return [...lhs, ' ', subqueryDoc(printQueryExpression(subquery, opts, printFn), opts)];
     }
 
     // Value list: all inline when it fits; when it doesn't, each value on its
@@ -1310,7 +1314,9 @@ function printUnqualifiedJoin(node: SqlNode, opts: Options, printFn: PrintFn): D
     const betweenComment = left ? rightmostTrailingComment(left, left.endOffset) : undefined;
     const leftDoc = left ? printTableRef(left, opts, printFn) : '';
     const commentLines: Doc[] = betweenComment ? betweenComment.split('\n').flatMap((c): Doc[] => [hardline, c]) : [];
-    const separator: Doc = commentLines.length > 0 ? [...commentLines, hardline] : hardline;
+    // compact: the join stays on the line before when it fits, as a qualified join does
+    const joinBreak = getDensity(opts) === 'compact' ? line : hardline;
+    const separator: Doc = commentLines.length > 0 ? [...commentLines, hardline] : joinBreak;
 
     return [leftDoc, separator, kw, ' ', right ? printTableRef(right, opts, printFn) : ''];
 }

@@ -244,6 +244,15 @@ export function withClauseDoc(withKw: Doc, ctes: Doc[], opts: Options): Doc {
     return [withKw, indent([hardline, join(hardSep(opts), ctes)])];
 }
 
+/**
+ * A subquery in an expression — `(SELECT …)` after IN, a comparison, or as a value — on
+ * lines of its own; in compact density, inline when it fits.
+ */
+export function subqueryDoc(query: Doc, opts: Options): Doc {
+    const brk = getDensity(opts) === 'compact' ? softline : hardline;
+    return group(['(', indent([brk, query]), brk, ')']);
+}
+
 /** `lhs UNION rhs` (or INTERSECT / EXCEPT): the operator stands alone between blank lines. */
 export function setOpDoc(lhs: Doc, opKw: Doc, rhs: Doc): Doc {
     return [lhs, hardline, hardline, opKw, hardline, hardline, rhs];
