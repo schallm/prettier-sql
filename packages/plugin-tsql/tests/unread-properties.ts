@@ -64,8 +64,6 @@ export const dropped: Record<string, string> = {
     'AsymmetricKeyCreateLoginSource.Credential': 'CREATE LOGIN ... FROM ASYMMETRIC KEY k WITH CREDENTIAL = c loses the credential',
     'CertificateCreateLoginSource.Credential': 'CREATE LOGIN ... FROM CERTIFICATE c WITH CREDENTIAL = c loses the credential',
     'ExpressionGroupingSpecification.DistributedAggregation': 'GROUP BY a WITH (DISTRIBUTED_AGG) loses the hint',
-    'ForeignKeyConstraintDefinition.IsEnforced': 'FOREIGN KEY ... NOT ENFORCED loses NOT ENFORCED',
-    'UniqueConstraintDefinition.IsEnforced': 'PRIMARY KEY / UNIQUE ... NOT ENFORCED loses NOT ENFORCED',
     'InsertSpecification.InsertOption': 'INSERT OVER t prints as INSERT INTO t (INSERT t and INSERT INTO t are equivalent)',
     'OpenRowsetTableReference.WithColumns': 'OPENROWSET(...) WITH (a int) loses the WITH column list',
     'BulkOpenRowset.WithColumns': 'OPENROWSET(BULK ...) WITH (a int) loses the WITH column list',

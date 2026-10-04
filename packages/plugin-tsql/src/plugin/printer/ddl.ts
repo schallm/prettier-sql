@@ -351,7 +351,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
 
     // Inline PRIMARY KEY / UNIQUE constraint (e.g. in table variable declarations)
     const uniqueConstraint = node.props?.['uniqueConstraint'] as
-        | { constraintName?: string; isPrimaryKey: boolean; clustered: boolean | null; hash?: boolean }
+        | { constraintName?: string; isPrimaryKey: boolean; clustered: boolean | null; hash?: boolean; notEnforced?: boolean }
         | null
         | undefined;
     if (uniqueConstraint) {
@@ -371,18 +371,31 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
             line, constraintNamePrefix, uqKw, clusteredKw, hashKw,
             uqOptions.length > 0 ? [' ', keyword('WITH', opts), ' ', optionItems(uqOptions, opts)] : '',
             storageClause(uniqueConstraint as Record<string, unknown>, opts),
+            notEnforcedDoc(uniqueConstraint.notEnforced, opts),
         );
     }
 
     // Inline REFERENCES (column-level foreign key: col type [CONSTRAINT name] REFERENCES Table(col))
     const foreignKey = node.props?.['foreignKey'] as
-        | { constraintName?: string; refTable: SqlNode | null; refColumns?: string[]; deleteAction?: string; updateAction?: string; notForReplication?: boolean }
+        | {
+              constraintName?: string;
+              refTable: SqlNode | null;
+              refColumns?: string[];
+              deleteAction?: string;
+              updateAction?: string;
+              notForReplication?: boolean;
+              notEnforced?: boolean;
+          }
         | null
         | undefined;
     if (foreignKey) {
         const refCols = foreignKey.refColumns ?? [];
         const references: Doc = [keyword('REFERENCES', opts), ' ', schemaObjectName(foreignKey.refTable), refCols.length ? [' ', parenItems(refCols, opts)] : ''];
-        const clauses = [references, ...referentialActions(foreignKey.updateAction, foreignKey.deleteAction, foreignKey.notForReplication, opts)];
+        const clauses = [
+            references,
+            ...referentialActions(foreignKey.updateAction, foreignKey.deleteAction, foreignKey.notForReplication, opts),
+            ...(foreignKey.notEnforced ? [keyword('NOT ENFORCED', opts)] : []),
+        ];
         parts.push(line, constraintDoc(foreignKey.constraintName ?? null, clauses, opts));
     }
 
@@ -403,6 +416,11 @@ function storageClause(props: Record<string, unknown> | undefined, opts: Options
         on ? [' ', keyword('ON', opts), ' ', on] : '',
         fileStream ? [' ', keyword('FILESTREAM_ON', opts), ' ', fileStream] : '',
     ];
+}
+
+/** NOT ENFORCED (Azure Synapse, Fabric): always the last thing in a key. */
+function notEnforcedDoc(notEnforced: boolean | undefined, opts: Options): Doc {
+    return notEnforced ? [' ', keyword('NOT ENFORCED', opts)] : '';
 }
 
 /** ON UPDATE / ON DELETE actions and NOT FOR REPLICATION, the clauses that end a foreign key. */
@@ -445,7 +463,10 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
             const withPart: Doc = indexOptions.length
                 ? [' ', keyword('WITH', opts), ' ', optionItems(indexOptions, opts)]
                 : '';
-            return [namePrefix, kw, ' ', clusteredKw, hashKw, parenItems(colDocs, opts), withPart, storageClause(node.props, opts)];
+            return [
+                namePrefix, kw, ' ', clusteredKw, hashKw, parenItems(colDocs, opts), withPart, storageClause(node.props, opts),
+                notEnforcedDoc(propBool(node, 'notEnforced'), opts),
+            ];
         }
         case 'DefaultConstraint': {
             const expr = prop(node, 'expression');
@@ -470,6 +491,7 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
                 [keyword('FOREIGN KEY', opts), ' ', parenItems(cols, opts)],
                 [keyword('REFERENCES', opts), ' ', refName, refCols.length ? [' ', parenItems(refCols, opts)] : ''],
                 ...referentialActions(propStr(node, 'updateAction'), propStr(node, 'deleteAction'), propBool(node, 'notForReplication'), opts),
+                ...(propBool(node, 'notEnforced') ? [keyword('NOT ENFORCED', opts)] : []),
             ], opts);
         }
         default:

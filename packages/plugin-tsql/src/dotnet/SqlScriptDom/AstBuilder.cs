@@ -2202,6 +2202,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                         ["indexOptions"] = MapList(uq.IndexOptions, o => (object?)SerializeIndexOption(o)),
                         ["onFileGroup"] = StorageTarget(uq.OnFileGroupOrPartitionScheme),
                         ["fileStreamOn"] = QuotedName(uq.FileStreamOn),
+                        ["notEnforced"] = uq.IsEnforced == false ? (object?)true : null,
                     }
                     : null,
                 // Inline column-level CHECK constraint name
@@ -2216,6 +2217,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                         ["deleteAction"] = fk.DeleteAction != DeleteUpdateAction.NotSpecified ? (object?)fk.DeleteAction.ToString() : null,
                         ["updateAction"] = fk.UpdateAction != DeleteUpdateAction.NotSpecified ? (object?)fk.UpdateAction.ToString() : null,
                         ["notForReplication"] = fk.NotForReplication ? (object?)true : null,
+                        ["notEnforced"] = fk.IsEnforced == false ? (object?)true : null,
                     }
                     : null,
             });
@@ -2243,6 +2245,8 @@ public class AstBuilder : TSqlFragmentVisitor {
                     ["indexOptions"] = MapList(unique.IndexOptions, o => (object?)SerializeIndexOption(o)),
                     ["onFileGroup"] = StorageTarget(unique.OnFileGroupOrPartitionScheme),
                     ["fileStreamOn"] = QuotedName(unique.FileStreamOn),
+                    // PRIMARY KEY NONCLUSTERED (a) NOT ENFORCED (Azure Synapse, Fabric)
+                    ["notEnforced"] = unique.IsEnforced == false ? (object?)true : null,
                 }),
             CheckConstraintDefinition check => new SqlNode(
                 "CheckConstraint",
@@ -2267,6 +2271,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                     ["deleteAction"] = fk.DeleteAction == DeleteUpdateAction.NotSpecified ? null : fk.DeleteAction.ToString(),
                     ["updateAction"] = fk.UpdateAction == DeleteUpdateAction.NotSpecified ? null : fk.UpdateAction.ToString(),
                     ["notForReplication"] = fk.NotForReplication ? (object?)true : null,
+                    ["notEnforced"] = fk.IsEnforced == false ? (object?)true : null,
                 }),
             // CONSTRAINT df DEFAULT 0 FOR col [WITH VALUES] (ALTER TABLE ... ADD)
             DefaultConstraintDefinition def => Node("DefaultConstraint", def, new Dictionary<string, object?> {
