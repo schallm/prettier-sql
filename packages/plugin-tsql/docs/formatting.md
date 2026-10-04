@@ -2476,6 +2476,31 @@ declare @message nvarchar(200) =
     + convert(nvarchar(30), @order_date, 120);
 ```
 
+A comparison or other binary operator whose right side doesn't fit moves it to an indented line after the operator, and `BETWEEN` puts its `AND` bound on an indented line. A call, subquery or wrapped chain next to the operator is left alone, and so is a `CASE` or a result that already spans lines:
+
+```sql
+select a.id
+from t as a
+where
+  a.very_long_column_name_one like
+    '^some long regex pattern here that goes past the width of the line$'
+  and a.created_at between a.start_date_with_a_long_name
+    and a.end_date_with_a_long_name;
+```
+
+`CAST` and `TRY_CAST` move their argument to an indented line when it doesn't fit; one that spans lines (a `CASE`) hugs the parentheses.
+
+A `CASE` arm that doesn't fit puts its `THEN` part (or the `ELSE` result) on an indented line of its own:
+
+```sql
+select
+  case a.status
+    when 1 then 'a very long string result here that goes on and on for a while'
+    else 'x'
+  end as c
+from t as a;
+```
+
 Parenthesized option lists (`WITH (...)`, `ENCRYPTED WITH (...)`, `OPTION (...)`, `RESULT SETS (...)`, table hints, `CREATE COLUMN MASTER KEY ... WITH (...)`) and derived-table column lists (`AS v(a, b, c)`) break one per line:
 
 ```sql

@@ -2103,6 +2103,28 @@ create table orders (
 );
 ```
 
+A comparison or other binary operator whose right side doesn't fit moves it to an indented line after the operator, and `BETWEEN` puts its `AND` bound on an indented line. A call, subquery or wrapped chain next to the operator is left alone, and so is a `CASE` or a result that already spans lines:
+
+```sql
+select a.id
+from t as a
+where
+  a.very_long_column_name_one ~
+    '^some long regex pattern here that goes past the width of the line$'
+  and a.created_at between a.start_date_with_a_long_name
+    and a.end_date_with_a_long_name;
+```
+
+A `CASE` arm that doesn't fit puts its `THEN` part (or the `ELSE` result) on an indented line of its own:
+
+```sql
+select case a.status
+  when 1 then 'a very long string result here that goes on and on for a while'
+  else 'x'
+end as c
+from t as a;
+```
+
 Column lists — index and `INCLUDE` columns, view and `CREATE TABLE AS` columns, alias column lists, `USING (...)` and constraint keys — break one per line:
 
 ```sql
