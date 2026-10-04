@@ -1256,18 +1256,16 @@ function printBetween(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const from = prop(node, 'from');
     const to = prop(node, 'to');
     const isNot = propBool(node, 'negated');
-    return [
+    // The AND bound goes on an indented line of its own when the predicate doesn't fit
+    return group([
         expr ? printExpression(expr, opts, printFn) : '',
         ' ',
         isNot ? [keyword('NOT', opts), ' '] : '',
         keyword('BETWEEN', opts),
         ' ',
         from ? printExpression(from, opts, printFn) : '',
-        ' ',
-        keyword('AND', opts),
-        ' ',
-        to ? printExpression(to, opts, printFn) : '',
-    ];
+        indent([line, keyword('AND', opts), ' ', to ? printExpression(to, opts, printFn) : '']),
+    ]);
 }
 
 // ---------------------------------------------------------------------------

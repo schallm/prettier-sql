@@ -1064,13 +1064,13 @@ function printBetweenExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc
         ? (symmetric ? makeKeyword('NOT BETWEEN SYMMETRIC') : makeKeyword('NOT BETWEEN'))
         : (symmetric ? makeKeyword('BETWEEN SYMMETRIC')     : makeKeyword('BETWEEN'));
 
-    return [
+    // The AND bound goes on an indented line of its own when the predicate doesn't fit
+    return group([
         arg  ? printOperand(arg,  PREC.LIKE + 1, printNode) : '',
         ' ', keywordDoc, ' ',
         low  ? printOperand(low,  PREC.LIKE + 1, printNode) : '',
-        ' ', makeKeyword('AND'), ' ',
-        high ? printOperand(high, PREC.LIKE + 1, printNode) : '',
-    ];
+        indent([line, makeKeyword('AND'), ' ', high ? printOperand(high, PREC.LIKE + 1, printNode) : '']),
+    ]);
 }
 
 function printQuantifiedExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
