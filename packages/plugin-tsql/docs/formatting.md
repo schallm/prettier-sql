@@ -2486,7 +2486,7 @@ declare @message nvarchar(200) =
     + convert(nvarchar(30), @order_date, 120);
 ```
 
-A comparison or other binary operator whose right side doesn't fit moves it to an indented line after the operator, and `BETWEEN` puts its `AND` bound on an indented line. A call, subquery or wrapped chain next to the operator is left alone, and so is a `CASE` or a result that already spans lines:
+A comparison or other binary operator whose right side doesn't fit moves it to an indented line after the operator, and `BETWEEN` puts its `AND` bound on an indented line (and both bounds on indented lines when even the first doesn't fit after `BETWEEN`). A call, subquery or wrapped chain next to the operator is left alone, and so is a `CASE` or a result that already spans lines:
 
 ```sql
 select a.id

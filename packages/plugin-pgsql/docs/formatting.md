@@ -1049,6 +1049,15 @@ create index concurrently idx_big_table_col on big_table (col);
 create index if not exists idx_books_author on books (author_id);
 ```
 
+A statement that doesn't fit within `printWidth` moves `ON table USING method (...)` to an indented line when it can't follow the index name, and puts `INCLUDE`, `NULLS NOT DISTINCT`, `WITH`, `TABLESPACE` and `WHERE` each on an indented line of their own:
+
+```sql
+create unique index concurrently if not exists ix_orders_customer_identifier_created_at
+  on only some_schema.orders_table (customer_identifier, created_at)
+  include (status)
+  where deleted_at is null;
+```
+
 ### CREATE FUNCTION
 
 ```sql
@@ -2127,7 +2136,7 @@ create table orders (
 );
 ```
 
-A comparison or other binary operator whose right side doesn't fit moves it to an indented line after the operator, and `BETWEEN` puts its `AND` bound on an indented line. A call, subquery or wrapped chain next to the operator is left alone, and so is a `CASE` or a result that already spans lines:
+A comparison or other binary operator whose right side doesn't fit moves it to an indented line after the operator, and `BETWEEN` puts its `AND` bound on an indented line (and both bounds on indented lines when even the first doesn't fit after `BETWEEN`). A call, subquery or wrapped chain next to the operator is left alone, and so is a `CASE` or a result that already spans lines:
 
 ```sql
 select a.id
