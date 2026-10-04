@@ -15,6 +15,7 @@ import {
     fill,
     appendTrailingLines,
     parenList,
+    parenItems,
     aliasDoc,
     commaFill,
     hasLineSuffix,
@@ -501,18 +502,9 @@ function printConvertCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     const dataType = propStr(node, 'dataType') ?? 'INT';
     const style = prop(node, 'style');
-    const parts: Doc[] = [
-        keyword('CONVERT', opts),
-        '(',
-        typeDoc(node, dataType, opts),
-        ', ',
-        expr ? printExpression(expr, opts, printFn) : '',
-    ];
-    if (style) {
-        parts.push(', ', printExpression(style, opts, printFn));
-    }
-    parts.push(')');
-    return parts;
+    const items: Doc[] = [typeDoc(node, dataType, opts), expr ? printExpression(expr, opts, printFn) : ''];
+    if (style) items.push(printExpression(style, opts, printFn));
+    return [keyword('CONVERT', opts), parenItems(items, opts)];
 }
 
 function printIIfCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
@@ -521,13 +513,14 @@ function printIIfCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const falseVal = prop(node, 'falseVal');
     return [
         keyword('IIF', opts),
-        '(',
-        condition ? printBoolExpr(condition, opts, printFn) : '',
-        ', ',
-        trueVal ? printExpression(trueVal, opts, printFn) : '',
-        ', ',
-        falseVal ? printExpression(falseVal, opts, printFn) : '',
-        ')',
+        parenItems(
+            [
+                condition ? printBoolExpr(condition, opts, printFn) : '',
+                trueVal ? printExpression(trueVal, opts, printFn) : '',
+                falseVal ? printExpression(falseVal, opts, printFn) : '',
+            ],
+            opts,
+        ),
     ];
 }
 
@@ -535,12 +528,10 @@ function printCoalesceExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
     const args = propArr(node, 'args');
     return [
         keyword('COALESCE', opts),
-        '(',
-        join(
-            ', ',
+        parenItems(
             args.map((a) => printExpression(a, opts, printFn)),
+            opts,
         ),
-        ')',
     ];
 }
 
@@ -549,11 +540,7 @@ function printNullIfExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const second = prop(node, 'second');
     return [
         keyword('NULLIF', opts),
-        '(',
-        first ? printExpression(first, opts, printFn) : '',
-        ', ',
-        second ? printExpression(second, opts, printFn) : '',
-        ')',
+        parenItems([first ? printExpression(first, opts, printFn) : '', second ? printExpression(second, opts, printFn) : ''], opts),
     ];
 }
 
@@ -576,16 +563,9 @@ function printTryConvertCall(node: SqlNode, opts: Options, printFn: PrintFn): Do
     const expr = prop(node, 'expr');
     const dataType = propStr(node, 'dataType') ?? 'INT';
     const style = prop(node, 'style');
-    const parts: Doc[] = [
-        keyword('TRY_CONVERT', opts),
-        '(',
-        typeDoc(node, dataType, opts),
-        ', ',
-        expr ? printExpression(expr, opts, printFn) : '',
-    ];
-    if (style) parts.push(', ', printExpression(style, opts, printFn));
-    parts.push(')');
-    return parts;
+    const items: Doc[] = [typeDoc(node, dataType, opts), expr ? printExpression(expr, opts, printFn) : ''];
+    if (style) items.push(printExpression(style, opts, printFn));
+    return [keyword('TRY_CONVERT', opts), parenItems(items, opts)];
 }
 
 function printAtTimeZone(node: SqlNode, opts: Options, printFn: PrintFn): Doc {

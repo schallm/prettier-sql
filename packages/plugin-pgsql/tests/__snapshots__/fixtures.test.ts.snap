@@ -3798,7 +3798,10 @@ select *
 from json_to_record('{"a": 1}') as r(a integer, b text);
 
 select *
-from rows from (generate_series(1, 2), unnest(array['a', 'b'])) with ordinality as z(x, y, o);
+from rows from (
+  generate_series(1, 2),
+  unnest(array['a', 'b'])
+) with ordinality as z(x, y, o);
 
 select *
 from
@@ -4191,6 +4194,47 @@ from books
 where
   title ilike '%postgres%'
   and isbn not like '978-0%';
+"
+`;
+
+exports[`fixtures > select/long-calls.sql 1`] = `
+"select coalesce(
+  a.very_long_column_name_one,
+  a.very_long_column_name_two,
+  a.very_long_column_name_three,
+  a.very_long_column_name_four
+) as c
+from t as a;
+
+select string_agg(
+  a.very_long_column_name_one,
+  ', ' order by a.very_long_column_name_two, a.very_long_column_name_three
+) as agg
+from t as a;
+
+select jsonb_build_object(
+  'key_one',
+  a.very_long_column_name_one,
+  'key_two',
+  a.very_long_column_name_two,
+  'key_three',
+  a.three
+) as j
+from t as a;
+
+select
+  coalesce(a, b),
+  lower(trim(a.very_long_column_name_one_that_is_long_enough_to_pass_the_width))
+from t as a;
+
+select
+  sum(case
+    when a = 1 then 1
+    else 0
+  end),
+  now(),
+  count(*)
+from t;
 "
 `;
 
@@ -5421,7 +5465,10 @@ where deleted_at is not distinct from current_timestamp;
 
 exports[`shared fixtures > select/regexp.sql 1`] = `
 "-- REGEXP_LIKE — ANSI-aligned regex predicate (SQL Server 2025, PostgreSQL)
-select regexp_like(email, '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$') as is_valid
+select regexp_like(
+  email,
+  '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$'
+) as is_valid
 from customers;
 
 -- REGEXP_COUNT — count pattern occurrences (SQL Server 2025, PostgreSQL)

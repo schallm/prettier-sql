@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options, PrintFn } from '@prettier-sql/core/printer/utils';
-import { keyword, join, indent, hardline, softline, group, fill, line, getDensity, aliasDoc, parenList } from '@prettier-sql/core/printer/utils';
+import { keyword, join, indent, hardline, softline, group, fill, line, getDensity, aliasDoc, parenList, parenItems } from '@prettier-sql/core/printer/utils';
 import { printStatement, printQueryExpr } from './statements.js';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, onlyPrefix, printFdwOptions } from './helpers.js';
 
@@ -345,10 +345,13 @@ function printFunctionCall(node: SqlNode, opts: Options, printNode: PrintFn): Do
     // ordered-set aggregate, after it: percentile_cont(0.5) WITHIN GROUP (ORDER BY x)
     const orderByDoc: Doc = aggOrder.length > 0 ? [makeKeyword('ORDER BY'), ' ', join(', ', aggOrder.map(printNode))] : '';
     const withinGroup = propBool(node, 'withinGroup');
-    let innerDoc: Doc = [distinctPrefix, join(', ', argDocs)];
-    if (aggOrder.length > 0 && !withinGroup) innerDoc = [innerDoc, ' ', orderByDoc];
+    const itemDocs: Doc[] = [...argDocs];
+    if (itemDocs.length > 0) itemDocs[0] = [distinctPrefix, itemDocs[0]!];
+    if (aggOrder.length > 0 && !withinGroup && itemDocs.length > 0) {
+        itemDocs[itemDocs.length - 1] = [itemDocs[itemDocs.length - 1]!, ' ', orderByDoc];
+    }
 
-    let callDoc: Doc = [makeKeyword(name), '(', innerDoc, ')'];
+    let callDoc: Doc = [makeKeyword(name), parenItems(itemDocs, opts)];
     if (withinGroup) callDoc = [callDoc, ' ', makeKeyword('WITHIN GROUP'), ' (', orderByDoc, ')'];
 
     return printAggregateTail(callDoc, node, opts, printNode);
@@ -674,7 +677,7 @@ function printRangeFunction(node: SqlNode, opts: Options, printNode: PrintFn): D
         const defs = propArr(f, 'columnDefs');
         return [call ? printNode(call) : '', defs.length > 0 ? [' ', makeKeyword('AS'), ' ', columnDefsDoc(defs)] : ''];
     });
-    const body: Doc = propBool(node, 'rowsFrom') ? [makeKeyword('ROWS FROM'), ' (', join(', ', items), ')'] : join(', ', items);
+    const body: Doc = propBool(node, 'rowsFrom') ? [makeKeyword('ROWS FROM'), ' ', parenItems(items, opts)] : join(', ', items);
     const lateral: Doc = propBool(node, 'lateral') ? [makeKeyword('LATERAL'), ' '] : '';
     const ordinality: Doc = propBool(node, 'ordinality') ? [' ', makeKeyword('WITH ORDINALITY')] : '';
 
@@ -995,7 +998,7 @@ function printArrayExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 function printCoalesce(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (kw: string) => keyword(kw, opts);
     const args = propArr(node, 'args');
-    return [makeKeyword('COALESCE'), '(', join(', ', args.map(printNode)), ')'];
+    return [makeKeyword('COALESCE'), parenItems(args.map(printNode), opts)];
 }
 
 function printCteInline(node: SqlNode, opts: Options, printNode: PrintFn): Doc {

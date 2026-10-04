@@ -3733,6 +3733,44 @@ group by Name;
 "
 `;
 
+exports[`fixtures > select/long-calls.sql 1`] = `
+"select coalesce(
+  a.very_long_column_name_one,
+  a.very_long_column_name_two,
+  a.very_long_column_name_three,
+  a.very_long_column_name_four
+) as c
+from t as a;
+
+select iif(
+  a.very_long_column_name_one > a.very_long_column_name_two,
+  a.very_long_column_name_three,
+  a.very_long_column_name_four
+) as c
+from t as a;
+
+select nullif(
+  a.very_long_column_name_one + a.very_long_column_name_two,
+  a.very_long_column_name_three + a.very_long_column_name_four
+) as c
+from t as a;
+
+select convert(
+  varchar(100),
+  a.very_long_column_name_one + a.very_long_column_name_two
+    + a.very_long_column_name_three,
+  120
+) as c
+from t as a;
+
+select
+  try_convert(varchar(100), a.very_long_column_name_one, 120),
+  coalesce(a, b),
+  iif(a > b, 1, 2)
+from t as a;
+"
+`;
+
 exports[`fixtures > select/long-chains.sql 1`] = `
 "select *
 from t

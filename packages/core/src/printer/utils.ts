@@ -1,5 +1,5 @@
 import type { Doc, ParserOptions } from 'prettier';
-import { builders } from 'prettier/doc';
+import { builders, utils } from 'prettier/doc';
 import type { SqlNode } from '../types.js';
 
 const { hardline, join, indent, group, line, softline, lineSuffix, ifBreak, fill } = builders;
@@ -136,6 +136,22 @@ export function hasLineSuffix(doc: Doc): boolean {
  */
 export function commaFill(items: Doc[]): Doc {
     return fill(items.flatMap((d, i) => (i === 0 ? [d] : [[',', hasLineSuffix(items[i - 1]!) ? hardline : line], d])));
+}
+
+/**
+ * The `(a, b, c)` of a call or list: inline when it fits, otherwise one item per line
+ * between the parentheses (compact density, or `packed`, fills several per line).
+ * Fewer than two items, or an item that already contains a forced break (a CASE, a
+ * subquery), keep the parentheses hugging them, so `sum(case ... end)` stays as it is.
+ */
+export function parenItems(items: Doc[], opts: Options, packed = false): Doc {
+    if (items.length < 2 || items.some((i) => utils.willBreak(i))) return ['(', join(', ', items), ')'];
+    const inner = packed || getDensity(opts) === 'compact' ? commaFill(items) : joinItems(items);
+    return group(['(', indent([softline, inner]), softline, ')']);
+}
+
+function joinItems(items: Doc[]): Doc {
+    return items.flatMap((d, i): Doc[] => (i === 0 ? [d] : [[',', hasLineSuffix(items[i - 1]!) ? hardline : line], d]));
 }
 
 /**
