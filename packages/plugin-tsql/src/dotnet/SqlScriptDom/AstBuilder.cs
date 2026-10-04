@@ -4030,10 +4030,12 @@ public class AstBuilder : TSqlFragmentVisitor {
             case CertificateCreateLoginSource ccs:
                 props["sourceType"] = "Certificate";
                 props["sourceName"] = QuotedName(ccs.Certificate);
+                props["credential"] = QuotedName(ccs.Credential);
                 break;
             case AsymmetricKeyCreateLoginSource aks:
                 props["sourceType"] = "AsymmetricKey";
                 props["sourceName"] = QuotedName(aks.Key);
+                props["credential"] = QuotedName(aks.Credential);
                 break;
             default:
                 props["sourceType"] = RawTextOrNull(s.Source);

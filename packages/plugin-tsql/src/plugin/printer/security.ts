@@ -240,10 +240,12 @@ export function printCreateLogin(node: SqlNode, opts: Options): Doc {
         parts.push([hardline, keyword('FROM EXTERNAL PROVIDER', opts)]);
         const optionsDoc = printPrincipalOptions(node, opts);
         if (optionsDoc !== '') parts.push([hardline, optionsDoc]);
-    } else if (sourceType === 'Certificate') {
-        parts.push([hardline, keyword('FROM CERTIFICATE', opts), ' ', propStr(node, 'sourceName') ?? '']);
-    } else if (sourceType === 'AsymmetricKey') {
-        parts.push([hardline, keyword('FROM ASYMMETRIC KEY', opts), ' ', propStr(node, 'sourceName') ?? '']);
+    } else if (sourceType === 'Certificate' || sourceType === 'AsymmetricKey') {
+        const fromKw = sourceType === 'Certificate' ? 'FROM CERTIFICATE' : 'FROM ASYMMETRIC KEY';
+        parts.push([hardline, keyword(fromKw, opts), ' ', propStr(node, 'sourceName') ?? '']);
+        // FROM CERTIFICATE c WITH CREDENTIAL = cred
+        const credential = propStr(node, 'credential');
+        if (credential) parts.push([hardline, keyword('WITH CREDENTIAL', opts), ' = ', credential]);
     } else if (sourceType) {
         parts.push([' ', sourceType]);
     }

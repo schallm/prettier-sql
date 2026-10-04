@@ -3627,6 +3627,17 @@ with default_database = d, default_language = french;
 
 alter login l
 with name = m, check_expiration = on, credential = c;
+
+create login SigningLogin
+from certificate SigningCert;
+
+create login SigningLogin
+from certificate SigningCert
+with credential = SigningCred;
+
+create login KeyLogin
+from asymmetric key SigningKey
+with credential = KeyCred;
 "
 `;
 

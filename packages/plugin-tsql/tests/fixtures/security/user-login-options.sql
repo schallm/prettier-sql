@@ -18,3 +18,9 @@ create login l with password = 'x' must_change, default_database = d, check_poli
 create login l from windows with default_database = d, default_language = french
 
 alter login l with name = m, check_expiration = on, credential = c
+
+create login SigningLogin from certificate SigningCert
+
+create login SigningLogin from certificate SigningCert with credential = SigningCred
+
+create login KeyLogin from asymmetric key SigningKey with credential = KeyCred
