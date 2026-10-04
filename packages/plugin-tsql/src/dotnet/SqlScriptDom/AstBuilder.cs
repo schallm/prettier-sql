@@ -1779,6 +1779,10 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["proc"] = BuildSchemaObjectName(execProc?.ProcedureReference?.ProcedureReference?.Name),
             ["procNumber"] = RawTextOrNull(execProc?.ProcedureReference?.ProcedureReference?.Number),
             ["procVar"] = execProc?.ProcedureReference?.ProcedureVariable?.Name,
+            // EXECUTE OPENDATASOURCE('provider', 'init string').db.schema.proc: a procedure on another server
+            ["adHocDataSource"] = execProc?.AdHocDataSource is { } ads
+                ? new List<object?> { RawText(ads.ProviderName), RawText(ads.InitString) }
+                : null,
             ["returnVar"] = spec?.Variable?.Name,
             ["parameters"] = parameters,
             // EXECUTE ('...') AS USER | LOGIN = 'name'

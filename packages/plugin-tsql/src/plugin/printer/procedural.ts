@@ -474,11 +474,15 @@ export function printExecute(node: SqlNode, opts: Options): Doc {
     const returnVar = propStr(node, 'returnVar');
     // A numbered procedure: EXECUTE dbo.p;2
     const target: Doc = procNode ? [schemaObjectName(procNode), procNumber ? [';', procNumber] : ''] : (propStr(node, 'procVar') ?? '');
+    // EXECUTE OPENDATASOURCE('provider', 'init string').db.schema.proc
+    const dataSource = propStrArr(node, 'adHocDataSource');
+    const dataSourceDoc: Doc = dataSource.length > 0 ? [keyword('OPENDATASOURCE', opts), '(', join(', ', dataSource), ').'] : '';
 
     return group([
         keyword('EXECUTE', opts),
         ' ',
         returnVar ? [returnVar, ' = '] : '',
+        dataSourceDoc,
         target,
         parameters.length > 0 ? indent([hardline, join([',', hardline], paramDocs)]) : '',
         tail,

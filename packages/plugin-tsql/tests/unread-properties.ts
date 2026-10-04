@@ -68,7 +68,6 @@ export const dropped: Record<string, string> = {
     'AsymmetricKeyCreateLoginSource.Credential': 'CREATE LOGIN ... FROM ASYMMETRIC KEY k WITH CREDENTIAL = c loses the credential',
     'CertificateCreateLoginSource.Credential': 'CREATE LOGIN ... FROM CERTIFICATE c WITH CREDENTIAL = c loses the credential',
     'DropSchemaStatement.DropBehavior': 'DROP SCHEMA s CASCADE prints as DROP SCHEMA s',
-    'ExecutableProcedureReference.AdHocDataSource': 'EXEC OPENDATASOURCE(...).d.dbo.p prints as EXECUTE d.dbo.p, a local procedure',
     'ExpressionGroupingSpecification.DistributedAggregation': 'GROUP BY a WITH (DISTRIBUTED_AGG) loses the hint',
     'ForeignKeyConstraintDefinition.IsEnforced': 'FOREIGN KEY ... NOT ENFORCED loses NOT ENFORCED',
     'UniqueConstraintDefinition.IsEnforced': 'PRIMARY KEY / UNIQUE ... NOT ENFORCED loses NOT ENFORCED',

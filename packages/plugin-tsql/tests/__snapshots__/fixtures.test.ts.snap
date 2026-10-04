@@ -2205,6 +2205,16 @@ execute dbo.p with recompile, result sets undefined;
 "
 `;
 
+exports[`fixtures > execute/opendatasource.sql 1`] = `
+"-- A procedure on another server, reached through an ad hoc data source
+execute opendatasource('MSOLEDBSQL', 'Data Source=Reporting;Integrated Security=SSPI').Sales.dbo.RefreshTotals;
+
+execute @rc = opendatasource('MSOLEDBSQL', 'Data Source=Reporting;Integrated Security=SSPI').Sales.dbo.GetOrders
+  @CustomerId = 42,
+  @Since = '2024-01-01';
+"
+`;
+
 exports[`fixtures > execute/proc-call.sql 1`] = `
 "execute dbo.GetAvailableBooks;
 
