@@ -854,6 +854,9 @@ function printBoolExprInner(node: SqlNode, opts: Options, printFn: PrintFn, grou
             return printSubqueryComparison(node, opts, printFn);
         case 'RegexpLikePredicate':
             return printRegexpLikePredicate(node, opts, printFn);
+        // MATCH(p1-(k)->p2): the graph pattern is kept as written
+        case 'GraphMatchPredicate':
+            return [keyword('MATCH', opts), '(', propStr(node, 'pattern') ?? '', ')'];
         default:
             return node.text ?? `/* ${node.type} */`;
     }

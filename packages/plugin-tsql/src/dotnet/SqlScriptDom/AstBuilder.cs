@@ -635,8 +635,11 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["pattern"] = BuildScalarExpression(rp.Pattern),
                 ["flags"] = rp.Flags != null ? BuildScalarExpression(rp.Flags) : null,
             }),
-            // GraphMatchPredicate.StartOffset starts inside MATCH(, so prepend the keyword+paren
-            GraphMatchPredicate gmp => Leaf("BooleanExpression", gmp, "MATCH(" + RawText(gmp)),
+            // GraphMatchPredicate's span starts inside MATCH( and takes in the closing paren,
+            // so keep only the pattern; the printer adds MATCH( ... ) with keyword casing
+            GraphMatchPredicate gmp => Node("GraphMatchPredicate", gmp, new Dictionary<string, object?> {
+                ["pattern"] = RawText(gmp).TrimEnd() is var t && t.EndsWith(')') ? t[..^1].TrimEnd() : RawText(gmp),
+            }),
             _ => Leaf("BooleanExpression", expr, RawText(expr)),
         };
     }

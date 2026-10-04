@@ -4399,7 +4399,7 @@ from
   dbo.Person as p1,
   dbo.Knows as k,
   dbo.Person as p2
-where MATCH(p1-(k)->p2);
+where match(p1-(k)->p2);
 
 -- Directed edge in both directions
 select
@@ -4411,8 +4411,8 @@ from
   dbo.Knows as k,
   dbo.Person as p2
 where
-  MATCH(p1-(k)->p2)
-  or MATCH(p2-(k)->p1);
+  match(p1-(k)->p2)
+  or match(p2-(k)->p1);
 "
 `;
 
@@ -4428,7 +4428,7 @@ from
   FriendOf for path as fo,
   Person for path as p2
 where
-  MATCH(shortest_path(p1(-(fo)->p2)+))
+  match(shortest_path(p1(-(fo)->p2)+))
   and p1.Name = 'Alice';
 
 select
@@ -4438,7 +4438,7 @@ from
   Person as p1,
   FriendOf for path as fo,
   Person for path as p2
-where MATCH(shortest_path(p1(-(fo)->p2){1,3}));
+where match(shortest_path(p1(-(fo)->p2){1,3}));
 
 select f.Name
 from (
