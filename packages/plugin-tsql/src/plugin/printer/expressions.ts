@@ -1182,6 +1182,9 @@ function printIsNull(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     ];
 }
 
+// Literals are short enough to pack several to a line in a long list.
+const LITERAL_TYPES = new Set(['IntegerLiteral', 'NumericLiteral', 'RealLiteral', 'MoneyLiteral', 'StringLiteral', 'BinaryLiteral', 'NullLiteral']);
+
 function printInPredicate(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     const isNot = propBool(node, 'negated');
@@ -1203,7 +1206,8 @@ function printInPredicate(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     // Value list: all inline when it fits; when it doesn't, each value on its
     // own indented line with ) dropping back to the indentation of the IN line.
     const valueDocs = values.map((v) => printExpression(v, opts, printFn));
-    return [...lhs, group([' (', indent([softline, join([',', line], valueDocs)]), softline, ')'])];
+    const literals = values.every((v) => LITERAL_TYPES.has(v.type));
+    return [...lhs, ' ', parenItems(valueDocs, opts, literals, false)];
 }
 
 function printRegexpLikePredicate(node: SqlNode, opts: Options, printFn: PrintFn): Doc {

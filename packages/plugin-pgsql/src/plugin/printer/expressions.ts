@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options, PrintFn } from '@prettier-sql/core/printer/utils';
-import { keyword, join, indent, hardline, softline, group, fill, line, getDensity, aliasDoc, parenList, parenItems } from '@prettier-sql/core/printer/utils';
+import { keyword, join, indent, hardline, softline, group, fill, line, getDensity, aliasDoc, parenList, parenItems, bracketItems } from '@prettier-sql/core/printer/utils';
 import { printStatement, printQueryExpr } from './statements.js';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, onlyPrefix, printFdwOptions } from './helpers.js';
 
@@ -992,7 +992,8 @@ function printFunctionParam(node: SqlNode, opts: Options, printNode: PrintFn): D
 function printArrayExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (kw: string) => keyword(kw, opts);
     const elements = propArr(node, 'elements');
-    return [makeKeyword('ARRAY'), '[', join(', ', elements.map(printNode)), ']'];
+    const literals = elements.every((v) => v.type === 'Literal');
+    return [makeKeyword('ARRAY'), bracketItems('[', ']', elements.map(printNode), opts, literals)];
 }
 
 function printCoalesce(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -1027,7 +1028,8 @@ function printInExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 
     // values is an ExprList node; its items are the IN list
     const items  = values ? propArr(values, 'items').map(printNode) : [];
-    return [left ? printOperand(left, PREC.LIKE + 1, printNode) : '', ' ', keywordDoc, ' (', join(', ', items), ')'];
+    const literals = (values ? propArr(values, 'items') : []).every((v) => v.type === 'Literal');
+    return [left ? printOperand(left, PREC.LIKE + 1, printNode) : '', ' ', keywordDoc, ' ', parenItems(items, opts, literals)];
 }
 
 function printBetweenExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {

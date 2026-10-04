@@ -142,12 +142,18 @@ export function commaFill(items: Doc[]): Doc {
  * The `(a, b, c)` of a call or list: inline when it fits, otherwise one item per line
  * between the parentheses (compact density, or `packed`, fills several per line).
  * Fewer than two items, or an item that already contains a forced break (a CASE, a
- * subquery), keep the parentheses hugging them, so `sum(case ... end)` stays as it is.
+ * subquery), keep the parentheses hugging them, so `sum(case ... end)` stays as it is
+ * (`hug: false` turns the second case off).
  */
-export function parenItems(items: Doc[], opts: Options, packed = false): Doc {
-    if (items.length < 2 || items.some((i) => utils.willBreak(i))) return ['(', join(', ', items), ')'];
+export function parenItems(items: Doc[], opts: Options, packed = false, hug = true): Doc {
+    return bracketItems('(', ')', items, opts, packed, hug);
+}
+
+/** parenItems with other delimiters, such as the `[` `]` of an ARRAY. */
+export function bracketItems(open: string, close: string, items: Doc[], opts: Options, packed = false, hug = true): Doc {
+    if (items.length < 2 || (hug && items.some((i) => utils.willBreak(i)))) return [open, join(', ', items), close];
     const inner = packed || getDensity(opts) === 'compact' ? commaFill(items) : joinItems(items);
-    return group(['(', indent([softline, inner]), softline, ')']);
+    return group([open, indent([softline, inner]), softline, close]);
 }
 
 function joinItems(items: Doc[]): Doc {
