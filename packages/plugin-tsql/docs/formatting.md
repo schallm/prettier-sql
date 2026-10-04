@@ -2457,6 +2457,16 @@ select a.base_amount + a.shipping_amount * a.tax_rate - a.discount_amount
 from t as a;
 ```
 
+A select item's `AS alias` counts as part of the last term, so the line that holds it wraps early enough to stay within `printWidth`:
+
+```sql
+select
+  a.id,
+  a.first_name_column + ' ' + a.middle_name_column + ' '
+    + a.last_name_column as full_name
+from t as a;
+```
+
 A column definition puts each constraint on its own indented line:
 
 ```sql
