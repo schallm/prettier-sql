@@ -1370,7 +1370,7 @@ export function optimizerHintDoc(hint: string, opts: Options): Doc {
     const m = /^TABLE HINT \(([\s\S]*)\)$/.exec(hint);
     if (!m) return keyword(hint, opts);
     const [object, ...hints] = splitTopLevel(m[1]!);
-    return [keyword('TABLE HINT', opts), ' (', join(', ', [object!, ...hints.map((h) => tableHintDoc(h, opts))]), ')'];
+    return [keyword('TABLE HINT', opts), ' ', parenItems([object!, ...hints.map((h) => tableHintDoc(h, opts))], opts)];
 }
 
 function printNamedTableRef(node: SqlNode, opts: Options, printFn: PrintFn): Doc {

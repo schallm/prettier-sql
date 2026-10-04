@@ -1175,9 +1175,17 @@ copy (
 ) to '/tmp/ids.csv';
 
 -- COPY with options
-copy orders from '/tmp/orders.csv' (format csv, header true, delimiter ',', null '');
+copy orders from '/tmp/orders.csv' (
+  format csv,
+  header true,
+  delimiter ',',
+  null ''
+);
 
-copy orders (id, customer_id, amount) to '/tmp/orders_partial.csv' (format csv, header true);
+copy orders (id, customer_id, amount) to '/tmp/orders_partial.csv' (
+  format csv,
+  header true
+);
 
 -- COPY with QUOTE and ESCAPE
 copy products from '/tmp/products.csv' (format csv, quote '"', escape '\\\\');
@@ -1575,7 +1583,14 @@ copy (
   select 1
 ) to '/tmp/x' (format csv, header true);
 
-copy t (a, b) from stdin (format csv, header true, delimiter ';', null '', encoding 'UTF8', force_not_null (a, "B"));
+copy t (a, b) from stdin (
+  format csv,
+  header true,
+  delimiter ';',
+  null '',
+  encoding 'UTF8',
+  force_not_null (a, "B")
+);
 
 copy t to stdout (format csv, force_quote *);
 

@@ -445,7 +445,11 @@ alter table dbo.t
 alter column a int masked with (function = 'default()');
 
 alter table dbo.t
-alter column a int encrypted with (column_encryption_key = k, encryption_type = deterministic, algorithm = 'AEAD_AES_256_CBC_HMAC_SHA_256');
+alter column a int encrypted with (
+  column_encryption_key = k,
+  encryption_type = deterministic,
+  algorithm = 'AEAD_AES_256_CBC_HMAC_SHA_256'
+);
 
 alter table dbo.t
 alter column a varchar(10) collate latin1_general_bin not null;
@@ -523,12 +527,16 @@ drop column Isbn, Summary;
 exports[`fixtures > alter-table/drop-constraint-with.sql 1`] = `
 "-- DROP CLUSTERED CONSTRAINT WITH options (ONLINE, WAIT_AT_LOW_PRIORITY, MAXDOP) must be preserved
 alter table dbo.Orders
-drop constraint
-  PK_Orders with (ONLINE = ON, wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self));
+drop constraint PK_Orders with (
+  ONLINE = ON,
+  wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
+);
 
 alter table dbo.Orders
-drop constraint
-  IX_Orders_Date with (ONLINE = ON, wait_at_low_priority (max_duration = 10 minutes, abort_after_wait = blockers));
+drop constraint IX_Orders_Date with (
+  ONLINE = ON,
+  wait_at_low_priority (max_duration = 10 minutes, abort_after_wait = blockers)
+);
 
 alter table dbo.BigTable
 drop constraint CL_BigTable with (ONLINE = ON, MAXDOP = 4);
@@ -926,7 +934,11 @@ create table dbo.t2 (
 
 create table dbo.t3 (
   ssn char(9) collate Latin1_General_BIN2
-    encrypted with (column_encryption_key = CEK1, encryption_type = deterministic, algorithm = 'AEAD_AES_256_CBC_HMAC_SHA_256')
+    encrypted with (
+      column_encryption_key = CEK1,
+      encryption_type = deterministic,
+      algorithm = 'AEAD_AES_256_CBC_HMAC_SHA_256'
+    )
 );
 "
 `;
@@ -1652,7 +1664,12 @@ execute sp_executesql
 execute dbo.p
   'WITH RESULT SETS';
 
-execute dbo.p with result sets ((a int NOT NULL, b varchar(10)), AS OBJECT dbo.t, AS TYPE dbo.tt, AS FOR XML);
+execute dbo.p with result sets (
+  (a int NOT NULL, b varchar(10)),
+  AS OBJECT dbo.t,
+  AS TYPE dbo.tt,
+  AS FOR XML
+);
 
 execute dbo.p with recompile, result sets undefined;
 "
@@ -1860,7 +1877,10 @@ go
 
 exports[`fixtures > index/alter-index-partition.sql 1`] = `
 "-- ALTER INDEX REBUILD with PARTITION = n — must come before WITH (...)
-alter index IX_Orders on dbo.Orders rebuild partition = 3 with (data_compression = row, online = on);
+alter index IX_Orders on dbo.Orders rebuild partition = 3 with (
+  data_compression = row,
+  online = on
+);
 
 -- ALTER INDEX REBUILD with PARTITION ALL
 alter index IX_Orders on dbo.Orders rebuild partition = all with (data_compression = page);
@@ -2746,7 +2766,11 @@ drop column master key CMK1;
 create table dbo.patients (
   id int not null,
   ssn char(9) collate Latin1_General_BIN2
-    encrypted with (column_encryption_key = CEK1, encryption_type = deterministic, algorithm = 'AEAD_AES_256_CBC_HMAC_SHA_256')
+    encrypted with (
+      column_encryption_key = CEK1,
+      encryption_type = deterministic,
+      algorithm = 'AEAD_AES_256_CBC_HMAC_SHA_256'
+    )
     not null
 );
 "
@@ -4147,7 +4171,11 @@ option (min_grant_percent = 10, max_grant_percent = 20);
 
 select a
 from dbo.t
-option (table hint (dbo.T, nolock), table hint (T, index = Ix), table hint (dbo.t, forceseek(Ix(a))));
+option (
+  table hint (dbo.T, nolock),
+  table hint (T, index = Ix),
+  table hint (dbo.t, forceseek(Ix(a)))
+);
 
 select a
 from dbo.t

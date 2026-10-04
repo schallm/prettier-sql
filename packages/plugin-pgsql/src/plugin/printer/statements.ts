@@ -14,6 +14,7 @@ import {
     getCommaStyle,
     fill,
     line,
+    parenItems,
 } from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions } from './helpers.js';
 import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, printOperand, printBoolFlat, PREC, tableAliasDoc } from './expressions.js';
@@ -758,7 +759,7 @@ function tableStorageClauses(node: SqlNode, opts: Options): Doc {
     const tablespace   = propStr(node, 'tablespace');
     return [
         accessMethod ? [hardline, makeKeyword('USING'), ' ', accessMethod] : '',
-        options.length > 0 ? [hardline, makeKeyword('WITH'), ' (', join(', ', options), ')'] : '',
+        options.length > 0 ? [hardline, makeKeyword('WITH'), ' ', parenItems(options, opts)] : '',
         onCommit ? [hardline, makeKeyword('ON COMMIT'), ' ', makeKeyword(onCommit)] : '',
         tablespace ? [hardline, makeKeyword('TABLESPACE'), ' ', tablespace] : '',
     ];
@@ -816,7 +817,7 @@ function printCreateView(node: SqlNode, opts: Options): Doc {
     return [
         makeKeyword(createKw), ' ', rangeVarName(name),
         columns.length > 0 ? [' (', join(', ', columns), ')'] : '',
-        options.length > 0 ? [hardline, makeKeyword('WITH'), ' (', join(', ', options), ')'] : '',
+        options.length > 0 ? [hardline, makeKeyword('WITH'), ' ', parenItems(options, opts)] : '',
         hardline, makeKeyword('AS'), hardline,
         body ? printQueryExpr(body, opts) : '',
         checkOption ? [hardline, makeKeyword(`WITH ${checkOption} CHECK OPTION`)] : '',
@@ -911,7 +912,7 @@ function printCreateIndex(node: SqlNode, opts: Options): Doc {
     parts.push(' (', join(', ', columns.map(printNode)), ')');
     if (including.length > 0) parts.push(' ', makeKeyword('INCLUDE'), ' (', join(', ', including.map(printNode)), ')');
     if (propBool(node, 'nullsNotDistinct')) parts.push(' ', makeKeyword('NULLS NOT DISTINCT'));
-    if (options.length > 0) parts.push(' ', makeKeyword('WITH'), ' (', join(', ', options), ')');
+    if (options.length > 0) parts.push(' ', makeKeyword('WITH'), ' ', parenItems(options, opts));
     if (tablespace) parts.push(' ', makeKeyword('TABLESPACE'), ' ', tablespace);
     if (where) parts.push(' ', makeKeyword('WHERE'), ' ', printNode(where));
     parts.push(';');
@@ -1713,7 +1714,7 @@ function printCopy(node: SqlNode, opts: Options): Doc {
     let optionPart: Doc = '';
     if (options.length > 0) {
         const optDocs = options.map((o) => utilityOptionDoc(o, opts));
-        optionPart = [' (', join(', ', optDocs), ')'];
+        optionPart = [' ', parenItems(optDocs, opts)];
     }
 
     const whereNode = prop(node, 'where');
@@ -1751,7 +1752,7 @@ function printExplain(node: SqlNode, opts: Options): Doc {
 
     const optDocs = options.map((o) => utilityOptionDoc(o, opts));
 
-    return [[makeKeyword('EXPLAIN'), ' (', join(', ', optDocs), ') ', query ? printQueryExpr(query, opts) : ''], ';'];
+    return [[makeKeyword('EXPLAIN'), ' ', parenItems(optDocs, opts), ' ', query ? printQueryExpr(query, opts) : ''], ';'];
 }
 
 /** A COPY / EXPLAIN option: `FORMAT csv`, `DELIMITER ','`, or a bare flag such as `ANALYZE`. */
@@ -1899,7 +1900,7 @@ function printVacuum(node: SqlNode, opts: Options): Doc {
         : '';
 
     if (!isVacuum) {
-        const optDoc: Doc = options.length > 0 ? [' (', join(', ', optionDocs), ')'] : '';
+        const optDoc: Doc = options.length > 0 ? [' ', parenItems(optionDocs, opts)] : '';
         return [[makeKeyword('ANALYZE'), optDoc, relDoc], ';'];
     }
 
@@ -1910,7 +1911,7 @@ function printVacuum(node: SqlNode, opts: Options): Doc {
     if (only && !only.value && (only.name === 'verbose' || only.name === 'analyze')) {
         return [[makeKeyword('VACUUM'), ' ', makeKeyword(only.name.toUpperCase()), relDoc], ';'];
     }
-    return [[makeKeyword('VACUUM'), ' (', join(', ', optionDocs), ')', relDoc], ';'];
+    return [[makeKeyword('VACUUM'), ' ', parenItems(optionDocs, opts), relDoc], ';'];
 }
 
 function printCluster(node: SqlNode, opts: Options): Doc {
@@ -1922,7 +1923,7 @@ function printCluster(node: SqlNode, opts: Options): Doc {
 
     return [
         [makeKeyword('CLUSTER'),
-         options.length > 0 ? [' (', join(', ', options.map((o) => utilityOptionDoc(o, opts))), ')'] : '',
+         options.length > 0 ? [' ', parenItems(options.map((o) => utilityOptionDoc(o, opts)), opts)] : '',
          relation ? [' ', rangeVarName(relation)] : '',
          indexName ? [' ', makeKeyword('USING'), ' ', indexName] : ''],
         ';',
@@ -1937,7 +1938,7 @@ function printReindex(node: SqlNode, opts: Options): Doc {
     const options  = (node.props?.['options'] as UtilityOption[] | undefined) ?? [];
 
     const optDoc: Doc = options.length > 0
-        ? [' (', join(', ', options.map((o) => utilityOptionDoc(o, opts))), ')']
+        ? [' ', parenItems(options.map((o) => utilityOptionDoc(o, opts)), opts)]
         : '';
 
     return [
@@ -2094,7 +2095,7 @@ function printCreatePublication(node: SqlNode, opts: Options): Doc {
     } else {
         forPart = '';
     }
-    const withPart: Doc = options.length > 0 ? [hardline, makeKeyword('WITH'), ' (', join(', ', options), ')'] : '';
+    const withPart: Doc = options.length > 0 ? [hardline, makeKeyword('WITH'), ' ', parenItems(options, opts)] : '';
 
     return [[makeKeyword('CREATE PUBLICATION'), ' ', name, forPart, withPart], ';'];
 }
@@ -2111,7 +2112,7 @@ function printAlterPublication(node: SqlNode, opts: Options): Doc {
         return [[head, ' ', makeKeyword(action), ' ', printPublicationObjectList(pubObjects, opts)], ';'];
     }
     // Reloption-only form: ALTER PUBLICATION name SET (publish = 'insert', ...)
-    return [[head, ' ', makeKeyword('SET'), ' (', join(', ', options), ')'], ';'];
+    return [[head, ' ', makeKeyword('SET'), ' ', parenItems(options, opts)], ';'];
 }
 
 function printCreateSubscription(node: SqlNode, opts: Options): Doc {
@@ -2120,7 +2121,7 @@ function printCreateSubscription(node: SqlNode, opts: Options): Doc {
     const conninfo     = propStr(node, 'conninfo') ?? '';
     const publications = (node.props?.['publications'] as string[] | undefined) ?? [];
     const options       = propStrArr(node, 'options');
-    const withPart: Doc = options.length > 0 ? [hardline, indent([makeKeyword('WITH'), ' (', join(', ', options), ')'])] : '';
+    const withPart: Doc = options.length > 0 ? [hardline, indent([makeKeyword('WITH'), ' ', parenItems(options, opts)])] : '';
 
     return [
         [makeKeyword('CREATE SUBSCRIPTION'), ' ', name, hardline,
@@ -2140,7 +2141,7 @@ function printAlterSubscription(node: SqlNode, opts: Options): Doc {
     const enabled       = propBool(node, 'enabled');
     const options       = propStrArr(node, 'options');
     const head: Doc      = [makeKeyword('ALTER SUBSCRIPTION'), ' ', name];
-    const withPart: Doc  = options.length > 0 ? [' ', makeKeyword('WITH'), ' (', join(', ', options), ')'] : '';
+    const withPart: Doc  = options.length > 0 ? [' ', makeKeyword('WITH'), ' ', parenItems(options, opts)] : '';
 
     switch (kind) {
         case 'CONNECTION':
@@ -2156,10 +2157,10 @@ function printAlterSubscription(node: SqlNode, opts: Options): Doc {
         case 'ENABLED':
             return [[head, ' ', makeKeyword(enabled ? 'ENABLE' : 'DISABLE')], ';'];
         case 'SKIP':
-            return [[head, ' ', makeKeyword('SKIP'), ' (', join(', ', options), ')'], ';'];
+            return [[head, ' ', makeKeyword('SKIP'), ' ', parenItems(options, opts)], ';'];
         case 'OPTIONS':
         default:
-            return [[head, ' ', makeKeyword('SET'), ' (', join(', ', options), ')'], ';'];
+            return [[head, ' ', makeKeyword('SET'), ' ', parenItems(options, opts)], ';'];
     }
 }
 

@@ -12,6 +12,7 @@ import {
     ifExistsDoc,
     commentsBlock,
     parenList,
+    parenItems,
     willBreak,
 } from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment } from './helpers.js';
@@ -97,7 +98,7 @@ export function printInlineIndex(node: SqlNode, opts: Options): Doc {
         ? [' ', keyword('INCLUDE', opts), ' ', parenList(includeColumns)]
         : '';
     const filterPart: Doc = filterPredicateNode ? [' ', printBoolClause('WHERE', filterPredicateNode, opts)] : '';
-    const withPart: Doc = indexOptions.length ? [' ', keyword('WITH', opts), ' (', join(', ', indexOptions), ')'] : '';
+    const withPart: Doc = indexOptions.length ? [' ', keyword('WITH', opts), ' ', parenItems(indexOptions, opts)] : '';
 
     return [
         keyword('INDEX', opts),
@@ -206,7 +207,7 @@ function encryptedWithDoc(
     if (encryption.encryptionType)
         encParts.push([keyword('ENCRYPTION_TYPE', opts), ' = ', keyword(encryption.encryptionType, opts)]);
     if (encryption.algorithm) encParts.push([keyword('ALGORITHM', opts), ' = ', encryption.algorithm]);
-    return [keyword('ENCRYPTED WITH', opts), ' (', join(', ', encParts), ')'];
+    return [keyword('ENCRYPTED WITH', opts), ' ', parenItems(encParts, opts)];
 }
 
 /** The keywords after GENERATED ALWAYS AS for a GeneratedAlwaysType name. */
@@ -362,7 +363,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         const uqOptions = (uniqueConstraint as { indexOptions?: string[] }).indexOptions ?? [];
         parts.push(
             line, constraintNamePrefix, uqKw, clusteredKw, hashKw,
-            uqOptions.length > 0 ? [' ', keyword('WITH', opts), ' (', join(', ', uqOptions), ')'] : '',
+            uqOptions.length > 0 ? [' ', keyword('WITH', opts), ' ', parenItems(uqOptions, opts)] : '',
             storageClause(uniqueConstraint as Record<string, unknown>, opts),
         );
     }
@@ -457,7 +458,7 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
             const colsDoc = parenList(colDocs);
             const indexOptions = propStrArr(node, 'indexOptions');
             const withPart: Doc = indexOptions.length
-                ? [' ', keyword('WITH', opts), ' (', join(', ', indexOptions), ')']
+                ? [' ', keyword('WITH', opts), ' ', parenItems(indexOptions, opts)]
                 : '';
             return group([namePrefix, indent([softline, kw, ' ', clusteredKw, hashKw, colsDoc]), withPart, storageClause(node.props, opts)]);
         }
@@ -589,7 +590,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         const allDropOptions = elements.flatMap((e) => e.dropOptions ?? []);
         const withPart: Doc =
             allDropOptions.length
-                ? [' ', keyword('WITH', opts), ' (', join(', ', allDropOptions), ')']
+                ? [' ', keyword('WITH', opts), ' ', parenItems(allDropOptions, opts)]
                 : '';
         return [
             keyword('ALTER TABLE', opts),
@@ -721,7 +722,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
                   ]
                 : '',
             nullPart,
-            columnOptions.length ? [' ', keyword('WITH', opts), ' (', join(', ', columnOptions), ')'] : '',
+            columnOptions.length ? [' ', keyword('WITH', opts), ' ', parenItems(columnOptions, opts)] : '',
             ';',
         ];
     }
@@ -752,7 +753,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         const partDoc: Doc = partitionAll ? keyword('ALL', opts) : (partitionNumber ?? '');
         const partitionPart: Doc = partitionAll || partitionNumber ? [' ', keyword('PARTITION =', opts), ' ', partDoc] : '';
         const withDoc: Doc = indexOptions.length
-            ? [' ', keyword('WITH', opts), ' (', join(', ', indexOptions), ')']
+            ? [' ', keyword('WITH', opts), ' ', parenItems(indexOptions, opts)]
             : '';
         return [
             keyword('ALTER TABLE', opts),
@@ -776,7 +777,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         const targetPartDoc: Doc = targetPartition ? [' ', keyword('PARTITION', opts), ' ', targetPartition] : '';
         const switchOptDoc: Doc =
             switchOptions.length
-                ? [' ', keyword('WITH', opts), ' (', join(', ', switchOptions), ')']
+                ? [' ', keyword('WITH', opts), ' ', parenItems(switchOptions, opts)]
                 : '';
         return [
             keyword('ALTER TABLE', opts),
@@ -872,7 +873,7 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
     const indexOptions = propStrArr(node, 'indexOptions');
     const withPart: Doc =
         indexOptions.length > 0
-            ? [hardline, keyword('WITH', opts), ' (', join(', ', indexOptions), ')']
+            ? [hardline, keyword('WITH', opts), ' ', parenItems(indexOptions, opts)]
             : '';
 
     const onFileGroup = propStr(node, 'onFileGroup');
@@ -908,7 +909,7 @@ export function printCreateVectorIndex(node: SqlNode, opts: Options): Doc {
     const indexOptions = propStrArr(node, 'indexOptions');
     const withPart: Doc =
         indexOptions.length > 0
-            ? [hardline, keyword('WITH', opts), ' (', join(', ', indexOptions), ')']
+            ? [hardline, keyword('WITH', opts), ' ', parenItems(indexOptions, opts)]
             : '';
     const onFileGroup = propStr(node, 'onFileGroup');
     const fileGroupPart: Doc = onFileGroup ? [hardline, keyword('ON', opts), ' ', onFileGroup] : '';
@@ -955,7 +956,7 @@ export function printAlterIndex(node: SqlNode, opts: Options): Doc {
     // ALTER INDEX ... SET (options) has no WITH; REBUILD / REORGANIZE / DISABLE take WITH (options)
     const withPart: Doc =
         indexOptions.length > 0
-            ? [' ', alterType === 'Set' ? '' : [keyword('WITH', opts), ' '], '(', join(', ', indexOptions), ')']
+            ? [' ', alterType === 'Set' ? '' : [keyword('WITH', opts), ' '], parenItems(indexOptions, opts)]
             : '';
     const partitionPart: Doc = partition ? [' ', keyword('PARTITION', opts), ' = ', partition] : '';
     return [
@@ -1549,7 +1550,7 @@ export function printDropIndex(node: SqlNode, opts: Options): Doc {
         const options = propStrArr(idx, 'options');
         return [
             propStr(idx, 'name') ?? '', ' ', keyword('ON', opts), ' ', schemaObjectName(prop(idx, 'table')),
-            options.length > 0 ? [' ', keyword('WITH', opts), ' (', join(', ', options.map((o) => dropIndexOption(o, opts))), ')'] : '',
+            options.length > 0 ? [' ', keyword('WITH', opts), ' ', parenItems(options.map((o) => dropIndexOption(o, opts)), opts)] : '',
         ];
     });
     const ifExistsPart: Doc = ifExists ? [' ', keyword('IF EXISTS', opts)] : '';
