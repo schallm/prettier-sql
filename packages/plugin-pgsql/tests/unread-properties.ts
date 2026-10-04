@@ -121,8 +121,6 @@ export const unreachable: Record<string, string> = {
  * and printer, add a fixture, and take the entry out.
  */
 export const dropped: Record<string, string> = {
-    'CTECycleClause.CycleMarkValue': "CYCLE ... SET is_cycle TO 'Y' DEFAULT 'N' loses TO 'Y'",
-    'CTECycleClause.CycleMarkDefault': "CYCLE ... SET is_cycle TO 'Y' DEFAULT 'N' loses DEFAULT 'N'",
     'CreateForeignServerStmt.IfNotExists': 'CREATE SERVER IF NOT EXISTS loses IF NOT EXISTS',
     'CreateForeignServerStmt.Servertype': "CREATE SERVER s TYPE 'pg' loses the TYPE",
     'CreateForeignServerStmt.Version': "CREATE SERVER s VERSION '16' loses the VERSION",

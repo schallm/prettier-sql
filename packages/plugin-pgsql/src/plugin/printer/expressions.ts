@@ -1054,8 +1054,14 @@ function printCte(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
             ' ', makeKeyword('SET'), ' ', propStr(search, 'seqColumn') ?? '');
     }
     if (cycle) {
+        // SET mark [TO value DEFAULT default]
+        const markValue = prop(cycle, 'markValue');
+        const markDefault = prop(cycle, 'markDefault');
+        const marks: Doc = markValue && markDefault
+            ? [' ', makeKeyword('TO'), ' ', printNode(markValue), ' ', makeKeyword('DEFAULT'), ' ', printNode(markDefault)]
+            : '';
         parts.push(hardline, makeKeyword('CYCLE'), ' ', join(', ', propStrArr(cycle, 'columns')), ' ', makeKeyword('SET'), ' ',
-            propStr(cycle, 'markColumn') ?? '', ' ', makeKeyword('USING'), ' ', propStr(cycle, 'pathColumn') ?? '');
+            propStr(cycle, 'markColumn') ?? '', marks, ' ', makeKeyword('USING'), ' ', propStr(cycle, 'pathColumn') ?? '');
     }
     return parts;
 }

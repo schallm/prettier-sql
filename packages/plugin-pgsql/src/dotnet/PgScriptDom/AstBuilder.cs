@@ -1329,10 +1329,17 @@ public class AstBuilder {
                     .Where(s => !string.IsNullOrEmpty(s))
                     .Select(s => Ident.Quote(s!))
                     .ToList();
+                // SET mark TO value DEFAULT default: the parser fills in TRUE / FALSE when they're
+                // left out, so print them only when they're something else
+                static bool IsBool(Node? n, bool value) =>
+                    n?.NodeCase == Node.NodeOneofCase.AConst && n.AConst.ValCase == A_Const.ValOneofCase.Boolval && n.AConst.Boolval.Boolval == value;
+                var defaultMarks = IsBool(cc.CycleMarkValue, true) && IsBool(cc.CycleMarkDefault, false);
                 cycle = new SqlNode("CTECycle", 0, 0, null, BuildProps(
-                    ("columns",    MaybeList(cols)),
-                    ("markColumn", Ident.QuoteOpt(cc.CycleMarkColumn)),
-                    ("pathColumn", Ident.QuoteOpt(cc.CyclePathColumn))
+                    ("columns",     MaybeList(cols)),
+                    ("markColumn",  Ident.QuoteOpt(cc.CycleMarkColumn)),
+                    ("markValue",   defaultMarks || cc.CycleMarkValue == null ? null : BuildExpr(cc.CycleMarkValue)),
+                    ("markDefault", defaultMarks || cc.CycleMarkDefault == null ? null : BuildExpr(cc.CycleMarkDefault)),
+                    ("pathColumn",  Ident.QuoteOpt(cc.CyclePathColumn))
                 ));
             }
 
