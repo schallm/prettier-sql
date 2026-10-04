@@ -1792,6 +1792,8 @@ public class AstBuilder {
             ("collation", ie.Collation.Count > 0 ? Ident.Qualified(ie.Collation.Select(c => c.String.Sval)) : null),
             // Operator class: text_pattern_ops makes the index usable for LIKE 'x%'
             ("opclass",   ie.Opclass.Count > 0 ? Ident.Qualified(ie.Opclass.Select(c => c.String.Sval)) : null),
+            // The operator class's parameters: gist_trgm_ops (siglen = 32)
+            ("opclassOptions", StorageOptions(ie.Opclassopts)),
             ("direction", dir),
             ("nulls", ie.NullsOrdering switch {
                 SortByNulls.First => "NULLS FIRST",

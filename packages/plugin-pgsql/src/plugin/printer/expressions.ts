@@ -37,6 +37,7 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
             const name = propStr(node, 'name');
             const collation = propStr(node, 'collation');
             const opclass = propStr(node, 'opclass');
+            const opclassOptions = propStrArr(node, 'opclassOptions');
             const nulls = propStr(node, 'nulls');
             // An expression other than a bare function call needs its own parentheses
             const base = expr ? (expr.type === 'FunctionCall' ? printNode(expr) : ['(', printNode(expr), ')']) : (name ?? '');
@@ -44,6 +45,8 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
                 base,
                 collation ? [' ', keyword('COLLATE', opts), ' ', collation] : '',
                 opclass ? [' ', opclass] : '',
+                // gist_trgm_ops (siglen = 32): the operator class's parameters
+                opclassOptions.length > 0 ? [' ', optionItems(opclassOptions, opts)] : '',
                 direction ? [' ', keyword(direction, opts)] : '',
                 nulls ? [' ', keyword(nulls, opts)] : '',
             ];
