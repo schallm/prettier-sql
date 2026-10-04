@@ -1957,6 +1957,9 @@ public class AstBuilder : TSqlFragmentVisitor {
                      : valOpt.OptionValue != null ? RawText(valOpt.OptionValue).Trim() : "0";
             return $"{kind} = {val}";
         }
+        // MOVE TO filegroup | partition_scheme(column)
+        if (o is DropClusteredConstraintMoveOption move)
+            return $"MOVE TO {StorageTarget(move.OptionValue)}";
         // WAIT_AT_LOW_PRIORITY (...) — RawText produces the full parenthesised sub-expression correctly
         return RawText(o).Trim();
     }

@@ -524,6 +524,15 @@ drop column Isbn, Summary;
 "
 `;
 
+exports[`fixtures > alter-table/drop-constraint-move-to.sql 1`] = `
+"alter table dbo.Orders
+drop constraint PK_Orders with (ONLINE = ON, MOVE TO [PRIMARY]);
+
+alter table dbo.Orders
+drop constraint PK_Orders with (MOVE TO ps_orders(OrderDate), MAXDOP = 2);
+"
+`;
+
 exports[`fixtures > alter-table/drop-constraint-with.sql 1`] = `
 "-- DROP CLUSTERED CONSTRAINT WITH options (ONLINE, WAIT_AT_LOW_PRIORITY, MAXDOP) must be preserved
 alter table dbo.Orders
