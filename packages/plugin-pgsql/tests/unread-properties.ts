@@ -121,7 +121,6 @@ export const unreachable: Record<string, string> = {
  * and printer, add a fixture, and take the entry out.
  */
 export const dropped: Record<string, string> = {
-    'RangeVar.Catalogname': 'mydb.public.t prints as public.t',
     'RuleStmt.Replace': 'CREATE OR REPLACE RULE prints as CREATE RULE',
     'AlterSeqStmt.MissingOk': 'ALTER SEQUENCE IF EXISTS loses IF EXISTS',
     'CTECycleClause.CycleMarkValue': "CYCLE ... SET is_cycle TO 'Y' DEFAULT 'N' loses TO 'Y'",

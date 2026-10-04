@@ -1195,7 +1195,7 @@ public class AstBuilder {
     private static SqlNode BuildRangeVar(RangeVar? r) {
         if (r == null) return new SqlNode("RangeVar", 0, 0, null, null);
         return new SqlNode("RangeVar", 0, 0, null, BuildProps(
-            ("schema", Ident.QuoteOpt(r.Schemaname)),
+            ("schema", RangeVarSchema(r)),
             ("name", Ident.QuoteOpt(r.Relname)),
             ("alias", Ident.QuoteOpt(r.Alias?.Aliasname)),
             ("aliasColumns", AliasColumns(r.Alias)),
@@ -2351,7 +2351,7 @@ public class AstBuilder {
         new("CreateTypeStatement", start, end, null, BuildProps(
             ("kind",     "COMPOSITE"),
             ("typeName", ct.Typevar == null ? null
-                : Ident.Qualified(new[] { ct.Typevar.Schemaname, ct.Typevar.Relname }.Where(p => !string.IsNullOrEmpty(p)))),
+                : Ident.Qualified(new[] { ct.Typevar.Catalogname, ct.Typevar.Schemaname, ct.Typevar.Relname }.Where(p => !string.IsNullOrEmpty(p)))),
             ("columns",  ct.Coldeflist.Count > 0
                 ? (object?)ct.Coldeflist
                     .Where(n => n.NodeCase == Node.NodeOneofCase.ColumnDef)
@@ -2416,7 +2416,7 @@ public class AstBuilder {
         return new SqlNode("CreateSequenceStatement", start, end, null, BuildProps(
             ("persistence", Persistence(seq.Sequence)),
             ("name",        Ident.QuoteOpt(seq.Sequence?.Relname)),
-            ("schema",      Ident.QuoteOpt(seq.Sequence?.Schemaname)),
+            ("schema",      RangeVarSchema(seq.Sequence)),
             ("ifNotExists", seq.IfNotExists ? true : null),
             ("options",     MaybeList(options))
         ));
@@ -2426,7 +2426,7 @@ public class AstBuilder {
         var options = ParseSeqOptions(seq.Options);
         return new SqlNode("AlterSequenceStatement", start, end, null, BuildProps(
             ("name",    Ident.QuoteOpt(seq.Sequence?.Relname)),
-            ("schema",  Ident.QuoteOpt(seq.Sequence?.Schemaname)),
+            ("schema",  RangeVarSchema(seq.Sequence)),
             ("options", MaybeList(options))
         ));
     }
@@ -2462,7 +2462,7 @@ public class AstBuilder {
         return new SqlNode(isMV ? "CreateMatViewStatement" : "CreateTableAsStatement", start, end, null, BuildProps(
             ("persistence",  Persistence(into?.Rel)),
             ("name",         Ident.QuoteOpt(into?.Rel?.Relname)),
-            ("schema",       Ident.QuoteOpt(into?.Rel?.Schemaname)),
+            ("schema",       RangeVarSchema(into?.Rel)),
             ("columns",      into == null ? null : MaybeList(into.ColNames
                 .Where(n => n.NodeCase == Node.NodeOneofCase.String)
                 .Select(n => Ident.Quote(n.String.Sval))
@@ -4028,9 +4028,18 @@ public class AstBuilder {
         return $"{name}{(isOperator ? " " : "")}({string.Join(", ", args)})";
     }
 
-    /// <summary>Formats a RangeVar as a quoted, possibly schema-qualified name.</summary>
+    /// <summary>
+    /// The qualifier of a RangeVar's name: schema, or database.schema for a three-part name
+    /// (PostgreSQL accepts the current database's name there).
+    /// </summary>
+    private static string? RangeVarSchema(RangeVar? rv) =>
+        rv == null ? null
+        : string.IsNullOrEmpty(rv.Catalogname) ? Ident.QuoteOpt(rv.Schemaname)
+        : Ident.Qualified(new[] { rv.Catalogname, rv.Schemaname });
+
+    /// <summary>Formats a RangeVar as a quoted, possibly database- and schema-qualified name.</summary>
     private static string RangeVarQualifiedName(RangeVar rv) =>
-        Ident.Qualified(new[] { rv.Schemaname, rv.Relname }.Where(p => !string.IsNullOrEmpty(p)));
+        Ident.Qualified(new[] { rv.Catalogname, rv.Schemaname, rv.Relname }.Where(p => !string.IsNullOrEmpty(p)));
 
     /// <summary>Extracts a dotted name from a Node (RangeVar, ObjectWithArgs, List of strings, or String).</summary>
     private string? NodeObjName(Node? node, ObjectType kind = ObjectType.Undefined) => node?.NodeCase switch {
