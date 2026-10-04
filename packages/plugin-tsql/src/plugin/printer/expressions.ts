@@ -16,6 +16,7 @@ import {
     appendTrailingLines,
     parenList,
     hasLine,
+    conditionalGroup,
     willBreak,
     parenItems, optionItems,
     aliasDoc,
@@ -1266,21 +1267,28 @@ function printExistsPredicate(node: SqlNode, opts: Options, printFn: PrintFn): D
     ]);
 }
 
+/**
+ * `head low AND high`: on one line when it fits; otherwise the AND bound goes on an indented
+ * line of its own; and when even `head low` doesn't fit, the bounds each go on an indented line.
+ */
+function betweenDoc(head: Doc, low: Doc, andHigh: Doc): Doc {
+    return conditionalGroup([
+        [head, ' ', low, ' ', andHigh],
+        [head, ' ', low, indent([hardline, andHigh])],
+        [head, indent([hardline, low, hardline, andHigh])],
+    ]);
+}
+
 function printBetween(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     const from = prop(node, 'from');
     const to = prop(node, 'to');
     const isNot = propBool(node, 'negated');
-    // The AND bound goes on an indented line of its own when the predicate doesn't fit
-    return group([
-        expr ? printExpression(expr, opts, printFn) : '',
-        ' ',
-        isNot ? [keyword('NOT', opts), ' '] : '',
-        keyword('BETWEEN', opts),
-        ' ',
+    return betweenDoc(
+        [expr ? printExpression(expr, opts, printFn) : '', ' ', isNot ? [keyword('NOT', opts), ' '] : '', keyword('BETWEEN', opts)],
         from ? printExpression(from, opts, printFn) : '',
-        indent([line, keyword('AND', opts), ' ', to ? printExpression(to, opts, printFn) : '']),
-    ]);
+        [keyword('AND', opts), ' ', to ? printExpression(to, opts, printFn) : ''],
+    );
 }
 
 // ---------------------------------------------------------------------------

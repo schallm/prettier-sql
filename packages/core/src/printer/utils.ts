@@ -2,7 +2,7 @@ import type { Doc, ParserOptions } from 'prettier';
 import { builders, utils } from 'prettier/doc';
 import type { SqlNode } from '../types.js';
 
-const { hardline, join, indent, group, line, softline, lineSuffix, ifBreak, fill } = builders;
+const { hardline, join, indent, group, line, softline, lineSuffix, ifBreak, fill, conditionalGroup } = builders;
 
 export type Options = ParserOptions<SqlNode>;
 
@@ -233,4 +233,4 @@ export function softSep(opts: Options): Doc {
 /** True when a doc contains a forced break (a hardline), so it can't print on one line. */
 export const willBreak = utils.willBreak;
 
-export { hardline, join, indent, group, line, softline, lineSuffix, ifBreak, fill };
+export { conditionalGroup, hardline, join, indent, group, line, softline, lineSuffix, ifBreak, fill };

@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options, PrintFn } from '@prettier-sql/core/printer/utils';
-import { keyword, join, indent, hardline, softline, group, fill, line, getDensity, aliasDoc, parenList, parenItems, optionItems, bracketItems, willBreak, hasHardline, hasLine } from '@prettier-sql/core/printer/utils';
+import { keyword, join, indent, hardline, softline, group, fill, line, getDensity, aliasDoc, parenList, parenItems, optionItems, bracketItems, willBreak, hasHardline, hasLine, conditionalGroup } from '@prettier-sql/core/printer/utils';
 import { printStatement, printQueryExpr } from './statements.js';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, onlyPrefix, printFdwOptions } from './helpers.js';
 
@@ -1092,6 +1092,18 @@ function printInExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     return [left ? printOperand(left, PREC.LIKE + 1, printNode) : '', ' ', keywordDoc, ' ', parenItems(items, opts, literals)];
 }
 
+/**
+ * `head low AND high`: on one line when it fits; otherwise the AND bound goes on an indented
+ * line of its own; and when even `head low` doesn't fit, the bounds each go on an indented line.
+ */
+function betweenDoc(head: Doc, low: Doc, andHigh: Doc): Doc {
+    return conditionalGroup([
+        [head, ' ', low, ' ', andHigh],
+        [head, ' ', low, indent([hardline, andHigh])],
+        [head, indent([hardline, low, hardline, andHigh])],
+    ]);
+}
+
 function printBetweenExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const makeKeyword        = (kw: string) => keyword(kw, opts);
     const arg       = prop(node, 'arg');
@@ -1104,13 +1116,11 @@ function printBetweenExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc
         ? (symmetric ? makeKeyword('NOT BETWEEN SYMMETRIC') : makeKeyword('NOT BETWEEN'))
         : (symmetric ? makeKeyword('BETWEEN SYMMETRIC')     : makeKeyword('BETWEEN'));
 
-    // The AND bound goes on an indented line of its own when the predicate doesn't fit
-    return group([
-        arg  ? printOperand(arg,  PREC.LIKE + 1, printNode) : '',
-        ' ', keywordDoc, ' ',
-        low  ? printOperand(low,  PREC.LIKE + 1, printNode) : '',
-        indent([line, makeKeyword('AND'), ' ', high ? printOperand(high, PREC.LIKE + 1, printNode) : '']),
-    ]);
+    return betweenDoc(
+        [arg ? printOperand(arg, PREC.LIKE + 1, printNode) : '', ' ', keywordDoc],
+        low ? printOperand(low, PREC.LIKE + 1, printNode) : '',
+        [makeKeyword('AND'), ' ', high ? printOperand(high, PREC.LIKE + 1, printNode) : ''],
+    );
 }
 
 function printQuantifiedExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {

@@ -4044,7 +4044,8 @@ where
 
 select a.id
 from t as a
-where a.very_long_column_name_one not between a.very_long_lower_bound_column_name
+where a.very_long_column_name_one not between
+  a.very_long_lower_bound_column_name
   and a.very_long_upper_bound_column_name;
 
 select a.id
