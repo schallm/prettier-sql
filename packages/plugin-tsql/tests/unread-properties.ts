@@ -60,8 +60,6 @@ export const unreachable: Record<string, string> = {
  * and printer, add a fixture, and take the entry out.
  */
 export const dropped: Record<string, string> = {
-    'AlterDatabaseModifyFileGroupStatement.NewFileGroupName': 'MODIFY FILEGROUP fg NAME = fg2 prints as MODIFY FILEGROUP fg none',
-    'AlterDatabaseModifyFileGroupStatement.Termination': 'MODIFY FILEGROUP ... WITH ROLLBACK IMMEDIATE loses the WITH clause',
     'AlterDatabaseSetStatement.WithManualCutover': 'WITH MANUAL_CUTOVER is dropped',
     'AsymmetricKeyCreateLoginSource.Credential': 'CREATE LOGIN ... FROM ASYMMETRIC KEY k WITH CREDENTIAL = c loses the credential',
     'CertificateCreateLoginSource.Credential': 'CREATE LOGIN ... FROM CERTIFICATE c WITH CREDENTIAL = c loses the credential',

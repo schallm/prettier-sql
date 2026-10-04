@@ -428,8 +428,16 @@ export function printAlterDatabaseModifyFileGroup(node: SqlNode, opts: Options):
     const makeDefault = propBool(node, 'makeDefault');
     const option = propStr(node, 'option');
 
-    const action: Doc = makeDefault ? keyword('DEFAULT', opts) : keyword(option ?? '', opts);
-    return [alterDbHeader(node, opts), ' ', keyword('MODIFY FILEGROUP', opts), ' ', fileGroup, ' ', action, ';'];
+    const newName = propStr(node, 'newName');
+    const termination = propStr(node, 'termination');
+
+    const action: Doc = makeDefault
+        ? keyword('DEFAULT', opts)
+        : newName
+          ? [keyword('NAME', opts), ' = ', newName]
+          : keyword(option ?? '', opts);
+    const termPart: Doc = termination ? [' ', keyword(termination, opts)] : '';
+    return [alterDbHeader(node, opts), ' ', keyword('MODIFY FILEGROUP', opts), ' ', fileGroup, ' ', action, termPart, ';'];
 }
 
 // ---------------------------------------------------------------------------

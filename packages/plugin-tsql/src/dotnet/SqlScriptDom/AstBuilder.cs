@@ -3801,9 +3801,10 @@ public class AstBuilder : TSqlFragmentVisitor {
         });
 
     private static string ModifyFileGroupOptionToSql(ModifyFileGroupOption opt) => opt switch {
-        ModifyFileGroupOption.ReadOnly => "READONLY",
+        // READ_ONLY and READONLY are synonyms; keep the spelling as written
+        ModifyFileGroupOption.ReadOnly => "READ_ONLY",
         ModifyFileGroupOption.ReadOnlyOld => "READONLY",
-        ModifyFileGroupOption.ReadWrite => "READWRITE",
+        ModifyFileGroupOption.ReadWrite => "READ_WRITE",
         ModifyFileGroupOption.ReadWriteOld => "READWRITE",
         ModifyFileGroupOption.AutogrowAllFiles => "AUTOGROW_ALL_FILES",
         ModifyFileGroupOption.AutogrowSingleFile => "AUTOGROW_SINGLE_FILE",
@@ -3815,7 +3816,12 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["database"] = AlterDbName(stmt),
             ["fileGroup"] = QuotedName(stmt.FileGroup),
             ["makeDefault"] = stmt.MakeDefault,
-            ["option"] = !stmt.MakeDefault ? ModifyFileGroupOptionToSql(stmt.UpdatabilityOption) : null,
+            ["option"] = !stmt.MakeDefault && stmt.UpdatabilityOption != ModifyFileGroupOption.None
+                ? ModifyFileGroupOptionToSql(stmt.UpdatabilityOption) : null,
+            // MODIFY FILEGROUP fg NAME = fg2
+            ["newName"] = QuotedName(stmt.NewFileGroupName),
+            // WITH ROLLBACK IMMEDIATE | ROLLBACK AFTER n [SECONDS] | NO_WAIT
+            ["termination"] = RawTextOrNull(stmt.Termination),
         });
 
     private static SqlNode BuildAlterDatabaseRebuildLog(AlterDatabaseRebuildLogStatement stmt) =>

@@ -9,6 +9,24 @@ set automatic_index_compaction = off;
 "
 `;
 
+exports[`fixtures > admin/alter-database-modify-filegroup.sql 1`] = `
+"alter database Sales modify filegroup Archive default;
+go
+
+alter database Sales modify filegroup Archive name = Archive2019;
+go
+
+alter database Sales modify filegroup Archive read_only with rollback immediate;
+go
+
+alter database Sales modify filegroup Archive readwrite with rollback after 30 seconds;
+go
+
+alter database Sales modify filegroup Archive autogrow_all_files with no_wait;
+go
+"
+`;
+
 exports[`fixtures > admin/alter-database-set-values.sql 1`] = `
 "-- ALTER DATABASE SET options keep their = and their names
 alter database d
