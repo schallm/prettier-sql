@@ -4,7 +4,7 @@ import { unused, unreachable, dropped } from './unread-properties.js';
 
 registerPropertyCoverageTests({
     unreadProperties,
-    readProperty: 'FunctionCall.FunctionName',
+    readProperty: 'SelectStmt.TargetList',
     listFile: 'tests/unread-properties.ts',
     unused,
     unreachable,

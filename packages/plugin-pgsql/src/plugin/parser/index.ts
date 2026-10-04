@@ -6,7 +6,7 @@ import { loadDotnetDll, type DotnetHandle } from '@prettier-sql/core/parser';
 // ---------------------------------------------------------------------------
 
 interface PgsqlDotnet extends DotnetHandle {
-    PrettierPgsql: { PgsqlParser: { Parse(sql: string): string; Canonical(sql: string): string | null } };
+    PrettierPgsql: { PgsqlParser: { Parse(sql: string): string; Canonical(sql: string): string | null; UnreadProperties(): string } };
 }
 
 let dotnetModule: PgsqlDotnet | null = null;
@@ -56,6 +56,11 @@ export function parse(text: string): SqlNode {
  */
 export function canonical(text: string): string | null {
     return loadDotnet().PrettierPgsql.PgsqlParser.Canonical(text) ?? null;
+}
+
+/** The libpg_query fields the AST builder never reads, as `Type.Property`. Each one is dropped from the output. */
+export function unreadProperties(): string[] {
+    return loadDotnet().PrettierPgsql.PgsqlParser.UnreadProperties().split('\n').filter(Boolean);
 }
 
 // ---------------------------------------------------------------------------

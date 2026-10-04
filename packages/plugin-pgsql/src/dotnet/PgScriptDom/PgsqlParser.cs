@@ -56,7 +56,13 @@ public static class PgsqlParser {
 
     // Parse-tree fields that record where something was written, not what it means:
     // location, stmt_location, name_location, …, and stmt_len.
-    private static bool IsPositionField(string key) => key == "stmt_len" || key.EndsWith("location");
+    internal static bool IsPositionField(string key) => key == "stmt_len" || key.EndsWith("location");
+
+    /// <summary>
+    /// The libpg_query fields AstBuilder never reads, one Type.Property per line (see
+    /// PgsqlPropertyCoverage). The tests require each to be listed with the reason it's safe.
+    /// </summary>
+    public static string UnreadProperties() => string.Join('\n', PgsqlPropertyCoverage.UnreadProperties());
 
     /// <summary>
     /// A canonical form of the SQL's meaning, for tests that check formatting didn't
