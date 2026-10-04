@@ -236,11 +236,12 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
     const over = prop(node, 'over');
     const uniqueRowFilter = propStr(node, 'uniqueRowFilter');
     const distinctDoc = uniqueRowFilter === 'Distinct' ? [keyword('DISTINCT', opts), ' '] : [];
-    // [ABSENT ON NULL | NULL ON NULL] [RETURNING type], last inside the parentheses
+    // [ABSENT ON NULL | NULL ON NULL] [WITH ARRAY WRAPPER] [RETURNING type], last inside the parentheses
     const nullOnNullDoc = printNullOnNullClause(node, opts);
     const returnType = propStr(node, 'returnType');
     const tailClauses: Doc[] = [];
     if (nullOnNullDoc) tailClauses.push(nullOnNullDoc);
+    if (propBool(node, 'withArrayWrapper')) tailClauses.push(keyword('WITH ARRAY WRAPPER', opts));
     if (returnType) {
         tailClauses.push([keyword('RETURNING', opts), ' ', propBool(node, 'returnIsUdt') ? returnType : builtinTypeDoc(returnType, opts)]);
     }

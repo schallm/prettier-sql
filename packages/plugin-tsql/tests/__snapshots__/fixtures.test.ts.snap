@@ -4545,42 +4545,8 @@ where p.Country = 'UK';
 "
 `;
 
-exports[`fixtures > select/json-constructors.sql 1`] = `
-"select json_object('name': Title, 'price': Price)
-from Books;
-
-select json_object('name': Title, 'price': Price absent on null)
-from Books;
-
-select json_object('id': Id null on null)
-from Books;
-
-select json_array(1, 2, 'three');
-
-select json_array(1, 2, 'three' absent on null);
-
-select json_arrayagg(Title)
-from Books;
-
-select json_arrayagg(Title order by Title)
-from Books;
-
-select json_arrayagg(Title order by Title absent on null)
-from Books;
-
--- JSON_OBJECTAGG — SQL Server 2025
-select json_objectagg(Name: [Value])
-from Config
-group by Name;
-
-select json_objectagg(Name: [Value] null on null)
-from Config
-group by Name;
-"
-`;
-
-exports[`fixtures > select/json-returning.sql 1`] = `
-"-- RETURNING type — SQL Server 2025
+exports[`fixtures > select/json-clauses.sql 1`] = `
+"-- RETURNING type and WITH ARRAY WRAPPER — SQL Server 2025
 select json_value(data, '$.price' returning int)
 from events;
 
@@ -4617,6 +4583,46 @@ select json_value(
   '$.customer.shippingAddress.postalCode' returning nvarchar(20)
 ) as PostalCode
 from Orders;
+
+select json_query(data, '$.tags' with array wrapper)
+from events;
+
+select json_query(data with array wrapper)
+from events;
+"
+`;
+
+exports[`fixtures > select/json-constructors.sql 1`] = `
+"select json_object('name': Title, 'price': Price)
+from Books;
+
+select json_object('name': Title, 'price': Price absent on null)
+from Books;
+
+select json_object('id': Id null on null)
+from Books;
+
+select json_array(1, 2, 'three');
+
+select json_array(1, 2, 'three' absent on null);
+
+select json_arrayagg(Title)
+from Books;
+
+select json_arrayagg(Title order by Title)
+from Books;
+
+select json_arrayagg(Title order by Title absent on null)
+from Books;
+
+-- JSON_OBJECTAGG — SQL Server 2025
+select json_objectagg(Name: [Value])
+from Config
+group by Name;
+
+select json_objectagg(Name: [Value] null on null)
+from Config
+group by Name;
 "
 `;
 

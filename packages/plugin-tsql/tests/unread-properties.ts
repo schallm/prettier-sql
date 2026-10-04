@@ -66,7 +66,6 @@ export const dropped: Record<string, string> = {
     'ExpressionGroupingSpecification.DistributedAggregation': 'GROUP BY a WITH (DISTRIBUTED_AGG) loses the hint',
     'ForeignKeyConstraintDefinition.IsEnforced': 'FOREIGN KEY ... NOT ENFORCED loses NOT ENFORCED',
     'UniqueConstraintDefinition.IsEnforced': 'PRIMARY KEY / UNIQUE ... NOT ENFORCED loses NOT ENFORCED',
-    'FunctionCall.WithArrayWrapper': 'JSON_QUERY(d, \'$.a\' WITH ARRAY WRAPPER) loses WITH ARRAY WRAPPER',
     'InsertSpecification.InsertOption': 'INSERT OVER t prints as INSERT INTO t (INSERT t and INSERT INTO t are equivalent)',
     'OpenRowsetTableReference.WithColumns': 'OPENROWSET(...) WITH (a int) loses the WITH column list',
     'BulkOpenRowset.WithColumns': 'OPENROWSET(BULK ...) WITH (a int) loses the WITH column list',

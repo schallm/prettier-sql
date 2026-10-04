@@ -345,6 +345,8 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["withinGroupGraphPath"] = fc.WithinGroupClause?.HasGraphPath == true ? true : null,
                 ["returnType"] = DataTypeText(returnType),
                 ["returnIsUdt"] = UdtFlag(returnType),
+                // JSON_QUERY(d, '$.a' WITH ARRAY WRAPPER) — SQL Server 2025
+                ["withArrayWrapper"] = fc.WithArrayWrapper ? true : null,
             });
     }
 

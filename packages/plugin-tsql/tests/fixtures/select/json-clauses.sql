@@ -1,4 +1,4 @@
--- RETURNING type — SQL Server 2025
+-- RETURNING type and WITH ARRAY WRAPPER — SQL Server 2025
 select json_value(data, '$.price' returning int) from events
 
 select json_value(data, '$.price' returning decimal(10, 2)), json_value(data, '$.kind' returning nvarchar(max)) from events
@@ -22,3 +22,7 @@ from Config
 group by Name
 
 select json_value(OrderDocument, '$.customer.shippingAddress.postalCode' returning nvarchar(20)) as PostalCode from Orders
+
+select json_query(data, '$.tags' with array wrapper) from events
+
+select json_query(data with array wrapper) from events
