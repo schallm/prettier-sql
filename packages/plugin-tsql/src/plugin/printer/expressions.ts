@@ -716,11 +716,13 @@ function offsetFetch(offset: SqlNode | null, fetch: SqlNode | null, sep: Doc, op
 }
 
 export function printOverClause(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
-    // Named window reference: OVER w — SQL Server 2022+ (no parens around the name)
+    // Named window reference: OVER w — SQL Server 2022+ (no parens around the name).
+    // A window that builds on it, OVER (w ROWS ...), keeps the name inside the parens.
     const windowName = propStr(node, 'windowName');
-    if (windowName) return windowName;
+    const clauses = windowClauses(node, opts, printFn);
+    if (windowName && clauses.length === 0) return windowName;
 
-    return windowSpecDoc(windowClauses(node, opts, printFn));
+    return windowSpecDoc(windowName ? [windowName, ...clauses] : clauses);
 }
 
 /** The clauses of a window specification: [base window] [PARTITION BY …] [ORDER BY …] [frame]. */
