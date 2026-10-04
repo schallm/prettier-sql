@@ -325,7 +325,11 @@ as $$
 $$;
 
 -- Function with OUT parameters
-create function get_stats(in p_author_id integer, out book_count bigint, out avg_price numeric)
+create function get_stats(
+  in p_author_id integer,
+  out book_count bigint,
+  out avg_price numeric
+)
 language sql
 as $$
   select count(*), avg(price) from books where author_id = p_author_id
@@ -591,7 +595,11 @@ drop table a, s.b;
 
 exports[`fixtures > ddl/function-attributes.sql 1`] = `
 "-- OR REPLACE, procedures, attributes (volatility, STRICT, SECURITY DEFINER, ...), SETOF, parameter defaults, C symbols and $$ inside a body
-create or replace function f(a integer default 1, in b text default 'x', out c integer)
+create or replace function f(
+  a integer default 1,
+  in b text default 'x',
+  out c integer
+)
 returns setof integer
 language plpgsql
 immutable
@@ -702,6 +710,48 @@ alter table t
     not null
     default 100000000
     references other_table (id) on delete cascade;
+"
+`;
+
+exports[`fixtures > ddl/long-function-parameters.sql 1`] = `
+"create function f(
+  very_long_argument_one integer,
+  very_long_argument_two text,
+  very_long_argument_three boolean
+)
+returns integer
+language sql
+as $$select 1$$;
+
+create or replace function get_stats(
+  in p_author_id integer,
+  out book_count bigint,
+  out avg_price numeric
+)
+language sql
+as $$select 1, 2$$;
+
+create function g(a integer)
+returns table (
+  very_long_column_name_one integer,
+  very_long_column_name_two text,
+  very_long_column_name_three boolean
+)
+language sql
+as $$select 1, 2, 3$$;
+
+create function h(a integer, b text)
+returns integer
+language sql
+as $$select 1$$;
+
+create procedure p(
+  very_long_argument_one integer,
+  very_long_argument_two text,
+  very_long_argument_three boolean
+)
+language sql
+as $$select 1$$;
 "
 `;
 

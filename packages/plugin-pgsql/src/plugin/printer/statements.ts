@@ -839,11 +839,11 @@ function printCreateFunction(node: SqlNode, opts: Options): Doc {
 
     const parts: Doc[] = [
         makeKeyword(propBool(node, 'orReplace') ? `CREATE OR REPLACE ${kind}` : `CREATE ${kind}`), ' ', name,
-        '(', join(', ', parameters.map(printNode)), ')',
+        parenItems(parameters.map(printNode), opts),
     ];
 
     if (returnsTable.length > 0) {
-        parts.push(hardline, makeKeyword('RETURNS TABLE'), ' (', join(', ', returnsTable.map(printNode)), ')');
+        parts.push(hardline, makeKeyword('RETURNS TABLE'), ' ', parenItems(returnsTable.map(printNode), opts));
     } else if (returnType) {
         parts.push(hardline, makeKeyword('RETURNS'), ' ', makeKeyword(returnType));
     }
