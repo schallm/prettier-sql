@@ -108,6 +108,14 @@ first differing node, and fix the builder or printer that dropped or changed it.
 new equivalence to `Canonical` only when the database really treats the two forms as the
 same, with the reason in a comment — never to make a test pass. A fixture must parse.
 
+The meaning check only covers syntax some fixture uses. For T-SQL,
+`packages/plugin-tsql/tests/property-coverage.test.ts` also catches a property the builder
+never reads, with or without a fixture: `PropertyCoverage.cs` scans `AstBuilder`'s IL for
+ScriptDom getter calls, and once the builder reads one property of a type, every property of
+that type has to be read or listed in `tests/unread-properties.ts` — as `unused` (with why
+it's safe), `unreachable` (TSql180Parser never sets it) or `dropped` (a known bug: fix it and
+take the entry out).
+
 ## Versioning (Changesets)
 
 Each package versions independently. When changing user-facing behavior, add a changeset:

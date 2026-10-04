@@ -7,7 +7,9 @@ import { propArr } from '@prettier-sql/core/printer/helpers';
 // ---------------------------------------------------------------------------
 
 interface TsqlDotnet extends DotnetHandle {
-    PrettierTsql: { TsqlParser: { Parse(sql: string): string; Canonical(sql: string): string | null } };
+    PrettierTsql: {
+        TsqlParser: { Parse(sql: string): string; Canonical(sql: string): string | null; UnreadProperties(): string };
+    };
 }
 
 let dotnetModule: TsqlDotnet | null = null;
@@ -29,6 +31,11 @@ function loadDotnet(): TsqlDotnet {
  */
 export function canonical(text: string): string | null {
     return loadDotnet().PrettierTsql.TsqlParser.Canonical(text) ?? null;
+}
+
+/** The ScriptDom properties the AST builder never reads, as `Type.Property`. Each one is dropped from the output. */
+export function unreadProperties(): string[] {
+    return loadDotnet().PrettierTsql.TsqlParser.UnreadProperties().split('\n').filter(Boolean);
 }
 
 export function parse(text: string): SqlNode {

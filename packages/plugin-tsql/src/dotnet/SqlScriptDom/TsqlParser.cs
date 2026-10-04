@@ -114,6 +114,12 @@ public static class TsqlParser {
     }
 
     /// <summary>
+    /// The ScriptDom properties AstBuilder never reads, one Type.Property per line (see
+    /// PropertyCoverage). The tests require each to be listed with the reason it's safe.
+    /// </summary>
+    public static string UnreadProperties() => string.Join('\n', PropertyCoverage.UnreadProperties());
+
+    /// <summary>
     /// A canonical form of the SQL's meaning, for tests that check formatting didn't
     /// change it: ScriptDom's syntax tree, walked by reflection, without source
     /// positions or token streams, plus the comment texts in order (comments aren't
