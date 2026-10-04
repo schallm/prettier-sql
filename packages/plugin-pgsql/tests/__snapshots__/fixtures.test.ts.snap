@@ -5249,15 +5249,25 @@ select coalesce(
 ) as c
 from t as a;
 
-select coalesce(case
-  when a.x = 1 then 1
-end, a.very_long_column_name_two, a.very_long_column_name_three, a.f) as c
+select coalesce(
+  case
+    when a.x = 1 then 1
+  end,
+  a.very_long_column_name_two,
+  a.very_long_column_name_three,
+  a.f
+) as c
 from t as a;
 
-select f((
-  select max(id)
-  from u
-), a.very_long_column_name_two, a.very_long_column_name_three, a.very_long_four) as c
+select f(
+  (
+    select max(id)
+    from u
+  ),
+  a.very_long_column_name_two,
+  a.very_long_column_name_three,
+  a.very_long_four
+) as c
 from t as a;
 
 -- the open states
@@ -5270,9 +5280,13 @@ where a.status in (
 
 select a.id
 from t as a
-where a.status in (a.very_long_column_name_one, case
-  when a.x = 1 then 2
-end, a.very_long_column_name_two);
+where a.status in (
+  a.very_long_column_name_one,
+  case
+    when a.x = 1 then 2
+  end,
+  a.very_long_column_name_two
+);
 
 select
   a.id,

@@ -1198,7 +1198,7 @@ function printInPredicate(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     // own indented line with ) dropping back to the indentation of the IN line.
     const valueDocs = values.map((v) => printExpression(v, opts, printFn));
     const literals = values.every((v) => LITERAL_TYPES.has(v.type));
-    return [...lhs, ' ', parenItems(valueDocs, opts, literals, false)];
+    return [...lhs, ' ', parenItems(valueDocs, opts, literals)];
 }
 
 function printRegexpLikePredicate(node: SqlNode, opts: Options, printFn: PrintFn): Doc {

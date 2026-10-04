@@ -4729,15 +4729,24 @@ exports[`fixtures > select/wrapped-lists-with-comments-and-case.sql 1`] = `
 ) as c
 from t as a;
 
-select iif(case
-  when a.x = 1 then 1
-end = 1, a.very_long_column_name_two, a.very_long_column_name_three) as c
+select iif(
+  case
+    when a.x = 1 then 1
+  end = 1,
+  a.very_long_column_name_two,
+  a.very_long_column_name_three
+) as c
 from t as a;
 
-select coalesce((
-  select max(id)
-  from u
-), a.very_long_column_name_two, a.very_long_column_name_three, a.very_long_four) as c
+select coalesce(
+  (
+    select max(id)
+    from u
+  ),
+  a.very_long_column_name_two,
+  a.very_long_column_name_three,
+  a.very_long_four
+) as c
 from t as a;
 
 select a.id
