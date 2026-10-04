@@ -1133,6 +1133,33 @@ cycle;
 "
 `;
 
+exports[`fixtures > ddl/long-rename.sql 1`] = `
+"alter table some_long_table_name
+  rename column some_long_old_column_name to some_long_new_column_name;
+
+alter table some_long_schema_name.some_long_table_name
+  rename to some_long_schema_name_new_table_name_value;
+
+alter table t
+  rename constraint some_long_constraint_old_name
+    to some_long_constraint_new_name_value;
+
+alter index some_long_index_old_name
+  rename to some_long_index_new_name_that_goes_beyond;
+
+alter table t rename column a to b;
+
+alter schema some_long_schema_old_name
+  rename to some_long_schema_new_name_that_goes_on_and_on;
+
+alter type some_long_type_name
+  rename attribute some_long_old_attr to some_long_new_attr_name_x cascade;
+
+alter trigger some_long_trigger_old_name on some_long_table_name
+  rename to some_long_trigger_new_name;
+"
+`;
+
 exports[`fixtures > ddl/long-role-options.sql 1`] = `
 "create role some_long_role_name
   login

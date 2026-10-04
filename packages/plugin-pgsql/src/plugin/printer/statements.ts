@@ -1117,17 +1117,23 @@ function printRename(node: SqlNode, opts: Options): Doc {
     const sub = propStr(node, 'sub');
     const onTable = propStr(node, 'onTable');
     const using = propStr(node, 'using');
-    return [
-        makeKeyword('ALTER'), ' ', makeKeyword(propStr(node, 'kind') ?? 'TABLE'),
-        propBool(node, 'ifExists') ? [' ', makeKeyword('IF EXISTS')] : '',
-        propBool(node, 'only') ? [' ', makeKeyword('ONLY')] : '',
-        ' ', propStr(node, 'target') ?? '',
-        onTable ? [' ', makeKeyword('ON'), ' ', onTable] : '',
-        using ? [' ', makeKeyword('USING'), ' ', using] : '',
-        ' ', makeKeyword('RENAME'),
+    // On one line when it fits; otherwise the RENAME clause goes on an indented line of its own, and
+    // when even that doesn't fit, its TO goes on one more
+    const renameClause: Doc = group([
+        makeKeyword('RENAME'),
         sub ? [' ', makeKeyword(sub), ' ', propStr(node, 'oldName') ?? ''] : '',
-        ' ', makeKeyword('TO'), ' ', propStr(node, 'newName') ?? '',
-        propBool(node, 'cascade') ? [' ', makeKeyword('CASCADE')] : '',
+        indent([line, makeKeyword('TO'), ' ', propStr(node, 'newName') ?? '']),
+    ]);
+    return [
+        group([
+            makeKeyword('ALTER'), ' ', makeKeyword(propStr(node, 'kind') ?? 'TABLE'),
+            propBool(node, 'ifExists') ? [' ', makeKeyword('IF EXISTS')] : '',
+            propBool(node, 'only') ? [' ', makeKeyword('ONLY')] : '',
+            ' ', propStr(node, 'target') ?? '',
+            onTable ? [' ', makeKeyword('ON'), ' ', onTable] : '',
+            using ? [' ', makeKeyword('USING'), ' ', using] : '',
+            indent([line, renameClause, propBool(node, 'cascade') ? [' ', makeKeyword('CASCADE')] : '']),
+        ]),
         ';',
     ];
 }
