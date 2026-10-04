@@ -202,7 +202,10 @@ create table transfers (
   id integer primary key,
   from_account integer,
   to_account integer,
-  constraint fk_from foreign key (from_account) references accounts (id) deferrable initially deferred,
+  constraint fk_from
+    foreign key (from_account)
+    references accounts (id)
+    deferrable initially deferred,
   constraint fk_to foreign key (to_account) references accounts (id) deferrable
 );
 "
@@ -739,10 +742,9 @@ select
   3;
 
 alter table t
-  add constraint fk_very_long_constraint_name foreign key (
-    very_long_column_name_one,
-    very_long_column_name_two
-  ) references other_table (id, id2);
+  add constraint fk_very_long_constraint_name
+    foreign key (very_long_column_name_one, very_long_column_name_two)
+    references other_table (id, id2);
 
 alter table t
   add constraint pk_very_long_constraint_name primary key (
@@ -768,6 +770,62 @@ create unique index concurrently if not exists i on only t (
 ) include (d) nulls not distinct with (
   fillfactor = 80
 ) tablespace fast where e is not null;
+"
+`;
+
+exports[`fixtures > ddl/long-constraints.sql 1`] = `
+"create table t (
+  id integer,
+  constraint fk_very_long_constraint_name
+    foreign key (very_long_column_name_one)
+    references other_table (id)
+    on update restrict
+    on delete cascade
+    deferrable initially deferred
+);
+
+create table t (
+  a integer,
+  constraint ck_very_long_constraint_name
+    check (
+      a > 0
+        and very_long_column_name_two > 0
+        and very_long_column_name_three < 100
+    )
+);
+
+create table t (
+  a integer,
+  b integer,
+  foreign key (a, b)
+    references other_table (x, y) match full
+    on delete set null (a)
+    not valid
+);
+
+create table t (
+  a integer,
+  check (a > 0) no inherit,
+  constraint short_fk foreign key (a) references o (id)
+);
+
+create table t (
+  a integer
+    references other_table_with_a_long_name (very_long_column_name_one)
+      on update cascade
+      on delete cascade
+    deferrable
+);
+
+alter table t
+  add constraint fk_very_long_constraint_name
+    foreign key (very_long_column_name_one, very_long_column_name_two)
+    references other_table (id, id2);
+
+alter table t
+  add constraint ck_very_long_constraint_name
+    check (very_long_column_name_one > 0 and very_long_column_name_two > 0)
+    not valid;
 "
 `;
 
@@ -5888,7 +5946,9 @@ alter table books
   add constraint uq_books_title unique (title);
 
 alter table books
-  add constraint fk_books_publisher foreign key (publisher_id) references publishers (id);
+  add constraint fk_books_publisher
+    foreign key (publisher_id)
+    references publishers (id);
 
 alter table books
   add constraint chk_books_stock check (in_stock >= 0);

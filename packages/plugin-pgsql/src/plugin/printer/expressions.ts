@@ -800,6 +800,19 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
         propBool(node, 'noInherit') ? [' ', makeKeyword('NO INHERIT')] : '',
     ];
 
+    // The same attributes as separate clauses, for a constraint that wraps one clause per line
+    const attrClauses: Doc[] = [
+        propBool(node, 'deferrable') ? [makeKeyword('DEFERRABLE'), propBool(node, 'initDeferred') ? [' ', makeKeyword('INITIALLY DEFERRED')] : ''] : '',
+        propBool(node, 'notValid') ? makeKeyword('NOT VALID') : '',
+        propBool(node, 'noInherit') ? makeKeyword('NO INHERIT') : '',
+    ].filter((d) => d !== '');
+    // `[CONSTRAINT name] clause clause ...`: inline when it fits, otherwise the name on its own
+    // line and each clause on an indented line of its own
+    const clauses = (list: Doc[]): Doc => {
+        if (name) return group([[makeKeyword('CONSTRAINT'), ' ', name], indent(list.map((c) => [line, c]))]);
+        return group([list[0]!, indent(list.slice(1).map((c) => [line, c]))]);
+    };
+
     switch (contype) {
         case 'NULL':     return [namePrefix, makeKeyword('NULL')];
         case 'NOT NULL': return [namePrefix, makeKeyword('NOT NULL'), attributes];
@@ -808,7 +821,10 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
             return [namePrefix, makeKeyword('DEFAULT'), expr ? [' ', printNode(expr)] : ''];
 
         case 'CHECK':
-            return [namePrefix, makeKeyword('CHECK'), ' (', expr ? printNode(expr) : '', ')', attributes];
+            return clauses([
+                [makeKeyword('CHECK'), ' ', group(['(', indent([softline, expr ? printNode(expr) : '']), softline, ')'])],
+                ...attrClauses,
+            ]);
 
         case 'PRIMARY KEY':
             return [namePrefix, makeKeyword('PRIMARY KEY'), keyTarget, attributes];
@@ -847,12 +863,14 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
             const references: Doc = [
                 makeKeyword('REFERENCES'), ' ', pktable ? printRangeVar(pktable, opts) : '', colList(propStrArr(node, 'pkAttrs')),
                 fkMatch ? [' ', makeKeyword('MATCH'), ' ', makeKeyword(fkMatch)] : '',
-                fkUpdAction ? [' ', makeKeyword('ON UPDATE'), ' ', makeKeyword(fkUpdAction)] : '',
-                fkDelAction ? [' ', makeKeyword('ON DELETE'), ' ', makeKeyword(fkDelAction), colList(fkDelSetCols)] : '',
             ];
-            return fkAttrs.length > 0
-                ? [namePrefix, makeKeyword('FOREIGN KEY'), colList(fkAttrs), ' ', references, attributes]
-                : [namePrefix, references, attributes];
+            return clauses([
+                ...(fkAttrs.length > 0 ? [[makeKeyword('FOREIGN KEY'), colList(fkAttrs)] as Doc] : []),
+                references,
+                ...(fkUpdAction ? [[makeKeyword('ON UPDATE'), ' ', makeKeyword(fkUpdAction)] as Doc] : []),
+                ...(fkDelAction ? [[makeKeyword('ON DELETE'), ' ', makeKeyword(fkDelAction), colList(fkDelSetCols)] as Doc] : []),
+                ...attrClauses,
+            ]);
         }
 
         case 'IDENTITY': {
