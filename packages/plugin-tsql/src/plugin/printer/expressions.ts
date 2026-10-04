@@ -22,7 +22,7 @@ import {
     commaFill,
     hasLineSuffix,
 } from '@prettier-sql/core/printer/utils';
-import { caseArm, betweenDoc, operatorChain } from '@prettier-sql/core/printer/layout';
+import { caseArm, betweenDoc, operatorChain, setOpDoc } from '@prettier-sql/core/printer/layout';
 import {
     prop, propArr, propStr, propStrArr, propBool, schemaObjectName, builtinTypeDoc, assignmentOp, splitTopLevel, sortOrderDoc,
     claimTrailingComment, isCommentClaimed, takeTrailingComment, withTrailingComment, appendComments,
@@ -805,14 +805,11 @@ function printBinaryQuery(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
               : keyword('EXCEPT', opts);
 
     const parts: Doc[] = [
-        left ? printQueryExpression(left, opts, printFn) : '',
-        hardline,
-        hardline,
-        opKw,
-        isAll ? [' ', keyword('ALL', opts)] : '',
-        hardline,
-        hardline,
-        right ? printQueryExpression(right, opts, printFn) : '',
+        setOpDoc(
+            left ? printQueryExpression(left, opts, printFn) : '',
+            [opKw, isAll ? [' ', keyword('ALL', opts)] : ''],
+            right ? printQueryExpression(right, opts, printFn) : '',
+        ),
     ];
 
     if (orderBy) parts.push(hardline, printOrderByClause(orderBy, opts, printFn));

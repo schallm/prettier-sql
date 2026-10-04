@@ -2510,7 +2510,9 @@ exports[`fixtures > p4/recursive-cte-search-cycle.sql 1`] = `
       id,
       parent_id
     from tree
+
     union all
+
     select
       tree.id,
       tree.parent_id
@@ -4352,7 +4354,9 @@ with recursive
       0 as depth
     from departments
     where parent_id is null
+
     union all
+
     select
       d.id,
       d.name,
@@ -4484,7 +4488,9 @@ from totals;
 with recursive
   r(n) as (
     select 1
+
     union all
+
     select n + 1
     from r
     where n < 3
@@ -5576,14 +5582,18 @@ exports[`fixtures > select/set_ops.sql 1`] = `
 "-- INTERSECT ALL (pgsql-specific)
 select product_id
 from orders
+
 intersect all
+
 select product_id
 from returns;
 
 -- EXCEPT ALL (pgsql-specific)
 select user_id
 from subscribers
+
 except all
+
 select user_id
 from unsubscribed;
 
@@ -5592,7 +5602,9 @@ select
   id,
   name
 from customers
+
 union all
+
 select
   id,
   name
@@ -5605,11 +5617,17 @@ limit 100;
 exports[`fixtures > select/set-op-clauses.sql 1`] = `
 "-- ORDER BY / LIMIT / WITH on a set operation apply to the whole result; parenthesized operands keep their own
 select 1
+
 union
+
 select 2
+
 intersect
+
 select 3
+
 except all
+
 (
   select 4
   order by 1
@@ -5620,17 +5638,25 @@ offset 2;
 
 (
   select 1
+
   union
+
   select 2
 )
+
 intersect
+
 select 3;
 
 select 1
+
 except
+
 (
   select 2
+
   except
+
   select 3
 );
 
@@ -5640,7 +5666,9 @@ with
   )
 select *
 from a
+
 union all
+
 select 2
 order by 1
 limit 5;
@@ -6786,7 +6814,9 @@ exports[`shared fixtures > select/set-ops.sql 1`] = `
   id,
   name
 from customers
+
 union
+
 select
   id,
   name
@@ -6796,7 +6826,9 @@ select
   id,
   name
 from table_a
+
 union all
+
 select
   id,
   name
@@ -6804,13 +6836,17 @@ from table_b;
 
 select product_id
 from orders
+
 intersect
+
 select product_id
 from featured_products;
 
 select user_id
 from premium_users
+
 except
+
 select user_id
 from suspended_users;
 
@@ -6818,12 +6854,16 @@ select
   id,
   name
 from customers
+
 union
+
 select
   id,
   name
 from prospects
+
 union
+
 select
   id,
   name
@@ -6841,7 +6881,9 @@ select
   id,
   name
 from active
+
 union all
+
 select
   id,
   name

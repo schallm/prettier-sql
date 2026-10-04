@@ -95,6 +95,11 @@ export function setClauseDoc(assignments: Doc[], opts: Options): Doc {
     return [keyword('SET', opts), body];
 }
 
+/** `lhs UNION rhs` (or INTERSECT / EXCEPT): the operator stands alone between blank lines. */
+export function setOpDoc(lhs: Doc, opKw: Doc, rhs: Doc): Doc {
+    return [lhs, hardline, hardline, opKw, hardline, hardline, rhs];
+}
+
 /**
  * Statements one after another, with a blank line between them unless both are
  * "minor" — short bookkeeping lines (SET, DECLARE, GRANT, …) that read as a group.

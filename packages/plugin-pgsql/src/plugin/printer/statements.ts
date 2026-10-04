@@ -16,7 +16,7 @@ import {
     commaFill,
     parenItems, optionItems,
 } from '@prettier-sql/core/printer/utils';
-import { valuesRow, valuesDoc, setClauseDoc, joinStatements } from '@prettier-sql/core/printer/layout';
+import { valuesRow, valuesDoc, setClauseDoc, setOpDoc, joinStatements } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions } from './helpers.js';
 import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, printOperand, printBoolFlat, PREC, tableAliasDoc } from './expressions.js';
 
@@ -557,7 +557,7 @@ function printSetOpBody(node: SqlNode, opts: Options): Doc {
     const parts: Doc[] = [];
     const ctes = prop(node, 'ctes');
     if (ctes) parts.push(...printCtes(ctes, opts, printNode));
-    parts.push([operand(lhs, 'lhs'), hardline, opKw, hardline, operand(rhs, 'rhs')]);
+    parts.push(setOpDoc(operand(lhs, 'lhs'), opKw, operand(rhs, 'rhs')));
     parts.push(...printQueryTail(node, opts, printNode));
     return join(hardline, parts);
 }
