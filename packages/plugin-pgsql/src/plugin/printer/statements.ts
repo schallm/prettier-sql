@@ -16,7 +16,7 @@ import {
 } from '@prettier-sql/core/printer/utils';
 import {
     valuesRow, valuesDoc, setClauseDoc, setOpDoc, joinStatements, boolClauseDoc,
-    selectListDoc, fromClauseDoc, listClauseDoc, windowClauseDoc, withClauseDoc, joinOnDoc, mergeActionDoc, createIndexDoc, alterTableDoc, grantDoc, optionLinesDoc, asQueryDoc, dropDoc,
+    selectListDoc, fromClauseDoc, listClauseDoc, windowClauseDoc, withClauseDoc, joinOnDoc, mergeActionDoc, mergeInsertDoc, createIndexDoc, alterTableDoc, grantDoc, optionLinesDoc, asQueryDoc, dropDoc,
 } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions } from './helpers.js';
 import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, boolTerms, isBoolChain, tableAliasDoc } from './expressions.js';
@@ -1322,13 +1322,12 @@ function printMerge(node: SqlNode, opts: Options): Doc {
             actionDoc = [makeKeyword('UPDATE'), ' ', setClauseDoc(targets.map((t) => printAssignment(t, printNode)), opts)];
         } else { // INSERT
             const cols = targets.filter((t) => t.type === 'ResTarget').map((t) => printAssignTarget(t, printNode));
-            const colList: Doc = cols.length > 0 ? [' (', join(', ', cols), ')'] : '';
             const valList: Doc = values.length > 0
                 ? [makeKeyword('VALUES'), ' (', join(', ', values.map(printNode)), ')']
                 : [makeKeyword('DEFAULT VALUES')];
             const override = propStr(w, 'override');
             const overrideDoc: Doc = override ? [' ', makeKeyword(`OVERRIDING ${override} VALUE`)] : '';
-            actionDoc = [makeKeyword('INSERT'), colList, overrideDoc, hardline, valList];
+            actionDoc = mergeInsertDoc(makeKeyword('INSERT'), cols, valList, opts, overrideDoc);
         }
 
         parts.push([whenLine, ' ', mergeActionDoc(makeKeyword('THEN'), actionDoc, opts)]);

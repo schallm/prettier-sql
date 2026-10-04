@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '../types.js';
 import {
-    keyword, getDensity, getCommaStyle, commaFill, hasHardline, hasLine, hasLineSuffix, hardSep, softSep,
+    keyword, getDensity, getCommaStyle, commaFill, parenItems, hasHardline, hasLine, hasLineSuffix, hardSep, softSep,
     conditionalGroup, fill, group, hardline, indent, join, line, softline, willBreak,
     type Options,
 } from './utils.js';
@@ -336,6 +336,17 @@ export function dropDoc(head: Doc, names: Doc[], clauses: Doc[]): Doc {
         ]),
         namesEnd ? '' : ';',
     ];
+}
+
+/**
+ * `INSERT (columns) VALUES (…)` of a MERGE: VALUES on a line of its own after a column list
+ * (on the INSERT line in compact density, when it fits); `INSERT DEFAULT VALUES` on one line.
+ * `afterColumns` follows the column list on its line (PostgreSQL's ` OVERRIDING … VALUE`).
+ */
+export function mergeInsertDoc(insert: Doc, columns: Doc[], values: Doc, opts: Options, afterColumns: Doc = ''): Doc {
+    if (columns.length === 0) return [insert, afterColumns, ' ', values];
+    const sep = getDensity(opts) === 'compact' ? line : hardline;
+    return group([insert, ' ', parenItems(columns, opts), afterColumns, sep, values]);
 }
 
 /** `lhs UNION rhs` (or INTERSECT / EXCEPT): the operator stands alone between blank lines. */

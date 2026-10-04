@@ -3,7 +3,6 @@ import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
 import {
     keyword,
-    getDensity,
     hardSep,
     softSep,
     hardline,
@@ -17,7 +16,7 @@ import {
     parenList,
     optionItems,
 } from '@prettier-sql/core/printer/utils';
-import { valuesRow, valuesDoc, setClauseDoc, joinStatements, withClauseDoc, joinOnDoc, mergeActionDoc } from '@prettier-sql/core/printer/layout';
+import { valuesRow, valuesDoc, setClauseDoc, joinStatements, withClauseDoc, joinOnDoc, mergeActionDoc, mergeInsertDoc } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, assignmentOp, takeTrailingComment, unprintedComments, withTrailingComment, takeLeadingComments } from './helpers.js';
 import {
     printExpression,
@@ -1122,21 +1121,7 @@ function printMergeAction(node: SqlNode, opts: Options): Doc {
         case 'MergeInsertAction': {
             const columns = propArr(node, 'columns');
             const source = prop(node, 'source');
-            const colsPart: Doc = columns.length
-                ? group([
-                      '(',
-                      indent([
-                          softline,
-                          join(
-                              [',', line],
-                              columns.map((c) => printNode(c, opts)),
-                          ),
-                      ]),
-                      softline,
-                      ')',
-                  ])
-                : '';
-            return [keyword('INSERT', opts), ' ', colsPart, source ? printMergeValues(source, opts) : ''];
+            return mergeInsertDoc(keyword('INSERT', opts), columns.map((c) => printNode(c, opts)), source ? printMergeValues(source, opts) : '', opts);
         }
         case 'MergeDeleteAction':
             return keyword('DELETE', opts);
@@ -1146,15 +1131,11 @@ function printMergeAction(node: SqlNode, opts: Options): Doc {
 }
 
 function printMergeValues(source: SqlNode, opts: Options): Doc {
-    // INSERT DEFAULT VALUES never has a column list, and the caller already spaced after INSERT
     if (source.type === 'DefaultValuesSource') return keyword('DEFAULT VALUES', opts);
-    if (source.type !== 'ValuesSource') return source.text ? [hardline, source.text] : '';
+    if (source.type !== 'ValuesSource') return source.text ?? '';
     const rows = source.props?.['rows'];
-    if (!Array.isArray(rows) || rows.length === 0) return [hardline, keyword('VALUES', opts), ' ()'];
+    if (!Array.isArray(rows) || rows.length === 0) return [keyword('VALUES', opts), ' ()'];
     // MERGE INSERT has exactly one VALUES row
-    const row = rows[0] as SqlNode;
-    const vals = propArr(row, 'values').map((v) => printNode(v, opts));
-    const valuesDoc: Doc = [keyword('VALUES', opts), ' (', join(', ', vals), ')'];
-    const density = getDensity(opts);
-    return density === 'compact' ? [' ', valuesDoc] : [hardline, valuesDoc];
+    const vals = propArr(rows[0] as SqlNode, 'values').map((v) => printNode(v, opts));
+    return [keyword('VALUES', opts), ' (', join(', ', vals), ')'];
 }

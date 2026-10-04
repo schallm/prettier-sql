@@ -3002,8 +3002,7 @@ merge into t
 using u
 on t.a = u.a
 when not matched then
-  insert overriding user value
-  values (1);
+  insert overriding user value values (1);
 
 merge into t
 using u
