@@ -2159,13 +2159,14 @@ function printCreateCollation(node: SqlNode, opts: Options): Doc {
     const name     = propStr(node, 'name') ?? '';
     const fromName = propStr(node, 'fromName');
     const options  = propArr(node, 'options');
+    const createKw = makeKeyword(propBool(node, 'ifNotExists') ? 'CREATE COLLATION IF NOT EXISTS' : 'CREATE COLLATION');
 
     if (fromName) {
-        return [[makeKeyword('CREATE COLLATION'), ' ', name, ' ', makeKeyword('FROM'), ' ', fromName], ';'];
+        return [[createKw, ' ', name, ' ', makeKeyword('FROM'), ' ', fromName], ';'];
     }
 
     return [
-        makeKeyword('CREATE COLLATION'), ' ', name, ' (',
+        createKw, ' ', name, ' (',
         join(', ', options.map((o) => {
             const val = propStr(o, 'val');
             return val ? `${propStr(o, 'key') ?? ''} = ${val}` : (propStr(o, 'key') ?? '');

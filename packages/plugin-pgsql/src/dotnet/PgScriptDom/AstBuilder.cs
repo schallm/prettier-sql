@@ -3660,11 +3660,14 @@ public class AstBuilder {
                 if (fromDef != null) {
                     var fromVal = GetFromDefElemCollationName(fromDef.DefElem);
                     return new SqlNode("CreateCollationStatement", start, end, null, BuildProps(
+                        ("ifNotExists", s.IfNotExists ? true : null),
                         ("name",     name),
                         ("fromName", Ident.QuoteOpt(fromVal))
                     ));
                 }
+                // IF NOT EXISTS: of the objects DefineStmt defines, only a collation takes it
                 return new SqlNode("CreateCollationStatement", start, end, null, BuildProps(
+                    ("ifNotExists", s.IfNotExists ? true : null),
                     ("name",    name),
                     ("options", MaybeList(defList))
                 ));
