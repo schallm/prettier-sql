@@ -1013,7 +1013,7 @@ function printAlterOptions(node: SqlNode, opts: Options): Doc {
 export function printPartitionBound(bound: SqlNode, opts: Options): Doc {
     const makeKeyword = (k: string) => keyword(k, opts);
     const printNode: PrintFn = (n) => printExpression(n, opts, printNode);
-    const values = (name: string): Doc => join(', ', propArr(bound, name).map((n) => printNode(n)));
+    const values = (name: string): Doc => optionItems(propArr(bound, name).map((n) => printNode(n)), opts);
     const lower      = propArr(bound, 'lower');
     const upper      = propArr(bound, 'upper');
     const listDatums = propArr(bound, 'listDatums');
@@ -1022,9 +1022,9 @@ export function printPartitionBound(bound: SqlNode, opts: Options): Doc {
 
     if (propBool(bound, 'isDefault')) return makeKeyword('DEFAULT');
     if (lower.length > 0 || upper.length > 0) {
-        return [makeKeyword('FOR VALUES FROM'), ' (', values('lower'), ') ', makeKeyword('TO'), ' (', values('upper'), ')'];
+        return [makeKeyword('FOR VALUES FROM'), ' ', values('lower'), ' ', makeKeyword('TO'), ' ', values('upper')];
     }
-    if (listDatums.length > 0) return [makeKeyword('FOR VALUES IN'), ' (', values('listDatums'), ')'];
+    if (listDatums.length > 0) return [makeKeyword('FOR VALUES IN'), ' ', values('listDatums')];
     if (modulus !== undefined && remainder !== undefined) {
         return [makeKeyword('FOR VALUES WITH'), ' (', makeKeyword('MODULUS'), ' ', String(modulus), ', ', makeKeyword('REMAINDER'), ' ', String(remainder), ')'];
     }

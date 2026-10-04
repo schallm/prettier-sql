@@ -343,7 +343,7 @@ function printSelectBody(node: SqlNode, opts: Options): Doc {
 
     const distinctOn = propArr(node, 'distinctOn');
     const selectKw: Doc = distinctOn.length > 0
-        ? [makeKeyword('SELECT'), ' ', makeKeyword('DISTINCT ON'), ' (', join(', ', distinctOn.map(printNode)), ')']
+        ? [makeKeyword('SELECT'), ' ', makeKeyword('DISTINCT ON'), ' ', optionItems(distinctOn.map(printNode), opts)]
         : distinct
           ? [makeKeyword('SELECT'), ' ', makeKeyword('DISTINCT')]
           : makeKeyword('SELECT');
@@ -724,7 +724,7 @@ function printCreateTable(node: SqlNode, opts: Options): Doc {
     const inherits = propArr(node, 'inherits');
     const partitionDoc: Doc = partitionBy
         ? [hardline, makeKeyword('PARTITION BY'), ' ', makeKeyword(propStr(partitionBy, 'strategy') ?? 'RANGE'),
-           ' (', join(', ', propArr(partitionBy, 'elements').map(printNode)), ')']
+           ' ', optionItems(propArr(partitionBy, 'elements').map(printNode), opts)]
         : '';
 
     return [
@@ -909,8 +909,8 @@ function printCreateIndex(node: SqlNode, opts: Options): Doc {
     const tablespace = propStr(node, 'tablespace');
     parts.push(' ', indexName, ' ', makeKeyword('ON'), ' ', onlyPrefix(relation, opts), rangeVarName(relation));
     if (accessMethod) parts.push(' ', makeKeyword('USING'), ' ', accessMethod);
-    parts.push(' ', parenItems(columns.map(printNode), opts));
-    if (including.length > 0) parts.push(' ', makeKeyword('INCLUDE'), ' ', parenItems(including.map(printNode), opts));
+    parts.push(' ', optionItems(columns.map(printNode), opts));
+    if (including.length > 0) parts.push(' ', makeKeyword('INCLUDE'), ' ', optionItems(including.map(printNode), opts));
     if (propBool(node, 'nullsNotDistinct')) parts.push(' ', makeKeyword('NULLS NOT DISTINCT'));
     if (options.length > 0) parts.push(' ', makeKeyword('WITH'), ' ', optionItems(options, opts));
     if (tablespace) parts.push(' ', makeKeyword('TABLESPACE'), ' ', tablespace);
@@ -1867,7 +1867,7 @@ function printCreateTablePartitionOf(node: SqlNode, opts: Options): Doc {
     const partitionBy = prop(node, 'partitionBy');
     const partitionDoc: Doc = partitionBy
         ? [hardline, makeKeyword('PARTITION BY'), ' ', makeKeyword(propStr(partitionBy, 'strategy') ?? 'RANGE'),
-           ' (', join(', ', propArr(partitionBy, 'elements').map(printNode)), ')']
+           ' ', optionItems(propArr(partitionBy, 'elements').map(printNode), opts)]
         : '';
 
     const boundText = bound ? printPartitionBound(bound, opts) : '';
