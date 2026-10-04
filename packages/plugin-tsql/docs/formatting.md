@@ -2421,6 +2421,71 @@ drop role if exists db_reader;
 
 ## General
 
+### Long lines
+
+Anything that fits within `printWidth` stays on one line. When it doesn't, a list goes one item per line between parentheses, with the closing parenthesis on its own line; a chain of operators wraps before an operator, with the continuation indented.
+
+Function call arguments, including `COALESCE`, `IIF`, `NULLIF` and `CONVERT`:
+
+```sql
+select coalesce(
+  a.first_choice_column,
+  a.second_choice_column,
+  a.third_choice_column,
+  a.default_value
+) as chosen
+from t as a;
+```
+
+A call with fewer than two arguments, or with an argument that already spans lines (a `case`, a subquery), keeps its parentheses hugging the argument.
+
+`IN` lists pack literals as many to a line as fit, and put other expressions one per line:
+
+```sql
+select a.id
+from t as a
+where a.status in (
+  'pending', 'shipped', 'cancelled', 'returned', 'refunded', 'on_hold'
+);
+```
+
+Chains of `+`, `-` and `||` fill each line and continue indented, starting with the operator:
+
+```sql
+select a.base_amount + a.shipping_amount * a.tax_rate - a.discount_amount
+  + a.handling_fee + a.insurance_fee as total
+from t as a;
+```
+
+A column definition puts each constraint on its own indented line:
+
+```sql
+create table orders (
+  order_identifier int
+    not null
+    constraint pk_orders_order_identifier primary key,
+  note text default 'none'
+);
+```
+
+The value of a `DECLARE` or `SET` moves to an indented line of its own when a long expression or string doesn't fit after the `=`:
+
+```sql
+declare @message nvarchar(200) =
+  N'The order was placed by ' + @customer_name + N' on '
+    + convert(nvarchar(30), @order_date, 120);
+```
+
+Parenthesized option lists (`WITH (...)`, `ENCRYPTED WITH (...)`, `OPTION (...)`, `RESULT SETS (...)`) break one per line:
+
+```sql
+alter table dbo.Orders
+drop constraint PK_Orders with (
+  ONLINE = ON,
+  wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
+);
+```
+
 ### Comments
 
 Comments are never dropped: each is printed once, next to the code it followed or preceded. The test suite checks this for every fixture.

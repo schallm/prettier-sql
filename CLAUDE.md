@@ -56,7 +56,7 @@ Sub-path exports from `packages/core/package.json`:
 | `@prettier-sql/core` | `src/index.ts` (re-exports everything) |
 | `@prettier-sql/core/types` | `src/types.ts` — `SqlNode`, `CommentToken` interfaces |
 | `@prettier-sql/core/options` | `src/options.ts` — `sqlKeywordCase`, `sqlDensity`, `sqlCommaStyle` |
-| `@prettier-sql/core/printer/utils` | `src/printer/utils.ts` — `keyword()`, `parenList()`, `aliasDoc()`, `hardSep()`, `softSep()`, `commentsBlock()`, etc. |
+| `@prettier-sql/core/printer/utils` | `src/printer/utils.ts` — `keyword()`, `parenList()`, `parenItems()`, `aliasDoc()`, `hardSep()`, `softSep()`, `commentsBlock()`, etc. |
 | `@prettier-sql/core/printer/helpers` | `src/printer/helpers.ts` — `prop()`, `propArr()`, `propStr()`, `propBool()` |
 
 ### C# — `PrettierSql.Core` namespace

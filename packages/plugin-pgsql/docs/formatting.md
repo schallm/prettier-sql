@@ -423,7 +423,10 @@ select
   author_id,
   price,
   row_number() over (partition by author_id order by price desc) as rank,
-  sum(price) over (partition by author_id rows between unbounded preceding and current row) as running_total
+  sum(price) over (
+    partition by author_id
+    rows between unbounded preceding and current row
+  ) as running_total
 from books;
 ```
 
@@ -820,7 +823,9 @@ Column definitions include the full constraint set. Types written with SQL keywo
 create table orders (
   id integer primary key,
   customer_id integer not null references customers (id) on delete cascade,
-  status text default 'pending' check (status in ('pending', 'shipped', 'cancelled')),
+  status text
+    default 'pending'
+    check (status in ('pending', 'shipped', 'cancelled')),
   amount numeric(10, 2) not null,
   code text unique,
   name varchar(100),
@@ -1618,9 +1623,17 @@ copy (
 With options:
 
 ```sql
-copy orders from '/tmp/orders.csv' (format csv, header true, delimiter ',', null '');
+copy orders from '/tmp/orders.csv' (
+  format csv,
+  header true,
+  delimiter ',',
+  null ''
+);
 
-copy orders (id, customer_id, amount) to '/tmp/orders_partial.csv' (format csv, header true);
+copy orders (id, customer_id, amount) to '/tmp/orders_partial.csv' (
+  format csv,
+  header true
+);
 ```
 
 ---
@@ -2027,6 +2040,87 @@ from customers
 where
   id = $1
   and active = $2;
+```
+
+---
+
+## Long lines
+
+Anything that fits within `printWidth` stays on one line. When it doesn't, the same rules apply everywhere: a list goes one item per line between parentheses, with the closing parenthesis on its own line; a chain of operators wraps before an operator, with the continuation indented.
+
+Function call arguments:
+
+```sql
+select coalesce(
+  a.first_choice_column,
+  a.second_choice_column,
+  a.third_choice_column,
+  a.default_value
+) as chosen
+from t as a;
+```
+
+A call with fewer than two arguments, or with an argument that already spans lines (a `case`, a subquery), keeps its parentheses hugging the argument.
+
+`IN` lists and `ARRAY[...]` pack literals as many to a line as fit, and put other expressions one per line:
+
+```sql
+select a.id
+from t as a
+where a.status in (
+  'pending', 'shipped', 'cancelled', 'returned', 'refunded', 'on_hold'
+);
+```
+
+Window specifications put `partition by`, `order by` and the frame on their own lines:
+
+```sql
+select
+  a.id,
+  row_number() over (
+    partition by a.account_id, a.region_id
+    order by a.created_at desc, a.id
+  ) as rn
+from t as a;
+```
+
+Chains of `+`, `-` and `||` fill each line and continue indented, starting with the operator:
+
+```sql
+select a.base_amount + a.shipping_amount * a.tax_rate - a.discount_amount
+  + a.handling_fee + a.insurance_fee as total
+from t as a;
+```
+
+A column definition puts each constraint on its own indented line:
+
+```sql
+create table orders (
+  order_identifier integer
+    not null
+    constraint pk_orders_order_identifier primary key,
+  note text default 'none'
+);
+```
+
+Function parameters and parenthesized option lists (`WITH (...)`, `COPY ... (...)`, `OPTIONS (...)`, `EXPLAIN (...)`) break one per line:
+
+```sql
+create function f(
+  first_argument integer,
+  second_argument text,
+  third_argument boolean
+)
+returns integer
+language sql
+as $$select 1$$;
+
+copy orders from '/tmp/orders.csv' (
+  format csv,
+  header true,
+  delimiter ',',
+  null ''
+);
 ```
 
 ---

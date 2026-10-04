@@ -78,7 +78,7 @@ Shared types and utilities come from the core package — do not duplicate them 
 | ------------------------------------------------------------------------------------------- | ------------------------------------ |
 | `SqlNode`, `CommentToken`                                                                   | `@prettier-sql/core/types`           |
 | `sqlKeywordCase`, `sqlDensity`, `sqlCommaStyle` options                                     | `@prettier-sql/core/options`         |
-| `keyword()`, `parenList()`, `aliasDoc()`, `hardSep()`, `softSep()`, `commentsBlock()`, etc. | `@prettier-sql/core/printer/utils`   |
+| `keyword()`, `parenList()`, `parenItems()`, `aliasDoc()`, `hardSep()`, `softSep()`, `commentsBlock()`, etc. | `@prettier-sql/core/printer/utils`   |
 | `prop()`, `propArr()`, `propStr()`, `propBool()`                                            | `@prettier-sql/core/printer/helpers` |
 
 ### Dialect-specific helpers (`src/plugin/printer/helpers.ts`)
