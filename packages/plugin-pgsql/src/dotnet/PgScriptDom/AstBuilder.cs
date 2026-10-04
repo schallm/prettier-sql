@@ -3913,7 +3913,9 @@ public class AstBuilder {
         new("CreateTableSpaceStatement", start, end, null, BuildProps(
             ("name",     Ident.QuoteOpt(s.Tablespacename)),
             ("location", s.Location),
-            ("owner",    Ident.QuoteOpt(s.Owner?.Rolename))
+            ("owner",    Ident.QuoteOpt(s.Owner?.Rolename)),
+            // WITH (seq_page_cost = 1, ...)
+            ("options",  StorageOptions(s.Options))
         ));
 
     private static SqlNode BuildDropTableSpace(DropTableSpaceStmt s, int start, int end) =>

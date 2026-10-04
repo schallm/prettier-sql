@@ -2243,6 +2243,8 @@ function printCreateTableSpace(node: SqlNode, opts: Options): Doc {
     const parts: Doc[] = [makeKeyword('CREATE TABLESPACE'), ' ', name];
     if (owner) parts.push(' ', makeKeyword('OWNER'), ' ', owner);
     parts.push(hardline, indent([makeKeyword('LOCATION'), ' ', sqlString(location)]));
+    const options = propStrArr(node, 'options');
+    if (options.length > 0) parts.push(hardline, indent([makeKeyword('WITH'), ' ', optionItems(options, opts)]));
     return [parts, ';'];
 }
 

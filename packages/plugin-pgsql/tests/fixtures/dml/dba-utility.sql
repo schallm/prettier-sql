@@ -28,6 +28,7 @@ drop owned by role1, role2 cascade;
 
 -- CREATE TABLESPACE
 create tablespace fastspace location '/ssd/data';
+create tablespace fast_ssd owner admin location '/mnt/ssd' with (seq_page_cost = 0.5, random_page_cost = 1.1);
 create tablespace fastspace owner admin location '/ssd/data';
 -- an embedded quote in the location must round-trip escaped, or it doesn't parse
 create tablespace fastspace location '/ssd/it''s';

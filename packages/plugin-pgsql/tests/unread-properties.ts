@@ -121,7 +121,6 @@ export const unreachable: Record<string, string> = {
  * and printer, add a fixture, and take the entry out.
  */
 export const dropped: Record<string, string> = {
-    'CreateTableSpaceStmt.Options': 'CREATE TABLESPACE ... WITH (seq_page_cost = 1) loses the WITH options',
     'DefineStmt.IfNotExists': 'CREATE COLLATION / TYPE / ... IF NOT EXISTS loses IF NOT EXISTS',
     'IndexElem.Opclassopts': 'an operator class\'s parameters, (a gist_trgm_ops (siglen = 32)), are dropped',
 };
