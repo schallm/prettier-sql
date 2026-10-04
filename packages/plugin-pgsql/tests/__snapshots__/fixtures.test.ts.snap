@@ -773,6 +773,14 @@ create unique index concurrently if not exists i on only t (
 "
 `;
 
+exports[`fixtures > ddl/long-comment-on.sql 1`] = `
+"comment on column some_long_table_name.very_long_column_name_one is
+  'a very long comment about this column that goes beyond the width';
+comment on table t is 'short';
+comment on table t is null;
+"
+`;
+
 exports[`fixtures > ddl/long-constraints.sql 1`] = `
 "create table t (
   id integer,

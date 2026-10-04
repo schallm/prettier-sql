@@ -1317,7 +1317,8 @@ function printComment(node: SqlNode, opts: Options): Doc {
     // CAST (source AS target) is the one form whose two names sit inside parentheses
     const target: Doc = objtype === 'CAST' ? ['(', object, ' ', makeKeyword('AS'), ' ', tailName, ')']
         : [object, tailKw ? [' ', makeKeyword(tailKw), ' ', tailName] : ''];
-    return [[makeKeyword('COMMENT ON'), ' ', makeKeyword(objtype), ' ', target, ' ', makeKeyword('IS'), ' ', commentVal], ';'];
+    // a text that doesn't fit after IS moves to an indented line of its own
+    return [group([makeKeyword('COMMENT ON'), ' ', makeKeyword(objtype), ' ', target, ' ', makeKeyword('IS'), indent([line, commentVal])]), ';'];
 }
 
 // ---------------------------------------------------------------------------
