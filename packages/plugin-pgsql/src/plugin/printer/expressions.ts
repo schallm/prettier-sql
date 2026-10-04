@@ -231,7 +231,11 @@ function collectChain(node: SqlNode, ops: Set<string>, printNode: PrintFn): { op
     return [...leftTerms, ...(right ? [{ op, term: printOperand(right, rightPrec, printNode) }] : [])];
 }
 
-function printBinaryExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+/**
+ * `tail` is text that follows the expression on its line (a select item's ` AS alias`). A
+ * chain takes it into its last piece, so the line-filling counts it and wraps early enough.
+ */
+function printBinaryExpr(node: SqlNode, opts: Options, printNode: PrintFn, tail: Doc = ''): Doc {
     const left  = prop(node, 'left');
     const right = prop(node, 'right');
     const op    = propStr(node, 'op') ?? '?';
@@ -248,7 +252,8 @@ function printBinaryExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
     const chain = chainOf(op);
     if (chain) {
         const [first, ...rest] = collectChain(node, chain, printNode);
-        return fill([first!.term, ...rest.flatMap((t): Doc[] => [indent(line), indent([t.op, ' ', t.term])])]);
+        const pieces = rest.map((t, i): Doc => indent([t.op, ' ', t.term, i === rest.length - 1 ? tail : '']));
+        return fill([first!.term, ...pieces.flatMap((piece): Doc[] => [indent(line), piece])]);
     }
 
     const opDoc: Doc = /^[A-Z]/.test(op) ? keyword(op, opts) : op;
@@ -639,6 +644,10 @@ function printBooleanTest(node: SqlNode, opts: Options, printNode: PrintFn): Doc
 function printResTarget(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const name = propStr(node, 'name');
     const val = prop(node, 'val');
+    // A chain takes the alias into its last piece so its line-filling counts it
+    if (val?.type === 'BinaryExpr' && prop(val, 'left') && chainOf(propStr(val, 'op') ?? '')) {
+        return printBinaryExpr(val, opts, printNode, aliasDoc(name, opts));
+    }
     const expr = val ? printNode(val) : '';
     return [expr, aliasDoc(name, opts)];
 }

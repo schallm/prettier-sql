@@ -200,11 +200,14 @@ function printColumnRef(node: SqlNode): Doc {
 function printSelectScalar(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expression');
     const alias = propStr(node, 'alias');
-    const exprDoc = expr ? printExpression(expr, opts, printFn) : '';
     if (alias) {
-        return [exprDoc, ' ', keyword('AS', opts), ' ', alias];
+        const aliasPart: Doc = [' ', keyword('AS', opts), ' ', alias];
+        // A chain takes the alias into its last piece so its line-filling counts it. (Printing
+        // claims the expression's comments, so the expression is printed once, one way or the other.)
+        const chainDoc = expr ? printChainWithTail(expr, aliasPart, opts, printFn) : null;
+        return chainDoc ?? [expr ? printExpression(expr, opts, printFn) : '', aliasPart];
     }
-    return exprDoc;
+    return expr ? printExpression(expr, opts, printFn) : '';
 }
 
 function printSelectSetVariable(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
@@ -380,9 +383,22 @@ const CONCAT_OPS = new Set(['Concat']);
 
 // Fill: as many terms per line as fit, each continuation line indented and led by its
 // operator. Flat: "a + b - c". Filling: "a + b\n  + c - d".
-function buildChain(terms: { op: string; term: Doc }[]): Doc {
+function buildChain(terms: { op: string; term: Doc }[], tail: Doc = ''): Doc {
     const [first, ...rest] = terms;
-    return fill([first!.term, ...rest.flatMap((t): Doc[] => [indent(line), indent([t.op, ' ', t.term])])]);
+    const pieces = rest.map((t, i): Doc => indent([t.op, ' ', t.term, i === rest.length - 1 ? tail : '']));
+    return fill([first!.term, ...pieces.flatMap((piece): Doc[] => [indent(line), piece])]);
+}
+
+/**
+ * A + - || chain with `tail` (a select item's ` AS alias`) taken into its last piece, so the
+ * line-filling counts it; null when `node` isn't a chain.
+ */
+function printChainWithTail(node: SqlNode, tail: Doc, opts: Options, printFn: PrintFn): Doc | null {
+    const op = propStr(node, 'operator') ?? '';
+    const chainOps = node.type === 'BinaryExpression' ? (ADDITIVE_OPS.has(op) ? ADDITIVE_OPS : CONCAT_OPS.has(op) ? CONCAT_OPS : null) : null;
+    if (!chainOps) return null;
+    const terms = collectBinaryChain(node, chainOps).map((t) => ({ op: t.op, term: printExpression(t.term, opts, printFn) }));
+    return withTrailingComment(node, buildChain(terms, tail));
 }
 
 function printBinaryExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
