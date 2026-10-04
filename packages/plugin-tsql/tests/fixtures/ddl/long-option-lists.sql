@@ -1,0 +1,12 @@
+create nonclustered index ix_orders_customer_created on dbo.Orders (CustomerId, CreatedAt) with (pad_index = on, fillfactor = 80, sort_in_tempdb = on, online = on, data_compression = page);
+alter table dbo.Orders drop constraint PK_Orders with (online = on, maxdop = 4, move to [PRIMARY], wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self));
+alter table dbo.Orders add constraint UQ_Orders_Number unique nonclustered (OrderNumber) with (pad_index = on, fillfactor = 80, ignore_dup_key = off, allow_row_locks = on);
+alter table dbo.Orders switch partition 3 to dbo.OrdersArchive partition 1 with (wait_at_low_priority (max_duration = 10 minutes, abort_after_wait = blockers));
+alter index IX_Orders on dbo.Orders rebuild partition = 3 with (data_compression = row, online = on, sort_in_tempdb = on, maxdop = 4);
+alter index IX_Orders on dbo.Orders set (allow_row_locks = on, allow_page_locks = on, optimize_for_sequential_key = on, ignore_dup_key = off);
+drop index IX_Orders_Customer_Created on dbo.Orders with (online = on, maxdop = 4, move to [PRIMARY], wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = none));
+select o.Id from dbo.Orders as o option (recompile, maxdop 4, optimize for (@customer = 1), use hint ('disable_optimizer_rowgoal'), loop join);
+select o.Id from dbo.Orders as o option (table hint (o, index (IX_Orders_Customer_Created)), table hint (dbo.Orders, nolock, forceseek));
+execute dbo.GetOrders with result sets ((Id int not null, Name nvarchar(100) null), (Total decimal(18, 2) not null, Placed datetime2 not null));
+alter table dbo.Customers alter column Ssn char(9) collate Latin1_General_BIN2 encrypted with (column_encryption_key = CEK1, encryption_type = deterministic, algorithm = 'AEAD_AES_256_CBC_HMAC_SHA_256');
+create table dbo.Events (Id int not null, Payload nvarchar(max) null, constraint pk_events_with_long_name primary key clustered (Id) with (pad_index = on, fillfactor = 80, data_compression = page));

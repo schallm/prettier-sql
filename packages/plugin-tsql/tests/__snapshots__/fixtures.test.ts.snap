@@ -1363,6 +1363,105 @@ with (ledger = off);
 "
 `;
 
+exports[`fixtures > ddl/long-option-lists.sql 1`] = `
+"create nonclustered index ix_orders_customer_created
+  on dbo.Orders (
+    CustomerId asc,
+    CreatedAt asc
+  )
+with (
+  pad_index = on,
+  fillfactor = 80,
+  sort_in_tempdb = on,
+  online = on,
+  data_compression = page
+);
+
+alter table dbo.Orders
+drop constraint PK_Orders with (
+  ONLINE = ON,
+  MAXDOP = 4,
+  MOVE TO [PRIMARY],
+  wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
+);
+
+alter table dbo.Orders
+add constraint UQ_Orders_Number
+  unique nonclustered (OrderNumber) with (
+    pad_index = on,
+    fillfactor = 80,
+    ignore_dup_key = off,
+    allow_row_locks = on
+  );
+
+alter table dbo.Orders
+switch partition 3 to dbo.OrdersArchive partition 1 with (
+  wait_at_low_priority (max_duration = 10 minutes, abort_after_wait = blockers)
+);
+
+alter index IX_Orders on dbo.Orders rebuild partition = 3 with (
+  data_compression = row,
+  online = on,
+  sort_in_tempdb = on,
+  maxdop = 4
+);
+
+alter index IX_Orders on dbo.Orders set (
+  allow_row_locks = on,
+  allow_page_locks = on,
+  optimize_for_sequential_key = on,
+  ignore_dup_key = off
+);
+
+drop index IX_Orders_Customer_Created on dbo.Orders with (
+  online = on,
+  maxdop = 4,
+  move to [PRIMARY],
+  wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = none)
+);
+
+select o.Id
+from dbo.Orders as o
+option (
+  recompile,
+  maxdop 4,
+  optimize for (@customer = 1),
+  use hint ('disable_optimizer_rowgoal'),
+  loop join
+);
+
+select o.Id
+from dbo.Orders as o
+option (
+  table hint (o, index = IX_Orders_Customer_Created),
+  table hint (dbo.Orders, nolock, forceseek)
+);
+
+execute dbo.GetOrders with result sets (
+  (Id int not null, Name nvarchar(100) null),
+  (Total decimal(18, 2) not null, Placed datetime2 not null)
+);
+
+alter table dbo.Customers
+alter column Ssn char(9) collate Latin1_General_BIN2 encrypted with (
+  column_encryption_key = CEK1,
+  encryption_type = deterministic,
+  algorithm = 'AEAD_AES_256_CBC_HMAC_SHA_256'
+);
+
+create table dbo.Events (
+  Id int not null,
+  Payload nvarchar(max) null,
+  constraint pk_events_with_long_name
+    primary key clustered (Id) with (
+      pad_index = on,
+      fillfactor = 80,
+      data_compression = page
+    )
+);
+"
+`;
+
 exports[`fixtures > ddl/schema.sql 1`] = `
 "create schema sales;
 go
@@ -4621,6 +4720,80 @@ offset 1 rows;
 "
 `;
 
+exports[`fixtures > select/wrapped-lists-with-comments-and-case.sql 1`] = `
+"select coalesce(
+  a.very_long_column_name_one, -- first choice
+  a.very_long_column_name_two,
+  a.very_long_column_name_three,
+  a.very_long_four
+) as c
+from t as a;
+
+select iif(case
+  when a.x = 1 then 1
+end = 1, a.very_long_column_name_two, a.very_long_column_name_three) as c
+from t as a;
+
+select coalesce((
+  select max(id)
+  from u
+), a.very_long_column_name_two, a.very_long_column_name_three, a.very_long_four) as c
+from t as a;
+
+select a.id
+from t as a
+where a.status in (
+  'pending', 'shipped', -- the open states
+  'cancelled', 'returned', 'refunded', 'on_hold', 'archived', 'deleted'
+);
+
+select a.id
+from t as a
+where a.status in (
+  a.very_long_column_name_one,
+  case
+    when a.x = 1 then 2
+  end,
+  a.very_long_column_name_two
+);
+
+select
+  a.id,
+  sum(
+    case
+      when a.x = 1 then a.very_long_column_name_one
+      else a.very_long_column_name_two
+    end
+  ) as total
+from t as a
+group by a.id;
+
+select a.base_amount + a.shipping_amount * a.tax_rate - a.discount_amount -- adjusted
+  + a.handling_fee + a.insurance_fee as total
+from t as a;
+
+create table dbo.t (
+  id int, -- the key
+  name nvarchar(100)
+    default 'a default value long enough to need wrapping'
+    not null
+    check (len(name) > 0), -- not empty
+  created datetime2 default sysutcdatetime() not null
+);
+
+declare @message nvarchar(200) = N'The order was placed by ' + @customer_name -- who
+  + N' on ' + convert(nvarchar(30), @order_date, 120);
+
+alter table dbo.Orders
+drop constraint PK_Orders with (
+  ONLINE = ON,
+  MAXDOP = 4,
+  wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
+);
+-- keep it online
+"
+`;
+
 exports[`fixtures > select/xml-methods.sql 1`] = `
 "-- XML instance method calls on XML-typed columns
 select
@@ -5243,6 +5416,176 @@ select
   b.Price
 from dbo.Books as b;
 go
+"
+`;
+
+exports[`long lines in every density > compact 1`] = `
+"select coalesce(
+    a.first_choice_column, a.second_choice_column, a.third_choice_column,
+    a.default_value
+  ) as chosen
+from t as a;
+
+select a.id
+from t as a
+where
+  a.status in (
+    'pending', 'shipped', 'cancelled', 'returned', 'refunded', 'on_hold',
+    'archived'
+  );
+
+select a.base_amount + a.shipping_amount * a.tax_rate - a.discount_amount
+    + a.handling_fee + a.insurance_fee as total
+from t as a;
+
+create table dbo.Orders (
+  OrderIdentifier int
+    not null
+    constraint PK_Orders_OrderIdentifier primary key clustered,
+  Note nvarchar(50) default 'none'
+);
+
+declare @message nvarchar(200) =
+  N'The order was placed by ' + @customer_name + N' on '
+    + convert(nvarchar(30), @order_date, 120);
+
+alter table dbo.Orders
+drop constraint PK_Orders with (
+  ONLINE = ON,
+  wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
+);
+"
+`;
+
+exports[`long lines in every density > leading commas 1`] = `
+"select coalesce(
+  a.first_choice_column,
+  a.second_choice_column,
+  a.third_choice_column,
+  a.default_value
+) as chosen
+from t as a;
+
+select a.id
+from t as a
+where a.status in (
+  'pending', 'shipped', 'cancelled', 'returned', 'refunded', 'on_hold',
+  'archived'
+);
+
+select a.base_amount + a.shipping_amount * a.tax_rate - a.discount_amount
+  + a.handling_fee + a.insurance_fee as total
+from t as a;
+
+create table dbo.Orders (
+  OrderIdentifier int
+    not null
+    constraint PK_Orders_OrderIdentifier primary key clustered,
+  Note nvarchar(50) default 'none'
+);
+
+declare @message nvarchar(200) =
+  N'The order was placed by ' + @customer_name + N' on '
+    + convert(nvarchar(30), @order_date, 120);
+
+alter table dbo.Orders
+drop constraint PK_Orders with (
+  ONLINE = ON,
+  wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
+);
+"
+`;
+
+exports[`long lines in every density > narrow (printWidth 40) 1`] = `
+"select coalesce(
+  a.first_choice_column,
+  a.second_choice_column,
+  a.third_choice_column,
+  a.default_value
+) as chosen
+from t as a;
+
+select a.id
+from t as a
+where a.status in (
+  'pending', 'shipped', 'cancelled',
+  'returned', 'refunded', 'on_hold',
+  'archived'
+);
+
+select a.base_amount
+  + a.shipping_amount * a.tax_rate
+  - a.discount_amount + a.handling_fee
+  + a.insurance_fee as total
+from t as a;
+
+create table dbo.Orders (
+  OrderIdentifier int
+    not null
+    constraint PK_Orders_OrderIdentifier primary key clustered,
+  Note nvarchar(50) default 'none'
+);
+
+declare @message nvarchar(200) =
+  N'The order was placed by '
+    + @customer_name + N' on '
+    + convert(
+    nvarchar(30),
+    @order_date,
+    120
+  );
+
+alter table dbo.Orders
+drop constraint PK_Orders with (
+  ONLINE = ON,
+  wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
+);
+"
+`;
+
+exports[`long lines in every density > spacious 1`] = `
+"select
+  coalesce(
+    a.first_choice_column,
+    a.second_choice_column,
+    a.third_choice_column,
+    a.default_value
+  ) as chosen
+from
+  t as a;
+
+select
+  a.id
+from
+  t as a
+where
+  a.status in (
+    'pending', 'shipped', 'cancelled', 'returned', 'refunded', 'on_hold',
+    'archived'
+  );
+
+select
+  a.base_amount + a.shipping_amount * a.tax_rate - a.discount_amount
+    + a.handling_fee + a.insurance_fee as total
+from
+  t as a;
+
+create table dbo.Orders (
+  OrderIdentifier int
+    not null
+    constraint PK_Orders_OrderIdentifier primary key clustered,
+  Note nvarchar(50) default 'none'
+);
+
+declare @message nvarchar(200) =
+  N'The order was placed by ' + @customer_name + N' on '
+    + convert(nvarchar(30), @order_date, 120);
+
+alter table dbo.Orders
+drop constraint PK_Orders with (
+  ONLINE = ON,
+  wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
+);
 "
 `;
 

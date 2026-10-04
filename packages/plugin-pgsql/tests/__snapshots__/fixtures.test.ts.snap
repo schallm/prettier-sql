@@ -813,6 +813,134 @@ as $$select 1$$;
 "
 `;
 
+exports[`fixtures > ddl/long-option-lists.sql 1`] = `
+"create table events_with_long_options (
+  id integer,
+  payload text
+)
+with (
+  fillfactor = 70,
+  autovacuum_enabled = false,
+  toast_tuple_target = 4096,
+  parallel_workers = 4
+);
+
+create index ix_events_with_long_options on events (id) with (
+  fillfactor = 70,
+  deduplicate_items = off,
+  buffering = auto,
+  fastupdate = off
+);
+
+alter table events
+  alter column payload set (
+    n_distinct = 100,
+    n_distinct_inherited = 200,
+    some_other_option = 1
+  );
+
+alter table events
+  alter column payload reset (
+    n_distinct,
+    n_distinct_inherited,
+    some_other_option,
+    another_one
+  );
+
+alter table events
+  set (
+    fillfactor = 70,
+    autovacuum_enabled = false,
+    toast_tuple_target = 4096,
+    parallel_workers = 4
+  );
+
+alter table events
+  reset (
+    fillfactor,
+    autovacuum_enabled,
+    toast_tuple_target,
+    parallel_workers,
+    vacuum_truncate
+  );
+
+alter index ix_events
+  set (
+    fillfactor = 70,
+    deduplicate_items = off,
+    buffering = auto,
+    fastupdate = off
+  );
+
+copy events (id, payload) to '/tmp/events_export_file.csv' (
+  format csv,
+  header true,
+  delimiter ';',
+  null '',
+  encoding 'UTF8'
+);
+
+vacuum (
+  verbose,
+  analyze,
+  skip_locked,
+  index_cleanup auto,
+  parallel 4,
+  truncate false
+) events;
+
+analyze (verbose, skip_locked, buffer_usage_limit '256 MB') events;
+
+explain (
+  analyze,
+  verbose,
+  buffers,
+  costs,
+  settings,
+  wal,
+  timing,
+  summary,
+  format json
+) select 1;
+
+create foreign table remote_events (
+  id integer
+)
+server remote_server options (
+  schema_name 'public',
+  table_name 'events',
+  fetch_size '1000'
+);
+
+alter foreign table remote_events
+  options (
+    set schema_name 'other',
+    add fetch_size '1000',
+    drop table_name,
+    add use_remote_estimate 'true'
+  );
+
+create server remote_server
+foreign data wrapper postgres_fdw options (
+  host 'database.example.com',
+  port '5432',
+  dbname 'production'
+);
+
+create materialized view mv_events
+with (fillfactor = 70, autovacuum_enabled = false, toast_tuple_target = 4096) as
+select 1;
+
+create sequence events_seq
+start with 1000
+increment by 10
+minvalue 1000
+maxvalue 1000000
+cache 20
+cycle;
+"
+`;
+
 exports[`fixtures > ddl/object-signatures.sql 1`] = `
 "-- Argument types identify an overload, and an operator always needs them
 drop operator === (integer, integer);
@@ -5111,6 +5239,77 @@ from emp;
 "
 `;
 
+exports[`fixtures > select/wrapped-lists-with-comments-and-case.sql 1`] = `
+"-- first choice
+select coalesce(
+  a.very_long_column_name_one,
+  a.very_long_column_name_two,
+  a.very_long_column_name_three,
+  a.very_long_four
+) as c
+from t as a;
+
+select coalesce(case
+  when a.x = 1 then 1
+end, a.very_long_column_name_two, a.very_long_column_name_three, a.f) as c
+from t as a;
+
+select f((
+  select max(id)
+  from u
+), a.very_long_column_name_two, a.very_long_column_name_three, a.very_long_four) as c
+from t as a;
+
+-- the open states
+select a.id
+from t as a
+where a.status in (
+  'pending', 'shipped', 'cancelled', 'returned', 'refunded', 'on_hold',
+  'archived', 'deleted'
+);
+
+select a.id
+from t as a
+where a.status in (a.very_long_column_name_one, case
+  when a.x = 1 then 2
+end, a.very_long_column_name_two);
+
+select
+  a.id,
+  sum(case
+    when a.x = 1 then a.very_long_column_name_one
+    else a.very_long_column_name_two
+  end) as total
+from t as a
+group by a.id;
+
+-- adjusted
+select a.base_amount + a.shipping_amount * a.tax_rate - a.discount_amount
+  + a.handling_fee + a.insurance_fee as total
+from t as a;
+
+-- the key
+-- not empty
+create table t (
+  id integer,
+  name text
+    not null
+    default 'a default value long enough to need wrapping'
+    check (length(name) > 0),
+  created timestamp not null default now()
+);
+
+-- comma separated
+copy t (a, b) from stdin (
+  format csv,
+  header true,
+  delimiter ';',
+  null '',
+  encoding 'UTF8'
+);
+"
+`;
+
 exports[`fixtures > select/xml-functions.sql 1`] = `
 "select xmlelement(name foo, 'bar');
 
@@ -5214,6 +5413,202 @@ where status_code is not null;
 update users as u
 set active = false
 where u.id = 1;
+"
+`;
+
+exports[`long lines in every density > compact 1`] = `
+"select coalesce(
+  a.first_choice_column, a.second_choice_column, a.third_choice_column,
+  a.default_value
+) as chosen
+from t as a;
+
+select a.id
+from t as a
+where a.status in (
+  'pending', 'shipped', 'cancelled', 'returned', 'refunded', 'on_hold',
+  'archived'
+);
+
+select a.id,
+  row_number() over (
+    partition by a.account_id, a.region_id
+    order by a.created_at desc, a.id
+  ) as rn
+from t as a;
+
+create table orders (
+  order_identifier integer
+    not null
+    constraint pk_orders_order_identifier primary key,
+  note text default 'none'
+);
+
+create function f(
+  first_argument integer, second_argument text, third_argument boolean
+)
+returns integer
+language sql
+as $$select 1$$;
+
+copy orders from '/tmp/orders.csv' (
+  format csv, header true, delimiter ',', null '', encoding 'UTF8'
+);
+"
+`;
+
+exports[`long lines in every density > leading commas 1`] = `
+"select coalesce(
+  a.first_choice_column,
+  a.second_choice_column,
+  a.third_choice_column,
+  a.default_value
+) as chosen
+from t as a;
+
+select a.id
+from t as a
+where a.status in (
+  'pending', 'shipped', 'cancelled', 'returned', 'refunded', 'on_hold',
+  'archived'
+);
+
+select
+  a.id
+  , row_number() over (
+    partition by a.account_id, a.region_id
+    order by a.created_at desc, a.id
+  ) as rn
+from t as a;
+
+create table orders (
+  order_identifier integer
+    not null
+    constraint pk_orders_order_identifier primary key,
+  note text default 'none'
+);
+
+create function f(
+  first_argument integer,
+  second_argument text,
+  third_argument boolean
+)
+returns integer
+language sql
+as $$select 1$$;
+
+copy orders from '/tmp/orders.csv' (
+  format csv,
+  header true,
+  delimiter ',',
+  null '',
+  encoding 'UTF8'
+);
+"
+`;
+
+exports[`long lines in every density > narrow (printWidth 40) 1`] = `
+"select coalesce(
+  a.first_choice_column,
+  a.second_choice_column,
+  a.third_choice_column,
+  a.default_value
+) as chosen
+from t as a;
+
+select a.id
+from t as a
+where a.status in (
+  'pending', 'shipped', 'cancelled',
+  'returned', 'refunded', 'on_hold',
+  'archived'
+);
+
+select
+  a.id,
+  row_number() over (
+    partition by a.account_id,
+      a.region_id
+    order by a.created_at desc, a.id
+  ) as rn
+from t as a;
+
+create table orders (
+  order_identifier integer
+    not null
+    constraint pk_orders_order_identifier primary key,
+  note text default 'none'
+);
+
+create function f(
+  first_argument integer,
+  second_argument text,
+  third_argument boolean
+)
+returns integer
+language sql
+as $$select 1$$;
+
+copy orders from '/tmp/orders.csv' (
+  format csv,
+  header true,
+  delimiter ',',
+  null '',
+  encoding 'UTF8'
+);
+"
+`;
+
+exports[`long lines in every density > spacious 1`] = `
+"select
+  coalesce(
+    a.first_choice_column,
+    a.second_choice_column,
+    a.third_choice_column,
+    a.default_value
+  ) as chosen
+from t as a;
+
+select
+  a.id
+from t as a
+where
+  a.status in (
+    'pending', 'shipped', 'cancelled', 'returned', 'refunded', 'on_hold',
+    'archived'
+  );
+
+select
+  a.id,
+  row_number() over (
+    partition by a.account_id, a.region_id
+    order by a.created_at desc, a.id
+  ) as rn
+from t as a;
+
+create table orders (
+  order_identifier integer
+    not null
+    constraint pk_orders_order_identifier primary key,
+  note text default 'none'
+);
+
+create function f(
+  first_argument integer,
+  second_argument text,
+  third_argument boolean
+)
+returns integer
+language sql
+as $$select 1$$;
+
+copy orders from '/tmp/orders.csv' (
+  format csv,
+  header true,
+  delimiter ',',
+  null '',
+  encoding 'UTF8'
+);
 "
 `;
 

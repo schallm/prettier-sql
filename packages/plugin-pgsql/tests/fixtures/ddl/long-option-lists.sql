@@ -1,0 +1,16 @@
+create table events_with_long_options (id integer, payload text) with (fillfactor = 70, autovacuum_enabled = false, toast_tuple_target = 4096, parallel_workers = 4);
+create index ix_events_with_long_options on events (id) with (fillfactor = 70, deduplicate_items = off, buffering = auto, fastupdate = off);
+alter table events alter column payload set (n_distinct = 100, n_distinct_inherited = 200, some_other_option = 1);
+alter table events alter column payload reset (n_distinct, n_distinct_inherited, some_other_option, another_one);
+alter table events set (fillfactor = 70, autovacuum_enabled = false, toast_tuple_target = 4096, parallel_workers = 4);
+alter table events reset (fillfactor, autovacuum_enabled, toast_tuple_target, parallel_workers, vacuum_truncate);
+alter index ix_events set (fillfactor = 70, deduplicate_items = off, buffering = auto, fastupdate = off);
+copy events (id, payload) to '/tmp/events_export_file.csv' (format csv, header true, delimiter ';', null '', encoding 'UTF8');
+vacuum (verbose, analyze, skip_locked, index_cleanup auto, parallel 4, truncate false) events;
+analyze (verbose, skip_locked, buffer_usage_limit '256 MB') events;
+explain (analyze, verbose, buffers, costs, settings, wal, timing, summary, format json) select 1;
+create foreign table remote_events (id integer) server remote_server options (schema_name 'public', table_name 'events', fetch_size '1000');
+alter foreign table remote_events options (set schema_name 'other', add fetch_size '1000', drop table_name, add use_remote_estimate 'true');
+create server remote_server foreign data wrapper postgres_fdw options (host 'database.example.com', port '5432', dbname 'production');
+create materialized view mv_events with (fillfactor = 70, autovacuum_enabled = false, toast_tuple_target = 4096) as select 1;
+create sequence events_seq start with 1000 increment by 10 minvalue 1000 maxvalue 1000000 cache 20 cycle;

@@ -206,3 +206,31 @@ describe('comments survive every density', () => {
         }
     }
 });
+
+// ---------------------------------------------------------------------------
+// Long lines — how lists, calls and clauses that don't fit wrap in each density
+// ---------------------------------------------------------------------------
+
+const LONG_LINES_SQL = [
+    `select coalesce(a.first_choice_column, a.second_choice_column, a.third_choice_column, a.default_value) as chosen from t a;`,
+    `select a.id from t a where a.status in ('pending', 'shipped', 'cancelled', 'returned', 'refunded', 'on_hold', 'archived');`,
+    `select a.base_amount + a.shipping_amount * a.tax_rate - a.discount_amount + a.handling_fee + a.insurance_fee as total from t a;`,
+    `create table dbo.Orders (OrderIdentifier int not null constraint PK_Orders_OrderIdentifier primary key clustered, Note nvarchar(50) default 'none');`,
+    `declare @message nvarchar(200) = N'The order was placed by ' + @customer_name + N' on ' + convert(nvarchar(30), @order_date, 120);`,
+    `alter table dbo.Orders drop constraint PK_Orders with (online = on, wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self));`,
+].join('\n');
+
+describe('long lines in every density', () => {
+    for (const [name, opts] of Object.entries({
+        compact: { sqlDensity: 'compact' },
+        spacious: { sqlDensity: 'spacious' },
+        'leading commas': { sqlCommaStyle: 'leading' },
+        'narrow (printWidth 40)': { printWidth: 40 },
+    })) {
+        it(name, async () => {
+            const out = await fmt(LONG_LINES_SQL, opts);
+            expect(out).toMatchSnapshot();
+            expect(await fmt(out, opts)).toBe(out);
+        });
+    }
+});
