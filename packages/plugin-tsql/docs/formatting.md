@@ -2050,6 +2050,18 @@ waitfor delay '00:00:05';
 waitfor time '10:00:00';
 ```
 
+`RECEIVE` (also on its own) puts its column list, `FROM`, `INTO` and `WHERE` on separate lines; inside `WAITFOR (...)` it is indented between the parentheses and the `TIMEOUT` follows them. `WAITFOR (GET CONVERSATION GROUP ...)` stays on one line:
+
+```sql
+waitfor (
+  receive top (1)
+    conversation_handle,
+    message_body
+  from dbo.OrderQueue
+  where conversation_group_id = @group
+), timeout 5000;
+```
+
 ---
 
 ### TRUNCATE TABLE

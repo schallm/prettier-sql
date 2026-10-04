@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
-import { keyword, hardline, softline, join, indent, group, onOffKw, line, getDensity, parenList, parenListFill, optionItems, commaFill, willBreak } from '@prettier-sql/core/printer/utils';
+import { keyword, hardline, softline, join, indent, group, onOffKw, line, getDensity, parenList, parenListFill, optionItems, commaFill, willBreak, hardSep } from '@prettier-sql/core/printer/utils';
 import { boolEndsWithPendingComment } from './expressions.js';
 import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, assignmentOp, withTrailingComment, markSingleBody, isSingleBody } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
@@ -229,10 +229,38 @@ export function printSetIsolationLevel(node: SqlNode, opts: Options): Doc {
     return [keyword('SET TRANSACTION ISOLATION LEVEL', opts), ' ', keyword(level, opts), ';'];
 }
 
+/** RECEIVE [TOP (n)] columns FROM queue [INTO @t] [WHERE conversation_handle | conversation_group_id = x] (no `;`) */
+function receiveDoc(node: SqlNode, opts: Options): Doc {
+    const top = prop(node, 'top');
+    const elements = propArr(node, 'selectElements').map((se) => printNode(se, opts));
+    const into = propStr(node, 'into');
+    const where = prop(node, 'where');
+    return [
+        keyword('RECEIVE', opts),
+        top ? [' ', keyword('TOP', opts), ' (', printNode(top, opts), ')'] : '',
+        indent([hardline, join(hardSep(opts), elements)]),
+        hardline, keyword('FROM', opts), ' ', propStr(node, 'queue') ?? '',
+        into ? [hardline, keyword('INTO', opts), ' ', into] : '',
+        where ? [hardline, keyword('WHERE', opts), ' ', keyword(propStr(node, 'whereColumn') ?? '', opts), ' = ', printNode(where, opts)] : '',
+    ];
+}
+
+export function printReceive(node: SqlNode, opts: Options): Doc {
+    return [receiveDoc(node, opts), ';'];
+}
+
 export function printWaitFor(node: SqlNode, opts: Options): Doc {
     const opt = propStr(node, 'option') ?? 'Delay';
     const param = propStr(node, 'parameter') ?? '';
     const statement = propStr(node, 'statement');
+    const receive = prop(node, 'receive');
+    if (receive) {
+        const timeout = propStr(node, 'timeout');
+        return [
+            keyword('WAITFOR', opts), ' (', indent([hardline, receiveDoc(receive, opts)]), hardline, ')',
+            timeout ? [', ', keyword('TIMEOUT', opts), ' ', timeout] : '', ';',
+        ];
+    }
     if (statement) {
         const timeout = propStr(node, 'timeout');
         return [keyword('WAITFOR', opts), ' (', statement, ')', timeout ? [', ', keyword('TIMEOUT', opts), ' ', timeout] : '', ';'];

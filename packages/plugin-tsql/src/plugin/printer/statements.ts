@@ -84,6 +84,7 @@ import {
     printDeclareVariable,
     printDeclareTableVariable,
     printSetVariable,
+    printReceive,
     printSetRowCount,
     printUse,
     printPredicateSet,
@@ -640,6 +641,8 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
             return printSetIsolationLevel(node, opts);
         case 'WaitForStatement':
             return printWaitFor(node, opts);
+        case 'ReceiveStatement':
+            return printReceive(node, opts);
 
         // Output / flow
         case 'PrintStatement':

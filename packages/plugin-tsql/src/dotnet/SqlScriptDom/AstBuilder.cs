@@ -1246,6 +1246,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             SetIdentityInsertStatement sis => BuildSetIdentityInsert(sis),
             SetTransactionIsolationLevelStatement stils => BuildSetIsolationLevel(stils),
             WaitForStatement wf => BuildWaitFor(wf),
+            ReceiveStatement rcv => BuildReceive(rcv),
 
             // Output / flow
             PrintStatement pst => BuildPrint(pst),
@@ -2891,13 +2892,25 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["level"] = s.Level.ToString(),
         });
 
+    // RECEIVE [TOP (n)] columns FROM queue [INTO @t] [WHERE conversation_handle | conversation_group_id = x]
+    private static SqlNode BuildReceive(ReceiveStatement r) =>
+        Node("ReceiveStatement", r, new Dictionary<string, object?> {
+            ["top"] = BuildScalarExpression(r.Top),
+            ["selectElements"] = r.SelectElements?.Select(se => (object?)BuildSelectElement(se)).ToList(),
+            ["queue"] = SchemaObjectText(r.Queue),
+            ["into"] = r.Into?.Variable?.Name,
+            ["whereColumn"] = r.Where == null ? null : r.IsConversationGroupIdWhere ? "conversation_group_id" : "conversation_handle",
+            ["where"] = BuildScalarExpression(r.Where),
+        });
+
     private static SqlNode BuildWaitFor(WaitForStatement wf) =>
         Node("WaitForStatement", wf, new Dictionary<string, object?> {
             ["option"] = wf.WaitForOption.ToString(),
             ["parameter"] = RawTextOrNull(wf.Parameter),
             // WAITFOR (RECEIVE ... | GET CONVERSATION GROUP ...), TIMEOUT n — the Service
             // Broker statement as written, since neither is formatted on its own yet
-            ["statement"] = wf.Statement != null ? RawText(wf.Statement).Trim() : null,
+            ["receive"] = wf.Statement is ReceiveStatement rcv ? BuildReceive(rcv) : null,
+            ["statement"] = wf.Statement != null && wf.Statement is not ReceiveStatement ? RawText(wf.Statement).Trim() : null,
             ["timeout"] = RawTextOrNull(wf.Timeout),
         });
 

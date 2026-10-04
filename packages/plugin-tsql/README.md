@@ -66,7 +66,7 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 
 **Procedural / Control Flow**
 
-- `USE`, `SET NOCOUNT/ANSI_NULLS/QUOTED_IDENTIFIER/XACT_ABORT/…` ON/OFF, `SET IDENTITY_INSERT`, `SET TRANSACTION ISOLATION LEVEL`, `SET STATISTICS`, `WAITFOR DELAY/TIME`, `WAITFOR (RECEIVE …)` / `(GET CONVERSATION GROUP …)` with `TIMEOUT`
+- `USE`, `SET NOCOUNT/ANSI_NULLS/QUOTED_IDENTIFIER/XACT_ABORT/…` ON/OFF, `SET IDENTITY_INSERT`, `SET TRANSACTION ISOLATION LEVEL`, `SET STATISTICS`, `WAITFOR DELAY/TIME`, `WAITFOR (RECEIVE …)` / `(GET CONVERSATION GROUP …)` with `TIMEOUT`, `RECEIVE`
 - [`DECLARE`, `SET @var`](docs/examples.md#declare-and-variables), `SET ROWCOUNT`, `PRINT`, `RETURN`, [`EXECUTE`](docs/examples.md#execute) (named or numbered proc, dynamic SQL, variable proc name, `AS USER`/`LOGIN`, `AT linked_server` with parameters, `WITH RECOMPILE`, `WITH RESULT SETS`), `TRUNCATE TABLE`
 - [`IF`/`ELSE`](docs/examples.md#if--else), `WHILE`, `BREAK`, `CONTINUE`, `GOTO`/label, `THROW`, `RAISERROR`, `TRY/CATCH`
 - `BEGIN`/`COMMIT`/`ROLLBACK`/`SAVE TRANSACTION` — names and savepoints (including variables), `WITH MARK`, `WITH (DELAYED_DURABILITY = …)`
@@ -98,7 +98,7 @@ The constructs below are parsed correctly but have no printer yet. They are emit
 
 ### Service Broker
 
-- `CREATE/ALTER/DROP QUEUE`, `SEND`, `RECEIVE`, `CREATE/ALTER/DROP SERVICE`, `CREATE/ALTER/DROP CONTRACT`, `CREATE/ALTER/DROP MESSAGE TYPE`, `CREATE/ALTER/DROP ROUTE`
+- `CREATE/ALTER/DROP QUEUE`, `SEND`, `CREATE/ALTER/DROP SERVICE`, `CREATE/ALTER/DROP CONTRACT`, `CREATE/ALTER/DROP MESSAGE TYPE`, `CREATE/ALTER/DROP ROUTE`
 
 ### Extended Events
 
