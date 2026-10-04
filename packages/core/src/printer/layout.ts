@@ -306,6 +306,11 @@ export function grantDoc(verb: Doc, privileges: Doc[], clauses: Doc[]): Doc {
     return [group([verb, indent([line, commaFill(privileges)])]), clauses.map((c): Doc => [hardline, c]), ';'];
 }
 
+/** A statement header followed by its options one to an indented line (CREATE / ALTER SEQUENCE). */
+export function optionLinesDoc(header: Doc, options: Doc[]): Doc {
+    return [header, indent(options.map((o): Doc => [hardline, o])), ';'];
+}
+
 /** `lhs UNION rhs` (or INTERSECT / EXCEPT): the operator stands alone between blank lines. */
 export function setOpDoc(lhs: Doc, opKw: Doc, rhs: Doc): Doc {
     return [lhs, hardline, hardline, opKw, hardline, hardline, rhs];

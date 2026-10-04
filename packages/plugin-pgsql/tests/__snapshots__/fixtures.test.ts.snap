@@ -550,18 +550,18 @@ create table t (
 );
 
 create temporary sequence s
-as bigint
-start with 10
-increment by -2
-minvalue -9223372036854775808
-maxvalue 9223372036854775807
-cache 5
-cycle
-owned by t.a;
+  as bigint
+  start with 10
+  increment by -2
+  minvalue -9223372036854775808
+  maxvalue 9223372036854775807
+  cache 5
+  cycle
+  owned by t.a;
 
 alter sequence s
-owned by none
-restart with 100;
+  owned by none
+  restart with 100;
 
 drop index concurrently if exists i;
 
@@ -1175,12 +1175,12 @@ with (fillfactor = 70, autovacuum_enabled = false, toast_tuple_target = 4096) as
 select 1;
 
 create sequence events_seq
-start with 1000
-increment by 10
-minvalue 1000
-maxvalue 1000000
-cache 20
-cycle;
+  start with 1000
+  increment by 10
+  minvalue 1000
+  maxvalue 1000000
+  cache 20
+  cycle;
 "
 `;
 
@@ -1563,18 +1563,18 @@ version 'it''s';
 exports[`fixtures > ddl/sequences.sql 1`] = `
 "-- CREATE SEQUENCE with options
 create sequence order_seq
-start with 1000
-increment by 1
-no maxvalue
-no cycle;
+  start with 1000
+  increment by 1
+  no maxvalue
+  no cycle;
 
 -- CREATE SEQUENCE minimal
 create sequence event_seq;
 
 -- ALTER SEQUENCE
 alter sequence order_seq
-restart with 1
-increment by 5;
+  restart with 1
+  increment by 5;
 "
 `;
 

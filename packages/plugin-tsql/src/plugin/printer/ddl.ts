@@ -16,7 +16,7 @@ import {
     parenItems,
     willBreak,
 } from '@prettier-sql/core/printer/utils';
-import { createIndexDoc, alterTableDoc, constraintDoc, checkDoc } from '@prettier-sql/core/printer/layout';
+import { createIndexDoc, alterTableDoc, constraintDoc, checkDoc, optionLinesDoc } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment, splitTopLevel, sortOrderDoc } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
@@ -1269,31 +1269,31 @@ export function printCreateTrigger(node: SqlNode, opts: Options): Doc {
 // CREATE / ALTER SEQUENCE
 // ---------------------------------------------------------------------------
 
-function printSequenceOptions(node: SqlNode, opts: Options): Doc[] {
+function sequenceOptions(node: SqlNode, opts: Options): Doc[] {
     const parts: Doc[] = [];
     const startWith = propStr(node, 'startWith');
-    if (startWith != null) parts.push(hardline, keyword('START WITH', opts), ' ', startWith);
+    if (startWith != null) parts.push([keyword('START WITH', opts), ' ', startWith]);
     const restartWith = propStr(node, 'restartWith');
-    if (restartWith != null) parts.push(hardline, keyword('RESTART WITH', opts), ' ', restartWith);
-    else if (propBool(node, 'restart')) parts.push(hardline, keyword('RESTART', opts));
+    if (restartWith != null) parts.push([keyword('RESTART WITH', opts), ' ', restartWith]);
+    else if (propBool(node, 'restart')) parts.push([keyword('RESTART', opts)]);
     const incrementBy = propStr(node, 'incrementBy');
-    if (incrementBy != null) parts.push(hardline, keyword('INCREMENT BY', opts), ' ', incrementBy);
+    if (incrementBy != null) parts.push([keyword('INCREMENT BY', opts), ' ', incrementBy]);
     const minValue = propStr(node, 'minValue');
     const noMinValue = node.props?.['noMinValue'];
-    if (minValue != null) parts.push(hardline, keyword('MINVALUE', opts), ' ', minValue);
-    else if (noMinValue) parts.push(hardline, keyword('NO MINVALUE', opts));
+    if (minValue != null) parts.push([keyword('MINVALUE', opts), ' ', minValue]);
+    else if (noMinValue) parts.push([keyword('NO MINVALUE', opts)]);
     const maxValue = propStr(node, 'maxValue');
     const noMaxValue = node.props?.['noMaxValue'];
-    if (maxValue != null) parts.push(hardline, keyword('MAXVALUE', opts), ' ', maxValue);
-    else if (noMaxValue) parts.push(hardline, keyword('NO MAXVALUE', opts));
+    if (maxValue != null) parts.push([keyword('MAXVALUE', opts), ' ', maxValue]);
+    else if (noMaxValue) parts.push([keyword('NO MAXVALUE', opts)]);
     const cycle = node.props?.['cycle'];
-    if (cycle === true) parts.push(hardline, keyword('CYCLE', opts));
-    else if (cycle === false) parts.push(hardline, keyword('NO CYCLE', opts));
+    if (cycle === true) parts.push([keyword('CYCLE', opts)]);
+    else if (cycle === false) parts.push([keyword('NO CYCLE', opts)]);
     const cache = propStr(node, 'cache');
     const noCache = node.props?.['noCache'];
-    if (cache != null) parts.push(hardline, keyword('CACHE', opts), ' ', cache);
-    else if (noCache) parts.push(hardline, keyword('NO CACHE', opts));
-    else if (propBool(node, 'cacheDefault')) parts.push(hardline, keyword('CACHE', opts));
+    if (cache != null) parts.push([keyword('CACHE', opts), ' ', cache]);
+    else if (noCache) parts.push([keyword('NO CACHE', opts)]);
+    else if (propBool(node, 'cacheDefault')) parts.push([keyword('CACHE', opts)]);
     return parts;
 }
 
@@ -1304,19 +1304,11 @@ function sequenceHeader(kw: Doc, node: SqlNode, opts: Options): Doc {
 }
 
 export function printCreateSequence(node: SqlNode, opts: Options): Doc {
-    return group([
-        sequenceHeader(keyword('CREATE SEQUENCE', opts), node, opts),
-        indent(printSequenceOptions(node, opts)),
-        ';',
-    ]);
+    return optionLinesDoc(sequenceHeader(keyword('CREATE SEQUENCE', opts), node, opts), sequenceOptions(node, opts));
 }
 
 export function printAlterSequence(node: SqlNode, opts: Options): Doc {
-    return group([
-        sequenceHeader(keyword('ALTER SEQUENCE', opts), node, opts),
-        indent(printSequenceOptions(node, opts)),
-        ';',
-    ]);
+    return optionLinesDoc(sequenceHeader(keyword('ALTER SEQUENCE', opts), node, opts), sequenceOptions(node, opts));
 }
 
 // ---------------------------------------------------------------------------

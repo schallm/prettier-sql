@@ -16,7 +16,7 @@ import {
 } from '@prettier-sql/core/printer/utils';
 import {
     valuesRow, valuesDoc, setClauseDoc, setOpDoc, joinStatements, boolClauseDoc,
-    selectListDoc, fromClauseDoc, listClauseDoc, windowClauseDoc, withClauseDoc, joinOnDoc, mergeActionDoc, createIndexDoc, alterTableDoc, grantDoc,
+    selectListDoc, fromClauseDoc, listClauseDoc, windowClauseDoc, withClauseDoc, joinOnDoc, mergeActionDoc, createIndexDoc, alterTableDoc, grantDoc, optionLinesDoc,
 } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions } from './helpers.js';
 import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, boolTerms, isBoolChain, tableAliasDoc } from './expressions.js';
@@ -1053,9 +1053,8 @@ function printCreateSequence(node: SqlNode, opts: Options): Doc {
     const qname = qualifiedName(schema, name);
     const ifNotExistsDoc: Doc = ifNotExists ? [makeKeyword('IF NOT EXISTS'), ' '] : '';
     const persistence = propStr(node, 'persistence');
-    const parts: Doc[] = [[makeKeyword(persistence ? `CREATE ${persistence} SEQUENCE` : 'CREATE SEQUENCE'), ' ', ifNotExistsDoc, qname]];
-    for (const opt of options) parts.push(makeKeyword(opt));
-    return [join(hardline, parts), ';'];
+    const header: Doc = [makeKeyword(persistence ? `CREATE ${persistence} SEQUENCE` : 'CREATE SEQUENCE'), ' ', ifNotExistsDoc, qname];
+    return optionLinesDoc(header, options.map(makeKeyword));
 }
 
 function printAlterSequence(node: SqlNode, opts: Options): Doc {
@@ -1065,9 +1064,7 @@ function printAlterSequence(node: SqlNode, opts: Options): Doc {
     const options = (node.props?.['options'] as string[] | undefined) ?? [];
 
     const qname = qualifiedName(schema, name);
-    const parts: Doc[] = [[makeKeyword('ALTER SEQUENCE'), ' ', qname]];
-    for (const opt of options) parts.push(makeKeyword(opt));
-    return [join(hardline, parts), ';'];
+    return optionLinesDoc([makeKeyword('ALTER SEQUENCE'), ' ', qname], options.map(makeKeyword));
 }
 
 // ---------------------------------------------------------------------------
