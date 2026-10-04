@@ -745,7 +745,7 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
     const indexName = propStr(node, 'indexName');
 
     const namePrefix: Doc = name ? [makeKeyword('CONSTRAINT'), ' ', name, ' '] : '';
-    const colList = (cols: string[]): Doc => (cols.length > 0 ? [' (', cols.join(', '), ')'] : '');
+    const colList = (cols: string[]): Doc => (cols.length > 0 ? [' ', parenItems(cols, opts)] : '');
 
     // PRIMARY KEY / UNIQUE / EXCLUDE: INCLUDE (...) WITH (...) USING INDEX TABLESPACE ts
     const including = propStrArr(node, 'including');

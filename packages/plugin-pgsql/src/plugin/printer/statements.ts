@@ -816,7 +816,7 @@ function printCreateView(node: SqlNode, opts: Options): Doc {
 
     return [
         makeKeyword(createKw), ' ', rangeVarName(name),
-        columns.length > 0 ? [' (', join(', ', columns), ')'] : '',
+        columns.length > 0 ? [' ', parenItems(columns, opts)] : '',
         options.length > 0 ? [hardline, makeKeyword('WITH'), ' ', parenItems(options, opts)] : '',
         hardline, makeKeyword('AS'), hardline,
         body ? printQueryExpr(body, opts) : '',
@@ -909,8 +909,8 @@ function printCreateIndex(node: SqlNode, opts: Options): Doc {
     const tablespace = propStr(node, 'tablespace');
     parts.push(' ', indexName, ' ', makeKeyword('ON'), ' ', onlyPrefix(relation, opts), rangeVarName(relation));
     if (accessMethod) parts.push(' ', makeKeyword('USING'), ' ', accessMethod);
-    parts.push(' (', join(', ', columns.map(printNode)), ')');
-    if (including.length > 0) parts.push(' ', makeKeyword('INCLUDE'), ' (', join(', ', including.map(printNode)), ')');
+    parts.push(' ', parenItems(columns.map(printNode), opts));
+    if (including.length > 0) parts.push(' ', makeKeyword('INCLUDE'), ' ', parenItems(including.map(printNode), opts));
     if (propBool(node, 'nullsNotDistinct')) parts.push(' ', makeKeyword('NULLS NOT DISTINCT'));
     if (options.length > 0) parts.push(' ', makeKeyword('WITH'), ' ', parenItems(options, opts));
     if (tablespace) parts.push(' ', makeKeyword('TABLESPACE'), ' ', tablespace);
@@ -1238,7 +1238,7 @@ function printCreateAsQuery(node: SqlNode, opts: Options, kw: string): Doc {
     const createKw = kw === 'CREATE TABLE' ? createTableKeyword(node, opts) : makeKeyword(kw);
     return [
         createKw, ' ', ifNotExistsDoc(node, opts), qname,
-        columns.length > 0 ? [' (', join(', ', columns), ')'] : '',
+        columns.length > 0 ? [' ', parenItems(columns, opts)] : '',
         tableStorageClauses(node, opts),
         ' ', makeKeyword('AS'),
         hardline, query ? printQueryExpr(query, opts) : '',
@@ -1690,7 +1690,7 @@ function printCopy(node: SqlNode, opts: Options): Doc {
     const filename = propStr(node, 'filename');
     const options  = (node.props?.['options'] as Array<{ name: string; value: string }> | undefined) ?? [];
 
-    const colsPart: Doc = columns.length > 0 ? [' (', join(', ', columns), ')'] : '';
+    const colsPart: Doc = columns.length > 0 ? [' ', parenItems(columns, opts)] : '';
 
     let sourceDest: Doc;
     if (relation) {
