@@ -5891,6 +5891,19 @@ go
 "
 `;
 
+exports[`fixtures > stored-proc/cursor-varying-parameter.sql 1`] = `
+"-- A cursor output parameter must be VARYING
+create procedure dbo.OpenOrders
+  @OrdersCursor cursor varying output,
+  @Status varchar(10) = 'open'
+as
+begin
+  open @OrdersCursor;
+end;
+go
+"
+`;
+
 exports[`fixtures > stored-proc/natively-compiled.sql 1`] = `
 "-- Natively compiled stored procedures — BEGIN ATOMIC WITH (...) must be preserved
 create procedure dbo.usp_GetOrder

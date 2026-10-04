@@ -917,7 +917,7 @@ function printModuleOptions(node: SqlNode, opts: Options): Doc {
 // CREATE / ALTER / CREATE OR ALTER PROCEDURE
 // ---------------------------------------------------------------------------
 
-/** A procedure or function parameter: @name type [= default] [OUTPUT] [READONLY]. */
+/** A procedure or function parameter: @name type [VARYING] [= default] [OUTPUT] [READONLY]. */
 function printParameter(p: SqlNode, opts: Options): Doc {
     const dt = propStr(p, 'dataType') ?? 'INT';
     const defaultVal = prop(p, 'defaultValue');
@@ -925,6 +925,7 @@ function printParameter(p: SqlNode, opts: Options): Doc {
         propStr(p, 'name') ?? '@p', ' ',
         // UDT names are identifiers, not SQL keywords — skip keyword-casing
         propBool(p, 'isUdt') ? dt : builtinTypeDoc(dt, opts),
+        propBool(p, 'varying') ? [' ', keyword('VARYING', opts)] : '',
         nullablePart(p.props?.['nullable'], opts),
         defaultVal ? [' = ', printNode(defaultVal, opts)] : '',
         propBool(p, 'output') ? [' ', keyword('OUTPUT', opts)] : '',

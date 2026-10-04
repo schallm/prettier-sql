@@ -2525,6 +2525,8 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["name"] = p.VariableName?.Value,
                 ["dataType"] = dataType,
                 ["isUdt"] = isUdt ? (object?)true : null,
+                // @c CURSOR VARYING OUTPUT: a result set the procedure builds
+                ["varying"] = p.IsVarying ? (object?)true : null,
                 ["defaultValue"] = p.Value != null ? BuildScalarExpression(p.Value) : null,
                 ["output"] = p.Modifier == ParameterModifier.Output,
                 ["readonly"] = p.Modifier == ParameterModifier.ReadOnly,

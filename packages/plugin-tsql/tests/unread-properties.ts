@@ -72,5 +72,4 @@ export const dropped: Record<string, string> = {
     'InsertSpecification.InsertOption': 'INSERT OVER t prints as INSERT INTO t (INSERT t and INSERT INTO t are equivalent)',
     'OpenRowsetTableReference.WithColumns': 'OPENROWSET(...) WITH (a int) loses the WITH column list',
     'BulkOpenRowset.WithColumns': 'OPENROWSET(BULK ...) WITH (a int) loses the WITH column list',
-    'ProcedureParameter.IsVarying': '@c CURSOR VARYING OUTPUT prints as @c CURSOR OUTPUT, which does not compile',
 };
