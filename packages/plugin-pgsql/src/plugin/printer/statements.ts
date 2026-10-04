@@ -939,10 +939,14 @@ function printTruncate(node: SqlNode, opts: Options): Doc {
     const restart   = propBool(node, 'restartSeqs');
     const cascade   = propBool(node, 'cascade');
 
+    // On one line when it fits; otherwise the tables fill an indented line and each option follows on its own
     return [
-        makeKeyword('TRUNCATE TABLE'), ' ', join(', ', relations.map((r) => [onlyPrefix(r, opts), rangeVarName(r)])),
-        restart  ? [' ', makeKeyword('RESTART IDENTITY')]  : '',
-        cascade  ? [' ', makeKeyword('CASCADE')]            : '',
+        group([
+            makeKeyword('TRUNCATE TABLE'),
+            indent([line, commaFill(relations.map((r): Doc => [onlyPrefix(r, opts), rangeVarName(r)]))]),
+            restart ? [line, makeKeyword('RESTART IDENTITY')] : '',
+            cascade ? [line, makeKeyword('CASCADE')] : '',
+        ]),
         ';',
     ];
 }
@@ -959,18 +963,22 @@ function printDrop(node: SqlNode, opts: Options): Doc {
     const castSource    = propStr(node, 'castSource');
     const transformType = propStr(node, 'transformType');
 
+    // On one line when it fits; otherwise the names fill an indented line and ON / USING / CASCADE
+    // each follow on a line of their own
     return [
-        makeKeyword('DROP'), ' ', makeKeyword(objectType),
-        propBool(node, 'concurrent') ? [' ', makeKeyword('CONCURRENTLY')] : '',
-        ifExists ? [' ', makeKeyword('IF EXISTS')] : '',
-        names.length > 0 ? [' ', join(', ', names)] : '',
-        onTable ? [' ', makeKeyword('ON'), ' ', onTable] : '',
-        using ? [' ', makeKeyword('USING'), ' ', using] : '',
-        castSource ? [' (', keyword(castSource, opts), ' ', makeKeyword('AS'), ' ', keyword(propStr(node, 'castTarget') ?? '', opts), ')'] : '',
-        transformType
-            ? [' ', makeKeyword('FOR'), ' ', keyword(transformType, opts), ' ', makeKeyword('LANGUAGE'), ' ', propStr(node, 'transformLanguage') ?? '']
-            : '',
-        cascade  ? [' ', makeKeyword('CASCADE')]   : '',
+        group([
+            makeKeyword('DROP'), ' ', makeKeyword(objectType),
+            propBool(node, 'concurrent') ? [' ', makeKeyword('CONCURRENTLY')] : '',
+            ifExists ? [' ', makeKeyword('IF EXISTS')] : '',
+            names.length > 0 ? indent([line, commaFill(names)]) : '',
+            castSource ? [' (', keyword(castSource, opts), ' ', makeKeyword('AS'), ' ', keyword(propStr(node, 'castTarget') ?? '', opts), ')'] : '',
+            transformType
+                ? [' ', makeKeyword('FOR'), ' ', keyword(transformType, opts), ' ', makeKeyword('LANGUAGE'), ' ', propStr(node, 'transformLanguage') ?? '']
+                : '',
+            onTable ? [line, makeKeyword('ON'), ' ', onTable] : '',
+            using ? [line, makeKeyword('USING'), ' ', using] : '',
+            cascade ? [line, makeKeyword('CASCADE')] : '',
+        ]),
         ';',
     ];
 }
