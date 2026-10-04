@@ -21,24 +21,11 @@ const VARIANTS: Record<string, unknown>[] = [{}, { sqlDensity: 'compact' }, { sq
 const KNOWN_DIVERGENT = new Set([
     'ddl/alter-table.sql',
     'ddl/create-index.sql',
-    'ddl/create-view.sql',
     'ddl/create-table.sql',
-    'dml/delete.sql',
-    'dml/insert.sql',
     'dml/update.sql',
-    'select/aggregates.sql',
-    'select/basic.sql',
-    'select/case.sql',
-    'select/cte.sql',
-    'select/distinct.sql',
-    'select/expressions.sql',
-    'select/group-by-advanced.sql',
     'select/joins.sql',
     'select/predicates.sql',
-    'select/regexp.sql',
-    'select/set-ops.sql',
     'select/subqueries.sql',
-    'select/window.sql',
 ]);
 
 // A T-SQL batch that must stand alone (CREATE VIEW) ends with GO; PostgreSQL has no batches

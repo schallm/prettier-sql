@@ -4,8 +4,6 @@ import type { Options, PrintFn } from '@prettier-sql/core/printer/utils';
 import {
     keyword,
     getDensity,
-    hardSep,
-    softSep,
     hardline,
     join,
     group,
@@ -21,7 +19,7 @@ import {
     commaFill,
     hasLineSuffix,
 } from '@prettier-sql/core/printer/utils';
-import { caseDoc, betweenDoc, operatorChain, setOpDoc, boolGroup, boolLines, boolClauseDoc, joinOnDoc, parenGroup, type BoolTerm, type CaseResult, type CaseWhen } from '@prettier-sql/core/printer/layout';
+import { caseDoc, betweenDoc, operatorChain, setOpDoc, boolGroup, boolLines, boolClauseDoc, joinOnDoc, parenGroup, selectListDoc, fromClauseDoc, listClauseDoc, clauseItems, windowSpecDoc, windowClauseDoc, type BoolTerm, type CaseResult, type CaseWhen } from '@prettier-sql/core/printer/layout';
 import {
     prop, propArr, propStr, propStrArr, propBool, schemaObjectName, builtinTypeDoc, assignmentOp, splitTopLevel, sortOrderDoc,
     claimTrailingComment, isCommentClaimed, takeTrailingComment, withTrailingComment, appendComments,
@@ -619,81 +617,24 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const topDoc = top ? printTop(top, opts, printFn) : null;
     const colDocs = selectElements.map((se) => printExpression(se, opts, printFn));
 
-    const parts: Doc[] = [selectKw, ...(topDoc ? [' ', topDoc] : [])];
+    // A CASE spans lines, so it starts on a line of its own even as the only column
+    const caseOnly = selectElements.length === 1 && (prop(selectElements[0]!, 'expression') ?? selectElements[0]!).type === 'CaseExpression';
+    const parts: Doc[] = [selectListDoc([selectKw, topDoc ? [' ', topDoc] : ''], colDocs, opts, caseOnly)];
 
-    if (compact) {
-        // Compact: fill-pack each list clause — as many items per line as fit, wrapping only when needed.
-        // indent() ensures wrapped lines are indented one level under the keyword.
-        const colList = indent(commaFill(colDocs));
-        parts.push(' ', colList);
+    // SELECT INTO target appears after the column list and before the FROM clause
+    if (intoTarget) parts.push(sep, keyword('INTO', opts), ' ', schemaObjectName(intoTarget), intoOnDoc);
 
-        if (intoTarget) parts.push(line, keyword('INTO', opts), ' ', schemaObjectName(intoTarget), intoOnDoc);
+    if (from) parts.push(sep, printFromClause(from, opts, printFn));
 
-        if (from) {
-            const fromDocs = propArr(from, 'tableReferences').map((tr) => printTableRef(tr, opts, printFn));
-            // Try to keep FROM on one line; if too long, each join on its own line
-            parts.push(line, keyword('FROM', opts), ' ', group(indent(join(softSep(opts), fromDocs))));
-        }
+    if (where) parts.push(sep, boolClause('WHERE', where, opts, printFn));
 
-        if (where) parts.push(line, boolClause('WHERE', where, opts, printFn));
-
-        if (groupBy) {
-            const elemDocs = propArr(groupBy, 'elements').map((e) => printExpression(e, opts, printFn));
-            parts.push(
-                line,
-                groupByKeyword(groupBy, opts),
-                ' ',
-                indent(commaFill(elemDocs)),
-                groupByWithOption(groupBy, opts),
-            );
-        }
-
-        if (having) parts.push(line, boolClause('HAVING', having, opts, printFn));
-    } else {
-        // Standard / Spacious: single column stays inline; multiple each on own line.
-        // A CASE expression always expands to multiple lines, so force it onto its own indented line.
-        const singleExprType = (prop(selectElements[0]!, 'expression') ?? selectElements[0]!)?.type;
-        const colList: Doc =
-            density === 'standard' && colDocs.length === 1 && singleExprType !== 'CaseExpression'
-                ? [' ', colDocs[0]!]
-                : indent([hardline, join(hardSep(opts), colDocs)]);
-        parts.push(colList);
-
-        // SELECT INTO target appears after the column list and before the FROM clause
-        if (intoTarget) parts.push(hardline, keyword('INTO', opts), ' ', schemaObjectName(intoTarget), intoOnDoc);
-
-        if (from) {
-            const tableRefs = propArr(from, 'tableReferences');
-            const fromDocs = tableRefs.map((tr) => printTableRef(tr, opts, printFn));
-            // standard: single table (no joins) stays inline; multiple/joins each on own line
-            const singleTable =
-                density === 'standard' &&
-                tableRefs.length === 1 &&
-                tableRefs[0]!.type !== 'QualifiedJoin' &&
-                tableRefs[0]!.type !== 'UnqualifiedJoin';
-            if (singleTable) {
-                parts.push(hardline, keyword('FROM', opts), ' ', fromDocs[0]!);
-            } else {
-                parts.push(hardline, keyword('FROM', opts), indent([hardline, join(hardSep(opts), fromDocs)]));
-            }
-        }
-
-        if (where) parts.push(hardline, boolClause('WHERE', where, opts, printFn));
-
-        if (groupBy) {
-            const elems = propArr(groupBy, 'elements');
-            const elemDocs = elems.map((e) => printExpression(e, opts, printFn));
-            if (density === 'standard' && elems.length === 1) {
-                parts.push(hardline, groupByKeyword(groupBy, opts), ' ', elemDocs[0]!, groupByWithOption(groupBy, opts));
-            } else {
-                parts.push(hardline, groupByKeyword(groupBy, opts), indent([hardline, join(hardSep(opts), elemDocs)]), groupByWithOption(groupBy, opts));
-            }
-        }
-
-        if (having) parts.push(hardline, boolClause('HAVING', having, opts, printFn));
+    if (groupBy) {
+        const elemDocs = propArr(groupBy, 'elements').map((e) => printExpression(e, opts, printFn));
+        parts.push(sep, listClauseDoc(groupByKeyword(groupBy, opts), elemDocs, opts), groupByWithOption(groupBy, opts));
     }
 
-    // Tail clauses — same layout intent for all densities, sep varies.
+    if (having) parts.push(sep, boolClause('HAVING', having, opts, printFn));
+
     // WINDOW comes before ORDER BY: SELECT ... HAVING ... WINDOW w AS (...) ORDER BY ...
     if (windowDefs.length > 0) parts.push(sep, printWindowClause(windowDefs, opts, printFn));
 
@@ -704,6 +645,13 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     if (forClause) parts.push(sep, printForClause(forClause, opts));
 
     return group(parts);
+}
+
+/** `FROM` and its table references (a FromClause node). */
+export function printFromClause(from: SqlNode, opts: Options, printFn: PrintFn): Doc {
+    const tableRefs = propArr(from, 'tableReferences');
+    const hasJoin = tableRefs.some((tr) => tr.type === 'QualifiedJoin' || tr.type === 'UnqualifiedJoin');
+    return fromClauseDoc(keyword('FROM', opts), tableRefs.map((tr) => printTableRef(tr, opts, printFn)), hasJoin, opts);
 }
 
 export function printTop(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
@@ -773,35 +721,23 @@ export function printOverClause(node: SqlNode, opts: Options, printFn: PrintFn):
     const windowName = propStr(node, 'windowName');
     if (windowName) return windowName;
 
+    return windowSpecDoc(windowClauses(node, opts, printFn));
+}
+
+/** The clauses of a window specification: [base window] [PARTITION BY …] [ORDER BY …] [frame]. */
+function windowClauses(node: SqlNode, opts: Options, printFn: PrintFn): Doc[] {
+    const refWindowName = propStr(node, 'refWindowName');
     const partitions = propArr(node, 'partitionBy');
     const orderBy = prop(node, 'orderBy');
     const frame = prop(node, 'frame');
-
-    const parts: Doc[] = [];
-
+    const clauses: Doc[] = [];
+    if (refWindowName) clauses.push(refWindowName);
     if (partitions.length > 0) {
-        parts.push(keyword('PARTITION BY', opts), ' ', partitionItems(partitions, opts, printFn));
+        clauses.push([keyword('PARTITION BY', opts), ' ', clauseItems(partitions.map((p) => printExpression(p, opts, printFn)))]);
     }
-
-    if (orderBy) {
-        if (parts.length > 0) parts.push(hardline);
-        parts.push(printOrderByClause(orderBy, opts, printFn));
-    }
-
-    if (frame) {
-        if (parts.length > 0) parts.push(hardline);
-        parts.push(printWindowFrame(frame, opts, printFn));
-    }
-
-    return group(['(', indent([softline, ...parts]), softline, ')']);
-}
-
-/**
- * The PARTITION BY columns: one line when they fit, otherwise continued on indented lines.
- * (A group of their own, so the hard breaks between the window's clauses don't split them.)
- */
-function partitionItems(partitions: SqlNode[], opts: Options, printFn: PrintFn): Doc {
-    return group(indent(join([',', line], partitions.map((p) => printExpression(p, opts, printFn)))));
+    if (orderBy) clauses.push([keyword('ORDER BY', opts), ' ', clauseItems(orderByItems(orderBy, opts, printFn))]);
+    if (frame) clauses.push(printWindowFrame(frame, opts, printFn));
+    return clauses;
 }
 
 function printWindowFrame(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
@@ -845,37 +781,12 @@ function printWindowDelimiter(node: SqlNode, opts: Options, printFn: PrintFn): D
 
 function printWindowDefinition(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const name = propStr(node, 'name') ?? '';
-    const refWindowName = propStr(node, 'refWindowName');
-    const partitions = propArr(node, 'partitionBy');
-    const orderBy = prop(node, 'orderBy');
-    const frame = prop(node, 'frame');
-
-    const inner: Doc[] = [];
-    if (refWindowName) inner.push(refWindowName);
-    if (partitions.length > 0) {
-        if (inner.length > 0) inner.push(hardline);
-        inner.push(keyword('PARTITION BY', opts), ' ', partitionItems(partitions, opts, printFn));
-    }
-    if (orderBy) {
-        if (inner.length > 0) inner.push(hardline);
-        inner.push(printOrderByClause(orderBy, opts, printFn));
-    }
-    if (frame) {
-        if (inner.length > 0) inner.push(hardline);
-        inner.push(printWindowFrame(frame, opts, printFn));
-    }
-
-    const body = inner.length > 0 ? group(['(', indent([softline, ...inner]), softline, ')']) : '()';
-    return [name, ' ', keyword('AS', opts), ' ', body];
+    return [name, ' ', keyword('AS', opts), ' ', windowSpecDoc(windowClauses(node, opts, printFn))];
 }
 
 export function printWindowClause(defs: SqlNode[], opts: Options, printFn: PrintFn): Doc {
     if (defs.length === 0) return '';
-    const defDocs = defs.map((d) => printWindowDefinition(d, opts, printFn));
-    if (defs.length === 1) {
-        return [keyword('WINDOW', opts), ' ', defDocs[0]!];
-    }
-    return [keyword('WINDOW', opts), indent([hardline, join([',', hardline], defDocs)])];
+    return windowClauseDoc(keyword('WINDOW', opts), defs.map((d) => printWindowDefinition(d, opts, printFn)), opts);
 }
 
 // ---------------------------------------------------------------------------
@@ -1647,9 +1558,12 @@ function printBulkOpenRowset(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printOrderByClause(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
-    const density = getDensity(opts);
-    const elements = propArr(node, 'elements');
-    const elDocs = elements.map((e) => {
+    return listClauseDoc(keyword('ORDER BY', opts), orderByItems(node, opts, printFn), opts);
+}
+
+/** The items of an ORDER BY, each with its ASC / DESC. */
+function orderByItems(node: SqlNode, opts: Options, printFn: PrintFn): Doc[] {
+    return propArr(node, 'elements').map((e) => {
         const expr = prop(e, 'expression');
         const sort = propStr(e, 'sortOrder');
         const base: Doc = [expr ? printExpression(expr, opts, printFn) : '', sortOrderDoc(sort, opts)];
@@ -1658,17 +1572,6 @@ export function printOrderByClause(node: SqlNode, opts: Options, printFn: PrintF
         // the element itself rather than the expression — print that too.
         return appendComments(base, takeTrailingComment(e));
     });
-    // compact: fill-pack items; if they overflow, indent-wrap them
-    if (density === 'compact') {
-        return group([
-            keyword('ORDER BY', opts),
-            indent([line, commaFill(elDocs)]),
-        ]);
-    }
-    if (density === 'standard' && elements.length === 1) {
-        return [keyword('ORDER BY', opts), ' ', elDocs[0]!];
-    }
-    return [keyword('ORDER BY', opts), indent([hardline, join(hardSep(opts), elDocs)])];
 }
 
 // ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '../types.js';
 import {
-    keyword, getDensity, getCommaStyle, hasHardline, hasLineSuffix, hardSep, softSep,
+    keyword, getDensity, getCommaStyle, commaFill, hasHardline, hasLineSuffix, hardSep, softSep,
     conditionalGroup, fill, group, hardline, indent, join, line, softline, willBreak,
     type Options,
 } from './utils.js';
@@ -183,6 +183,65 @@ export function joinOnDoc(kw: Doc, condition: Doc, isChain: boolean): Doc {
 /** `(a OR b)` as an operand: inline when it fits, otherwise the chain on indented lines between the parentheses. */
 export function parenGroup(doc: Doc): Doc {
     return group(['(', indent([softline, doc]), softline, ')']);
+}
+
+/**
+ * `SELECT` and its columns. One column stays on the SELECT line (except in spacious
+ * density) — in standard density, unless it spans lines (a CASE), when it starts on a line
+ * of its own like a list. In compact density several columns pack after SELECT; otherwise
+ * they go one to a line, indented.
+ */
+export function selectListDoc(selectKw: Doc, columns: Doc[], opts: Options, spansLines = false): Doc {
+    const density = getDensity(opts);
+    if (columns.length === 1 && (density === 'compact' || (density === 'standard' && !spansLines))) return [selectKw, ' ', columns[0]!];
+    if (density === 'compact') return [selectKw, ' ', indent(commaFill(columns))];
+    return [selectKw, indent([hardline, join(hardSep(opts), columns)])];
+}
+
+/**
+ * `FROM` and its table references. A single table without joins stays on the FROM line
+ * (except in spacious density). Otherwise each reference — and each join, in standard and
+ * spacious density — goes on an indented line; compact keeps them on the FROM line when they fit.
+ */
+export function fromClauseDoc(kw: Doc, items: Doc[], hasJoin: boolean, opts: Options): Doc {
+    const density = getDensity(opts);
+    if (density === 'compact') return [kw, ' ', group(indent(join(softSep(opts), items)))];
+    if (density === 'standard' && items.length === 1 && !hasJoin) return [kw, ' ', items[0]!];
+    return [kw, indent([hardline, join(hardSep(opts), items)])];
+}
+
+/**
+ * A keyword and a list (GROUP BY, ORDER BY, RETURNING, USING). One item stays on the
+ * keyword's line (except in spacious density); several go one to an indented line, or
+ * packed in compact density, on the keyword's line when they fit.
+ */
+export function listClauseDoc(kw: Doc, items: Doc[], opts: Options): Doc {
+    const density = getDensity(opts);
+    if (density !== 'spacious' && items.length === 1) return [kw, ' ', items[0]!];
+    if (density === 'compact') return [kw, group(indent([line, commaFill(items)]))];
+    return [kw, indent([hardline, join(hardSep(opts), items)])];
+}
+
+/** The items of a PARTITION BY / ORDER BY inside a window: a long list continues on indented lines. */
+export function clauseItems(items: Doc[]): Doc {
+    return group(indent(join([',', line], items)));
+}
+
+/** A window specification's `(…)`: inline when it fits, otherwise each of its clauses on its own line. */
+export function windowSpecDoc(clauses: Doc[]): Doc {
+    if (clauses.length === 0) return '()';
+    return group(['(', indent([softline, join(line, clauses)]), softline, ')']);
+}
+
+/** `WINDOW w AS (…)`: a single definition stays on the WINDOW line, several go one to an indented line. */
+export function windowClauseDoc(kw: Doc, defs: Doc[], opts: Options): Doc {
+    if (defs.length === 1) return [kw, ' ', defs[0]!];
+    return [kw, indent([hardline, join(hardSep(opts), defs)])];
+}
+
+/** `WITH` and its common table expressions, one to an indented line. */
+export function withClauseDoc(withKw: Doc, ctes: Doc[], opts: Options): Doc {
+    return [withKw, indent([hardline, join(hardSep(opts), ctes)])];
 }
 
 /** `lhs UNION rhs` (or INTERSECT / EXCEPT): the operator stands alone between blank lines. */

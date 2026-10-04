@@ -5414,14 +5414,8 @@ exports[`fixtures > select/window.sql 1`] = `
   Id,
   Title,
   Price,
-  row_number() over (
-    partition by GenreId
-    order by Price desc
-  ) as Rn,
-  rank() over (
-    partition by GenreId
-    order by Price desc
-  ) as Rnk,
+  row_number() over (partition by GenreId order by Price desc) as Rn,
+  rank() over (partition by GenreId order by Price desc) as Rnk,
   sum(Price) over (partition by GenreId) as GenreTotal
 from Books;
 "
@@ -5446,10 +5440,7 @@ from Books;
 
 select last_value(Price) ignore nulls over w
 from Books
-window w as (
-  partition by AuthorId
-  order by PublishedDate
-);
+window w as (partition by AuthorId order by PublishedDate);
 "
 `;
 
@@ -5468,10 +5459,7 @@ select a
 from t
 window
   w as (partition by b),
-  w2 as (
-    w
-    order by c
-  )
+  w2 as (w order by c)
 order by a
 offset 1 rows;
 "
@@ -5482,9 +5470,7 @@ exports[`fixtures > select/window-partition-lists.sql 1`] = `
   a.id,
   row_number() over (
     partition by a.account_id, a.region_id
-    order by
-      a.created_at desc,
-      a.id
+    order by a.created_at desc, a.id
   ) as rn
 from t as a;
 
@@ -5506,10 +5492,7 @@ from t as a;
 select a.id
 from t as a
 window
-  w as (
-    partition by a.account_id, a.region_id
-    order by a.created_at
-  ),
+  w as (partition by a.account_id, a.region_id order by a.created_at),
   v as (
     partition by a.very_long_column_name_one,
       a.very_long_column_name_two,
@@ -6077,10 +6060,7 @@ with
     select
       Id,
       Price,
-      row_number() over (
-        partition by AuthorId
-        order by Price desc
-      ) as rn
+      row_number() over (partition by AuthorId order by Price desc) as rn
     from Books
   )
 update cte
@@ -6225,9 +6205,9 @@ go
 
 exports[`long lines in every density > compact 1`] = `
 "select coalesce(
-    a.first_choice_column, a.second_choice_column, a.third_choice_column,
-    a.default_value
-  ) as chosen
+  a.first_choice_column, a.second_choice_column, a.third_choice_column,
+  a.default_value
+) as chosen
 from t as a;
 
 select a.id
@@ -6238,7 +6218,7 @@ where a.status in (
 );
 
 select a.base_amount + a.shipping_amount * a.tax_rate - a.discount_amount
-    + a.handling_fee + a.insurance_fee as total
+  + a.handling_fee + a.insurance_fee as total
 from t as a;
 
 create table dbo.Orders (
@@ -6543,9 +6523,9 @@ order by
 
 exports[`options > sqlDensity: compact (function args fill by width) 1`] = `
 "select concat(
-    FirstName, ' ', MiddleName, ' ', LastName, ' (', Email, ')', ' / ',
-    PhoneNumber, ' / ', City, ', ', Country
-  ) as ContactInfo
+  FirstName, ' ', MiddleName, ' ', LastName, ' (', Email, ')', ' / ',
+  PhoneNumber, ' / ', City, ', ', Country
+) as ContactInfo
 from Authors
 where IsActive = 1;
 "
@@ -6785,8 +6765,7 @@ where
 
 update books
 set in_stock = 0
-from
-  publishers
+from publishers
 where
   books.publisher_id = publishers.id
   and publishers.country = 'UK';
@@ -7361,20 +7340,14 @@ exports[`shared fixtures > select/window.sql 1`] = `
   id,
   author_id,
   price,
-  row_number() over (
-    partition by author_id
-    order by price desc
-  ) as rn
+  row_number() over (partition by author_id order by price desc) as rn
 from books;
 
 select
   id,
   author_id,
   price,
-  rank() over (
-    partition by author_id
-    order by price desc
-  ) as price_rank,
+  rank() over (partition by author_id order by price desc) as price_rank,
   dense_rank() over (
     partition by author_id
     order by price desc
@@ -7430,10 +7403,7 @@ select
   sum(price) over w as total,
   row_number() over w as rn
 from books
-window w as (
-  partition by author_id
-  order by price
-);
+window w as (partition by author_id order by price);
 
 select
   id,
@@ -7456,10 +7426,7 @@ from books;
 select
   id,
   price,
-  first_value(price) over (
-    partition by author_id
-    order by id
-  ) as first_price
+  first_value(price) over (partition by author_id order by id) as first_price
 from books;
 
 select

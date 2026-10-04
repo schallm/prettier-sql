@@ -4,7 +4,6 @@ import type { Options } from '@prettier-sql/core/printer/utils';
 import {
     keyword,
     getDensity,
-    getCommaStyle,
     hardSep,
     softSep,
     hardline,
@@ -19,7 +18,7 @@ import {
     optionItems,
     hasLineSuffix,
 } from '@prettier-sql/core/printer/utils';
-import { valuesRow, valuesDoc, setClauseDoc, joinStatements } from '@prettier-sql/core/printer/layout';
+import { valuesRow, valuesDoc, setClauseDoc, joinStatements, withClauseDoc } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, assignmentOp, takeTrailingComment, unprintedComments, withTrailingComment, takeLeadingComments } from './helpers.js';
 import {
     printExpression,
@@ -32,6 +31,7 @@ import {
     boolEndsWithPendingComment,
     printTop,
     boolClause,
+    printFromClause,
 } from './expressions.js';
 import {
     printCreateTable,
@@ -756,9 +756,6 @@ export function printCtes(node: SqlNode, opts: Options): Doc[] {
 
     if (ctes.length === 0 && !xmlNamespaces?.length) return ctxPrefix;
 
-    const leading = getCommaStyle(opts) === 'leading';
-    const sep: Doc = leading ? [hardline, ', '] : [',', hardline];
-
     // Collect all items for the WITH clause: XMLNAMESPACES first, then CTEs.
     const allItems: Doc[] = [];
 
@@ -766,7 +763,7 @@ export function printCtes(node: SqlNode, opts: Options): Doc[] {
         allItems.push([
             keyword('XMLNAMESPACES', opts),
             ' (',
-            indent([hardline, join(sep, xmlNamespaces)]),
+            indent([hardline, join(hardSep(opts), xmlNamespaces)]),
             hardline,
             ')',
         ]);
@@ -792,7 +789,7 @@ export function printCtes(node: SqlNode, opts: Options): Doc[] {
         );
     }
 
-    return [...ctxPrefix, [keyword('WITH', opts), indent([hardline, join(sep, allItems)])], hardline];
+    return [...ctxPrefix, withClauseDoc(keyword('WITH', opts), allItems, opts), hardline];
 }
 
 function printSelect(node: SqlNode, opts: Options): Doc {
@@ -949,20 +946,7 @@ function printUpdate(node: SqlNode, opts: Options): Doc {
     if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
     else if (output) parts.push(hardline, printOutputClause(output, opts));
 
-    if (from) {
-        const tableRefs = propArr(from, 'tableReferences');
-        parts.push(
-            hardline,
-            keyword('FROM', opts),
-            indent([
-                hardline,
-                join(
-                    hardSep(opts),
-                    tableRefs.map((tr) => printTable(tr, opts)),
-                ),
-            ]),
-        );
-    }
+    if (from) parts.push(hardline, printFromClause(from, opts, (n) => printNode(n, opts)));
 
     if (where) parts.push(hardline, printBoolClause('WHERE', where, opts));
 
@@ -997,20 +981,7 @@ function printDelete(node: SqlNode, opts: Options): Doc {
     if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
     else if (output) parts.push(hardline, printOutputClause(output, opts));
 
-    if (from) {
-        const tableRefs = propArr(from, 'tableReferences');
-        parts.push(
-            hardline,
-            keyword('FROM', opts),
-            indent([
-                hardline,
-                join(
-                    hardSep(opts),
-                    tableRefs.map((tr) => printTable(tr, opts)),
-                ),
-            ]),
-        );
-    }
+    if (from) parts.push(hardline, printFromClause(from, opts, (n) => printNode(n, opts)));
 
     if (where) parts.push(hardline, printBoolClause('WHERE', where, opts));
 

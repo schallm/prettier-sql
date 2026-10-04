@@ -2,7 +2,7 @@ import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options, PrintFn } from '@prettier-sql/core/printer/utils';
 import { keyword, join, indent, hardline, softline, group, line, getDensity, aliasDoc, parenList, parenItems, optionItems, bracketItems, willBreak, hasHardline, hasLine } from '@prettier-sql/core/printer/utils';
-import { caseDoc, betweenDoc, operatorChain, boolGroup, boolLines, joinOnDoc, parenGroup, type BoolTerm, type CaseResult } from '@prettier-sql/core/printer/layout';
+import { caseDoc, betweenDoc, operatorChain, boolGroup, boolLines, joinOnDoc, parenGroup, clauseItems, windowSpecDoc, type BoolTerm, type CaseResult } from '@prettier-sql/core/printer/layout';
 import { printStatement, printQueryExpr } from './statements.js';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, onlyPrefix, printFdwOptions } from './helpers.js';
 
@@ -524,13 +524,7 @@ export function printWindowDef(node: SqlNode, opts: Options, printNode: PrintFn)
         if (frameExclude) parts.push(makeKeyword(frameExclude));
     }
 
-    // The whole `(...)`: inline when it fits, otherwise each clause on its own line
-    return group(['(', indent([softline, join(line, parts)]), softline, ')']);
-}
-
-/** The items of a PARTITION BY / ORDER BY list: a long one continues on indented lines. */
-function clauseItems(items: Doc[]): Doc {
-    return group(indent(join([',', line], items)));
+    return windowSpecDoc(parts);
 }
 
 function printCast(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -668,7 +662,9 @@ function printJoinExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     // `a JOIN (b JOIN c ON x) ON y` they decide which ON belongs to which join
     const parenthesized = (doc: Doc): Doc => ['(', indent([hardline, doc]), hardline, ')'];
     const rhsDoc: Doc = !rhs ? '' : rhs.type === 'JoinExpr' && !propStr(rhs, 'alias') ? parenthesized(printNode(rhs)) : printNode(rhs);
-    const joinDoc: Doc = [lhs ? printNode(lhs) : '', hardline, joinKw, ' ', rhsDoc, condition];
+    // compact: the join stays on the line before when it fits
+    const joinBreak = getDensity(opts) === 'compact' ? line : hardline;
+    const joinDoc: Doc = [lhs ? printNode(lhs) : '', joinBreak, joinKw, ' ', rhsDoc, condition];
 
     // (a JOIN b ...) AS j: an alias on the whole join needs the parentheses
     return propStr(node, 'alias') ? [parenthesized(joinDoc), tableAliasDoc(node, opts)] : joinDoc;

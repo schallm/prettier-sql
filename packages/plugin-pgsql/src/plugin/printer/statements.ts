@@ -11,12 +11,14 @@ import {
     softSep,
     hardSep,
     getDensity,
-    fill,
     line,
     commaFill,
     parenItems, optionItems,
 } from '@prettier-sql/core/printer/utils';
-import { valuesRow, valuesDoc, setClauseDoc, setOpDoc, joinStatements, boolClauseDoc } from '@prettier-sql/core/printer/layout';
+import {
+    valuesRow, valuesDoc, setClauseDoc, setOpDoc, joinStatements, boolClauseDoc,
+    selectListDoc, fromClauseDoc, listClauseDoc, windowClauseDoc, withClauseDoc,
+} from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions } from './helpers.js';
 import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, boolTerms, tableAliasDoc } from './expressions.js';
 
@@ -223,34 +225,13 @@ function printBoolClause(kw: string, where: SqlNode, opts: Options, printNode: P
     return boolClauseDoc(kw, boolTerms(where, printNode), opts);
 }
 
-/**
- * Single-item keyword clause (GROUP BY, ORDER BY).
- * compact  — fill-pack items by width
- * standard/spacious — each item on its own indented line
- */
+/** A keyword and a list: GROUP BY, ORDER BY, RETURNING, USING. */
 function printListClause(kw: string, items: SqlNode[], opts: Options, printNode: PrintFn): Doc {
-    const makeKeyword = (k: string) => keyword(k, opts);
-    const density = getDensity(opts);
-    const inline = density !== 'spacious' && items.length === 1;
-    if (inline) return [makeKeyword(kw), ' ', printNode(items[0]!)];
-    if (density === 'compact') {
-        const docs = items.map(printNode);
-        return [
-            makeKeyword(kw),
-            group([indent([line, fill(docs.flatMap((d, i) => (i === 0 ? [d] : [[',', line], d])))])]),
-        ];
-    }
-    return [makeKeyword(kw), indent([hardline, join(hardSep(opts), items.map(printNode))])];
+    return listClauseDoc(keyword(kw, opts), items.map(printNode), opts);
 }
 
-/**
- * FROM clause: single non-join item stays inline; joins and multiple items are indented.
- */
 function printFromClause(items: SqlNode[], opts: Options, printNode: PrintFn): Doc {
-    const makeKeyword = (k: string) => keyword(k, opts);
-    const inline = items.length === 1 && items[0]!.type !== 'JoinExpr';
-    const body = join([',', hardline], items.map(printNode));
-    return [makeKeyword('FROM'), inline ? [' ', body] : indent([hardline, body])];
+    return fromClauseDoc(keyword('FROM', opts), items.map(printNode), items.some((i) => i.type === 'JoinExpr'), opts);
 }
 
 // ---------------------------------------------------------------------------
@@ -263,7 +244,7 @@ function printCtes(ctes: SqlNode, opts: Options, printNode: PrintFn): Doc[] {
     const recursive = propBool(ctes, 'recursive');
     const cteKw     = recursive ? makeKeyword('WITH RECURSIVE') : makeKeyword('WITH');
     const cteDocs = cteList.map(printNode);
-    return [[cteKw, indent([hardline, join([',', hardline], cteDocs)])]];
+    return [withClauseDoc(cteKw, cteDocs, opts)];
 }
 
 function printSelectBody(node: SqlNode, opts: Options): Doc {
@@ -290,16 +271,9 @@ function printSelectBody(node: SqlNode, opts: Options): Doc {
         : distinct
           ? [makeKeyword('SELECT'), ' ', makeKeyword('DISTINCT')]
           : makeKeyword('SELECT');
-    const density = getDensity(opts);
     // A CASE spans lines, so it starts on a line of its own even as the only column
-    const selectInline = density !== 'spacious' && targets.length === 1 && !(density === 'standard' && prop(targets[0]!, 'val')?.type === 'CaseExpr');
-    const targetDocs = targets.map(printNode);
-    const targetDoc: Doc = selectInline
-        ? targetDocs[0]!
-        : density === 'compact'
-          ? indent(fill(targetDocs.flatMap((d, i) => (i === 0 ? [d] : [[',', line], d]))))
-          : indent([hardline, join(hardSep(opts), targetDocs)]);
-    parts.push([selectKw, selectInline ? [' ', targetDoc] : [' ', targetDoc]]);
+    const caseOnly = targets.length === 1 && prop(targets[0]!, 'val')?.type === 'CaseExpr';
+    parts.push(selectListDoc(selectKw, targets.map(printNode), opts, caseOnly));
 
     if (from.length > 0) {
         parts.push(printFromClause(from, opts, printNode));
@@ -316,12 +290,8 @@ function printSelectBody(node: SqlNode, opts: Options): Doc {
     // Named WINDOW clauses: WINDOW w AS (PARTITION BY ... ORDER BY ...)
     const windowClauses = propArr(node, 'windowClauses');
     if (windowClauses.length > 0) {
-        const wDocs = windowClauses.map((w) => {
-            const wName = propStr(w, 'name') ?? '';
-            const wSpec = printWindowDef(w, opts, printNode);
-            return [wName, ' ', makeKeyword('AS'), ' ', wSpec];
-        });
-        parts.push([makeKeyword('WINDOW'), indent([hardline, join(hardSep(opts), wDocs)])]);
+        const wDocs = windowClauses.map((w) => [propStr(w, 'name') ?? '', ' ', makeKeyword('AS'), ' ', printWindowDef(w, opts, printNode)]);
+        parts.push(windowClauseDoc(makeKeyword('WINDOW'), wDocs, opts));
     }
 
     parts.push(...printQueryTail(node, opts, printNode));
@@ -1470,10 +1440,11 @@ function printSelectInto(node: SqlNode, opts: Options): Doc {
     const offset   = prop(node, 'offset');
 
     const parts: Doc[] = [];
-    parts.push(printListClause('SELECT', targets, opts, printNode));
+    const caseOnly = targets.length === 1 && prop(targets[0]!, 'val')?.type === 'CaseExpr';
+    parts.push(selectListDoc(makeKeyword('SELECT'), targets.map(printNode), opts, caseOnly));
 
     const intoKw: Doc = persistence ? [makeKeyword('INTO'), ' ', makeKeyword(persistence)] : makeKeyword('INTO');
-    parts.push([intoKw, indent([hardline, rangeVarName(into)])]);
+    parts.push([intoKw, ' ', rangeVarName(into)]);
 
     if (from.length > 0) {
         parts.push(printFromClause(from, opts, printNode));

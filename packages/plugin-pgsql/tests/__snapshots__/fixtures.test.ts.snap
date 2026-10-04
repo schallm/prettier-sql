@@ -2960,13 +2960,11 @@ when matched then
     a[1] = 1;
 
 select *
-into unlogged
-  new_t
+into unlogged new_t
 from t;
 
 select *
-into temporary
-  new_t2
+into temporary new_t2
 from t;
 
 merge into t
@@ -5533,8 +5531,7 @@ with
   )
 select count(*) over "W"
 from "Cte"
-window
-  "W" as (order by "X");
+window "W" as (order by "X");
 
 select f("Named Arg" => 1)
 from
@@ -5580,8 +5577,7 @@ exports[`fixtures > select/select-into.sql 1`] = `
 "select
   id,
   name
-into
-  archive_users
+into archive_users
 from users
 where active = false;
 "
@@ -6162,11 +6158,13 @@ exports[`long lines in every density > spacious 1`] = `
     a.third_choice_column,
     a.default_value
   ) as chosen
-from t as a;
+from
+  t as a;
 
 select
   a.id
-from t as a
+from
+  t as a
 where
   a.status in (
     'pending', 'shipped', 'cancelled', 'returned', 'refunded', 'on_hold',
@@ -6179,7 +6177,8 @@ select
     partition by a.account_id, a.region_id
     order by a.created_at desc, a.id
   ) as rn
-from t as a;
+from
+  t as a;
 
 create table orders (
   order_identifier integer
@@ -6241,7 +6240,8 @@ exports[`options > sqlDensity: spacious (WHERE indented) 1`] = `
   id,
   title,
   price
-from books
+from
+  books
 where
   in_stock = true
   and price < 50
@@ -7072,8 +7072,7 @@ select
   sum(price) over w as total,
   row_number() over w as rn
 from books
-window
-  w as (partition by author_id order by price);
+window w as (partition by author_id order by price);
 
 select
   id,
