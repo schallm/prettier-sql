@@ -139,6 +139,20 @@ export function commaFill(items: Doc[]): Doc {
 }
 
 /**
+ * True when a doc has a hard line break of its own (a CASE, a subquery). Unlike
+ * willBreak, a line comment waiting for the end of its line doesn't count: it only
+ * forces the enclosing group to break, which is what a list holding one should do.
+ */
+export function hasHardline(doc: Doc): boolean {
+    if (Array.isArray(doc)) return doc.some(hasHardline);
+    if (!doc || typeof doc !== 'object') return false;
+    if (doc.type === 'line') return doc.hard === true;
+    if (doc.type === 'line-suffix') return false;
+    const d = doc as { contents?: Doc; parts?: Doc[]; breakContents?: Doc; flatContents?: Doc };
+    return [d.contents, d.breakContents, d.flatContents, ...(d.parts ?? [])].some((c) => c !== undefined && hasHardline(c));
+}
+
+/**
  * The `(a, b, c)` of a call or list: inline when it fits, otherwise one item per line
  * between the parentheses (compact density, or `packed`, fills several per line).
  * Fewer than two items, or an item that already contains a forced break (a CASE, a
@@ -155,13 +169,13 @@ export function parenItems(items: Doc[], opts: Options, packed = false, hug = tr
  * (`WAIT_AT_LOW_PRIORITY (MAX_DURATION = 10 MINUTES, ABORT_AFTER_WAIT = BLOCKERS)`).
  */
 export function optionItems(items: Doc[], opts: Options): Doc {
-    if (items.length === 1 && !utils.willBreak(items[0]!)) return group(['(', indent([softline, items[0]!]), softline, ')']);
+    if (items.length === 1 && !hasHardline(items[0]!)) return group(['(', indent([softline, items[0]!]), softline, ')']);
     return parenItems(items, opts);
 }
 
 /** parenItems with other delimiters, such as the `[` `]` of an ARRAY. */
 export function bracketItems(open: string, close: string, items: Doc[], opts: Options, packed = false, hug = true): Doc {
-    if (items.length < 2 || (hug && items.some((i) => utils.willBreak(i)))) return [open, join(', ', items), close];
+    if (items.length < 2 || (hug && items.some(hasHardline))) return [open, join(', ', items), close];
     const inner = packed || getDensity(opts) === 'compact' ? commaFill(items) : joinItems(items);
     return group([open, indent([softline, inner]), softline, close]);
 }
