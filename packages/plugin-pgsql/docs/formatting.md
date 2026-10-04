@@ -2060,7 +2060,7 @@ select coalesce(
 from t as a;
 ```
 
-A call with fewer than two arguments, or with an argument that already spans lines (a `case`, a subquery), keeps its parentheses hugging the argument.
+A call with a single argument keeps its parentheses hugging it, even when that argument spans lines (`sum(case ... end)`). With several arguments, one that spans lines (a `case`, a subquery) puts every argument on its own line.
 
 `IN` lists and `ARRAY[...]` pack literals as many to a line as fit, and put other expressions one per line:
 
