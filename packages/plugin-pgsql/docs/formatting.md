@@ -71,10 +71,13 @@ where
   and a.created_at > now() - interval '30 days';
 
 alter table accounts
-  add constraint valid_period check (starts_at is not null
-    and ends_at is not null
-    and ends_at > starts_at
-    and starts_at > '2000-01-01');
+  add constraint valid_period
+    check (
+      starts_at is not null
+        and ends_at is not null
+        and ends_at > starts_at
+        and starts_at > '2000-01-01'
+    );
 ```
 
 ### JOIN types
@@ -2190,7 +2193,6 @@ grant
   select, insert, update, delete, truncate, references, trigger
 on table some_long_table_name
 to some_role;
-
 comment on column some_long_table_name.very_long_column_name_one is
   'a very long comment about this column';
 ```
