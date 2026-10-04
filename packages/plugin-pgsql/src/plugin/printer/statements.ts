@@ -123,6 +123,7 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'CreateTableAsStatement': return printCreateTableAs(node, opts);
         case 'CreateMatViewStatement': return printCreateMatView(node, opts);
         case 'CreateTriggerStatement': return printCreateTrigger(node, opts);
+        case 'CreateEventTriggerStatement': return printCreateEventTrigger(node, opts);
         case 'CommentStatement':       return printComment(node, opts);
         case 'CallStatement':          return printCall(node, opts);
         case 'DoStatement':            return printDo(node, opts);
@@ -1273,6 +1274,21 @@ function printCreateAsQuery(node: SqlNode, opts: Options, kw: string): Doc {
 // ---------------------------------------------------------------------------
 // CREATE TRIGGER
 // ---------------------------------------------------------------------------
+
+// CREATE EVENT TRIGGER name ON event [WHEN tag IN ('...', ...) [AND ...]] EXECUTE FUNCTION f()
+function printCreateEventTrigger(node: SqlNode, opts: Options): Doc {
+    const makeKeyword = (k: string) => keyword(k, opts);
+    // the filters are plain {name, values} objects, not nodes
+    const filters = (node.props?.['filters'] as Array<{ name: string; values: string[] }> | undefined) ?? [];
+    const filterDocs = filters.map((f): Doc => [makeKeyword(f.name), ' ', makeKeyword('IN'), ' ', parenItems(f.values, opts)]);
+    return [
+        [makeKeyword('CREATE EVENT TRIGGER'), ' ', propStr(node, 'name') ?? ''],
+        hardline, makeKeyword('ON'), ' ', makeKeyword(propStr(node, 'event') ?? ''),
+        filterDocs.length > 0 ? [hardline, makeKeyword('WHEN'), ' ', join([' ', makeKeyword('AND'), ' '], filterDocs)] : '',
+        hardline, makeKeyword('EXECUTE FUNCTION'), ' ', propStr(node, 'funcName') ?? '', '()',
+        ';',
+    ];
+}
 
 function printCreateTrigger(node: SqlNode, opts: Options): Doc {
     const makeKeyword       = (k: string) => keyword(k, opts);

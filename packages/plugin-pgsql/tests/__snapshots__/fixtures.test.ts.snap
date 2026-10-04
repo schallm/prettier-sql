@@ -605,6 +605,23 @@ drop table a, s.b;
 "
 `;
 
+exports[`fixtures > ddl/event-triggers.sql 1`] = `
+"create event trigger log_ddl
+on ddl_command_start
+execute function log_ddl_func();
+
+create event trigger no_drops
+on sql_drop
+when tag in ('DROP TABLE', 'DROP VIEW')
+execute function public.abort_drop();
+
+create event trigger "Mixed Case"
+on ddl_command_end
+when tag in ('CREATE TABLE') and tag in ('it''s')
+execute function f();
+"
+`;
+
 exports[`fixtures > ddl/function-attributes.sql 1`] = `
 "-- OR REPLACE, procedures, attributes (volatility, STRICT, SECURITY DEFINER, ...), SETOF, parameter defaults, C symbols and $$ inside a body
 create or replace function f(
@@ -2449,7 +2466,7 @@ from orders tablesample system(5) repeatable (42);
 `;
 
 exports[`fixtures > p4/unknown-passthrough.sql 1`] = `
-"create event trigger log_ddl on ddl_command_start execute procedure log_ddl_func();
+"create domain posint as integer check (value > 0);
 
 create cast (text as integer) with function int4(text) as implicit;
 "

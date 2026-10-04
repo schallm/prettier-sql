@@ -114,6 +114,7 @@ public class AstBuilder {
             Node.NodeOneofCase.CreateExtensionStmt      => BuildCreateExtension(stmt.CreateExtensionStmt, start, end),
             Node.NodeOneofCase.CreateTableAsStmt        => BuildCreateTableAs(stmt.CreateTableAsStmt, start, end),
             Node.NodeOneofCase.CreateTrigStmt           => BuildCreateTrigger(stmt.CreateTrigStmt, start, end),
+            Node.NodeOneofCase.CreateEventTrigStmt      => BuildCreateEventTrigger(stmt.CreateEventTrigStmt, start, end),
             Node.NodeOneofCase.CommentStmt              => BuildComment(stmt.CommentStmt, start, end),
             Node.NodeOneofCase.AlterFunctionStmt        => BuildAlterFunction(stmt.AlterFunctionStmt, start, end),
             Node.NodeOneofCase.RefreshMatViewStmt       => BuildRefreshMatView(stmt.RefreshMatViewStmt, start, end),
@@ -2513,6 +2514,28 @@ public class AstBuilder {
                 .Select(a => $"'{a.String.Sval.Replace("'", "''")}'")
                 .ToList())),
             ("when",         t.WhenClause != null ? BuildExpr(t.WhenClause) : null)
+        ));
+    }
+
+    // CREATE EVENT TRIGGER name ON event [WHEN filter IN ('tag', ...) [AND ...]] EXECUTE FUNCTION f()
+    private SqlNode BuildCreateEventTrigger(CreateEventTrigStmt t, int start, int end) {
+        var filters = t.Whenclause
+            .Where(w => w.NodeCase == Node.NodeOneofCase.DefElem)
+            .Select(w => (object?)new Dictionary<string, object?> {
+                ["name"] = w.DefElem.Defname.ToUpperInvariant(),
+                ["values"] = w.DefElem.Arg?.NodeCase == Node.NodeOneofCase.List
+                    ? w.DefElem.Arg.List.Items
+                        .Where(v => v.NodeCase == Node.NodeOneofCase.String)
+                        .Select(v => (object?)$"'{v.String.Sval.Replace("'", "''")}'")
+                        .ToList()
+                    : new List<object?>(),
+            })
+            .ToList();
+        return new SqlNode("CreateEventTriggerStatement", start, end, null, BuildProps(
+            ("name",     Ident.Quote(t.Trigname)),
+            ("event",    t.Eventname),
+            ("filters",  MaybeList(filters)),
+            ("funcName", Ident.QualifiedFunc(t.Funcname.Select(n => n.String.Sval)))
         ));
     }
 

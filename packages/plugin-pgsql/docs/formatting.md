@@ -2,7 +2,7 @@
 
 Comprehensive formatting rules organized by statement type. All examples use default options (lowercase keywords, standard density, trailing commas) unless noted.
 
-A few uncommon top-level statements have no printer yet (`CREATE CAST`, `CREATE DOMAIN`, `CREATE EVENT TRIGGER`, `CREATE STATISTICS`, `ALTER DEFAULT PRIVILEGES`, `CREATE DATABASE`, ...) and are kept exactly as written. A construct inside a supported statement that the formatter can't print raises an `Unsupported ...` error instead of being dropped.
+A few uncommon top-level statements have no printer yet (`CREATE CAST`, `CREATE DOMAIN`, `CREATE STATISTICS`, `ALTER DEFAULT PRIVILEGES`, `CREATE DATABASE`, ...) and are kept exactly as written. A construct inside a supported statement that the formatter can't print raises an `Unsupported ...` error instead of being dropped.
 
 ---
 
@@ -1305,6 +1305,17 @@ create trigger check_fk
 after insert on order_items
 for each row
 execute function check_order_item_fk();
+```
+
+#### CREATE EVENT TRIGGER
+
+The name, event, optional `WHEN` filter and function call each appear on their own line. `EXECUTE PROCEDURE` is printed as `EXECUTE FUNCTION`, which parses to the same statement:
+
+```sql
+create event trigger no_drops
+on sql_drop
+when tag in ('DROP TABLE', 'DROP VIEW')
+execute function public.abort_drop();
 ```
 
 ### Row Level Security
