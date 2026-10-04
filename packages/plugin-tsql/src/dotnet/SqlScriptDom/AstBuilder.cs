@@ -1038,10 +1038,29 @@ public class AstBuilder : TSqlFragmentVisitor {
     [ThreadStatic] private static Dictionary<TSqlStatement, int>? _stmtLimit;
 
     private sealed class StatementLimitIndexer(Dictionary<TSqlStatement, int> limits) : TSqlFragmentVisitor {
+        // Where a statement's source text starts. END CONVERSATION's own fragment starts at its
+        // handle, after the END CONVERSATION keywords, so those have to be found before it: a raw
+        // statement ahead of it must stop there, not swallow them (and print them a second time).
+        private static int StartOf(TSqlStatement stmt) {
+            var first = stmt.FirstTokenIndex;
+            var stream = stmt.ScriptTokenStream;
+            if (stmt is not EndConversationStatement || stream == null) return first;
+            var i = PreviousSignificant(stream, first);
+            if (i < 0 || !string.Equals(stream[i].Text, "CONVERSATION", StringComparison.OrdinalIgnoreCase)) return first;
+            var end = PreviousSignificant(stream, i);
+            return end >= 0 && stream[end].TokenType == TSqlTokenType.End ? end : first;
+        }
+        private static int PreviousSignificant(IList<TSqlParserToken> stream, int before) {
+            for (var i = before - 1; i >= 0; i--) {
+                if (stream[i].TokenType is TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment) continue;
+                return i;
+            }
+            return -1;
+        }
         private void Index(IList<TSqlStatement>? statements, int lastLimit) {
             if (statements == null) return;
             for (var i = 0; i < statements.Count; i++) {
-                if (i + 1 < statements.Count) limits[statements[i]] = statements[i + 1].FirstTokenIndex;
+                if (i + 1 < statements.Count) limits[statements[i]] = StartOf(statements[i + 1]);
                 else if (lastLimit >= 0) limits[statements[i]] = lastLimit;
             }
         }
