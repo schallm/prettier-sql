@@ -990,7 +990,8 @@ function printVariableSet(node: SqlNode, opts: Options): Doc {
     }
 
     // Values arrive as SQL text (numbers, bare words, or quoted literals)
-    return [[makeKeyword('SET'), ' ', localKw, name, ' = ', join(', ', values)], ';'];
+    // ...and the values fill an indented line of their own when they don't fit after the =
+    return [group([makeKeyword('SET'), ' ', localKw, name, ' =', indent([line, commaFill(values)])]), ';'];
 }
 
 function printVariableShow(node: SqlNode, opts: Options): Doc {

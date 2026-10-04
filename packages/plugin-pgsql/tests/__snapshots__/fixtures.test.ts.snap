@@ -1842,6 +1842,17 @@ lock table orders in access exclusive mode nowait;
 "
 `;
 
+exports[`fixtures > dml/long-set-values.sql 1`] = `
+"set search_path =
+  some_long_schema_name, another_long_schema_name, third_long_schema_name,
+  public;
+set search_path = public;
+set local statement_timeout = '5min';
+set some_extension.some_long_setting_name =
+  'a very long string value for the setting that does not fit';
+"
+`;
+
 exports[`fixtures > dml/merge.sql 1`] = `
 "-- Basic MERGE: WHEN MATCHED UPDATE, WHEN NOT MATCHED INSERT
 merge into target as t
