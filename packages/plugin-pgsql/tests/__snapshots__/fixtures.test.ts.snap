@@ -1529,6 +1529,13 @@ to orders
 do also
   insert into audit_log (event, record_id)
   values ('delete', old.id);
+
+create or replace rule log_updates
+as on update
+to orders
+do also
+  insert into order_log (id)
+  values (new.id);
 "
 `;
 

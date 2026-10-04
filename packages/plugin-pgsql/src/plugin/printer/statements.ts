@@ -1449,7 +1449,7 @@ function printRule(node: SqlNode, opts: Options): Doc {
     const actions  = propArr(node, 'actions');
 
     const parts: Doc[] = [];
-    parts.push([makeKeyword('CREATE RULE'), ' ', ruleName]);
+    parts.push([makeKeyword(propBool(node, 'orReplace') ? 'CREATE OR REPLACE RULE' : 'CREATE RULE'), ' ', ruleName]);
     parts.push([makeKeyword('AS ON'), ' ', makeKeyword(event)]);
     parts.push([makeKeyword('TO'), ' ', rangeVarName(relation)]);
 

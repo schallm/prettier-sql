@@ -2734,6 +2734,7 @@ public class AstBuilder {
             _                 => s.Event.ToString(),
         };
         return new SqlNode("RuleStatement", start, end, null, BuildProps(
+            ("orReplace", s.Replace ? true : null),
             ("ruleName", Ident.QuoteOpt(s.Rulename)),
             ("relation", BuildRangeVar(s.Relation)),
             ("event",    eventName),
