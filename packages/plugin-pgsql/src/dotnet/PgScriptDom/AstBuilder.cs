@@ -115,6 +115,7 @@ public class AstBuilder {
             Node.NodeOneofCase.CreateTableAsStmt        => BuildCreateTableAs(stmt.CreateTableAsStmt, start, end),
             Node.NodeOneofCase.CreateTrigStmt           => BuildCreateTrigger(stmt.CreateTrigStmt, start, end),
             Node.NodeOneofCase.CreateEventTrigStmt      => BuildCreateEventTrigger(stmt.CreateEventTrigStmt, start, end),
+            Node.NodeOneofCase.CreateDomainStmt         => BuildCreateDomain(stmt.CreateDomainStmt, start, end),
             Node.NodeOneofCase.CommentStmt              => BuildComment(stmt.CommentStmt, start, end),
             Node.NodeOneofCase.AlterFunctionStmt        => BuildAlterFunction(stmt.AlterFunctionStmt, start, end),
             Node.NodeOneofCase.RefreshMatViewStmt       => BuildRefreshMatView(stmt.RefreshMatViewStmt, start, end),
@@ -2516,6 +2517,20 @@ public class AstBuilder {
             ("when",         t.WhenClause != null ? BuildExpr(t.WhenClause) : null)
         ));
     }
+
+    // CREATE DOMAIN name [AS] type [COLLATE c] [DEFAULT e | NOT NULL | NULL | [CONSTRAINT n] CHECK (e)] ...
+    private SqlNode BuildCreateDomain(CreateDomainStmt d, int start, int end) =>
+        new("CreateDomainStatement", start, end, null, BuildProps(
+            ("name",        Ident.Qualified(d.Domainname.Select(n => n.String.Sval))),
+            ("typeName",    d.TypeName != null ? BuildPgTypeName(d.TypeName) : null),
+            ("collation",   d.CollClause != null ? Ident.Qualified(d.CollClause.Collname.Select(c => c.String.Sval)) : null),
+            ("constraints", d.Constraints.Count > 0
+                ? (object?)d.Constraints
+                    .Where(n => n.NodeCase == Node.NodeOneofCase.Constraint)
+                    .Select(n => BuildConstraint(n.Constraint))
+                    .ToList()
+                : null)
+        ));
 
     // CREATE EVENT TRIGGER name ON event [WHEN filter IN ('tag', ...) [AND ...]] EXECUTE FUNCTION f()
     private SqlNode BuildCreateEventTrigger(CreateEventTrigStmt t, int start, int end) {

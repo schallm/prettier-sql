@@ -124,6 +124,7 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'CreateMatViewStatement': return printCreateMatView(node, opts);
         case 'CreateTriggerStatement': return printCreateTrigger(node, opts);
         case 'CreateEventTriggerStatement': return printCreateEventTrigger(node, opts);
+        case 'CreateDomainStatement': return printCreateDomain(node, opts);
         case 'CommentStatement':       return printComment(node, opts);
         case 'CallStatement':          return printCall(node, opts);
         case 'DoStatement':            return printDo(node, opts);
@@ -1288,6 +1289,26 @@ function printCreateAsQuery(node: SqlNode, opts: Options, kw: string): Doc {
 // ---------------------------------------------------------------------------
 // CREATE TRIGGER
 // ---------------------------------------------------------------------------
+
+// CREATE DOMAIN name AS type [COLLATE c] constraints...
+function printCreateDomain(node: SqlNode, opts: Options): Doc {
+    const makeKeyword = (k: string) => keyword(k, opts);
+    const printNode = printWith(opts);
+    const typeName = propStr(node, 'typeName') ?? '';
+    const collation = propStr(node, 'collation');
+    // On one line when it fits; otherwise each clause goes on an indented line of its own
+    const clauses: Doc[] = [
+        ...(collation ? [[makeKeyword('COLLATE'), ' ', collation] as Doc] : []),
+        ...propArr(node, 'constraints').map(printNode),
+    ];
+    return [
+        group([
+            makeKeyword('CREATE DOMAIN'), ' ', propStr(node, 'name') ?? '', ' ', makeKeyword('AS'), ' ', makeKeyword(typeName),
+            indent(clauses.map((c) => [line, c])),
+        ]),
+        ';',
+    ];
+}
 
 // CREATE EVENT TRIGGER name ON event [WHEN tag IN ('...', ...) [AND ...]] EXECUTE FUNCTION f()
 function printCreateEventTrigger(node: SqlNode, opts: Options): Doc {

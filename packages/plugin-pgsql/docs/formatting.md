@@ -2,7 +2,7 @@
 
 Comprehensive formatting rules organized by statement type. All examples use default options (lowercase keywords, standard density, trailing commas) unless noted.
 
-A few uncommon top-level statements have no printer yet (`CREATE CAST`, `CREATE DOMAIN`, `CREATE STATISTICS`, `ALTER DEFAULT PRIVILEGES`, `CREATE DATABASE`, ...) and are kept exactly as written. A construct inside a supported statement that the formatter can't print raises an `Unsupported ...` error instead of being dropped.
+A few uncommon top-level statements have no printer yet (`CREATE CAST`, `CREATE STATISTICS`, `ALTER DEFAULT PRIVILEGES`, `CREATE DATABASE`, ...) and are kept exactly as written. A construct inside a supported statement that the formatter can't print raises an `Unsupported ...` error instead of being dropped.
 
 ---
 
@@ -1056,6 +1056,25 @@ create unique index concurrently if not exists ix_orders_customer_identifier_cre
   on only some_schema.orders_table (customer_identifier, created_at)
   include (status)
   where deleted_at is null;
+```
+
+### CREATE DOMAIN
+
+On one line when it fits; otherwise `COLLATE`, `DEFAULT`, `NOT NULL` and each constraint go on an indented line of their own:
+
+```sql
+create domain posint as integer check (value > 0);
+
+create domain some_long_domain_name as text
+  constraint some_long_check_name
+    check (value ~ '^[a-z]+$' and length(value) > 3 and length(value) < 50);
+
+create domain s.d as varchar(20)
+  collate "C"
+  default 'x'
+  not null
+  constraint c1 check (value <> '')
+  constraint c2 check (length(value) < 10);
 ```
 
 ### CREATE FUNCTION

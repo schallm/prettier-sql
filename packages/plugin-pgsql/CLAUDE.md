@@ -186,7 +186,7 @@ pnpm run test:watch   # vitest watch
 ## What's NOT yet implemented
 
 - **Procedural / PL/pgSQL** — out of scope for now
-- **Printers for uncommon top-level statements** — `CREATE CAST`, `CREATE DOMAIN`,
+- **Printers for uncommon top-level statements** — `CREATE CAST`,
   `CREATE STATISTICS`, `ALTER DEFAULT PRIVILEGES`, `CREATE/ALTER/DROP DATABASE`, text search, … reach `Fallback()`
   in `AstBuilder.cs` and are kept as written (`UnknownStatement`)
 - **Type modifiers that are expressions** (`foo(1 + 1)`) — throw `Unsupported type modifier`
