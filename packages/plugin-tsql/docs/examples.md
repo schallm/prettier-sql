@@ -67,8 +67,8 @@ In each diff block, `-` lines are the raw input and `+` lines are the formatted 
 +   Categories
 +   cross join SubCategories
 + order by
-+   Categories.Name asc,
-+   SubCategories.Name asc;
++   Categories.Name,
++   SubCategories.Name;
 ```
 
 ### CASE expression
@@ -154,7 +154,7 @@ In each diff block, `-` lines are the raw input and `+` lines are the formatted 
 +   values
 +     (1, 'Alice'),
 +     (2, 'Bob')
-+ ) as v(Id, Name);
++ ) as v (Id, Name);
 ```
 
 ### EXISTS
@@ -182,10 +182,7 @@ In each diff block, `-` lines are the raw input and `+` lines are the formatted 
 +       Id,
 +       Title,
 +       Price,
-+       rank() over (
-+         partition by GenreId
-+         order by Price desc
-+       ) as PriceRank
++       rank() over (partition by GenreId order by Price desc) as PriceRank
 +     from Books
 +     where InStock = 1
 +   )
@@ -204,7 +201,7 @@ In each diff block, `-` lines are the raw input and `+` lines are the formatted 
 +   Total,
 +   sum(Total) over (
 +     partition by CustomerId
-+     order by OrderDate asc
++     order by OrderDate
 +     rows between unbounded preceding and current row
 +   ) as RunningTotal,
 +   avg(Total) over (partition by CustomerId) as AvgTotal
@@ -294,11 +291,11 @@ Multiple rows always break with one row per line:
 ```diff
 - MERGE INTO Books USING BookUpdates ON Books.Id=BookUpdates.Id WHEN MATCHED AND Books.Price<>BookUpdates.Price THEN UPDATE SET Books.Price=BookUpdates.Price,Books.InStock=BookUpdates.InStock WHEN NOT MATCHED BY TARGET THEN INSERT(Title,AuthorId,Price,InStock) VALUES(BookUpdates.Title,BookUpdates.AuthorId,BookUpdates.Price,BookUpdates.InStock) WHEN NOT MATCHED BY SOURCE THEN DELETE;
 + merge into Books
-+ using BookUpdates on Books.Id = BookUpdates.Id
++ using BookUpdates
++ on Books.Id = BookUpdates.Id
 + when matched and Books.Price <> BookUpdates.Price then
 +   update set
-+     Books.Price = BookUpdates.Price,
-+     Books.InStock = BookUpdates.InStock
++     Books.Price = BookUpdates.Price, Books.InStock = BookUpdates.InStock
 + when not matched by target then
 +   insert (Title, AuthorId, Price, InStock)
 +   values (BookUpdates.Title, BookUpdates.AuthorId, BookUpdates.Price, BookUpdates.InStock)
@@ -311,7 +308,8 @@ Multiple rows always break with one row per line:
 ```diff
 - MERGE TOP(500) INTO Books USING BookUpdates ON Books.Id=BookUpdates.Id WHEN MATCHED THEN UPDATE SET Books.Price=BookUpdates.Price WHEN NOT MATCHED THEN INSERT(Id,Title,Price) VALUES(BookUpdates.Id,BookUpdates.Title,BookUpdates.Price);
 + merge top (500) into Books
-+ using BookUpdates on Books.Id = BookUpdates.Id
++ using BookUpdates
++ on Books.Id = BookUpdates.Id
 + when matched then
 +   update set Books.Price = BookUpdates.Price
 + when not matched then
@@ -337,7 +335,8 @@ referential action, and check constraint:
 +   OrderDate date not null,
 +   constraint PK_Orders primary key (Id),
 +   constraint FK_Orders_Customers
-+     foreign key (CustomerId) references Customers (Id)
++     foreign key (CustomerId)
++     references Customers (Id)
 +     on delete cascade,
 +   constraint CK_Orders_Total check (Total >= 0)
 + );
@@ -348,16 +347,17 @@ referential action, and check constraint:
 ```diff
 - ALTER TABLE Books ALTER COLUMN Price DECIMAL(12,2) NOT NULL
 + alter table Books
-+ alter column Price decimal(12, 2) not null;
++   alter column Price decimal(12, 2) not null;
 ```
 
 ```diff
 - ALTER TABLE Orders ADD CONSTRAINT FK_Orders_Customers FOREIGN KEY(CustomerId) REFERENCES Customers(Id) ON DELETE CASCADE ON UPDATE NO ACTION
 + alter table Orders
-+ add constraint FK_Orders_Customers
-+   foreign key (CustomerId) references Customers (Id)
-+   on delete cascade
-+   on update no action;
++   add constraint FK_Orders_Customers
++     foreign key (CustomerId)
++     references Customers (Id)
++     on update no action
++     on delete cascade;
 ```
 
 ### CREATE VIEW
@@ -397,7 +397,7 @@ referential action, and check constraint:
 +   where
 +     Books.AuthorId = @AuthorId
 +     and Books.Price >= @MinPrice
-+   order by Books.Price asc;
++   order by Books.Price;
 + end;
 + go
 ```

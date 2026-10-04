@@ -30,7 +30,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   authors.last_name
 + from
 +   books
-+   join authors on books.author_id = authors.id
++   inner join authors on books.author_id = authors.id
 + where books.price < 50;
 ```
 
@@ -131,7 +131,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   recent_orders.total
 + from
 +   customers
-+   join recent_orders on customers.id = recent_orders.customer_id
++   inner join recent_orders on customers.id = recent_orders.customer_id
 + order by recent_orders.total desc;
 ```
 
@@ -173,7 +173,9 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +   id,
 +   name
 + from customers
++
 + union
++
 + select
 +   id,
 +   title as name
@@ -426,13 +428,15 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 +       id,
 +       parent_id
 +     from tree
++
 +     union all
++
 +     select
 +       tree.id,
 +       tree.parent_id
 +     from
 +       tree
-+       join t on t.id = tree.parent_id
++       inner join t on t.id = tree.parent_id
 +   )
 +   search breadth first by id set ordercol
 +   cycle id set is_cycle using path
@@ -447,7 +451,7 @@ Before/after formatting examples for common PostgreSQL patterns. All examples us
 + select
 +   id,
 +   title
-+ from books tablesample bernoulli(10);
++ from books tablesample bernoulli (10);
 ```
 
 ---

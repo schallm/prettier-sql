@@ -63,14 +63,13 @@ select
 from Books;
 ```
 
-Long `on` conditions that exceed `printWidth` wrap below the join line:
+An `on` condition stays on the join line when it fits. Otherwise a chain of predicates keeps its first predicate after `on` and puts each further one on an indented line, and a single long predicate moves whole to an indented line of its own:
 
 ```sql
 select *
 from
   Books
-  inner join Authors on
-    Books.AuthorId = Authors.Id
+  inner join Authors on Books.AuthorId = Authors.Id
     and Books.PublisherId = Authors.PublisherId;
 ```
 
@@ -187,17 +186,13 @@ from Books
 where GenreId in (1, 2, 3);
 ```
 
-Long lists that would exceed `printWidth` wrap with each value on its own line:
+Long lists that would exceed `printWidth` wrap: a list of literals packs as many values to a line as fit, and any other list puts each value on its own line:
 
 ```sql
 select Id
 from Authors
 where Country in (
-  'United States',
-  'United Kingdom',
-  'Canada',
-  'Australia',
-  'Germany'
+  'United States', 'United Kingdom', 'Canada', 'Australia', 'Germany'
 );
 ```
 
@@ -614,10 +609,7 @@ The `over(...)` clause wraps when it doesn't fit on one line:
 select
   Id,
   Price,
-  row_number() over (
-    partition by GenreId
-    order by Price desc
-  ) as rn
+  row_number() over (partition by GenreId order by Price desc) as rn
 from Books;
 ```
 
@@ -641,7 +633,7 @@ where AvgPrice > 25;
 
 #### Inline VALUES derived table
 
-A `VALUES(...)` constructor used as a derived table in `FROM` always puts its rows on their own lines, one per row, like a standalone `VALUES`. The alias and column list follow the closing parenthesis with no space between the alias name and the column list. (In `compact` density the rows are packed and stay inline when they fit.)
+A `VALUES(...)` constructor used as a derived table in `FROM` goes on its own lines inside the parentheses and lays out its rows as a standalone `VALUES` does. The alias and its column list follow the closing parenthesis, with a space before the column list as before any column list.
 
 ```sql
 select
@@ -651,7 +643,7 @@ from (
   values
     (1, 'Alice'),
     (2, 'Bob')
-) as v(Id, Name);
+) as v (Id, Name);
 ```
 
 #### Subqueries
@@ -1005,15 +997,15 @@ where InStock = 0;
 
 ### MERGE
 
-`merge into` targets the destination table. `using` specifies the source, which can be a table or a subquery. The `on` condition follows `using` on the same line (matching JOIN behaviour): a single predicate stays inline; multiple predicates break to indented lines below. Each `when` clause appears on its own line; the action is indented one level below `then`:
+`merge into` targets the destination table. `using` specifies the source, which can be a table or a subquery. The `on` condition goes on its own line after `using`, laid out as a join's `on` is. Each `when` clause appears on its own line; the action is indented one level below `then` (in `compact` density it stays on the `then` line). `update set` lays out its assignments as `UPDATE ... SET` does:
 
 ```sql
 merge into Books
-using ArchivedBooks on Books.Id = ArchivedBooks.Id
+using ArchivedBooks
+on Books.Id = ArchivedBooks.Id
 when matched then
   update set
-    Title = ArchivedBooks.Title,
-    Price = ArchivedBooks.Price
+    Title = ArchivedBooks.Title, Price = ArchivedBooks.Price
 when not matched by target then
   insert (Id, Title, Price)
   values (ArchivedBooks.Id, ArchivedBooks.Title, ArchivedBooks.Price)
@@ -1021,13 +1013,12 @@ when not matched by source then
   delete;
 ```
 
-When the `on` condition has multiple predicates they break to indented lines:
+When the `on` condition has multiple predicates they stay on one line when they fit, and otherwise continue on indented lines:
 
 ```sql
 merge into Books
-using ArchivedBooks on
-  Books.Id = ArchivedBooks.Id
-  and Books.Name = ArchivedBooks.Name
+using ArchivedBooks
+on Books.Id = ArchivedBooks.Id and Books.Name = ArchivedBooks.Name
 when matched then
   update set Price = ArchivedBooks.Price;
 ```
@@ -1036,7 +1027,8 @@ An optional `and` predicate on a `when` clause stays inline with the condition k
 
 ```sql
 merge into Books
-using ArchivedBooks on Books.Id = ArchivedBooks.Id
+using ArchivedBooks
+on Books.Id = ArchivedBooks.Id
 when matched and Books.Price <> ArchivedBooks.Price then
   update set Price = ArchivedBooks.Price;
 ```
@@ -1052,18 +1044,19 @@ using (
     Price
   from ArchivedBooks
   where Price > 0
-) as src on Books.Id = src.Id
+) as src
+on Books.Id = src.Id
 when matched then
   update set
-    Title = src.Title,
-    Price = src.Price;
+    Title = src.Title, Price = src.Price;
 ```
 
 MERGE with OUTPUT:
 
 ```sql
 merge into Books
-using ArchivedBooks on Books.Id = ArchivedBooks.Id
+using ArchivedBooks
+on Books.Id = ArchivedBooks.Id
 when matched then
   update set Price = ArchivedBooks.Price
 output $action, inserted.Id, deleted.Price;
@@ -1115,7 +1108,7 @@ create table Books (
 );
 ```
 
-Column lists in `PRIMARY KEY` and `UNIQUE` constraints stay on one line when they fit. When the constraint line exceeds `printWidth`, the constraint name becomes the header line and the key clause wraps to an indented line. When the column list itself is also too long, it breaks one column per line:
+A `PRIMARY KEY` or `UNIQUE` constraint stays on the constraint name's line. When its column list doesn't fit, it breaks one column per line:
 
 ```sql
 create table OrderItems (
@@ -1136,20 +1129,22 @@ create table Orders (
   Total decimal(18, 2) not null,
   constraint PK_Orders primary key (Id),
   constraint FK_Orders_Customers
-    foreign key (CustomerId) references Customers (Id)
+    foreign key (CustomerId)
+    references Customers (Id)
 );
 ```
 
-`foreign key (cols) references table (cols)` is treated as a single unit and kept on one line when it fits. When the combined line is too long, `references` indents one extra level below `foreign key`. `on delete` and `on update` referential actions each appear on their own line at the same indent level as `foreign key`:
+A `foreign key` constraint stays on one line when it fits. Otherwise the constraint name stays on the first line and `foreign key (cols)`, `references table (cols)` and each `on update` / `on delete` action go on an indented line of their own. A `check` constraint wraps the same way, and a long `check` condition breaks inside its parentheses:
 
 ```sql
 create table OrderItems (
   Id int not null,
   OrderId int not null,
   constraint FK_OrderItems_Orders
-    foreign key (OrderId) references dbo.VeryLongSchemaName_Orders (OrderId)
-    on delete cascade
+    foreign key (OrderId)
+    references dbo.VeryLongSchemaName_Orders (OrderId)
     on update no action
+    on delete cascade
 );
 ```
 
@@ -1198,52 +1193,55 @@ create table Products (
 
 ### ALTER TABLE
 
+The action goes on an indented line below `alter table t`.
+
 **ADD / DROP COLUMN**
 
 ```sql
 alter table Books
-add Isbn nvarchar(20) null;
+  add Isbn nvarchar(20) null;
 
 alter table Books
-drop column Isbn;
+  drop column Isbn;
 ```
 
 When dropping multiple columns, names stay on one line when they fit; otherwise they wrap one per line:
 
 ```sql
 alter table Books
-drop column Isbn, Summary;
+  drop column Isbn, Summary;
 
 alter table dbo.OrderItems
-drop column VeryLongColumnNameA, VeryLongColumnNameB, VeryLongColumnNameC;
+  drop column VeryLongColumnNameA, VeryLongColumnNameB, VeryLongColumnNameC;
 ```
 
 **ADD / DROP CONSTRAINT**
 
 ```sql
 alter table Books
-add constraint CK_Books_Price check (Price > 0);
+  add constraint CK_Books_Price check (Price > 0);
 
 alter table Orders
-add constraint FK_Orders_Customers
-  foreign key (CustomerId) references Customers (Id)
-  on delete cascade;
+  add constraint FK_Orders_Customers
+    foreign key (CustomerId)
+    references Customers (Id)
+    on delete cascade;
 
 alter table Books
-drop constraint UQ_Books_Isbn;
+  drop constraint UQ_Books_Isbn;
 
 alter table Books
-drop constraint if exists CK_Books_Price;
+  drop constraint if exists CK_Books_Price;
 ```
 
 When dropping multiple constraints, names wrap the same way as columns:
 
 ```sql
 alter table dbo.OrderItems
-drop constraint if exists
-  FK_OrderItems_Products,
-  FK_OrderItems_Orders,
-  FK_OrderItems_Coupons;
+  drop constraint if exists
+    FK_OrderItems_Products,
+    FK_OrderItems_Orders,
+    FK_OrderItems_Coupons;
 ```
 
 **CHECK / NOCHECK CONSTRAINT**
@@ -1252,20 +1250,20 @@ Enables or disables constraint enforcement. Use `all` to target every constraint
 
 ```sql
 alter table Orders
-check constraint all;
+  check constraint all;
 
 alter table Orders
-nocheck constraint FK_Orders_Customers;
+  nocheck constraint FK_Orders_Customers;
 
 alter table Orders
-check constraint FK_Orders_Customers, CK_Orders_Total;
+  check constraint FK_Orders_Customers, CK_Orders_Total;
 ```
 
 **ALTER COLUMN**
 
 ```sql
 alter table Books
-alter column Price decimal(12, 2) not null;
+  alter column Price decimal(12, 2) not null;
 ```
 
 **SET TABLE OPTIONS**
@@ -1274,10 +1272,10 @@ Sets storage-level options such as lock escalation:
 
 ```sql
 alter table Orders
-set (lock_escalation = auto);
+  set (lock_escalation = auto);
 
 alter table Orders
-set (lock_escalation = disable);
+  set (lock_escalation = disable);
 ```
 
 **REBUILD PARTITION**
@@ -1286,10 +1284,10 @@ Rebuilds a single partition or all partitions of a partitioned table. An optiona
 
 ```sql
 alter table Orders
-rebuild partition = all;
+  rebuild partition = all;
 
 alter table Orders
-rebuild partition = 3 with (data_compression = row);
+  rebuild partition = 3 with (data_compression = row);
 ```
 
 **SWITCH PARTITION**
@@ -1298,10 +1296,10 @@ Moves a partition between two tables. The target partition number is optional wh
 
 ```sql
 alter table Orders
-switch partition 3 to ArchivedOrders partition 1;
+  switch partition 3 to ArchivedOrders partition 1;
 
 alter table Orders
-switch to ArchivedOrders;
+  switch to ArchivedOrders;
 ```
 
 ---
@@ -1327,30 +1325,17 @@ with (drop_existing = on);
 
 ### CREATE INDEX
 
-`CREATE INDEX` places the index name on the first line. `ON table (columns)` and the optional `INCLUDE` clause are each indented one level as sub-clauses of the statement. Each column includes an explicit `ASC` or `DESC` direction. The `INCLUDE` column list wraps at `printWidth`.
+`ON table (columns)` follows the index name when it fits, and otherwise moves to an indented line. `INCLUDE`, `WHERE`, `WITH`, `ON filegroup` and `FILESTREAM_ON` follow on the same line when they all fit, otherwise each goes on an indented line of its own. A column keeps the `ASC` or `DESC` it was written with.
 
 ```sql
-create index IX_Books_Title
-  on Books (
-    Title asc
-  );
+create index IX_Books_Title on Books (Title asc);
 
-create unique clustered index IX_Books_Id
-  on Books (
-    Id asc
-  );
+create unique clustered index IX_Books_Id on Books (Id asc);
 
-create index IX_Books_AuthorId_Price
-  on Books (
-    AuthorId asc,
-    Price desc
-  )
+create index IX_Books_AuthorId_Price on Books (AuthorId asc, Price desc)
   include (Title, InStock);
 
-create index IX_Books_Covering
-  on Books (
-    AuthorId asc
-  )
+create index IX_Books_Covering on Books (AuthorId asc)
   include (Title, Price, InStock, PublishedDate, GenreId);
 ```
 
@@ -1483,7 +1468,7 @@ create function GetAuthorFullName(@First nvarchar(50), @Last nvarchar(50))
 returns nvarchar(101)
 as
 begin
-    return @First + ' ' + @Last;
+  return @First + ' ' + @Last;
 end;
 go
 ```
@@ -2211,7 +2196,7 @@ reconfigure with override;
 
 ### GRANT / DENY / REVOKE
 
-Permissions follow the verb inline and wrap to indented lines only when they exceed `printWidth`. The `ON` clause and the `TO`/`FROM` clause each go on their own line. The principal list after `TO`/`FROM` also wraps when it exceeds `printWidth`. Column lists within a permission (e.g. `SELECT (col1, col2, ...)`) wrap at `printWidth` the same way.
+Permissions follow the verb when they fit; otherwise they pack onto indented lines below it. The `ON` clause and the `TO`/`FROM` clause each go on their own line. The principal list after `TO`/`FROM` also wraps when it exceeds `printWidth`. Column lists within a permission (e.g. `SELECT (col1, col2, ...)`) wrap at `printWidth` the same way.
 
 #### GRANT
 
@@ -2219,22 +2204,17 @@ Permissions follow the verb inline and wrap to indented lines only when they exc
 grant execute
 on GetBooks
 to AppUser;
-
 grant select, insert
 on object::Books
 to AppUser, GuestUser;
-
 grant select (Title, Price)
 on Books
 to AppUser
 with grant option;
-
 grant alter any user
 to dbo;
-
 grant connect
 to public;
-
 grant control
 on schema::dbo
 to AppUser;
@@ -2527,10 +2507,10 @@ Parenthesized option lists (`WITH (...)`, `ENCRYPTED WITH (...)`, `OPTION (...)`
 
 ```sql
 alter table dbo.Orders
-drop constraint PK_Orders with (
-  ONLINE = ON,
-  wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
-);
+  drop constraint PK_Orders with (
+    ONLINE = ON,
+    wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
+  );
 ```
 
 ### Comments

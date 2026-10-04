@@ -27,7 +27,8 @@ const docs = [
     'docs/getting-started.md',
 ];
 
-const SKIP_MARKER = /<!--\s*check-docs:skip\s*-->\s*\n$/;
+// The marker may be followed by a <!-- prettier-ignore --> line, which must sit right above the fence
+const SKIP_MARKER = /<!--\s*check-docs:skip\s*-->\s*\n(<!--\s*prettier-ignore\s*-->\s*\n)?$/;
 const SQL_FENCE  = /^(```sql\n)([\s\S]*?)(^```)/gm;
 const DIFF_FENCE = /^(```diff\n)([\s\S]*?)(^```)/gm;
 
@@ -38,8 +39,20 @@ async function fmt(sql) {
     });
 }
 
-/** Reformat a ```sql block body (may contain multiple statements separated by blank lines). */
+/**
+ * Reformat a ```sql block body. The whole block is formatted at once, since one statement can
+ * hold blank lines of its own (around UNION, between a procedure's statements); a block that
+ * doesn't parse as a whole is formatted statement by statement, keeping any that don't parse.
+ */
 async function reformatSql(body) {
+    // A complete script ends with `;` (or a T-SQL batch's GO)
+    if (/(;|\bgo)\s*$/i.test(body)) {
+        try {
+            return await fmt(body);
+        } catch {
+            // fall through to statement by statement
+        }
+    }
     const stmts = body.split(/\n\n+/).map(s => s.trim()).filter(Boolean);
     const results = await Promise.all(stmts.map(async stmt => {
         if (!stmt.endsWith(';')) return stmt;
@@ -55,8 +68,11 @@ async function reformatSql(body) {
 /** Check/fix a ```diff block body. Returns { newBody } if changed, null if unchanged or skipped. */
 async function reformatDiff(body) {
     const lines = body.split('\n');
-    const beforeLines = lines.filter(l => l.startsWith('- ')).map(l => l.slice(2));
-    const afterLines  = lines.filter(l => l.startsWith('+ ')).map(l => l.slice(2));
+    // A blank line of the input or output is a bare "-" or "+"
+    const isBefore = (l) => l === '-' || l.startsWith('- ');
+    const isAfter  = (l) => l === '+' || l.startsWith('+ ');
+    const beforeLines = lines.filter(isBefore).map(l => l.slice(2));
+    const afterLines  = lines.filter(isAfter).map(l => l.slice(2));
 
     if (beforeLines.length === 0 || afterLines.length === 0) return null;
 
@@ -74,10 +90,10 @@ async function reformatDiff(body) {
     if (formatted === expected) return null;
 
     // Rebuild: keep "-" lines, replace "+" lines with formatted output
-    const newPlusLines = formatted.split('\n').map(l => '+ ' + l);
-    const nonPlus = lines.filter(l => !l.startsWith('+ '));
+    const newPlusLines = formatted.split('\n').map(l => (l ? '+ ' + l : '+'));
+    const nonPlus = lines.filter(l => !isAfter(l));
     // Insert new plus lines after the last minus line
-    const lastMinus = nonPlus.reduce((acc, l, i) => l.startsWith('- ') ? i : acc, -1);
+    const lastMinus = nonPlus.reduce((acc, l, i) => isBefore(l) ? i : acc, -1);
     const rebuilt = [
         ...nonPlus.slice(0, lastMinus + 1),
         ...newPlusLines,

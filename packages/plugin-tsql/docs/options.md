@@ -28,6 +28,7 @@ where Books.InStock = 1;
 
 **`upper`**
 
+<!-- check-docs:skip -->
 <!-- prettier-ignore -->
 ```sql
 SELECT
@@ -82,6 +83,7 @@ where
 
 Tries to keep everything on as few lines as possible, wrapping only when a line would exceed `printWidth`.
 
+<!-- check-docs:skip -->
 <!-- prettier-ignore -->
 ```sql
 select Books.BookId, Books.Title, Books.Price
@@ -92,8 +94,9 @@ order by Books.Title asc;
 
 ### `spacious`
 
-Every predicate gets its own indented line, even when there is only one. Maximises vertical readability.
+Every clause body gets its own indented line, and every `WHERE` / `HAVING` predicate its own line, even when there is only one. Maximises vertical readability.
 
+<!-- check-docs:skip -->
 <!-- prettier-ignore -->
 ```sql
 select
@@ -102,8 +105,7 @@ select
   Books.Price
 from
   Books
-  inner join Authors on
-    Books.AuthorId = Authors.Id
+  inner join Authors on Books.AuthorId = Authors.Id
 where
   Books.InStock = 1
 order by
@@ -145,6 +147,7 @@ where BookId = @id;
 
 ### `leading`
 
+<!-- check-docs:skip -->
 <!-- prettier-ignore -->
 ```sql
 select

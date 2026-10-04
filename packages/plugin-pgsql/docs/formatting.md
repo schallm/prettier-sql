@@ -59,12 +59,15 @@ select
   a.id,
   a.active and a.verified as ok,
   case
-    when a.age >= 18 and a.country = 'US' then 'adult'
+    when
+      a.age >= 18
+      and a.country = 'US'
+    then 'adult'
     else 'minor'
   end as bucket
 from
   accounts as a
-  join profiles as p on p.account_id = a.id and p.deleted_at is null
+  inner join profiles as p on p.account_id = a.id and p.deleted_at is null
 where
   a.region = 'eu'
   and (a.tier = 'gold' or a.tier = 'silver')
@@ -82,13 +85,13 @@ alter table accounts
 
 ### JOIN types
 
-All JOIN types are supported. `INNER JOIN` is normalised to `JOIN`. Each JOIN goes on its own line at the same indent level as `FROM`.
+All JOIN types are supported. A plain `JOIN` prints as `INNER JOIN`, which parses to the same join. Each JOIN goes on its own line at the same indent level as `FROM`.
 
 ```sql
 select *
 from
   books
-  join authors on authors.id = books.author_id
+  inner join authors on authors.id = books.author_id
   left join categories on categories.id = books.category_id
   right join publishers on publishers.id = books.publisher_id
   full join orders on orders.book_id = books.id
@@ -145,10 +148,10 @@ The `TABLESAMPLE` method and percentage follow the table name on the same line. 
 select
   id,
   title
-from books tablesample bernoulli(10);
+from books tablesample bernoulli (10);
 
 select count(*)
-from orders tablesample system(5) repeatable (42);
+from orders tablesample system (5) repeatable (42);
 ```
 
 ### DISTINCT
@@ -283,7 +286,7 @@ select
   ro.total
 from
   active_users as u
-  join recent_orders as ro on u.id = ro.customer_id;
+  inner join recent_orders as ro on u.id = ro.customer_id;
 ```
 
 ### WITH RECURSIVE
@@ -298,7 +301,9 @@ with recursive
       0 as depth
     from publishers
     where parent_id is null
+
     union all
+
     select
       publishers.id,
       publishers.name,
@@ -306,7 +311,7 @@ with recursive
       org_tree.depth + 1
     from
       publishers
-      join org_tree on publishers.parent_id = org_tree.id
+      inner join org_tree on publishers.parent_id = org_tree.id
   )
 select
   id,
@@ -329,13 +334,15 @@ with recursive
       id,
       parent_id
     from tree
+
     union all
+
     select
       tree.id,
       tree.parent_id
     from
       tree
-      join t on t.id = tree.parent_id
+      inner join t on t.id = tree.parent_id
   )
   search breadth first by id set ordercol
   cycle id set is_cycle using path
@@ -363,14 +370,16 @@ window
 
 ### Set operations (UNION / INTERSECT / EXCEPT)
 
-The set operator is placed on its own line between the two queries.
+The set operator is placed on its own line between the two queries, with a blank line above and below it.
 
 ```sql
 select
   id,
   name
 from customers
+
 union
+
 select
   id,
   title as name
@@ -384,7 +393,9 @@ select
   id,
   title
 from books
+
 union all
+
 select
   id,
   title
@@ -560,7 +571,7 @@ where price is distinct from 0;
 
 ### CASE expression
 
-`ELSE` is indented with the `WHEN` branches.
+`ELSE` is indented with the `WHEN` branches. A `CASE` that is the only column starts on a line of its own under `select`, a nested `CASE` after `THEN` or `ELSE` starts on an indented line, and in a searched `CASE` an `AND` / `OR` condition goes on indented lines of its own under `WHEN`, with `THEN` on the line after it.
 
 ```sql
 select
@@ -582,8 +593,7 @@ Creates a new table populated with the result of a query. The new table takes it
 select
   id,
   name
-into
-  archive_users
+into archive_users
 from users
 where active = false;
 ```
@@ -988,7 +998,8 @@ where
 A materialized view stores the query result on disk. It must be refreshed explicitly.
 
 ```sql
-create materialized view user_stats as
+create materialized view user_stats
+as
 select
   user_id,
   count(*) as order_count,
@@ -1242,10 +1253,10 @@ Each option appears on its own indented line:
 
 ```sql
 create sequence order_seq
-start with 1000
-increment by 1
-no maxvalue
-no cycle;
+  start with 1000
+  increment by 1
+  no maxvalue
+  no cycle;
 ```
 
 Minimal sequence (all defaults):
@@ -1258,8 +1269,8 @@ create sequence event_seq;
 
 ```sql
 alter sequence order_seq
-restart with 1
-increment by 5;
+  restart with 1
+  increment by 5;
 ```
 
 ### CREATE TYPE
@@ -1410,27 +1421,35 @@ connection limit 10;
 
 ```sql
 -- GRANT permissions on a table
-grant select, insert on table books
+grant select, insert
+on table books
 to alice;
-grant all privileges on table orders
+grant all privileges
+on table orders
 to bob;
 -- GRANT on schema
-grant usage on schema myschema
+grant usage
+on schema myschema
 to alice;
 -- GRANT on all tables in schema
-grant select on all tables in schema public
+grant select
+on all tables in schema public
 to alice;
 -- GRANT on a function
-grant execute on function get_count
+grant execute
+on function get_count
 to public;
 -- WITH GRANT OPTION
-grant select on table books
+grant select
+on table books
 to alice
 with grant option;
 -- REVOKE
-revoke select on table books
+revoke select
+on table books
 from alice;
-revoke all privileges on table orders
+revoke all privileges
+on table orders
 from bob
 cascade;
 ```
@@ -1571,7 +1590,7 @@ rollback prepared 'txn-1234';
 
 ## MERGE
 
-`MERGE INTO ... USING ... ON ...` with one or more `WHEN` clauses. Supported actions: `UPDATE SET`, `INSERT`, `DELETE`, `DO NOTHING`. Conditional `AND` clause is supported.
+`MERGE INTO ... USING ... ON ...` with one or more `WHEN` clauses, `ON` on a line of its own after `USING`. Supported actions: `UPDATE SET`, `INSERT`, `DELETE`, `DO NOTHING`. Conditional `AND` clause is supported.
 
 ```sql
 merge into target as t
@@ -1579,8 +1598,7 @@ using source as s
 on t.id = s.id
 when matched then
   update set
-    name = s.name,
-    updated_at = now()
+    name = s.name, updated_at = now()
 when not matched then
   insert (id, name)
   values (s.id, s.name);
@@ -1593,8 +1611,7 @@ merge into employees as e
 using new_roster as nr
 on e.id = nr.id
 when matched then
-  update set
-    name = nr.name
+  update set name = nr.name
 when not matched by source then
   delete;
 ```
@@ -1750,12 +1767,14 @@ notify my_channel, 'payload text';
 ### Cursors
 
 ```sql
-declare my_cursor cursor for
+declare my_cursor cursor
+for
 select
   id,
   name
 from users;
-declare scroll_cursor scroll cursor for
+declare scroll_cursor scroll cursor
+for
 select id
 from orders;
 fetch next from my_cursor;
@@ -2102,7 +2121,7 @@ select coalesce(
 from t as a;
 ```
 
-A call with a single argument keeps its parentheses hugging it, even when that argument spans lines (`sum(case ... end)`). With several arguments, one that spans lines (a `case`, a subquery) puts every argument on its own line.
+A single argument that doesn't fit, or spans lines (`sum(case ... end)`), goes on lines of its own between the parentheses. With several arguments, one that spans lines (a `case`, a subquery) puts every argument on its own line.
 
 `IN` lists and `ARRAY[...]` pack literals as many to a line as fit, and put other expressions one per line:
 
@@ -2170,10 +2189,11 @@ where
 A `CASE` arm that doesn't fit puts its `THEN` part (or the `ELSE` result) on an indented line of its own:
 
 ```sql
-select case a.status
-  when 1 then 'a very long string result here that goes on and on for a while'
-  else 'x'
-end as c
+select
+  case a.status
+    when 1 then 'a very long string result here that goes on and on for a while'
+    else 'x'
+  end as c
 from t as a;
 ```
 
@@ -2186,7 +2206,7 @@ create index ix_orders_customer_created on orders (
 ) include (status, total_amount);
 
 select *
-from generate_series(1, 100) as numbered_rows(
+from generate_series(1, 100) as numbered_rows (
   row_number_one,
   row_number_two,
   row_number_three
@@ -2218,7 +2238,7 @@ create table orders (
 );
 ```
 
-Role options, `GRANT` privileges and long `COMMENT ON` texts wrap the same way: one option per line under the role name, the privileges on an indented line before `ON`, and the comment text on an indented line after `IS`:
+Role options, `GRANT` privileges and long `COMMENT ON` texts wrap the same way: one option per line under the role name, the privileges packed onto indented lines below `GRANT`, and the comment text on an indented line after `IS`:
 
 ```sql
 create role reporting_service
@@ -2228,8 +2248,7 @@ create role reporting_service
   in role analysts
   connection limit 10;
 
-grant
-  select, insert, update, delete, truncate, references, trigger
+grant select, insert, update, delete, truncate, references, trigger
 on table some_long_table_name
 to some_role;
 comment on column some_long_table_name.very_long_column_name_one is

@@ -79,7 +79,8 @@ select id, title from books where price < 50 and in_stock order by price;
 select
   id,
   title
-from books
+from
+  books
 where
   price < 50
   and in_stock
