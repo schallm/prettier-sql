@@ -1514,6 +1514,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["optimizerHints"] = MapList(ins.OptimizerHints, h => (object?)BuildOptimizerHint(h)),
             ["ctes"] = ctes,
             ["changeTrackingContext"] = RawTextOrNull(ins.WithCtesAndXmlNamespaces?.ChangeTrackingContext),
+            // INSERT t and INSERT INTO t are the same, and print as INSERT INTO; INSERT OVER t is not
+            ["over"] = spec.InsertOption == InsertOption.Over ? true : null,
             ["target"] = target,
             ["columns"] = columns,
             ["source"] = source,

@@ -854,9 +854,10 @@ function printInsert(node: SqlNode, opts: Options): Doc {
                 : '';
 
     const topNode = prop(node, 'top');
+    const intoKw = keyword(propBool(node, 'over') ? 'OVER' : 'INTO', opts);
     const parts: Doc[] = [
         ...ctesDocs,
-        topNode ? [keyword('INSERT', opts), ' ', renderTopFilter(topNode, opts), ' ', keyword('INTO', opts)] : keyword('INSERT INTO', opts),
+        [keyword('INSERT', opts), topNode ? [' ', renderTopFilter(topNode, opts)] : '', ' ', intoKw],
         ' ',
         target ? printTable(target, opts) : '',
         colsPart,
