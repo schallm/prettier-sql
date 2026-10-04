@@ -1292,39 +1292,40 @@ function printJsonFuncExpr(node: SqlNode, opts: Options, printNode: PrintFn): Do
         contextFormat ? [' ', makeKeyword(contextFormat)] : '',
         ', ',
         path ? printNode(path) : '',
-        printJsonPassing(node, opts, printNode),
+        printJsonPassing(node, opts, printNode, line),
     ];
-    if (returning) parts.push(' ', makeKeyword('RETURNING'), ' ', makeKeyword(returning));
-    parts.push(printJsonQueryOptions(node, opts, printNode));
-    return [makeKeyword(op), '(', ...parts, ')'];
+    if (returning) parts.push(line, makeKeyword('RETURNING'), ' ', makeKeyword(returning));
+    parts.push(printJsonQueryOptions(node, opts, printNode, line));
+    // Inline when it fits; otherwise the context and path, then each clause on its own line
+    return [makeKeyword(op), group(['(', indent([softline, ...parts]), softline, ')'])];
 }
 
 /** PASSING value AS name, ... */
-function printJsonPassing(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+function printJsonPassing(node: SqlNode, opts: Options, printNode: PrintFn, sep: Doc = ' '): Doc {
     const args = propArr(node, 'passing');
     if (args.length === 0) return '';
-    return [' ', keyword('PASSING', opts), ' ', join(', ', args.map((a): Doc => {
+    return [sep, keyword('PASSING', opts), ' ', join(', ', args.map((a): Doc => {
         const value = prop(a, 'value');
         return [value ? printNode(value) : '', ' ', keyword('AS', opts), ' ', propStr(a, 'name') ?? ''];
     }))];
 }
 
 /** WITH WRAPPER, KEEP QUOTES, <behavior> ON EMPTY, <behavior> ON ERROR — in the order SQL requires. */
-function printJsonQueryOptions(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+function printJsonQueryOptions(node: SqlNode, opts: Options, printNode: PrintFn, sep: Doc = ' '): Doc {
     const wrapper = propStr(node, 'wrapper');
     const quotes = propStr(node, 'quotes');
     return [
-        wrapper ? [' ', keyword(wrapper, opts)] : '',
-        quotes ? [' ', keyword(quotes, opts)] : '',
-        printJsonBehavior(prop(node, 'onEmpty'), 'ON EMPTY', opts, printNode),
-        printJsonBehavior(prop(node, 'onError'), 'ON ERROR', opts, printNode),
+        wrapper ? [sep, keyword(wrapper, opts)] : '',
+        quotes ? [sep, keyword(quotes, opts)] : '',
+        printJsonBehavior(prop(node, 'onEmpty'), 'ON EMPTY', opts, printNode, sep),
+        printJsonBehavior(prop(node, 'onError'), 'ON ERROR', opts, printNode, sep),
     ];
 }
 
-function printJsonBehavior(b: SqlNode | null | undefined, on: string, opts: Options, printNode: PrintFn): Doc {
+function printJsonBehavior(b: SqlNode | null | undefined, on: string, opts: Options, printNode: PrintFn, sep: Doc = ' '): Doc {
     if (!b) return '';
     const expr = prop(b, 'expr');
-    return [' ', keyword(propStr(b, 'kind') ?? 'NULL', opts), expr ? [' ', printNode(expr)] : '', ' ', keyword(on, opts)];
+    return [sep, keyword(propStr(b, 'kind') ?? 'NULL', opts), expr ? [' ', printNode(expr)] : '', ' ', keyword(on, opts)];
 }
 
 // ---------------------------------------------------------------------------

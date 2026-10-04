@@ -4225,15 +4225,31 @@ exports[`fixtures > select/json-query-functions.sql 1`] = `
 select
   json_query(doc, '$.a' with wrapper),
   json_query(doc, '$.a' with conditional wrapper omit quotes),
-  json_query(doc, '$.a' without wrapper keep quotes null on empty error on error);
+  json_query(
+    doc, '$.a'
+    without wrapper
+    keep quotes
+    null on empty
+    error on error
+  );
 
 select
-  json_value(doc, '$.a' returning integer default 0 on empty default -1 on error),
+  json_value(
+    doc, '$.a'
+    returning integer
+    default 0 on empty
+    default -1 on error
+  ),
   json_value(doc format json, '$.a ? (@ > $x)' passing 5 as x, 'q' as "Y");
 
 select
   json_exists(doc, '$.a' true on error),
-  json_query(doc, '$' returning jsonb empty array on empty empty object on error);
+  json_query(
+    doc, '$'
+    returning jsonb
+    empty array on empty
+    empty object on error
+  );
 
 select *
 from json_table(
@@ -4485,6 +4501,42 @@ select array[
 select a
 from t
 where a in (1, 2, 3);
+"
+`;
+
+exports[`fixtures > select/long-json-clauses.sql 1`] = `
+"select json_query(
+  doc, '$.a'
+  returning jsonb
+  with wrapper
+  keep quotes
+  null on empty
+  error on error
+) as j
+from t;
+
+select
+  json_value(
+    doc, '$.a'
+    returning integer
+    default 0 on empty
+    default -1 on error
+  ),
+  json_value(doc, '$.b')
+from t;
+
+select json_query(
+  doc, '$.items[*] ? (@.price > $min)'
+  passing 10 as min, 'x' as label
+  returning jsonb
+  with conditional wrapper
+  omit quotes
+  empty array on empty
+)
+from t;
+
+select json_exists(doc, '$.a' passing 1 as x, 2 as y, 3 as z error on error)
+from t;
 "
 `;
 
