@@ -1,5 +1,87 @@
 # prettier-plugin-tsql
 
+## 0.10.0
+
+### Minor Changes
+
+- 5c5d393: Indent an `ALTER TABLE` action under the `ALTER TABLE t` line, as the PostgreSQL plugin does.
+- af277fd: End the header of a statement defined by a query with its `AS` or `FOR`, and start the query on the next line: `CREATE VIEW v AS`, `CREATE TABLE t AS`, `DECLARE c CURSOR FOR` and T-SQL's `SET @c = CURSOR FOR`. `AS` / `FOR` used to go on a line of its own in T-SQL, and before `CREATE VIEW`'s query in PostgreSQL. In T-SQL, comments between a view's header and its `AS` now go after the `AS`, above the query.
+- c099894: Lay out constraints as the PostgreSQL plugin does. `NULL` / `NOT NULL` and `DEFAULT` keep the order they were written in. A `FOREIGN KEY` or `CHECK` stays on one line when it fits, otherwise the constraint name goes on its own line with each clause (`FOREIGN KEY (…)`, `REFERENCES …`, `ON UPDATE …`, `ON DELETE …`) on an indented line below it, and a long `CHECK` condition breaks inside its parentheses. A `PRIMARY KEY` / `UNIQUE` stays on the constraint name's line.
+- 0f930c2: Lay out `CREATE INDEX` as the PostgreSQL plugin does: `ON table (columns)` stays on the `CREATE INDEX` line when it fits, and `INCLUDE`, `WHERE`, `WITH`, `ON filegroup` and `FILESTREAM_ON` follow on the same line when they all fit, otherwise each on an indented line of its own.
+- 96a5f38: Lay out `DROP` as the PostgreSQL plugin does: on one line when it fits, otherwise the names fill an indented line. `DROP INDEX a, b` no longer puts each index on a line of its own, and a long `DROP TABLE a, b, c` now wraps.
+- 7993a73: Print the same keywords for the same SQL in both dialects: an inner join prints as `INNER JOIN` in PostgreSQL (as in T-SQL), and T-SQL no longer adds `ASC` to an `ORDER BY` item or index column that didn't have one (as in PostgreSQL). An `ASC` written in the source is kept.
+- 09df34c: Lay out `MERGE` the same way in both dialects: `ON` starts a line of its own after `USING` (PostgreSQL), `UPDATE SET` lays out its assignments as `UPDATE ... SET` does — a single one on the `SET` line, several packed (T-SQL, for one) — and in compact density the action stays on the `THEN` line (T-SQL).
+- 901b4e6: Lay out `AND` / `OR` the same way in both dialects. Parenthesized predicates — `(a OR b)`, `NOT (a AND b)` — stay on one line when they fit. A `JOIN ... ON` chain follows `ON`, with further predicates on indented lines (T-SQL), and a single long `ON` predicate moves whole to an indented line (PostgreSQL). In T-SQL, compact density keeps a `WHERE` that fits on the `WHERE` line, and an `AND` inside an `OR` stays on its predicate's line instead of getting a line of its own.
+- 7a9b954: Lay out query clauses the same way in both dialects:
+
+    - A window specification stays on one line when it fits, e.g. `over (partition by a order by b)`, and its `ORDER BY` items pack like its `PARTITION BY` items (T-SQL).
+    - A single `WINDOW` definition and a `SELECT ... INTO` target stay on the keyword's line (PostgreSQL).
+    - In spacious density a single `FROM` table goes on its own line, like every other clause (PostgreSQL).
+    - In compact density joins stay on the `FROM` line when they fit (PostgreSQL), and a single select column no longer indents what follows it (T-SQL).
+    - `UPDATE ... FROM` a single table stays on the `FROM` line (T-SQL).
+
+### Patch Changes
+
+- 9fa3df9: Put a space before an alias's or CTE's column list, `AS s (a, b)` and `cte (a, b) AS (...)`, as before any other column list (PostgreSQL, and T-SQL's `(VALUES ...)`), and before a `TABLESAMPLE` method's argument, `TABLESAMPLE SYSTEM (5)` (PostgreSQL). A `(VALUES ...)` derived table lays out its rows as a standalone `VALUES` does (T-SQL).
+- c88625e: When even `x BETWEEN low` doesn't fit within `printWidth`, put the two bounds of a `BETWEEN` on indented lines of their own, the second starting with `AND`. A predicate where only the `AND` bound doesn't fit still breaks before it.
+- 772b0d4: When one argument of a call or `IN` list spans lines (a `CASE` or a subquery) and there is more than one argument, put every argument on its own line instead of leaving the others to run past `printWidth` next to the closing parenthesis. A call with a single such argument, like `SUM(CASE ... END)`, is unchanged.
+- d3dfc65: Indent a term of a wrapped `+` / `-` / `||` chain as a block, so a call or `CASE` that breaks inside it lines its closing parenthesis up under the term's operator instead of two columns to the left of it.
+- fb46c11: Count a select item's `AS alias` when wrapping a `+` / `-` / `||` chain, so the line holding the last term and the alias no longer runs past `printWidth`.
+- e93fdbd: Count the comma after the last item on a line when packing a list several items to a line. A packed line (a long `IN` list, the names of a `DROP` or `TRUNCATE`, compact density) could end one column past `printWidth` because the comma wasn't counted.
+- 93c3924: In compact density, the query after a `WITH` and a `SELECT ... INTO` collapse to one line when they fit (PostgreSQL), and in spacious density a `WITHIN GROUP (ORDER BY ...)` or `JSON_ARRAYAGG(... ORDER BY ...)` stays inside its parentheses on one line (T-SQL).
+- 083d2e4: Put the subquery of an `EXISTS` on its own lines, formatted like any other `SELECT`, in standard and spacious density (`compact` keeps a short one inline). In T-SQL, `IF EXISTS (...)` and `WHILE EXISTS (...)` no longer indent the subquery an extra level.
+- b1fbadc: Lay out `GRANT` / `REVOKE` the same way in both dialects: `ON …` goes on a line of its own like `TO` / `FROM` (T-SQL), and a long privilege list packs onto indented lines below the verb (PostgreSQL).
+- 1041068: Put the `AND` bound of a `BETWEEN` predicate on an indented line of its own when the predicate doesn't fit within `printWidth`.
+- 7017021: Break the arguments of a function call that doesn't fit within `printWidth` onto their own lines, one per line, with the closing parenthesis on its own line. PostgreSQL's `COALESCE` and `ROWS FROM (...)` and T-SQL's `COALESCE`, `IIF`, `NULLIF`, `CONVERT` and `TRY_CONVERT` stayed on one line however long they were; they now break like other calls.
+- d9db9f5: Put the `THEN` part of a `CASE` arm, or the result of an `ELSE`, on an indented line of its own when the arm doesn't fit within `printWidth`. An arm with a comment or a nested `CASE` is unchanged.
+- 3e6f70d: Wrap a column definition that doesn't fit within `printWidth`: the name, type and collation stay together and each constraint or clause (`NOT NULL`, `DEFAULT`, `CONSTRAINT ... PRIMARY KEY`, `REFERENCES ... ON DELETE`, `CHECK`, `IDENTITY`, `ENCRYPTED WITH`) goes on its own indented line. A column that fits stays on one line.
+- 3ba84ff: Move the right-hand side of a comparison, `LIKE`, `IS DISTINCT FROM` or other binary operator onto an indented line after the operator when it doesn't fit within `printWidth`, if neither side can break on its own. A call, subquery, `CASE` or wrapped chain next to the operator is unchanged.
+- 6efb85d: Wrap a long `IN (...)` list or `ARRAY[...]` that doesn't fit within `printWidth`. A list of literals packs as many to a line as fit, between parentheses on their own lines; a list of other expressions puts one per line. PostgreSQL's `IN` list and `ARRAY[...]` never wrapped; T-SQL's `IN` list now packs literals instead of one per line.
+- 92ecaf2: Break a parenthesized option list that doesn't fit within `printWidth` — `WITH (...)`, `OPTIONS (...)`, `SET (...)`, `ENCRYPTED WITH (...)`, `COPY ... (...)`, `EXPLAIN (...)`, `VACUUM (...)`, `RESULT SETS (...)`, `OPTION (...)` and the like — with one option per line between parentheses. A list that fits stays on one line.
+- 57cb5c2: Lay out a `MERGE ... INSERT` the same way in both dialects: `VALUES` goes on its own line after a column list (on the `INSERT` line in compact density, when it fits), a long column list breaks like any other, and without a column list `INSERT VALUES (...)` / `INSERT DEFAULT VALUES` stays on one line.
+- 5e5e077: Wrap a long chain that mixes `+` and `-` like a chain of one operator: terms fill each line, continuation lines are indented and start with their operator. `a + b * c - d` stopped wrapping after the first `+`, leaving a long second line.
+- 971139b: Wrap a `WITH (...)` / `OPTIONS (...)` list that holds a single option too long for the line (`SWITCH PARTITION ... WITH (WAIT_AT_LOW_PRIORITY (...))`), and indent the options of a `PRIMARY KEY` / `UNIQUE` constraint's `WITH (...)` under the constraint instead of at its own indentation.
+- c915478: In compact density a subquery after `IN`, a comparison or `ANY` / `ALL` stays on one line when it fits (PostgreSQL), and a `CROSS JOIN` / `APPLY` stays on the `FROM` line when it fits (T-SQL). `NOT x IN (subquery)` prints as `x NOT IN (subquery)` (PostgreSQL), and a comparison under `NOT` gets parentheses — `NOT (a = 1)` — in both.
+- 1644457: Format Azure SQL's `ALTER DATABASE ... MODIFY (EDITION = ..., SERVICE_OBJECTIVE = ...)` and keep its `WITH MANUAL_CUTOVER`. It printed as `ALTER DATABASE ... SET SERVICE_OBJECTIVE = ...`, which does not parse.
+- f507895: Format `ALTER INDEX ... FOR (ADD ..., REMOVE ...)` on a selective XML index, with its `WITH XMLNAMESPACES`. It printed as `ALTER INDEX ... UPDATESELECTIVEXMLPATHS`, which does not parse.
+- 4d74fc9: Format the `BACKUP`, `RESTORE` and `CREATE DATABASE` forms that were kept as written:
+
+    - `BACKUP` with `FILE` / `FILEGROUP` / `READ_WRITE_FILEGROUPS` lists, `MIRROR TO` clauses and `ENCRYPTION (ALGORITHM = ..., SERVER CERTIFICATE | SERVER ASYMMETRIC KEY = ...)`.
+    - `RESTORE` with `FILE` / `FILEGROUP` / `PAGE` lists, `FROM DATABASE_SNAPSHOT`, `STOPATMARK` / `STOPBEFOREMARK ... AFTER ...` and `FILESTREAM (DIRECTORY_NAME = ...)`.
+    - `CREATE DATABASE` with `CONTAINMENT`, `WITH` options (including Azure's parenthesized form), `FOR ATTACH` / `ATTACH_REBUILD_LOG`, and `AS SNAPSHOT OF` / `AS COPY OF` after file specs. Each file spec wraps one option per line when it doesn't fit, and a named filegroup keeps its `FILEGROUP` keyword.
+
+    A few rarer forms (an encryptor that isn't a server certificate or asymmetric key, a `FILESTREAM` restore option without a directory name, other attach modes) are still kept as written.
+
+- 47e531c: In `CREATE DATABASE`, keep the case of a bracketed filegroup name with a space in it (`FILEGROUP [Archive Data]` printed as `[Archive data]` with lowercase keywords), and print `CONTAINS FILESTREAM` / `CONTAINS MEMORY_OPTIMIZED_DATA` before `DEFAULT`, the only order that parses.
+- 4731e27: Keep `VARYING` on a cursor parameter (`@c CURSOR VARYING OUTPUT`). Without it the procedure does not compile.
+- 8db97f8: Keep the `WITH (DISTRIBUTED_AGG)` hint on a `GROUP BY` column (Azure Synapse).
+- c77535a: Keep `MOVE TO` in `ALTER TABLE ... DROP CONSTRAINT ... WITH (...)`. The option printed as just the filegroup or partition scheme (`WITH (ONLINE = ON, [PRIMARY])`), which is not valid T-SQL.
+- 38d0a00: Keep `CASCADE` and `RESTRICT` in `DROP SCHEMA`.
+- 7fe2f94: Keep `OPENDATASOURCE(...)` in `EXEC OPENDATASOURCE('provider', 'init').db.dbo.proc`. It was dropped, which turned the call into one to a local procedure.
+- ead8bf9: Keep `FETCH NEXT n ROWS ONLY` when it has no `OFFSET` — the row limit was dropped — and keep `APPROXIMATE` in `FETCH APPROXIMATE` and `TOP (n) WITH APPROXIMATE` (SQL Server 2025).
+- 403e04f: Keep `PROPERTY(column, 'name')` in `CONTAINS`, `FREETEXT`, `CONTAINSTABLE` and `FREETEXTTABLE`. It printed as the bare column, which searches the whole column instead of one document property.
+- fcc4de8: Format graph `SHORTEST_PATH` queries. `WITHIN GROUP (GRAPH PATH)` made the formatter crash, and `FOR PATH` was dropped from the tables the path walks (`Person FOR PATH AS p2`).
+- 5f402d3: Keep `INSERT OVER`, which printed as `INSERT INTO`.
+- 90d038c: Keep `WITH ARRAY WRAPPER` in `JSON_QUERY` (SQL Server 2025).
+- b6f476d: Keep the `RETURNING` clause of `JSON_VALUE`, `JSON_OBJECT`, `JSON_ARRAY`, `JSON_ARRAYAGG` and `JSON_OBJECTAGG` (SQL Server 2025). `JSON_VALUE(data, '$.price' RETURNING int)` was printed as `JSON_VALUE(data, '$.price')`, which returns `nvarchar` instead.
+- adcb7d9: Keep `WITH CREDENTIAL = ...` in `CREATE LOGIN ... FROM CERTIFICATE` and `FROM ASYMMETRIC KEY`.
+- 26ec3a9: Break a long `CREATE COLUMN MASTER KEY ... WITH (...)`, `CREATE/ALTER COLUMN ENCRYPTION KEY` value list, table hint list (`FROM t WITH (...)`) and `END CONVERSATION ... WITH ERROR = ... DESCRIPTION = ...` one item per line when it doesn't fit within `printWidth`.
+- 8ef5bff: Put the value of a `DECLARE @x type = ...` or `SET @x = ...` on an indented line of its own when a long expression or string doesn't fit after the `=`. Calls, subqueries and `CASE` still stay next to the `=` and break inside themselves.
+- f9f8ae0: Break a `CAST` / `TRY_CAST` that doesn't fit within `printWidth`: the expression and type move to an indented line between the parentheses. One whose expression spans lines (a `CASE`) still hugs the parentheses.
+- cc522b5: Break a long derived-table column list (`(VALUES ...) AS v(a, b, c)` and `(SELECT ...) AS s (a, b, c)`) one column per line when it doesn't fit within `printWidth`.
+- 694b668: Apply the keyword case to `MATCH` in graph queries; it was always printed as `MATCH(`.
+- 70b369c: Keep `NAME = new_name` and `WITH ROLLBACK ...` / `WITH NO_WAIT` in `ALTER DATABASE ... MODIFY FILEGROUP`, and keep `READ_ONLY` / `READ_WRITE` as written instead of changing them to `READONLY` / `READWRITE`. A rename printed as `MODIFY FILEGROUP fg none`.
+- 703ef3b: Break the nested part of a table option one item per line when it doesn't fit within `printWidth`: `SYSTEM_VERSIONING = ON (HISTORY_TABLE = ..., ...)`, `LEDGER = ON (LEDGER_VIEW = ... (...), APPEND_ONLY = ...)` and `REMOTE_DATA_ARCHIVE = ON (...)`, in `CREATE TABLE ... WITH (...)` and `ALTER TABLE ... SET (...)`. Options that fit stay on one line, and a single option now wraps too.
+- edfeee9: Keep `NOT ENFORCED` on primary keys, unique constraints and foreign keys (Azure Synapse, Fabric).
+- 3b50775: Keep the `WITH (columns)` list of `OPENROWSET(...)` and `OPENROWSET(BULK ...)`.
+- e968e00: Put the subquery of `> ALL (...)`, `= ANY (...)` and `<> SOME (...)` on its own lines in standard and spacious density, like `IN` and `EXISTS`. `compact` keeps a short one inline.
+- ffcfce6: Stop a statement that is kept as written (such as `CREATE DATABASE` or `BACKUP`) before a following `END CONVERSATION`. It swallowed the `END CONVERSATION` keywords, so the output had a stray `END CONVERSATION;` ahead of the real statement.
+- 805f708: Format `RECEIVE` — on its own and inside `WAITFOR (RECEIVE ...)`: the column list, `FROM queue`, `INTO @table` and `WHERE conversation_handle | conversation_group_id = ...` each on their own line, with `WAITFOR (...)` wrapping the indented `RECEIVE` and `TIMEOUT` following. `WAITFOR (RECEIVE ...)` was kept on one line however long it was.
+- 38a29de: Put the rows of a `VALUES` derived table on their own lines (`from (` / `values` / one row per line / `) as v(a, b)`), as a standalone `VALUES` and the PostgreSQL plugin do. `compact` density still packs them.
+- 2c1e51a: Keep the frame, `PARTITION BY` and `ORDER BY` of a window that builds on a named window. `OVER (w2 ROWS UNBOUNDED PRECEDING)` was printed as `OVER w2`, which dropped everything after the name and changed the result.
+- 3ca0a37: Keep the columns of a window's `PARTITION BY` on one line when they fit. They were split onto separate lines (`PARTITION BY a.x,` / `a.y`) whenever the window had more than one clause. A list that doesn't fit continues on indented lines.
+- 1d6e208: Apply the keyword case to `AS` and `DEFAULT` in `WITH XMLNAMESPACES`, and keep a quote inside a namespace URI doubled (`'urn:it''s'`). It printed as a single quote, which does not parse.
+
 ## 0.9.3
 
 ### Patch Changes
