@@ -2425,6 +2425,7 @@ public class AstBuilder {
     private SqlNode BuildAlterSeq(AlterSeqStmt seq, int start, int end) {
         var options = ParseSeqOptions(seq.Options);
         return new SqlNode("AlterSequenceStatement", start, end, null, BuildProps(
+            ("ifExists", seq.MissingOk ? true : null),
             ("name",    Ident.QuoteOpt(seq.Sequence?.Relname)),
             ("schema",  RangeVarSchema(seq.Sequence)),
             ("options", MaybeList(options))

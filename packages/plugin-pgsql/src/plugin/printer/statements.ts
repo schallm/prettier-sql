@@ -1061,7 +1061,8 @@ function printAlterSequence(node: SqlNode, opts: Options): Doc {
     const options = (node.props?.['options'] as string[] | undefined) ?? [];
 
     const qname = qualifiedName(schema, name);
-    return optionLinesDoc([makeKeyword('ALTER SEQUENCE'), ' ', qname], options.map(makeKeyword));
+    const ifExistsDoc: Doc = propBool(node, 'ifExists') ? [makeKeyword('IF EXISTS'), ' '] : '';
+    return optionLinesDoc([makeKeyword('ALTER SEQUENCE'), ' ', ifExistsDoc, qname], options.map(makeKeyword));
 }
 
 // ---------------------------------------------------------------------------

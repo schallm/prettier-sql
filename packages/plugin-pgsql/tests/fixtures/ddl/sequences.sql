@@ -12,3 +12,5 @@ create sequence event_seq;
 alter sequence order_seq
 restart with 1
 increment by 5;
+
+alter sequence if exists order_seq restart with 1000;
