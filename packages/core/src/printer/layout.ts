@@ -277,6 +277,11 @@ export function createIndexDoc(head: Doc, headText: string, on: Doc, tail: Doc[]
     ];
 }
 
+/** `ALTER TABLE t` and its actions, the actions on indented lines below it. */
+export function alterTableDoc(header: Doc, actions: Doc[], opts: Options): Doc {
+    return [header, indent([hardline, join([',', hardline], actions)]), ';'];
+}
+
 /** `lhs UNION rhs` (or INTERSECT / EXCEPT): the operator stands alone between blank lines. */
 export function setOpDoc(lhs: Doc, opKw: Doc, rhs: Doc): Doc {
     return [lhs, hardline, hardline, opKw, hardline, hardline, rhs];

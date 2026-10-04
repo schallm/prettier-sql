@@ -16,7 +16,7 @@ import {
 } from '@prettier-sql/core/printer/utils';
 import {
     valuesRow, valuesDoc, setClauseDoc, setOpDoc, joinStatements, boolClauseDoc,
-    selectListDoc, fromClauseDoc, listClauseDoc, windowClauseDoc, withClauseDoc, joinOnDoc, mergeActionDoc, createIndexDoc,
+    selectListDoc, fromClauseDoc, listClauseDoc, windowClauseDoc, withClauseDoc, joinOnDoc, mergeActionDoc, createIndexDoc, alterTableDoc,
 } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions } from './helpers.js';
 import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, boolTerms, isBoolChain, tableAliasDoc } from './expressions.js';
@@ -645,11 +645,8 @@ function printAlterTable(node: SqlNode, opts: Options): Doc {
     const isType = propBool(node, 'attributes');
     const printCmd = (cmd: SqlNode): Doc => (isType ? printAttributeCmd(cmd, opts, printNode) : printNode(cmd));
 
-    return [
-        makeKeyword(`ALTER ${objType}`), ' ', ifExists, isType ? '' : onlyPrefix(name, opts), rangeVarName(name),
-        indent([hardline, join([',', hardline], commands.map(printCmd))]),
-        ';',
-    ];
+    const header: Doc = [makeKeyword(`ALTER ${objType}`), ' ', ifExists, isType ? '' : onlyPrefix(name, opts), rangeVarName(name)];
+    return alterTableDoc(header, commands.map(printCmd), opts);
 }
 
 /** ALTER TYPE t ADD / DROP / ALTER ATTRIBUTE — the composite-type forms of the column commands. */

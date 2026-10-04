@@ -696,52 +696,56 @@ with fullscan;
 
 exports[`fixtures > alter-table/add-column.sql 1`] = `
 "alter table Books
-add
-  Isbn nvarchar(20) null,
-  Summary nvarchar(max) null;
+  add
+    Isbn nvarchar(20) null,
+    Summary nvarchar(max) null;
 "
 `;
 
 exports[`fixtures > alter-table/add-column-short.sql 1`] = `
 "alter table books
-add summary varchar(500);
+  add summary varchar(500);
 
 alter table books
-add is_featured integer default 0 not null;
+  add is_featured integer default 0 not null;
 "
 `;
 
 exports[`fixtures > alter-table/add-elements.sql 1`] = `
 "-- ALTER TABLE ADD: DEFAULT ... WITH VALUES, PERIOD FOR SYSTEM_TIME, INDEX; masking functions with quotes
 alter table t
-add
-  a int null,
-  b varchar(10) constraint df_b default 'x' with values not null;
+  add
+    a int null,
+    b varchar(10) constraint df_b default 'x' with values not null;
 
 alter table t
-add c int default 0 with values;
+  add c int default 0 with values;
 
 alter table t
-add period for system_time (vf, vt);
+  add period for system_time (vf, vt);
 
 alter table t
-add
-  vf datetime2
-    generated always as row start
-    hidden
-    default sysutcdatetime()
-    not null,
-  vt datetime2 generated always as row end hidden default '9999-12-31' not null,
-  period for system_time (vf, vt);
+  add
+    vf datetime2
+      generated always as row start
+      hidden
+      default sysutcdatetime()
+      not null,
+    vt datetime2
+      generated always as row end
+      hidden
+      default '9999-12-31'
+      not null,
+    period for system_time (vf, vt);
 
 alter table t
-add index ix nonclustered (a);
+  add index ix nonclustered (a);
 
 alter table t
-add constraint df default 0 for a with values;
+  add constraint df default 0 for a with values;
 
 alter table t
-alter column s add masked with (function = 'partial(1,"XX",0)');
+  alter column s add masked with (function = 'partial(1,"XX",0)');
 
 create table t (
   s varchar(10) masked with (function = 'partial(1,''X'',0)')
@@ -751,74 +755,74 @@ create table t (
 
 exports[`fixtures > alter-table/alter-column.sql 1`] = `
 "alter table Books
-alter column Title nvarchar(500) null;
+  alter column Title nvarchar(500) null;
 
 alter table Books
-alter column Price decimal(12, 2) not null;
+  alter column Price decimal(12, 2) not null;
 
 alter table Books
-alter column Code varchar(20);
+  alter column Code varchar(20);
 
 -- COLLATE clause must be preserved
 alter table dbo.T
-alter column Name nvarchar(200) collate Latin1_General_CI_AS null;
+  alter column Name nvarchar(200) collate Latin1_General_CI_AS null;
 
 alter table dbo.T
-alter column Code varchar(20) collate SQL_Latin1_General_CP1_CS_AS not null;
+  alter column Code varchar(20) collate SQL_Latin1_General_CP1_CS_AS not null;
 "
 `;
 
 exports[`fixtures > alter-table/alter-column-options.sql 1`] = `
 "-- ALTER COLUMN keeps NOT FOR REPLICATION, its column properties and its WITH options
 alter table dbo.t
-alter column a drop not for replication;
+  alter column a drop not for replication;
 
 alter table dbo.t
-alter column a add not for replication;
+  alter column a add not for replication;
 
 alter table dbo.t
-alter column a varchar(max) with (online = on);
+  alter column a varchar(max) with (online = on);
 
 alter table dbo.t
-alter column a int sparse;
+  alter column a int sparse;
 
 alter table dbo.t
-alter column a int hidden;
+  alter column a int hidden;
 
 alter table dbo.t
-alter column a int masked with (function = 'default()');
+  alter column a int masked with (function = 'default()');
 
 alter table dbo.t
-alter column a int encrypted with (
-  column_encryption_key = k,
-  encryption_type = deterministic,
-  algorithm = 'AEAD_AES_256_CBC_HMAC_SHA_256'
-);
+  alter column a int encrypted with (
+    column_encryption_key = k,
+    encryption_type = deterministic,
+    algorithm = 'AEAD_AES_256_CBC_HMAC_SHA_256'
+  );
 
 alter table dbo.t
-alter column a varchar(10) collate latin1_general_bin not null;
+  alter column a varchar(10) collate latin1_general_bin not null;
 "
 `;
 
 exports[`fixtures > alter-table/change-tracking-and-period.sql 1`] = `
 "-- ENABLE / DISABLE CHANGE_TRACKING, DROP PERIOD, and the rarer forms kept as written
 alter table dbo.t
-enable change_tracking;
+  enable change_tracking;
 
 alter table dbo.t
-enable change_tracking with (track_columns_updated = on);
+  enable change_tracking with (track_columns_updated = on);
 
 alter table dbo.t
-enable change_tracking with (track_columns_updated = off);
+  enable change_tracking with (track_columns_updated = off);
 
 alter table dbo.t
-disable change_tracking;
+  disable change_tracking;
 
 alter table dbo.t
-drop period for system_time;
+  drop period for system_time;
 
 alter table dbo.t
-drop constraint c, column d, period for system_time;
+  drop constraint c, column d, period for system_time;
 
 alter table dbo.t enable filetable_namespace;
 
@@ -832,172 +836,172 @@ alter table dbo.t merge range (1);
 
 exports[`fixtures > alter-table/constraints.sql 1`] = `
 "alter table Books
-add constraint UQ_Books_Isbn unique (Isbn);
+  add constraint UQ_Books_Isbn unique (Isbn);
 
 alter table Orders
-add constraint FK_Orders_Customers
-  foreign key (CustomerId) references Customers (Id)
-  on delete cascade
-  on update no action;
+  add constraint FK_Orders_Customers
+    foreign key (CustomerId) references Customers (Id)
+    on delete cascade
+    on update no action;
 
 alter table Books
-add constraint CK_Books_Price check (Price > 0);
+  add constraint CK_Books_Price check (Price > 0);
 
 alter table Books
-drop constraint UQ_Books_Isbn;
+  drop constraint UQ_Books_Isbn;
 
 alter table Books
-drop constraint if exists CK_Books_Price;
+  drop constraint if exists CK_Books_Price;
 
 alter table Orders
-with check
-add constraint FK_Orders_Customers
-  foreign key (CustomerId) references Customers (Id);
+  with check
+  add constraint FK_Orders_Customers
+    foreign key (CustomerId) references Customers (Id);
 
 alter table Orders
-nocheck constraint FK_Orders_Customers;
+  nocheck constraint FK_Orders_Customers;
 
 alter table Orders
-check constraint all;
+  check constraint all;
 "
 `;
 
 exports[`fixtures > alter-table/drop-column.sql 1`] = `
 "alter table Books
-drop column Isbn, Summary;
+  drop column Isbn, Summary;
 "
 `;
 
 exports[`fixtures > alter-table/drop-constraint-move-to.sql 1`] = `
 "alter table dbo.Orders
-drop constraint PK_Orders with (ONLINE = ON, MOVE TO [PRIMARY]);
+  drop constraint PK_Orders with (ONLINE = ON, MOVE TO [PRIMARY]);
 
 alter table dbo.Orders
-drop constraint PK_Orders with (MOVE TO ps_orders(OrderDate), MAXDOP = 2);
+  drop constraint PK_Orders with (MOVE TO ps_orders(OrderDate), MAXDOP = 2);
 "
 `;
 
 exports[`fixtures > alter-table/drop-constraint-with.sql 1`] = `
 "-- DROP CLUSTERED CONSTRAINT WITH options (ONLINE, WAIT_AT_LOW_PRIORITY, MAXDOP) must be preserved
 alter table dbo.Orders
-drop constraint PK_Orders with (
-  ONLINE = ON,
-  wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
-);
+  drop constraint PK_Orders with (
+    ONLINE = ON,
+    wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
+  );
 
 alter table dbo.Orders
-drop constraint IX_Orders_Date with (
-  ONLINE = ON,
-  wait_at_low_priority (max_duration = 10 minutes, abort_after_wait = blockers)
-);
+  drop constraint IX_Orders_Date with (
+    ONLINE = ON,
+    wait_at_low_priority (max_duration = 10 minutes, abort_after_wait = blockers)
+  );
 
 alter table dbo.BigTable
-drop constraint CL_BigTable with (ONLINE = ON, MAXDOP = 4);
+  drop constraint CL_BigTable with (ONLINE = ON, MAXDOP = 4);
 "
 `;
 
 exports[`fixtures > alter-table/fk-no-ref-columns.sql 1`] = `
 "-- REFERENCES with no explicit column list must not print an empty () (bug: unparseable)
 alter table t
-with nocheck
-add constraint fk foreign key (a) references u;
+  with nocheck
+  add constraint fk foreign key (a) references u;
 "
 `;
 
 exports[`fixtures > alter-table/rebuild-switch.sql 1`] = `
 "-- ALTER TABLE REBUILD / SWITCH, with and without a partition
 alter table t
-rebuild with (online = on);
+  rebuild with (online = on);
 
 alter table t
-rebuild partition = all with (data_compression = page);
+  rebuild partition = all with (data_compression = page);
 
 alter table t
-rebuild partition = 2;
+  rebuild partition = 2;
 
 alter table t
-rebuild partition = @p;
+  rebuild partition = @p;
 
 alter table t
-switch partition @p to t2 partition @p;
+  switch partition @p to t2 partition @p;
 
 alter table t
-switch to t2;
+  switch to t2;
 "
 `;
 
 exports[`fixtures > alter-table/set-options.sql 1`] = `
 "-- ALTER TABLE SET (...) options keep their names
 alter table dbo.t
-set (filestream_on = fs);
+  set (filestream_on = fs);
 
 alter table dbo.t
-set (lock_escalation = auto, filestream_on = fs);
+  set (lock_escalation = auto, filestream_on = fs);
 
 alter table dbo.t
-set (
-  system_versioning = on (
-    history_table = dbo.h,
-    history_retention_period = 6 months
-  )
-);
+  set (
+    system_versioning = on (
+      history_table = dbo.h,
+      history_retention_period = 6 months
+    )
+  );
 
 alter table dbo.t
-set (system_versioning = on (history_retention_period = infinite));
+  set (system_versioning = on (history_retention_period = infinite));
 
 alter table dbo.t
-set (system_versioning = off);
+  set (system_versioning = off);
 
 alter table dbo.t
-set (
-  remote_data_archive = on (
-    filter_predicate = dbo.fn(a),
-    migration_state = outbound
-  )
-);
+  set (
+    remote_data_archive = on (
+      filter_predicate = dbo.fn(a),
+      migration_state = outbound
+    )
+  );
 
 alter table dbo.t
-set (filetable_directory = 'x');
+  set (filetable_directory = 'x');
 "
 `;
 
 exports[`fixtures > alter-table/set-rebuild-switch.sql 1`] = `
 "alter table Orders
-set (lock_escalation = auto);
+  set (lock_escalation = auto);
 
 alter table Orders
-set (lock_escalation = disable);
+  set (lock_escalation = disable);
 
 alter table Orders
-rebuild partition = all;
+  rebuild partition = all;
 
 alter table Orders
-rebuild partition = 3 with (data_compression = row);
+  rebuild partition = 3 with (data_compression = row);
 
 alter table Orders
-switch partition 3 to ArchivedOrders partition 1;
+  switch partition 3 to ArchivedOrders partition 1;
 
 alter table Orders
-switch to ArchivedOrders;
+  switch to ArchivedOrders;
 "
 `;
 
 exports[`fixtures > alter-table/switch-partition-wait.sql 1`] = `
 "-- ALTER TABLE SWITCH PARTITION with WAIT_AT_LOW_PRIORITY options must be preserved
 alter table dbo.SalesCurrent
-switch partition 3 to dbo.SalesArchive partition 1 with (
-  wait_at_low_priority (max_duration = 10 minutes, abort_after_wait = self)
-);
+  switch partition 3 to dbo.SalesArchive partition 1 with (
+    wait_at_low_priority (max_duration = 10 minutes, abort_after_wait = self)
+  );
 
 alter table dbo.BigTable
-switch partition 5 to dbo.BigTableArchive partition 1 with (
-  wait_at_low_priority (max_duration = 0 minutes, abort_after_wait = none)
-);
+  switch partition 5 to dbo.BigTableArchive partition 1 with (
+    wait_at_low_priority (max_duration = 0 minutes, abort_after_wait = none)
+  );
 
 alter table dbo.BigTable
-switch partition 5 to dbo.BigTableArchive partition 1 with (
-  wait_at_low_priority (max_duration = 30 minutes, abort_after_wait = blockers)
-);
+  switch partition 5 to dbo.BigTableArchive partition 1 with (
+    wait_at_low_priority (max_duration = 30 minutes, abort_after_wait = blockers)
+  );
 "
 `;
 
@@ -1026,9 +1030,9 @@ create table t (
 );
 
 alter table t
-add constraint ck3 check (a <> 0
--- c3
-);
+  add constraint ck3 check (a <> 0
+  -- c3
+  );
 "
 `;
 
@@ -1083,10 +1087,10 @@ create table dbo.c (
 );
 
 alter table dbo.t
-with check check constraint c1, c2;
+  with check check constraint c1, c2;
 
 alter table dbo.t
-with nocheck check constraint all;
+  with nocheck check constraint all;
 "
 `;
 
@@ -1346,27 +1350,27 @@ with (
 );
 
 alter table dbo.t
-set (
-  system_versioning = on (
-    history_table = dbo.SomeLongHistoryTableName,
-    data_consistency_check = on,
-    history_retention_period = 6 months
-  )
-);
+  set (
+    system_versioning = on (
+      history_table = dbo.SomeLongHistoryTableName,
+      data_consistency_check = on,
+      history_retention_period = 6 months
+    )
+  );
 
 alter table dbo.t
-set (
-  remote_data_archive = on (
-    filter_predicate = dbo.some_long_filter_function_name(a),
-    migration_state = outbound
-  )
-);
+  set (
+    remote_data_archive = on (
+      filter_predicate = dbo.some_long_filter_function_name(a),
+      migration_state = outbound
+    )
+  );
 
 alter table dbo.t
-set (lock_escalation = table);
+  set (lock_escalation = table);
 
 alter table dbo.t
-set (system_versioning = on (history_table = dbo.h));
+  set (system_versioning = on (history_table = dbo.h));
 "
 `;
 
@@ -1400,13 +1404,13 @@ create table dbo.t (
 );
 
 alter table dbo.t
-add constraint [c d] foreign key ([a b]) references [u v] ([x y]);
+  add constraint [c d] foreign key ([a b]) references [u v] ([x y]);
 
 alter table dbo.t
-check constraint [c d];
+  check constraint [c d];
 
 alter table dbo.t
-alter column [a b] dbo.MyType not null;
+  alter column [a b] dbo.MyType not null;
 
 select
   cast(a as dbo.MyType),
@@ -1452,7 +1456,7 @@ on t
 on ps(a);
 
 alter table t
-add constraint pk primary key clustered (a) on ps(a);
+  add constraint pk primary key clustered (a) on ps(a);
 
 CREATE PRIMARY XML INDEX px ON t (x);
 
@@ -1661,7 +1665,7 @@ create table dbo.Documents (
 exports[`fixtures > create-table/xml-typed-everywhere.sql 1`] = `
 "-- An xml schema collection and a user-defined type keep their case wherever a type is written
 alter table dbo.t
-alter column a xml(content dbo.Sc);
+  alter column a xml(content dbo.Sc);
 go
 
 create procedure dbo.p
@@ -1780,26 +1784,26 @@ exports[`fixtures > ddl/long-option-lists.sql 1`] = `
   );
 
 alter table dbo.Orders
-drop constraint PK_Orders with (
-  ONLINE = ON,
-  MAXDOP = 4,
-  MOVE TO [PRIMARY],
-  wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
-);
-
-alter table dbo.Orders
-add constraint UQ_Orders_Number
-  unique nonclustered (OrderNumber) with (
-    pad_index = on,
-    fillfactor = 80,
-    ignore_dup_key = off,
-    allow_row_locks = on
+  drop constraint PK_Orders with (
+    ONLINE = ON,
+    MAXDOP = 4,
+    MOVE TO [PRIMARY],
+    wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
   );
 
 alter table dbo.Orders
-switch partition 3 to dbo.OrdersArchive partition 1 with (
-  wait_at_low_priority (max_duration = 10 minutes, abort_after_wait = blockers)
-);
+  add constraint UQ_Orders_Number
+    unique nonclustered (OrderNumber) with (
+      pad_index = on,
+      fillfactor = 80,
+      ignore_dup_key = off,
+      allow_row_locks = on
+    );
+
+alter table dbo.Orders
+  switch partition 3 to dbo.OrdersArchive partition 1 with (
+    wait_at_low_priority (max_duration = 10 minutes, abort_after_wait = blockers)
+  );
 
 alter index IX_Orders on dbo.Orders rebuild partition = 3 with (
   data_compression = row,
@@ -1845,11 +1849,11 @@ execute dbo.GetOrders with result sets (
 );
 
 alter table dbo.Customers
-alter column Ssn char(9) collate Latin1_General_BIN2 encrypted with (
-  column_encryption_key = CEK1,
-  encryption_type = deterministic,
-  algorithm = 'AEAD_AES_256_CBC_HMAC_SHA_256'
-);
+  alter column Ssn char(9) collate Latin1_General_BIN2 encrypted with (
+    column_encryption_key = CEK1,
+    encryption_type = deterministic,
+    algorithm = 'AEAD_AES_256_CBC_HMAC_SHA_256'
+  );
 
 create table dbo.Events (
   Id int not null,
@@ -2003,10 +2007,10 @@ from
 
 -- A DROP list can mix constraints and columns
 alter table t
-drop constraint if exists ck, column if exists b;
+  drop constraint if exists ck, column if exists b;
 
 alter table t
-drop ck1, ck2, column c, d;
+  drop ck1, ck2, column c, d;
 
 -- Variables in hints keep their case
 select a
@@ -3659,16 +3663,16 @@ create table dbo.[order] (
 create index [index] on [order] ([select] desc) include ([from]);
 
 alter table [order]
-add [column] int;
+  add [column] int;
 
 alter table [order]
-alter column [select] bigint;
+  alter column [select] bigint;
 
 alter table [order]
-drop constraint [primary];
+  drop constraint [primary];
 
 alter table [order]
-drop column [column];
+  drop column [column];
 
 insert into [order] ([key], [select])
 values (1, 2);
@@ -5528,11 +5532,11 @@ declare @message nvarchar(200) = N'The order was placed by ' + @customer_name --
   + N' on ' + convert(nvarchar(30), @order_date, 120);
 
 alter table dbo.Orders
-drop constraint PK_Orders with (
-  ONLINE = ON,
-  MAXDOP = 4,
-  wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
-);
+  drop constraint PK_Orders with (
+    ONLINE = ON,
+    MAXDOP = 4,
+    wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
+  );
 -- keep it online
 "
 `;
@@ -6186,10 +6190,10 @@ declare @message nvarchar(200) =
     + convert(nvarchar(30), @order_date, 120);
 
 alter table dbo.Orders
-drop constraint PK_Orders with (
-  ONLINE = ON,
-  wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
-);
+  drop constraint PK_Orders with (
+    ONLINE = ON,
+    wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
+  );
 "
 `;
 
@@ -6225,10 +6229,10 @@ declare @message nvarchar(200) =
     + convert(nvarchar(30), @order_date, 120);
 
 alter table dbo.Orders
-drop constraint PK_Orders with (
-  ONLINE = ON,
-  wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
-);
+  drop constraint PK_Orders with (
+    ONLINE = ON,
+    wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
+  );
 "
 `;
 
@@ -6272,10 +6276,10 @@ declare @message nvarchar(200) =
     );
 
 alter table dbo.Orders
-drop constraint PK_Orders with (
-  ONLINE = ON,
-  wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
-);
+  drop constraint PK_Orders with (
+    ONLINE = ON,
+    wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
+  );
 "
 `;
 
@@ -6318,10 +6322,10 @@ declare @message nvarchar(200) =
     + convert(nvarchar(30), @order_date, 120);
 
 alter table dbo.Orders
-drop constraint PK_Orders with (
-  ONLINE = ON,
-  wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
-);
+  drop constraint PK_Orders with (
+    ONLINE = ON,
+    wait_at_low_priority (max_duration = 5 minutes, abort_after_wait = self)
+  );
 "
 `;
 
@@ -6548,23 +6552,23 @@ ORDER BY b.Title ASC;
 
 exports[`shared fixtures > ddl/alter-table.sql 1`] = `
 "alter table books
-drop column summary;
+  drop column summary;
 
 alter table books
-add constraint uq_books_title unique (title);
+  add constraint uq_books_title unique (title);
 
 alter table books
-add constraint fk_books_publisher
-  foreign key (publisher_id) references publishers (id);
+  add constraint fk_books_publisher
+    foreign key (publisher_id) references publishers (id);
 
 alter table books
-add constraint chk_books_stock check (in_stock >= 0);
+  add constraint chk_books_stock check (in_stock >= 0);
 
 alter table books
-drop constraint uq_books_title;
+  drop constraint uq_books_title;
 
 alter table books
-drop constraint fk_books_publisher;
+  drop constraint fk_books_publisher;
 "
 `;
 

@@ -16,7 +16,7 @@ import {
     parenItems,
     willBreak,
 } from '@prettier-sql/core/printer/utils';
-import { createIndexDoc } from '@prettier-sql/core/printer/layout';
+import { createIndexDoc, alterTableDoc } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment, splitTopLevel, sortOrderDoc } from './helpers.js';
 import { boolEndsWithPendingComment } from './expressions.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
@@ -548,6 +548,7 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
 export function printAlterTable(node: SqlNode, opts: Options): Doc {
     const alterType = propStr(node, 'alterType') ?? '';
     const name = schemaObjectName(prop(node, 'name'));
+    const alter = (action: Doc): Doc => alterTableDoc([keyword('ALTER TABLE', opts), ' ', name], [action], opts);
 
     if (alterType === 'AlterTableAddTableElementStatement') {
         const withCheck = propStr(node, 'withCheckEnforcement');
@@ -565,7 +566,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         const period = propStr(node, 'systemTimePeriod');
         if (period) defs.push([keyword('PERIOD FOR SYSTEM_TIME', opts), ' (', period, ')']);
         const addPart: Doc = defs.length === 1 ? [' ', defs[0]!] : indent([hardline, join([',', hardline], defs)]);
-        return [keyword('ALTER TABLE', opts), ' ', name, hardline, withCheckPrefix, keyword('ADD', opts), addPart, ';'];
+        return alter([withCheckPrefix, keyword('ADD', opts), addPart]);
     }
 
     if (alterType === 'AlterTableDropTableElementStatement') {
@@ -605,16 +606,11 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             allDropOptions.length
                 ? [' ', keyword('WITH', opts), ' ', optionItems(allDropOptions, opts)]
                 : '';
-        return [
-            keyword('ALTER TABLE', opts),
-            ' ',
-            name,
-            hardline,
+        return alter([
             dropKw,
             itemDocs.every((d) => d === '') ? '' : [' ', nameList],
             withPart,
-            ';',
-        ];
+        ]);
     }
 
     if (alterType === 'AlterTableConstraintModificationStatement') {
@@ -632,19 +628,14 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
                 : modCheck === 'NoCheck'
                   ? [keyword('WITH NOCHECK', opts), ' ']
                   : '';
-        return [
-            keyword('ALTER TABLE', opts),
-            ' ',
-            name,
-            hardline,
+        return alter([
             modCheckPrefix,
             enforcementKw,
             ' ',
             keyword('CONSTRAINT', opts),
             ' ',
             nameList,
-            ';',
-        ];
+        ]);
     }
 
     if (alterType === 'AlterTableAlterColumnStatement') {
@@ -678,18 +669,13 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
                     opts,
                 );
             }
-            return [
-                keyword('ALTER TABLE', opts),
-                ' ',
-                name,
-                hardline,
+            return alter([
                 keyword('ALTER COLUMN', opts),
                 ' ',
                 column,
                 ' ',
                 optDoc,
-                ';',
-            ];
+            ]);
         }
 
         // Normal type-change: ALTER COLUMN col newtype [COLLATE ...] [NULL|NOT NULL]
@@ -706,11 +692,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         const encryptionPart: Doc = encryption ? [' ', encryptedWithDoc(encryption, opts)] : '';
         const generatedAlways = propStr(node, 'generatedAlways');
         const columnOptions = propStrArr(node, 'columnOptions');
-        return [
-            keyword('ALTER TABLE', opts),
-            ' ',
-            name,
-            hardline,
+        return alter([
             keyword('ALTER COLUMN', opts),
             ' ',
             column,
@@ -736,8 +718,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
                 : '',
             nullPart,
             columnOptions.length ? [' ', keyword('WITH', opts), ' ', optionItems(columnOptions, opts)] : '',
-            ';',
-        ];
+        ]);
     }
 
     if (alterType === 'AlterTableSetStatement') {
@@ -745,16 +726,11 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         // "system_versioning = on (history_table = dbo.Tbl)"). Render them verbatim — applying
         // keyword() casing would uppercase embedded schema/table names.
         const options = propStrArr(node, 'options');
-        return [
-            keyword('ALTER TABLE', opts),
-            ' ',
-            name,
-            hardline,
+        return alter([
             keyword('SET', opts),
             ' ',
             optionItems(options.map(nestedOptionDoc), opts),
-            ';',
-        ];
+        ]);
     }
 
     if (alterType === 'AlterTableRebuildStatement') {
@@ -767,16 +743,11 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         const withDoc: Doc = indexOptions.length
             ? [' ', keyword('WITH', opts), ' ', optionItems(indexOptions, opts)]
             : '';
-        return [
-            keyword('ALTER TABLE', opts),
-            ' ',
-            name,
-            hardline,
+        return alter([
             keyword('REBUILD', opts),
             partitionPart,
             withDoc,
-            ';',
-        ];
+        ]);
     }
 
     if (alterType === 'AlterTableSwitchStatement') {
@@ -791,11 +762,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             switchOptions.length
                 ? [' ', keyword('WITH', opts), ' ', optionItems(switchOptions, opts)]
                 : '';
-        return [
-            keyword('ALTER TABLE', opts),
-            ' ',
-            name,
-            hardline,
+        return alter([
             keyword('SWITCH', opts),
             sourceDoc,
             ' ',
@@ -804,8 +771,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             targetDoc,
             targetPartDoc,
             switchOptDoc,
-            ';',
-        ];
+        ]);
     }
 
     if (alterType === 'AlterTableTriggerModificationStatement') {
@@ -814,20 +780,15 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         const triggerNames = propStrArr(node, 'triggerNames');
         const verb: Doc = enable ? keyword('ENABLE TRIGGER', opts) : keyword('DISABLE TRIGGER', opts);
         const targets: Doc = triggerAll ? keyword('ALL', opts) : join(', ', triggerNames);
-        return [keyword('ALTER TABLE', opts), ' ', name, hardline, verb, ' ', targets, ';'];
+        return alter([verb, ' ', targets]);
     }
 
     if (alterType === 'AlterTableChangeTrackingModificationStatement') {
         const trackColumns = propStr(node, 'trackColumnsUpdated');
-        return [
-            keyword('ALTER TABLE', opts),
-            ' ',
-            name,
-            hardline,
+        return alter([
             keyword(propStr(node, 'changeTracking') === 'enable' ? 'ENABLE CHANGE_TRACKING' : 'DISABLE CHANGE_TRACKING', opts),
             trackColumns ? [' ', keyword('WITH', opts), ' (', keyword('TRACK_COLUMNS_UPDATED', opts), ' = ', keyword(trackColumns, opts), ')'] : '',
-            ';',
-        ];
+        ]);
     }
 
     return [keyword('ALTER TABLE', opts), ' ', name, ' /* ', alterType, ' */;'];
