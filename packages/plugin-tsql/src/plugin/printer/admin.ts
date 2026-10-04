@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
-import { keyword, hardline, join, indent, group, line, softline, ifExistsDoc } from '@prettier-sql/core/printer/utils';
+import { keyword, hardline, join, indent, group, line, softline, ifExistsDoc, optionItems } from '@prettier-sql/core/printer/utils';
 import { splitTopLevel } from './helpers.js';
 import { propStr, propBool } from './helpers.js';
 
@@ -307,6 +307,12 @@ export function printAlterDatabaseSet(node: SqlNode, opts: Options): Doc {
           ])
         : '';
     const termPart: Doc = termination ? [' ', keyword(termination, opts)] : '';
+
+    // ALTER DATABASE d MODIFY (EDITION = ..., SERVICE_OBJECTIVE = ...) [WITH MANUAL_CUTOVER] (Azure SQL)
+    if (propBool(node, 'modify')) {
+        const cutover: Doc = propBool(node, 'manualCutover') ? [' ', keyword('WITH MANUAL_CUTOVER', opts)] : '';
+        return [alterDbHeader(node, opts), hardline, keyword('MODIFY', opts), ' ', optionItems((options ?? []).map((o) => keyword(o, opts)), opts), cutover, ';'];
+    }
 
     return group([alterDbHeader(node, opts), hardline, keyword('SET', opts), ' ', optPart, termPart, ';']);
 }

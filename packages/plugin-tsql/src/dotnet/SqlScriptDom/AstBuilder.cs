@@ -3718,7 +3718,21 @@ public class AstBuilder : TSqlFragmentVisitor {
             // and always uses "= ON/OFF" syntax rather than a plain space.
             ["options"] = MapList(stmt.Options, o => (object?)DatabaseOptionText(stmt, o)),
             ["termination"] = RawTextOrNull(stmt.Termination),
+            // ALTER DATABASE d MODIFY (EDITION = ..., SERVICE_OBJECTIVE = ...) [WITH MANUAL_CUTOVER] (Azure SQL)
+            ["modify"] = IsAlterDatabaseModify(stmt) ? true : null,
+            ["manualCutover"] = stmt.WithManualCutover ? true : null,
         });
+
+    /// <summary>
+    /// ScriptDom parses ALTER DATABASE d SET ... and the Azure SQL ALTER DATABASE d MODIFY (...)
+    /// into the same statement with nothing to tell them apart, so read the keyword: the fourth
+    /// token, after ALTER, DATABASE and the name (or CURRENT).
+    /// </summary>
+    private static bool IsAlterDatabaseModify(AlterDatabaseSetStatement stmt) =>
+        stmt.ScriptTokenStream?
+            .Skip(stmt.FirstTokenIndex)
+            .Where(t => t.TokenType is not (TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment))
+            .ElementAtOrDefault(3)?.Text.Equals("MODIFY", StringComparison.OrdinalIgnoreCase) == true;
 
     private static SqlNode BuildAlterDatabaseCollate(AlterDatabaseCollateStatement stmt) =>
         Node("AlterDatabaseCollateStatement", stmt, new Dictionary<string, object?> {
