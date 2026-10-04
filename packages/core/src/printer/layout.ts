@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '../types.js';
 import {
-    keyword, getDensity, getCommaStyle, commaFill, hasHardline, hasLineSuffix, hardSep, softSep,
+    keyword, getDensity, getCommaStyle, commaFill, hasHardline, hasLine, hasLineSuffix, hardSep, softSep,
     conditionalGroup, fill, group, hardline, indent, join, line, softline, willBreak,
     type Options,
 } from './utils.js';
@@ -317,6 +317,25 @@ export function optionLinesDoc(header: Doc, options: Doc[]): Doc {
  */
 export function asQueryDoc(header: Doc, kw: Doc, query: Doc): Doc {
     return [header, hardline, kw, hardline, query];
+}
+
+/**
+ * `DROP kind name, name … [ON …] [CASCADE];`: on one line when it fits; otherwise the names
+ * fill an indented line and each clause follows on a line of its own. When no clause
+ * follows the names, the `;` goes into the last one, so the line filling counts it.
+ */
+export function dropDoc(head: Doc, names: Doc[], clauses: Doc[]): Doc {
+    const namesEnd = names.length > 0 && clauses.length === 0;
+    // A single name that breaks on its own (`ix ON t WITH (…)`) stays on the DROP line
+    const hug = names.length === 1 && hasLine(names[0]!);
+    return [
+        group([
+            head,
+            hug ? [' ', names[0]!, namesEnd ? ';' : ''] : names.length > 0 ? indent([line, commaFill(names, namesEnd ? ';' : '')]) : '',
+            clauses.map((c): Doc => [line, c]),
+        ]),
+        namesEnd ? '' : ';',
+    ];
 }
 
 /** `lhs UNION rhs` (or INTERSECT / EXCEPT): the operator stands alone between blank lines. */

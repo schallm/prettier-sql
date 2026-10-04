@@ -16,7 +16,7 @@ import {
 } from '@prettier-sql/core/printer/utils';
 import {
     valuesRow, valuesDoc, setClauseDoc, setOpDoc, joinStatements, boolClauseDoc,
-    selectListDoc, fromClauseDoc, listClauseDoc, windowClauseDoc, withClauseDoc, joinOnDoc, mergeActionDoc, createIndexDoc, alterTableDoc, grantDoc, optionLinesDoc, asQueryDoc,
+    selectListDoc, fromClauseDoc, listClauseDoc, windowClauseDoc, withClauseDoc, joinOnDoc, mergeActionDoc, createIndexDoc, alterTableDoc, grantDoc, optionLinesDoc, asQueryDoc, dropDoc,
 } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions } from './helpers.js';
 import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, boolTerms, isBoolChain, tableAliasDoc } from './expressions.js';
@@ -825,26 +825,21 @@ function printDrop(node: SqlNode, opts: Options): Doc {
     const castSource    = propStr(node, 'castSource');
     const transformType = propStr(node, 'transformType');
 
-    // On one line when it fits; otherwise the names fill an indented line and ON / USING / CASCADE
-    // each follow on a line of their own
-    // the `;` goes into the last name when nothing follows them, so the line filling counts it
-    const namesEnd = names.length > 0 && !castSource && !transformType && !onTable && !using && !cascade;
-    return [
-        group([
-            makeKeyword('DROP'), ' ', makeKeyword(objectType),
-            propBool(node, 'concurrent') ? [' ', makeKeyword('CONCURRENTLY')] : '',
-            ifExists ? [' ', makeKeyword('IF EXISTS')] : '',
-            names.length > 0 ? indent([line, commaFill(names, namesEnd ? ';' : '')]) : '',
-            castSource ? [' (', keyword(castSource, opts), ' ', makeKeyword('AS'), ' ', keyword(propStr(node, 'castTarget') ?? '', opts), ')'] : '',
-            transformType
-                ? [' ', makeKeyword('FOR'), ' ', keyword(transformType, opts), ' ', makeKeyword('LANGUAGE'), ' ', propStr(node, 'transformLanguage') ?? '']
-                : '',
-            onTable ? [line, makeKeyword('ON'), ' ', onTable] : '',
-            using ? [line, makeKeyword('USING'), ' ', using] : '',
-            cascade ? [line, makeKeyword('CASCADE')] : '',
-        ]),
-        namesEnd ? '' : ';',
+    // DROP CAST and DROP TRANSFORM name no objects: what they drop follows the kind
+    const head: Doc = [
+        makeKeyword('DROP'), ' ', makeKeyword(objectType),
+        propBool(node, 'concurrent') ? [' ', makeKeyword('CONCURRENTLY')] : '',
+        ifExists ? [' ', makeKeyword('IF EXISTS')] : '',
+        castSource ? [' (', keyword(castSource, opts), ' ', makeKeyword('AS'), ' ', keyword(propStr(node, 'castTarget') ?? '', opts), ')'] : '',
+        transformType
+            ? [' ', makeKeyword('FOR'), ' ', keyword(transformType, opts), ' ', makeKeyword('LANGUAGE'), ' ', propStr(node, 'transformLanguage') ?? '']
+            : '',
     ];
+    const clauses: Doc[] = [];
+    if (onTable) clauses.push([makeKeyword('ON'), ' ', onTable]);
+    if (using) clauses.push([makeKeyword('USING'), ' ', using]);
+    if (cascade) clauses.push(makeKeyword('CASCADE'));
+    return dropDoc(head, names, clauses);
 }
 
 // ---------------------------------------------------------------------------

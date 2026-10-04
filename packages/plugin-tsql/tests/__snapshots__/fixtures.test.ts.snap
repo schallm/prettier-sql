@@ -2495,13 +2495,9 @@ drop index ix on t with (online = on);
 
 drop index if exists ix on dbo.t with (maxdop = 2, online = off, move to fg2);
 
-drop index
-  t.ix1,
-  dbo.t.ix2;
+drop index t.ix1, dbo.t.ix2;
 
-drop index
-  ix1 on t1,
-  ix2 on t2;
+drop index ix1 on t1, ix2 on t2;
 "
 `;
 

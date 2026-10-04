@@ -16,7 +16,7 @@ import {
     parenItems,
     willBreak,
 } from '@prettier-sql/core/printer/utils';
-import { createIndexDoc, alterTableDoc, constraintDoc, checkDoc, optionLinesDoc, asQueryDoc } from '@prettier-sql/core/printer/layout';
+import { createIndexDoc, alterTableDoc, constraintDoc, checkDoc, optionLinesDoc, asQueryDoc, dropDoc } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment, splitTopLevel, sortOrderDoc } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
@@ -1381,20 +1381,9 @@ export function printDropObjects(objType: string, node: SqlNode, opts: Options):
     const names = propArr(node, 'names');
     const ifExists = propBool(node, 'ifExists');
     const triggerScope = propStr(node, 'triggerScope');
-    return [
-        keyword('DROP', opts),
-        ' ',
-        keyword(objType, opts),
-        ifExistsDoc(ifExists, opts),
-        ' ',
-        join(
-            ', ',
-            names.map((n) => schemaObjectName(n)),
-        ),
-        // DROP TRIGGER t ON DATABASE | ON ALL SERVER
-        triggerScope ? [' ', keyword('ON', opts), ' ', keyword(triggerScope === 'AllServer' ? 'ALL SERVER' : 'DATABASE', opts)] : '',
-        ';',
-    ];
+    // DROP TRIGGER t ON DATABASE | ON ALL SERVER
+    const clauses: Doc[] = triggerScope ? [[keyword('ON', opts), ' ', keyword(triggerScope === 'AllServer' ? 'ALL SERVER' : 'DATABASE', opts)]] : [];
+    return dropDoc([keyword('DROP', opts), ' ', keyword(objType, opts), ifExistsDoc(ifExists, opts)], names.map((n) => schemaObjectName(n)), clauses);
 }
 
 /** A DROP INDEX option; MOVE TO / FILESTREAM_ON name a filegroup, which keeps its case. */
@@ -1416,11 +1405,7 @@ export function printDropIndex(node: SqlNode, opts: Options): Doc {
             options.length > 0 ? [' ', keyword('WITH', opts), ' ', optionItems(options.map((o) => dropIndexOption(o, opts)), opts)] : '',
         ];
     });
-    const ifExistsPart: Doc = ifExists ? [' ', keyword('IF EXISTS', opts)] : '';
-    if (indexDocs.length === 1) {
-        return [keyword('DROP INDEX', opts), ifExistsPart, ' ', indexDocs[0]!, ';'];
-    }
-    return [keyword('DROP INDEX', opts), ifExistsPart, indent([hardline, join([',', hardline], indexDocs)]), ';'];
+    return dropDoc([keyword('DROP INDEX', opts), ifExistsDoc(ifExists, opts)], indexDocs, []);
 }
 
 // ---------------------------------------------------------------------------
