@@ -667,7 +667,7 @@ function printJoinExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 
     const joinKw: Doc =
         joinType === 'CROSS'   ? makeKeyword('CROSS JOIN')
-        : joinType === 'INNER'   ? makeKeyword('JOIN')
+        : joinType === 'INNER'   ? makeKeyword('INNER JOIN')
         : [makeKeyword(joinType), ' ', makeKeyword('JOIN')];
 
     const condition: Doc = joinType === 'CROSS' ? ''

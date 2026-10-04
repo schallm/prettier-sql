@@ -27,7 +27,7 @@ describe('filtered index', () => {
         expect(await fmt(sql)).toMatchInlineSnapshot(`
           "create index IX_Books_InStock
             on Books (
-              Price asc
+              Price
             )
             where InStock = 1;
           "
@@ -39,7 +39,7 @@ describe('filtered index', () => {
         expect(await fmt(sql)).toMatchInlineSnapshot(`
           "create unique index UQ_Orders_Active
             on Orders (
-              CustomerId asc
+              CustomerId
             )
             where
               Status <> 'Cancelled'

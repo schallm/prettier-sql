@@ -15,7 +15,7 @@ import {
     optionItems,
     willBreak,
 } from '@prettier-sql/core/printer/utils';
-import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment, splitTopLevel } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment, splitTopLevel, sortOrderDoc } from './helpers.js';
 import { boolEndsWithPendingComment } from './expressions.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
@@ -90,8 +90,7 @@ export function printInlineIndex(node: SqlNode, opts: Options): Doc {
 
     const colDocs = columns.map((c) => {
         const colName = propStr(c, 'name') ?? '';
-        const sort = propStr(c, 'sortOrder') ?? 'Ascending';
-        return sort === 'Descending' ? [colName, ' ', keyword('DESC', opts)] : [colName, ' ', keyword('ASC', opts)];
+        return [colName, sortOrderDoc(propStr(c, 'sortOrder'), opts)];
     });
 
     const includePart: Doc = includeColumns.length
@@ -464,7 +463,7 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
             const rawCols = Array.isArray(node.props?.['columns']) ? node.props!['columns'] : [];
             const colDocs: Doc[] = (rawCols as Array<{ name: string; order: string } | string>).map((c) => {
                 if (typeof c === 'string') return c;
-                const dir: Doc = c.order === 'Descending' ? [' ', keyword('DESC', opts)] : '';
+                const dir = sortOrderDoc(c.order, opts);
                 return [c.name, dir] as Doc;
             });
             const colsDoc = parenList(colDocs);
@@ -846,10 +845,7 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
 
     const colDocs = columns.map((c) => {
         const colName = propStr(c, 'name') ?? c.text ?? '';
-        const sort = propStr(c, 'sortOrder') ?? 'Ascending';
-        return sort === 'Descending'
-            ? ([colName, ' ', keyword('DESC', opts)] as Doc)
-            : ([colName, ' ', keyword('ASC', opts)] as Doc);
+        return [colName, sortOrderDoc(propStr(c, 'sortOrder'), opts)] as Doc;
     });
 
     const uniqueKw: Doc = isUnique ? [keyword('UNIQUE', opts), ' '] : '';

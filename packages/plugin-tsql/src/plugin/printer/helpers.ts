@@ -135,6 +135,11 @@ export function schemaObjectName(nameNode: SqlNode | null): string {
     return nm;
 }
 
+/** ` ASC` / ` DESC` after a sorted column or expression, when the source wrote one (ASC is the default). */
+export function sortOrderDoc(order: string | null | undefined, opts: Options): Doc {
+    return order === 'Descending' ? [' ', keyword('DESC', opts)] : order === 'Ascending' ? [' ', keyword('ASC', opts)] : '';
+}
+
 const ASSIGNMENT_OPS: Record<string, string> = {
     Equals:           '=',
     AddEquals:        '+=',

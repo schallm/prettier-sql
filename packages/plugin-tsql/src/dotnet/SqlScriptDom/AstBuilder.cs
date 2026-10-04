@@ -2212,7 +2212,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                     ["hash"] = unique.IndexType?.IndexTypeKind == IndexTypeKind.NonClusteredHash ? (object?)true : null,
                     ["columns"] = unique.Columns?.Select(col => (object?)new Dictionary<string, object?> {
                         ["name"] = QuotedName(col.Column?.MultiPartIdentifier?.Identifiers.LastOrDefault()),
-                        ["order"] = col.SortOrder == SortOrder.Descending ? "Descending" : "Ascending",
+                        ["order"] = col.SortOrder.ToString(),
                     }).ToList(),
                     ["indexOptions"] = MapList(unique.IndexOptions, o => (object?)SerializeIndexOption(o)),
                     ["onFileGroup"] = StorageTarget(unique.OnFileGroupOrPartitionScheme),

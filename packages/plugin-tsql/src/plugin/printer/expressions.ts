@@ -24,7 +24,7 @@ import {
 } from '@prettier-sql/core/printer/utils';
 import { caseArm, betweenDoc, operatorChain } from '@prettier-sql/core/printer/layout';
 import {
-    prop, propArr, propStr, propStrArr, propBool, schemaObjectName, builtinTypeDoc, assignmentOp, splitTopLevel,
+    prop, propArr, propStr, propStrArr, propBool, schemaObjectName, builtinTypeDoc, assignmentOp, splitTopLevel, sortOrderDoc,
     claimTrailingComment, isCommentClaimed, takeTrailingComment, withTrailingComment, appendComments,
 } from './helpers.js';
 
@@ -1728,8 +1728,7 @@ export function printOrderByClause(node: SqlNode, opts: Options, printFn: PrintF
     const elDocs = elements.map((e) => {
         const expr = prop(e, 'expression');
         const sort = propStr(e, 'sortOrder');
-        const sortDoc = sort === 'Descending' ? [' ', keyword('DESC', opts)] : [' ', keyword('ASC', opts)];
-        const base: Doc = [expr ? printExpression(expr, opts, printFn) : '', ...sortDoc];
+        const base: Doc = [expr ? printExpression(expr, opts, printFn) : '', sortOrderDoc(sort, opts)];
         // With an explicit ASC/DESC, the OrderByElement's own endOffset extends past its
         // expression, so a trailing comment (e.g. `order by a -- c`, reparsed) attaches to
         // the element itself rather than the expression — print that too.

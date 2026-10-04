@@ -735,7 +735,7 @@ add
   period for system_time (vf, vt);
 
 alter table t
-add index ix nonclustered (a asc);
+add index ix nonclustered (a);
 
 alter table t
 add constraint df default 0 for a with values;
@@ -1213,7 +1213,7 @@ exports[`fixtures > create-table/hash-index-bucket-count.sql 1`] = `
 -- being dropped, leaving only the value (e.g. "with (1024)"), which doesn't parse.
 create table t (
   a int not null,
-  index ix nonclustered hash (a asc) with (bucket_count = 1024)
+  index ix nonclustered hash (a) with (bucket_count = 1024)
 );
 "
 `;
@@ -1264,19 +1264,19 @@ create table t (
   a int primary key,
   b int default 0 index ix,
   c int index ix2 nonclustered,
-  index ix3 (c asc) where c > 0
+  index ix3 (c) where c > 0
 );
 
 declare @t table (
   a int primary key,
   b int default 0 index ix,
-  index ix3 nonclustered (b asc, a desc)
+  index ix3 nonclustered (b, a desc)
 );
 
 create type dbo.TT as table (
   a int primary key nonclustered,
   b int index ib,
-  index ix (a asc)
+  index ix (a)
 )
 with (memory_optimized = on);
 "
@@ -1418,7 +1418,7 @@ create type dbo.t from [my type] not null;
 
 create type dbo.tt as table (
   [a b] int primary key,
-  index [i x] ([a b] asc)
+  index [i x] ([a b])
 );
 "
 `;
@@ -1436,7 +1436,7 @@ filestream_on fsps;
 create table t (
   a int,
   constraint pk primary key (a) on [PRIMARY],
-  index ix (a asc) on fg2
+  index ix (a) on fg2
 );
 
 create table t (
@@ -1445,13 +1445,13 @@ create table t (
 
 create unique index ix
   on t (
-    a asc
+    a
   )
 on ps(a);
 
 create index ix
   on t (
-    a asc
+    a
   )
 on [PRIMARY]
 filestream_on fs;
@@ -1530,8 +1530,8 @@ create table Events (
   Id bigint not null,
   OccurredAt datetime2 not null,
   EventType tinyint not null,
-  constraint PK_Events primary key clustered (Id, OccurredAt desc),
-  constraint UQ_Events unique nonclustered (EventType, Id)
+  constraint PK_Events primary key clustered (Id asc, OccurredAt desc),
+  constraint UQ_Events unique nonclustered (EventType asc, Id asc)
 );
 "
 `;
@@ -1544,7 +1544,7 @@ exports[`fixtures > create-table/with-indexes.sql 1`] = `
   Price decimal(10, 2) not null,
   constraint PK_Products primary key (Id),
   constraint UQ_Products_Sku unique (Sku),
-  index IX_Products_Name nonclustered (Name asc)
+  index IX_Products_Name nonclustered (Name)
 );
 
 create table OrderItems (
@@ -1556,8 +1556,8 @@ create table OrderItems (
   constraint FK_OrderItems_Orders foreign key (OrderId) references Orders (Id),
   constraint FK_OrderItems_Products
     foreign key (ProductId) references Products (Id),
-  index IX_OrderItems_OrderId nonclustered (OrderId asc),
-  index IX_OrderItems_ProductId nonclustered (ProductId asc)
+  index IX_OrderItems_OrderId nonclustered (OrderId),
+  index IX_OrderItems_ProductId nonclustered (ProductId)
 );
 "
 `;
@@ -1787,8 +1787,8 @@ with (ledger = off);
 exports[`fixtures > ddl/long-option-lists.sql 1`] = `
 "create nonclustered index ix_orders_customer_created
   on dbo.Orders (
-    CustomerId asc,
-    CreatedAt asc
+    CustomerId,
+    CreatedAt
   )
 with (
   pad_index = on,
@@ -2281,7 +2281,7 @@ begin
     Price
   from Books
   where Price <= @MaxPrice
-  order by Price asc;
+  order by Price;
 
   return;
 end;
@@ -2389,7 +2389,7 @@ returns @t table (
   c int,
   primary key (a),
   unique (c),
-  index ix (b asc)
+  index ix (b)
 )
 as
 begin
@@ -2897,7 +2897,7 @@ select
   Id,
   Title
 from Books
-order by Id asc;
+order by Id;
 open ScrollCursor;
 fetch first from ScrollCursor into @bookId, @title;
 fetch last from ScrollCursor into @bookId, @title;
@@ -2927,7 +2927,7 @@ select
   Id,
   Title
 from Books
-order by Id asc;
+order by Id;
 open @scrollCur;
 fetch first from @scrollCur into @bookId, @title;
 fetch last from @scrollCur into @bookId, @title;
@@ -3690,7 +3690,7 @@ create table dbo.[order] (
   [key] int constraint [primary] primary key,
   [select] int constraint [default] default 0,
   [check] as ([key] + 1),
-  index [index] ([select] asc)
+  index [index] ([select])
 );
 
 create index [index]
@@ -3766,7 +3766,7 @@ from t;
 
 create index ix
   on t (
-    a asc
+    a
   )
 on [primary];
 go
@@ -3816,7 +3816,7 @@ from t;
 select a
 from t
 where a collate Latin1_General_CS_AS = 'X'
-order by a collate Latin1_General_BIN asc;
+order by a collate Latin1_General_BIN;
 
 select
   case
@@ -3908,7 +3908,7 @@ where
   and b = 2
   -- pred two
 group by a -- group
-order by a asc; -- order
+order by a; -- order
 
 update t
 set
@@ -4025,7 +4025,7 @@ from Source;
 
 select next value for dbo.OrderSeq;
 
-select next value for dbo.OrderSeq over (order by Id asc);
+select next value for dbo.OrderSeq over (order by Id);
 
 select parse('2023-01-01' as date);
 
@@ -4035,10 +4035,10 @@ select try_parse('abc' as int);
 
 select try_parse('2023-01-01' as date using 'en-US');
 
-select string_agg(Name, ', ') within group (order by Name asc)
+select string_agg(Name, ', ') within group (order by Name)
 from Authors;
 
-select percentile_cont(0.5) within group (order by Salary asc) over (
+select percentile_cont(0.5) within group (order by Salary) over (
   partition by Department
 )
 from Employees;
@@ -4455,10 +4455,10 @@ select json_array(1, 2, 'three' absent on null);
 select json_arrayagg(Title)
 from Books;
 
-select json_arrayagg(Title order by Title asc)
+select json_arrayagg(Title order by Title)
 from Books;
 
-select json_arrayagg(Title order by Title asc absent on null)
+select json_arrayagg(Title order by Title absent on null)
 from Books;
 
 -- JSON_OBJECTAGG — SQL Server 2025
@@ -4926,7 +4926,7 @@ exports[`fixtures > select/order-by-offset-comments.sql 1`] = `
 -- from the sort expression to the ORDER BY element itself.
 select a
 from t
-order by a asc -- ord
+order by a -- ord
 offset 1 rows; -- off
 "
 `;
@@ -4937,7 +4937,7 @@ select
   Id,
   Title
 from Books
-order by Title asc
+order by Title
 offset 10 rows
 fetch next 20 rows only;
 
@@ -4946,7 +4946,7 @@ select
   Id,
   Title
 from Books
-order by Title asc
+order by Title
 offset 0 rows;
 
 -- parametric pagination
@@ -4975,7 +4975,7 @@ select
   Id,
   Title
 from ArchivedBooks
-order by Title asc
+order by Title
 offset 0 rows
 fetch next 10 rows only;
 "
@@ -5243,7 +5243,7 @@ select top (10)
   Name
 into #TopCustomers
 from Customers
-order by Name asc;
+order by Name;
 
 select
   Id,
@@ -5434,16 +5434,16 @@ from Books;
 exports[`fixtures > select/window-advanced.sql 1`] = `
 "select first_value(Price) ignore nulls over (
   partition by AuthorId
-  order by PublishedDate asc
+  order by PublishedDate
 )
 from Books;
 
-select last_value(Price) respect nulls over (order by PublishedDate asc)
+select last_value(Price) respect nulls over (order by PublishedDate)
 from Books;
 
 select first_value(Price) ignore nulls over (
   partition by AuthorId
-  order by PublishedDate asc
+  order by PublishedDate
   rows between unbounded preceding and current row
 )
 from Books;
@@ -5452,7 +5452,7 @@ select last_value(Price) ignore nulls over w
 from Books
 window w as (
   partition by AuthorId
-  order by PublishedDate asc
+  order by PublishedDate
 );
 "
 `;
@@ -5466,7 +5466,7 @@ from t
 group by a
 having count(*) > 1
 window w as (partition by a)
-order by sum(a) over w asc;
+order by sum(a) over w;
 
 select a
 from t
@@ -5474,9 +5474,9 @@ window
   w as (partition by b),
   w2 as (
     w
-    order by c asc
+    order by c
   )
-order by a asc
+order by a
 offset 1 rows;
 "
 `;
@@ -5488,7 +5488,7 @@ exports[`fixtures > select/window-partition-lists.sql 1`] = `
     partition by a.account_id, a.region_id
     order by
       a.created_at desc,
-      a.id asc
+      a.id
   ) as rn
 from t as a;
 
@@ -5512,7 +5512,7 @@ from t as a
 window
   w as (
     partition by a.account_id, a.region_id
-    order by a.created_at asc
+    order by a.created_at
   ),
   v as (
     partition by a.very_long_column_name_one,
@@ -6647,12 +6647,12 @@ drop constraint fk_books_publisher;
 exports[`shared fixtures > ddl/create-index.sql 1`] = `
 "create index ix_books_author_id
   on books (
-    author_id asc
+    author_id
   );
 
 create unique index ux_books_title
   on books (
-    title asc
+    title
   );
 
 create index ix_books_price_desc
@@ -6662,13 +6662,13 @@ create index ix_books_price_desc
 
 create index ix_books_genre_price
   on books (
-    genre_id asc,
+    genre_id,
     price desc
   );
 
 create index ix_books_in_stock
   on books (
-    author_id asc
+    author_id
   )
   where in_stock = 1;
 "
@@ -6915,7 +6915,7 @@ select distinct
   author_id,
   genre_id
 from books
-order by author_id asc;
+order by author_id;
 "
 `;
 
@@ -7055,8 +7055,8 @@ from
   inner join publishers as p on b.publisher_id = p.id
 where b.in_stock = 1
 order by
-  a.last_name asc,
-  b.title asc;
+  a.last_name,
+  b.title;
 "
 `;
 
@@ -7398,7 +7398,7 @@ select
   id,
   price,
   sum(price) over (
-    order by id asc
+    order by id
     rows between unbounded preceding and current row
   ) as running_total
 from books;
@@ -7407,7 +7407,7 @@ select
   id,
   price,
   avg(price) over (
-    order by price asc
+    order by price
     range between unbounded preceding and current row
   ) as running_avg
 from books;
@@ -7416,7 +7416,7 @@ select
   id,
   price,
   sum(price) over (
-    order by id asc
+    order by id
     rows between current row and unbounded following
   ) as suffix_sum
 from books;
@@ -7425,7 +7425,7 @@ select
   id,
   price,
   avg(price) over (
-    order by id asc
+    order by id
     rows between 2 preceding and 2 following
   ) as moving_avg
 from books;
@@ -7444,25 +7444,25 @@ select
 from books
 window w as (
   partition by author_id
-  order by price asc
+  order by price
 );
 
 select
   id,
   price,
-  lag(price, 1) over (order by id asc) as prev_price
+  lag(price, 1) over (order by id) as prev_price
 from books;
 
 select
   id,
   price,
-  lead(price, 1) over (order by id asc) as next_price
+  lead(price, 1) over (order by id) as next_price
 from books;
 
 select
   id,
   price,
-  ntile(4) over (order by price asc) as quartile
+  ntile(4) over (order by price) as quartile
 from books;
 
 select
@@ -7470,7 +7470,7 @@ select
   price,
   first_value(price) over (
     partition by author_id
-    order by id asc
+    order by id
   ) as first_price
 from books;
 
@@ -7479,7 +7479,7 @@ select
   price,
   last_value(price) over (
     partition by author_id
-    order by id asc
+    order by id
     rows between unbounded preceding and unbounded following
   ) as last_price
 from books;

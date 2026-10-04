@@ -2516,7 +2516,7 @@ exports[`fixtures > p4/recursive-cte-search-cycle.sql 1`] = `
       tree.parent_id
     from
       tree
-      join t on t.id = tree.parent_id
+      inner join t on t.id = tree.parent_id
   )
   search breadth first by id set ordercol
   cycle id set is_cycle using path
@@ -4272,7 +4272,7 @@ where
 select *
 from
   books
-  join authors on authors.id = books.author_id
+  inner join authors on authors.id = books.author_id
   left join categories on categories.id = books.category_id
   right join publishers on publishers.id = books.publisher_id
   full join orders on orders.book_id = books.id
@@ -4286,7 +4286,7 @@ select
   authors.name
 from
   books
-  join authors using (author_id);
+  inner join authors using (author_id);
 "
 `;
 
@@ -4360,7 +4360,7 @@ with recursive
       t.depth + 1
     from
       departments as d
-      join org_tree as t on d.parent_id = t.id
+      inner join org_tree as t on d.parent_id = t.id
   )
 select
   id,
@@ -4414,7 +4414,7 @@ select
   i.id
 from
   orders as o
-  join order_items as i on o.id = i.order_id
+  inner join order_items as i on o.id = i.order_id
 for update of o;
 "
 `;
@@ -4626,7 +4626,7 @@ exports[`fixtures > select/json-constructors.sql 1`] = `
 select json_object('title': b.title, 'author': a.name)
 from
   books as b
-  join authors as a on a.id = b.author_id;
+  inner join authors as a on a.id = b.author_id;
 
 -- JSON_OBJECT with ABSENT ON NULL
 select json_object('title': b.title, 'subtitle': b.subtitle absent on null)
@@ -4638,7 +4638,7 @@ select
   json_objectagg(b.isbn: b.title)
 from
   authors as a
-  join books as b on b.author_id = a.id
+  inner join books as b on b.author_id = a.id
 group by a.name;
 
 -- JSON_ARRAY aggregate
@@ -4647,7 +4647,7 @@ select
   json_arrayagg(b.title)
 from
   authors as a
-  join books as b on b.author_id = a.id
+  inner join books as b on b.author_id = a.id
 group by a.name;
 
 -- JSON_ARRAY aggregate with ABSENT ON NULL
@@ -4656,7 +4656,7 @@ select
   json_arrayagg(b.subtitle)
 from
   authors as a
-  join books as b on b.author_id = a.id
+  inner join books as b on b.author_id = a.id
 group by a.name;
 "
 `;
@@ -4917,7 +4917,7 @@ from unnest(array[1, 2]) as u(
 select *
 from
   a
-  join b using (
+  inner join b using (
     very_long_column_name_one,
     very_long_column_name_two,
     very_long_column_name_three,
@@ -5093,7 +5093,7 @@ exports[`fixtures > select/long-comparisons.sql 1`] = `
 "select a.id
 from
   t as a
-  join u on a.very_long_column_name_one = u.very_long_column_name_one
+  inner join u on a.very_long_column_name_one = u.very_long_column_name_one
     and a.very_long_column_name_two = u.very_long_column_name_two;
 
 select a.id
@@ -5327,7 +5327,7 @@ where
 select 1
 from
   t
-  join u on (t.a = u.a or t.b = u.b) and t.c = 1;
+  inner join u on (t.a = u.a or t.b = u.b) and t.c = 1;
 
 select case
   when (a or b) and c then 1
@@ -5468,15 +5468,15 @@ select *
 from
   (
     t
-    join u on t.id = u.id
+    inner join u on t.id = u.id
   ) as tu(a, b);
 
 select *
 from
   t
-  join (
+  inner join (
     u
-    join v on u.id = v.id
+    inner join v on u.id = v.id
   ) on t.id = u.id;
 
 select *
@@ -5501,7 +5501,7 @@ select
   "select"
 from
   "My Table" as t
-  join "S"."T" as u on u."Id" = t."Id";
+  inner join "S"."T" as u on u."Id" = t."Id";
 
 select
   a as "Total Amount",
@@ -5524,7 +5524,7 @@ window
 select f("Named Arg" => 1)
 from
   t
-  join u using ("Id", id2);
+  inner join u using ("Id", id2);
 
 insert into "T" ("A", "b c")
 values (1, 2);
@@ -6481,7 +6481,7 @@ select
   t.book_count
 from
   authors as a
-  join top_authors as t on a.id = t.author_id
+  inner join top_authors as t on a.id = t.author_id
 order by t.book_count desc;
 
 with
@@ -6503,7 +6503,7 @@ select
   a.last_name
 from
   authors as a
-  join top_authors as t on a.id = t.author_id;
+  inner join top_authors as t on a.id = t.author_id;
 "
 `;
 
@@ -6601,7 +6601,7 @@ exports[`shared fixtures > select/joins.sql 1`] = `
   a.last_name
 from
   books as b
-  join authors as a on b.author_id = a.id;
+  inner join authors as a on b.author_id = a.id;
 
 select
   b.title,
@@ -6637,7 +6637,7 @@ select
   recent.total
 from
   books as b
-  join (
+  inner join (
     select
       book_id,
       sum(quantity) as total
@@ -6651,8 +6651,8 @@ select
   p.name as publisher
 from
   books as b
-  join authors as a on b.author_id = a.id
-  join publishers as p on b.publisher_id = p.id
+  inner join authors as a on b.author_id = a.id
+  inner join publishers as p on b.publisher_id = p.id
 where b.in_stock = 1
 order by
   a.last_name,
