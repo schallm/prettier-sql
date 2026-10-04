@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options, PrintFn } from '@prettier-sql/core/printer/utils';
-import { keyword, join, indent, hardline, softline, group, fill, line, getDensity, aliasDoc, parenList, parenItems, bracketItems } from '@prettier-sql/core/printer/utils';
+import { keyword, join, indent, hardline, softline, group, fill, line, getDensity, aliasDoc, parenList, parenItems, bracketItems, willBreak } from '@prettier-sql/core/printer/utils';
 import { printStatement, printQueryExpr } from './statements.js';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, onlyPrefix, printFdwOptions } from './helpers.js';
 
@@ -730,10 +730,10 @@ function printColumnDef(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
         // OPTIONS (foreign table columns) come before the collation and constraints
         printFdwOptions(node, opts),
         collation ? [' ', makeKeyword('COLLATE'), ' ', collation] : ''];
-    for (const c of constraints) {
-        parts.push(' ', printConstraint(c, opts, printNode));
-    }
-    return parts;
+    // Constraints go on indented lines of their own when the definition doesn't fit
+    const constraintDocs = constraints.map((c) => printConstraint(c, opts, printNode));
+    if (constraintDocs.some((d) => willBreak(d))) return [parts, ...constraintDocs.map((d) => [' ', d])];
+    return group([parts, indent(constraintDocs.map((d) => [line, d]))]);
 }
 
 function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc {

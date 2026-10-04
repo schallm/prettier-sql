@@ -12,6 +12,7 @@ import {
     ifExistsDoc,
     commentsBlock,
     parenList,
+    willBreak,
 } from '@prettier-sql/core/printer/utils';
 import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment } from './helpers.js';
 import { boolEndsWithPendingComment } from './expressions.js';
@@ -282,6 +283,9 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
 
     // COLLATE clause comes right after the data type
     if (collation) parts.push(' ', keyword('COLLATE', opts), ' ', collation);
+    // Everything after the name, type and collation is a clause; clauses wrap onto indented
+    // lines of their own when the definition doesn't fit
+    const headLength = parts.length;
 
     // Always Encrypted: ENCRYPTED WITH (COLUMN_ENCRYPTION_KEY = ..., ENCRYPTION_TYPE = ..., ALGORITHM = '...')
     const encryption = node.props?.['encryption'] as
@@ -289,42 +293,43 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         | null
         | undefined;
     if (encryption) {
-        parts.push(' ', encryptedWithDoc(encryption, opts));
+        parts.push(line, encryptedWithDoc(encryption, opts));
     }
 
     if (isIdentity) {
         // A bare IDENTITY stays bare; IDENTITY(seed, increment) needs both
-        if (identitySeed == null && identityIncrement == null) parts.push(' ', keyword('IDENTITY', opts));
-        else parts.push(' ', keyword('IDENTITY', opts), `(${identitySeed ?? '1'}, ${identityIncrement ?? '1'})`);
-        if (node.props?.['identityNotForReplication']) parts.push(' ', keyword('NOT FOR REPLICATION', opts));
+        if (identitySeed == null && identityIncrement == null) parts.push(line, keyword('IDENTITY', opts));
+        else parts.push(line, keyword('IDENTITY', opts), `(${identitySeed ?? '1'}, ${identityIncrement ?? '1'})`);
+        if (node.props?.['identityNotForReplication']) parts.push(line, keyword('NOT FOR REPLICATION', opts));
     }
-    if (node.props?.['isRowGuidCol']) parts.push(' ', keyword('ROWGUIDCOL', opts));
+    if (node.props?.['isRowGuidCol']) parts.push(line, keyword('ROWGUIDCOL', opts));
     // SPARSE / FILESTREAM / COLUMN_SET
-    if (node.props?.['isSparse']) parts.push(' ', keyword('SPARSE', opts));
-    if (node.props?.['isFileStream']) parts.push(' ', keyword('FILESTREAM', opts));
-    if (node.props?.['isColumnSet']) parts.push(' ', keyword('COLUMN_SET FOR ALL_SPARSE_COLUMNS', opts));
+    if (node.props?.['isSparse']) parts.push(line, keyword('SPARSE', opts));
+    if (node.props?.['isFileStream']) parts.push(line, keyword('FILESTREAM', opts));
+    if (node.props?.['isColumnSet']) parts.push(line, keyword('COLUMN_SET FOR ALL_SPARSE_COLUMNS', opts));
 
     // Temporal table: GENERATED ALWAYS AS ROW START / ROW END [HIDDEN]
     const generatedAlways = propStr(node, 'generatedAlways');
     if (generatedAlways) {
         const gaKw = generatedAlwaysKeyword(generatedAlways);
-        parts.push(' ', keyword('GENERATED ALWAYS AS', opts), ' ', keyword(gaKw, opts));
+        parts.push(line, keyword('GENERATED ALWAYS AS', opts), ' ', keyword(gaKw, opts));
     }
-    if (node.props?.['isHidden']) parts.push(' ', keyword('HIDDEN', opts));
+    if (node.props?.['isHidden']) parts.push(line, keyword('HIDDEN', opts));
 
     // Dynamic data masking
     if (node.props?.['isMasked']) {
         const maskFn = propStr(node, 'maskingFunction') ?? 'default()';
-        parts.push(' ', keyword('MASKED WITH', opts), ' (', keyword('FUNCTION', opts), ` = '${maskFn.replace(/'/g, "''")}')`);
+        parts.push(line, keyword('MASKED WITH', opts), ' (', keyword('FUNCTION', opts), ` = '${maskFn.replace(/'/g, "''")}')`);
     }
 
     if (defaultValue) {
         const defaultName = propStr(node, 'defaultConstraintName');
         const defaultNamePrefix: Doc = defaultName ? [keyword('CONSTRAINT', opts), ' ', defaultName, ' '] : '';
-        parts.push(' ', defaultNamePrefix, keyword('DEFAULT', opts), ' ', printNode(defaultValue, opts));
-        if (propBool(node, 'defaultWithValues')) parts.push(' ', keyword('WITH VALUES', opts));
+        parts.push(line, defaultNamePrefix, keyword('DEFAULT', opts), ' ', printNode(defaultValue, opts));
+        if (propBool(node, 'defaultWithValues')) parts.push(line, keyword('WITH VALUES', opts));
     }
-    parts.push(nullablePart(isNullable, opts));
+    if (isNullable === true) parts.push(line, keyword('NULL', opts));
+    else if (isNullable === false) parts.push(line, keyword('NOT NULL', opts));
     if (checkConstraint) {
         const checkName = propStr(node, 'checkConstraintName');
         const checkPrefix: Doc = checkName ? [keyword('CONSTRAINT', opts), ' ', checkName, ' '] : '';
@@ -334,7 +339,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         const needsBreak = boolEndsWithPendingComment(checkConstraint);
         const checkDoc = printBool(checkConstraint, opts);
         const checkNfr: Doc = propBool(node, 'checkNotForReplication') ? [' ', keyword('NOT FOR REPLICATION', opts)] : '';
-        parts.push(' ', checkPrefix, keyword('CHECK', opts), checkNfr, ' (', checkDoc, needsBreak ? hardline : '', ')');
+        parts.push(line, checkPrefix, keyword('CHECK', opts), checkNfr, ' (', checkDoc, needsBreak ? hardline : '', ')');
     }
 
     // Inline PRIMARY KEY / UNIQUE constraint (e.g. in table variable declarations)
@@ -356,7 +361,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         const hashKw: Doc = uniqueConstraint.hash ? [' ', keyword('NONCLUSTERED HASH', opts)] : '';
         const uqOptions = (uniqueConstraint as { indexOptions?: string[] }).indexOptions ?? [];
         parts.push(
-            ' ', constraintNamePrefix, uqKw, clusteredKw, hashKw,
+            line, constraintNamePrefix, uqKw, clusteredKw, hashKw,
             uqOptions.length > 0 ? [' ', keyword('WITH', opts), ' (', join(', ', uqOptions), ')'] : '',
             storageClause(uniqueConstraint as Record<string, unknown>, opts),
         );
@@ -369,13 +374,14 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         | undefined;
     if (foreignKey) {
         if (foreignKey.constraintName) {
-            parts.push(' ', keyword('CONSTRAINT', opts), ' ', foreignKey.constraintName);
+            parts.push(line, keyword('CONSTRAINT', opts), ' ', foreignKey.constraintName);
         }
+        const refSep: Doc = foreignKey.constraintName ? ' ' : line;
         const refColsPart: Doc = foreignKey.refColumns?.length ? [' (', join(', ', foreignKey.refColumns), ')'] : '';
-        parts.push(' ', keyword('REFERENCES', opts), ' ', schemaObjectName(foreignKey.refTable), refColsPart);
+        parts.push(refSep, keyword('REFERENCES', opts), ' ', schemaObjectName(foreignKey.refTable), refColsPart);
         if (foreignKey.deleteAction) {
             parts.push(
-                ' ',
+                line,
                 keyword('ON DELETE', opts),
                 ' ',
                 keyword(
@@ -389,7 +395,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         }
         if (foreignKey.updateAction) {
             parts.push(
-                ' ',
+                line,
                 keyword('ON UPDATE', opts),
                 ' ',
                 keyword(
@@ -401,13 +407,16 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
                 ),
             );
         }
-        if (foreignKey.notForReplication) parts.push(' ', keyword('NOT FOR REPLICATION', opts));
+        if (foreignKey.notForReplication) parts.push(line, keyword('NOT FOR REPLICATION', opts));
     }
 
     // Column-level INDEX ix [CLUSTERED | NONCLUSTERED]
     const columnIndex = prop(node, 'index');
-    if (columnIndex) parts.push(' ', printInlineIndex(columnIndex, opts));
-    return parts;
+    if (columnIndex) parts.push(line, printInlineIndex(columnIndex, opts));
+    const tail = parts.slice(headLength);
+    // A clause with a forced break (a comment inside a CHECK) keeps the clauses inline
+    if (willBreak(tail)) return [parts.slice(0, headLength), ...tail.map((d) => (d === line ? ' ' : d))];
+    return group([parts.slice(0, headLength), indent(tail)]);
 }
 
 /** ON filegroup | scheme(column) [FILESTREAM_ON ...]: where an index or constraint is stored. */

@@ -196,4 +196,7 @@ export function softSep(opts: Options): Doc {
     return getCommaStyle(opts) === 'leading' ? ifBreak([hardline, ', '], ', ') : [',', line];
 }
 
+/** True when a doc contains a forced break (a hardline), so it can't print on one line. */
+export const willBreak = utils.willBreak;
+
 export { hardline, join, indent, group, line, softline, lineSuffix, ifBreak, fill };
