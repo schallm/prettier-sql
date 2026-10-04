@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options, PrintFn } from '@prettier-sql/core/printer/utils';
-import { keyword, join, indent, hardline, softline, group, fill, line, getDensity, aliasDoc, parenList, parenItems, optionItems, bracketItems, willBreak } from '@prettier-sql/core/printer/utils';
+import { keyword, join, indent, hardline, softline, group, fill, line, getDensity, aliasDoc, parenList, parenItems, optionItems, bracketItems, willBreak, hasHardline, hasLine } from '@prettier-sql/core/printer/utils';
 import { printStatement, printQueryExpr } from './statements.js';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, onlyPrefix, printFdwOptions } from './helpers.js';
 
@@ -256,8 +256,19 @@ function printBinaryExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
     // LIKE / ILIKE / SIMILAR TO ... ESCAPE e
     const escape = prop(node, 'escape');
     const escapeDoc: Doc = escape ? [' ', keyword('ESCAPE', opts), ' ', printOperand(escape, rightPrec, printNode)] : '';
-    return [printOperand(left, leftPrec, printNode), ' ', opDoc, ' ', right ? printOperand(right, rightPrec, printNode) : '', escapeDoc];
+    const leftDoc = printOperand(left, leftPrec, printNode);
+    const rightDoc: Doc = right ? printOperand(right, rightPrec, printNode) : '';
+    // A call, subquery or CASE breaks inside its own parentheses, and a left operand that can
+    // break (a wrapped chain) already takes the room; a plain left operand lets the right one
+    // move to an indented line of its own after the operator when the comparison doesn't fit
+    if (!right || HUGGING_OPERANDS.has(right.type) || hasLine(leftDoc) || hasHardline(rightDoc)) {
+        return [leftDoc, ' ', opDoc, ' ', rightDoc, escapeDoc];
+    }
+    return group([leftDoc, ' ', opDoc, indent([line, rightDoc]), escapeDoc]);
 }
+
+// Operand types that print their own breakable parentheses
+const HUGGING_OPERANDS = new Set(['FunctionCall', 'SubLink', 'CaseExpr', 'ArrayExpr', 'RowExpr', 'Coalesce', 'ExprList']);
 
 function isNormalizedCall(node: SqlNode): boolean {
     const n = propArr(node, 'args').length;

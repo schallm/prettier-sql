@@ -15,6 +15,7 @@ import {
     fill,
     appendTrailingLines,
     parenList,
+    hasLine,
     parenItems, optionItems,
     aliasDoc,
     commaFill,
@@ -394,13 +395,21 @@ function printBinaryExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const left = prop(node, 'left');
     const right = prop(node, 'right');
     const opStr = mapBinaryOp(op);
-    return group([
+    return operatorDoc(
         left ? printExpression(left, opts, printFn) : '',
-        ' ',
         opStr,
-        ' ',
         right ? printExpression(right, opts, printFn) : '',
-    ]);
+    );
+}
+
+/**
+ * `left op right`: when it doesn't fit and both operands are plain (nothing in them can
+ * break), the right one moves to an indented line of its own after the operator. An
+ * operand that can break itself (a call, a subquery, a wrapped chain) keeps the line.
+ */
+function operatorDoc(left: Doc, op: Doc, right: Doc): Doc {
+    if (hasLine(left) || hasLine(right)) return group([left, ' ', op, ' ', right]);
+    return group([left, ' ', op, indent([line, right])]);
 }
 
 function mapBinaryOp(op: string): string {
@@ -1004,13 +1013,11 @@ function printBoolComparison(node: SqlNode, opts: Options, printFn: PrintFn): Do
     const left = prop(node, 'left');
     const right = prop(node, 'right');
     const op = cmpOp(propStr(node, 'operator') ?? '=');
-    return group([
+    return operatorDoc(
         left ? printExpression(left, opts, printFn) : '',
-        ' ',
         op,
-        ' ',
         right ? printExpression(right, opts, printFn) : '',
-    ]);
+    );
 }
 
 function printDistinctPredicate(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
@@ -1018,13 +1025,11 @@ function printDistinctPredicate(node: SqlNode, opts: Options, printFn: PrintFn):
     const right = prop(node, 'right');
     const isNot = propBool(node, 'isNot');
     const opKw = isNot ? keyword('IS NOT DISTINCT FROM', opts) : keyword('IS DISTINCT FROM', opts);
-    return group([
+    return operatorDoc(
         left ? printExpression(left, opts, printFn) : '',
-        ' ',
         opKw,
-        ' ',
         right ? printExpression(right, opts, printFn) : '',
-    ]);
+    );
 }
 
 function printSubqueryComparison(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
@@ -1211,18 +1216,12 @@ function printLikePredicate(node: SqlNode, opts: Options, printFn: PrintFn): Doc
     const isNot = propBool(node, 'negated');
     const escape = prop(node, 'escape');
 
-    const parts: Doc[] = [
+    const base = operatorDoc(
         expr ? printExpression(expr, opts, printFn) : '',
-        ' ',
-        isNot ? [keyword('NOT', opts), ' '] : '',
-        keyword('LIKE', opts),
-        ' ',
+        [isNot ? [keyword('NOT', opts), ' '] : '', keyword('LIKE', opts)],
         pattern ? printExpression(pattern, opts, printFn) : '',
-    ];
-    if (escape) {
-        parts.push(' ', keyword('ESCAPE', opts), ' ', printExpression(escape, opts, printFn));
-    }
-    return parts;
+    );
+    return escape ? [base, ' ', keyword('ESCAPE', opts), ' ', printExpression(escape, opts, printFn)] : base;
 }
 
 function printExistsPredicate(node: SqlNode, opts: Options, printFn: PrintFn): Doc {

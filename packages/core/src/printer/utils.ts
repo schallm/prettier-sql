@@ -152,6 +152,16 @@ export function hasHardline(doc: Doc): boolean {
     return [d.contents, d.breakContents, d.flatContents, ...(d.parts ?? [])].some((c) => c !== undefined && hasHardline(c));
 }
 
+/** True when a doc has any place it may break (a line, hard or soft), so it isn't a plain operand. */
+export function hasLine(doc: Doc): boolean {
+    if (Array.isArray(doc)) return doc.some(hasLine);
+    if (!doc || typeof doc !== 'object') return false;
+    if (doc.type === 'line') return true;
+    if (doc.type === 'line-suffix') return false;
+    const d = doc as { contents?: Doc; parts?: Doc[]; breakContents?: Doc; flatContents?: Doc };
+    return [d.contents, d.breakContents, d.flatContents, ...(d.parts ?? [])].some((c) => c !== undefined && hasLine(c));
+}
+
 /**
  * The `(a, b, c)` of a call or list: inline when it fits, otherwise one item per line
  * between the parentheses (compact density, or `packed`, fills several per line).
