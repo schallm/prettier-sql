@@ -15,7 +15,7 @@ import {
     optionItems,
     willBreak,
 } from '@prettier-sql/core/printer/utils';
-import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment, splitTopLevel } from './helpers.js';
 import { boolEndsWithPendingComment } from './expressions.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
@@ -144,7 +144,7 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
     }
 
     const withPart: Doc =
-        options && options.length > 0 ? [hardline, keyword('WITH', opts), ' ', parenList(options)] : '';
+        options && options.length > 0 ? [hardline, keyword('WITH', opts), ' ', optionItems(options.map(nestedOptionDoc), opts)] : '';
     const onFileGroup = propStr(node, 'onFileGroup');
     const textimageOn = propStr(node, 'textimageOn');
     const fileStreamOn = propStr(node, 'fileStreamOn');
@@ -194,6 +194,18 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
         withPart,
         ';',
     ]);
+}
+
+/**
+ * A pre-serialized table option, `name = on (a = x, b = y (c = z))`: printed as written, with the
+ * parenthesized part (after a space, so a call like `dbo.fn(a)` isn't one) broken one item per line
+ * when it doesn't fit.
+ */
+function nestedOptionDoc(text: string): Doc {
+    const open = text.search(/ \(/);
+    if (open < 0 || !text.endsWith(')')) return text;
+    const items = splitTopLevel(text.slice(open + 2, -1));
+    return [text.slice(0, open), ' ', group(['(', indent([softline, join([',', line], items.map(nestedOptionDoc))]), softline, ')'])];
 }
 
 /** ENCRYPTED WITH (COLUMN_ENCRYPTION_KEY = ..., ENCRYPTION_TYPE = ..., ALGORITHM = '...') */
@@ -738,9 +750,8 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             name,
             hardline,
             keyword('SET', opts),
-            ' (',
-            join(', ', options),
-            ')',
+            ' ',
+            optionItems(options.map(nestedOptionDoc), opts),
             ';',
         ];
     }

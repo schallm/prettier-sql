@@ -160,3 +160,23 @@ export function printDropSingleObject(kw: string, node: SqlNode, opts: Options, 
     const ifExists = propBool(node, 'ifExists');
     return [keyword(kw, opts), ifExistsDoc(ifExists, opts), ' ', name, ';'];
 }
+
+/** Splits `text` at the commas that aren't inside quotes or parentheses. */
+export function splitTopLevel(text: string): string[] {
+    const out: string[] = [];
+    let depth = 0;
+    let quote = false;
+    let start = 0;
+    for (let i = 0; i < text.length; i++) {
+        const c = text[i]!;
+        if (c === "'") quote = !quote;
+        else if (!quote && c === '(') depth++;
+        else if (!quote && c === ')') depth--;
+        else if (!quote && depth === 0 && c === ',') {
+            out.push(text.slice(start, i).trim());
+            start = i + 1;
+        }
+    }
+    out.push(text.slice(start).trim());
+    return out.filter((s) => s !== '');
+}

@@ -2,6 +2,7 @@ import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
 import { keyword, hardline, join, indent, group, line, softline, ifExistsDoc } from '@prettier-sql/core/printer/utils';
+import { splitTopLevel } from './helpers.js';
 import { propStr, propBool } from './helpers.js';
 
 // ---------------------------------------------------------------------------
@@ -202,26 +203,6 @@ export function printRestore(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 // CREATE DATABASE
 // ---------------------------------------------------------------------------
-
-/** Splits `text` at the commas that aren't inside quotes or parentheses. */
-function splitTopLevel(text: string): string[] {
-    const out: string[] = [];
-    let depth = 0;
-    let quote = false;
-    let start = 0;
-    for (let i = 0; i < text.length; i++) {
-        const c = text[i]!;
-        if (c === "'") quote = !quote;
-        else if (!quote && c === '(') depth++;
-        else if (!quote && c === ')') depth--;
-        else if (!quote && depth === 0 && c === ',') {
-            out.push(text.slice(start, i).trim());
-            start = i + 1;
-        }
-    }
-    out.push(text.slice(start).trim());
-    return out.filter((s) => s !== '');
-}
 
 /** One file spec, `(NAME = a, FILENAME = 'x', SIZE = 10MB)`: inline when it fits, one option per line when not. */
 function fileSpecDoc(spec: string, opts: Options): Doc {
