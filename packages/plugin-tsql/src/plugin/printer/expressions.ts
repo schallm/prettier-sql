@@ -493,19 +493,17 @@ function typeDoc(node: SqlNode, dataType: string, opts: Options): Doc {
     return node.props?.['isUdt'] ? dataType : builtinTypeDoc(dataType, opts);
 }
 
+/** CAST(expr AS type): the whole argument moves to an indented line when it doesn't fit; one that spans lines hugs the parentheses. */
+function castDoc(name: Doc, expr: Doc, type: Doc, opts: Options): Doc {
+    const arg: Doc = [expr, ' ', keyword('AS', opts), ' ', type];
+    if (willBreak(expr)) return [name, '(', arg, ')'];
+    return [name, group(['(', indent([softline, arg]), softline, ')'])];
+}
+
 function printCastCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     const dataType = propStr(node, 'dataType') ?? 'INT';
-    return [
-        keyword('CAST', opts),
-        '(',
-        expr ? printExpression(expr, opts, printFn) : '',
-        ' ',
-        keyword('AS', opts),
-        ' ',
-        typeDoc(node, dataType, opts),
-        ')',
-    ];
+    return castDoc(keyword('CAST', opts), expr ? printExpression(expr, opts, printFn) : '', typeDoc(node, dataType, opts), opts);
 }
 
 function printConvertCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
@@ -557,16 +555,7 @@ function printNullIfExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
 function printTryCastCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     const dataType = propStr(node, 'dataType') ?? 'INT';
-    return [
-        keyword('TRY_CAST', opts),
-        '(',
-        expr ? printExpression(expr, opts, printFn) : '',
-        ' ',
-        keyword('AS', opts),
-        ' ',
-        typeDoc(node, dataType, opts),
-        ')',
-    ];
+    return castDoc(keyword('TRY_CAST', opts), expr ? printExpression(expr, opts, printFn) : '', typeDoc(node, dataType, opts), opts);
 }
 
 function printTryConvertCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
