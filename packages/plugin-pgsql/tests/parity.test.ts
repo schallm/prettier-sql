@@ -17,20 +17,13 @@ const tsql = makeFmt('tsql', tsqlPlugin);
 
 const VARIANTS: Record<string, unknown>[] = [{}, { sqlDensity: 'compact' }, { sqlDensity: 'spacious' }];
 
-// Shared fixtures the two dialects still format differently
-const KNOWN_DIVERGENT = new Set([
-    'ddl/alter-table.sql',
-    'ddl/create-table.sql',
-]);
-
 // A T-SQL batch that must stand alone (CREATE VIEW) ends with GO; PostgreSQL has no batches
 const withoutGo = (sql: string): string => sql.replace(/^go\n/gm, '');
 
 describe('shared fixtures format the same in both dialects', () => {
     for (const file of collectFixtures(sharedDir)) {
         const name = relative(sharedDir, file);
-        const test = KNOWN_DIVERGENT.has(name) ? it.fails : it;
-        test(name, async () => {
+        it(name, async () => {
             const input = readFileSync(file, 'utf-8').trim();
             for (const opts of VARIANTS) {
                 expect(withoutGo(await tsql(input, opts)), JSON.stringify(opts)).toBe(await pgsql(input, opts));

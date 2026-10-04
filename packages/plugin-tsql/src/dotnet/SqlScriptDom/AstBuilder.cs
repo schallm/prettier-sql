@@ -2145,6 +2145,10 @@ public class AstBuilder : TSqlFragmentVisitor {
                     ? BuildScalarExpression(col.DefaultConstraint.Expression)
                     : null,
                 ["defaultConstraintName"] = QuotedName(col.DefaultConstraint?.ConstraintIdentifier),
+                // NOT NULL DEFAULT 1 or DEFAULT 1 NOT NULL: the printer keeps the order they were written in
+                ["nullBeforeDefault"] = col.DefaultConstraint != null
+                    && col.Constraints?.OfType<NullableConstraintDefinition>().FirstOrDefault() is { } nullable
+                    && nullable.StartOffset < col.DefaultConstraint.StartOffset ? (object?)true : null,
                 // DEFAULT ... WITH VALUES: fill the new column's existing rows with the default
                 ["defaultWithValues"] = col.DefaultConstraint?.WithValues == true ? (object?)true : null,
                 ["isRowGuidCol"] = col.IsRowGuidCol ? (object?)true : null,

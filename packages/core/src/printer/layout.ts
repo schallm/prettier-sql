@@ -282,6 +282,21 @@ export function alterTableDoc(header: Doc, actions: Doc[], opts: Options): Doc {
     return [header, indent([hardline, join([',', hardline], actions)]), ';'];
 }
 
+/**
+ * `[CONSTRAINT name] clause clause …` (FOREIGN KEY (…) REFERENCES … ON DELETE …, or
+ * CHECK (…)): on one line when it fits, otherwise the name on its own line and each
+ * clause on an indented line below it.
+ */
+export function constraintDoc(name: Doc | null, clauses: Doc[], opts: Options): Doc {
+    const [first, ...rest] = name ? [[keyword('CONSTRAINT', opts), ' ', name], ...clauses] : clauses;
+    return group([first ?? '', indent(rest.map((c): Doc => [line, c]))]);
+}
+
+/** `CHECK (condition)`: the condition on indented lines between the parentheses when it doesn't fit. */
+export function checkDoc(kw: Doc, condition: Doc): Doc {
+    return [kw, ' ', parenGroup(condition)];
+}
+
 /** `lhs UNION rhs` (or INTERSECT / EXCEPT): the operator stands alone between blank lines. */
 export function setOpDoc(lhs: Doc, opKw: Doc, rhs: Doc): Doc {
     return [lhs, hardline, hardline, opKw, hardline, hardline, rhs];

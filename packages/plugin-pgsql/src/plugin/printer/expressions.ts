@@ -2,7 +2,7 @@ import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options, PrintFn } from '@prettier-sql/core/printer/utils';
 import { keyword, join, indent, hardline, softline, group, line, getDensity, aliasDoc, parenList, parenItems, optionItems, bracketItems, willBreak, hasHardline, hasLine } from '@prettier-sql/core/printer/utils';
-import { caseDoc, betweenDoc, operatorChain, boolGroup, boolLines, joinOnDoc, parenGroup, clauseItems, windowSpecDoc, subqueryDoc, type BoolTerm, type CaseResult } from '@prettier-sql/core/printer/layout';
+import { caseDoc, betweenDoc, operatorChain, boolGroup, boolLines, joinOnDoc, parenGroup, clauseItems, windowSpecDoc, subqueryDoc, constraintDoc, checkDoc, type BoolTerm, type CaseResult } from '@prettier-sql/core/printer/layout';
 import { printStatement, printQueryExpr } from './statements.js';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, onlyPrefix, printFdwOptions } from './helpers.js';
 
@@ -783,12 +783,7 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
         propBool(node, 'notValid') ? makeKeyword('NOT VALID') : '',
         propBool(node, 'noInherit') ? makeKeyword('NO INHERIT') : '',
     ].filter((d) => d !== '');
-    // `[CONSTRAINT name] clause clause ...`: inline when it fits, otherwise the name on its own
-    // line and each clause on an indented line of its own
-    const clauses = (list: Doc[]): Doc => {
-        if (name) return group([[makeKeyword('CONSTRAINT'), ' ', name], indent(list.map((c) => [line, c]))]);
-        return group([list[0]!, indent(list.slice(1).map((c) => [line, c]))]);
-    };
+    const clauses = (list: Doc[]): Doc => constraintDoc(name, list, opts);
 
     switch (contype) {
         case 'NULL':     return [namePrefix, makeKeyword('NULL')];
@@ -799,7 +794,7 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
 
         case 'CHECK':
             return clauses([
-                [makeKeyword('CHECK'), ' ', group(['(', indent([softline, expr ? printNode(expr) : '']), softline, ')'])],
+                checkDoc(makeKeyword('CHECK'), expr ? printNode(expr) : ''),
                 ...attrClauses,
             ]);
 

@@ -707,7 +707,7 @@ exports[`fixtures > alter-table/add-column-short.sql 1`] = `
   add summary varchar(500);
 
 alter table books
-  add is_featured integer default 0 not null;
+  add is_featured integer not null default 0;
 "
 `;
 
@@ -716,7 +716,7 @@ exports[`fixtures > alter-table/add-elements.sql 1`] = `
 alter table t
   add
     a int null,
-    b varchar(10) constraint df_b default 'x' with values not null;
+    b varchar(10) not null constraint df_b default 'x' with values;
 
 alter table t
   add c int default 0 with values;
@@ -729,13 +729,13 @@ alter table t
     vf datetime2
       generated always as row start
       hidden
-      default sysutcdatetime()
-      not null,
+      not null
+      default sysutcdatetime(),
     vt datetime2
       generated always as row end
       hidden
-      default '9999-12-31'
-      not null,
+      not null
+      default '9999-12-31',
     period for system_time (vf, vt);
 
 alter table t
@@ -840,9 +840,10 @@ exports[`fixtures > alter-table/constraints.sql 1`] = `
 
 alter table Orders
   add constraint FK_Orders_Customers
-    foreign key (CustomerId) references Customers (Id)
-    on delete cascade
-    on update no action;
+    foreign key (CustomerId)
+    references Customers (Id)
+    on update no action
+    on delete cascade;
 
 alter table Books
   add constraint CK_Books_Price check (Price > 0);
@@ -856,7 +857,8 @@ alter table Books
 alter table Orders
   with check
   add constraint FK_Orders_Customers
-    foreign key (CustomerId) references Customers (Id);
+    foreign key (CustomerId)
+    references Customers (Id);
 
 alter table Orders
   nocheck constraint FK_Orders_Customers;
@@ -1010,8 +1012,8 @@ exports[`fixtures > create-table/basic.sql 1`] = `
   Id int identity(1, 1) not null,
   Title nvarchar(200) not null,
   Price decimal(10, 2) not null,
-  InStock bit default 1 not null,
-  PublishedDate datetime2 default getdate() not null,
+  InStock bit not null default 1,
+  PublishedDate datetime2 not null default getdate(),
   constraint PK_Books primary key (Id)
 );
 "
@@ -1021,18 +1023,23 @@ exports[`fixtures > create-table/check-constraint-comment.sql 1`] = `
 "-- A trailing comment on a CHECK constraint's condition stays right after the
 -- condition, on its own line, and doesn't swallow the closing paren that follows it.
 create table t (
-  a int check (a > 0
-  -- c
+  a int check (
+    a > 0
+    -- c
   ),
-  constraint ck2 check (a < 100
-  -- c2
-  )
+  constraint ck2
+    check (
+      a < 100
+      -- c2
+    )
 );
 
 alter table t
-  add constraint ck3 check (a <> 0
-  -- c3
-  );
+  add constraint ck3
+    check (
+      a <> 0
+      -- c3
+    );
 "
 `;
 
@@ -1172,7 +1179,7 @@ exports[`fixtures > create-table/filestream.sql 1`] = `
 create table dbo.Documents (
   Id int not null primary key,
   DocStream varbinary(max) filestream null,
-  RowGuid uniqueidentifier rowguidcol default newid() not null unique
+  RowGuid uniqueidentifier rowguidcol not null default newid() unique
 )
 on DataFileGroup
 filestream_on FileStreamGroup;
@@ -1250,8 +1257,9 @@ create table dbo.LineItems (
   LineId int identity(1, 1) not null constraint PK_LineItems primary key,
   OrderId int
     not null
-    constraint FK_LineItems_Order references dbo.Orders (OrderId)
-    on delete cascade,
+    constraint FK_LineItems_Order
+      references dbo.Orders (OrderId)
+      on delete cascade,
   ProductId int
     not null
     constraint FK_LineItems_Product references dbo.Products (ProductId),
@@ -1298,8 +1306,9 @@ exports[`fixtures > create-table/long-column-definitions.sql 1`] = `
 create table dbo.t2 (
   OrderId int
     not null
-    constraint FK_LineItems_Order references dbo.Orders (OrderId)
-    on delete cascade,
+    constraint FK_LineItems_Order
+      references dbo.Orders (OrderId)
+      on delete cascade,
   ProductId int
     not null
     constraint FK_LineItems_Product references dbo.Products (ProductId)
@@ -1504,11 +1513,12 @@ exports[`fixtures > create-table/with-constraints.sql 1`] = `
   Id int identity(1, 1) not null,
   CustomerId int not null,
   Total decimal(18, 2) not null,
-  Status nvarchar(50) default 'pending' not null,
-  OrderDate datetime2 default getdate() not null,
+  Status nvarchar(50) not null default 'pending',
+  OrderDate datetime2 not null default getdate(),
   constraint PK_Orders primary key (Id),
   constraint FK_Orders_Customers
-    foreign key (CustomerId) references Customers (Id),
+    foreign key (CustomerId)
+    references Customers (Id),
   constraint CK_Orders_Total check (Total >= 0)
 );
 
@@ -1546,11 +1556,12 @@ create table OrderItems (
   Id int identity(1, 1) not null,
   OrderId int not null,
   ProductId int not null,
-  Quantity int default 1 not null,
+  Quantity int not null default 1,
   constraint PK_OrderItems primary key (Id),
   constraint FK_OrderItems_Orders foreign key (OrderId) references Orders (Id),
   constraint FK_OrderItems_Products
-    foreign key (ProductId) references Products (Id),
+    foreign key (ProductId)
+    references Products (Id),
   index IX_OrderItems_OrderId nonclustered (OrderId),
   index IX_OrderItems_ProductId nonclustered (ProductId)
 );
@@ -1792,13 +1803,12 @@ alter table dbo.Orders
   );
 
 alter table dbo.Orders
-  add constraint UQ_Orders_Number
-    unique nonclustered (OrderNumber) with (
-      pad_index = on,
-      fillfactor = 80,
-      ignore_dup_key = off,
-      allow_row_locks = on
-    );
+  add constraint UQ_Orders_Number unique nonclustered (OrderNumber) with (
+    pad_index = on,
+    fillfactor = 80,
+    ignore_dup_key = off,
+    allow_row_locks = on
+  );
 
 alter table dbo.Orders
   switch partition 3 to dbo.OrdersArchive partition 1 with (
@@ -1858,12 +1868,11 @@ alter table dbo.Customers
 create table dbo.Events (
   Id int not null,
   Payload nvarchar(max) null,
-  constraint pk_events_with_long_name
-    primary key clustered (Id) with (
-      pad_index = on,
-      fillfactor = 80,
-      data_compression = page
-    )
+  constraint pk_events_with_long_name primary key clustered (Id) with (
+    pad_index = on,
+    fillfactor = 80,
+    data_compression = page
+  )
 );
 "
 `;
@@ -5522,10 +5531,10 @@ from t as a;
 create table dbo.t (
   id int, -- the key
   name nvarchar(100)
-    default 'a default value long enough to need wrapping'
     not null
+    default 'a default value long enough to need wrapping'
     check (len(name) > 0), -- not empty
-  created datetime2 default sysutcdatetime() not null
+  created datetime2 not null default sysutcdatetime()
 );
 
 declare @message nvarchar(200) = N'The order was placed by ' + @customer_name -- who
@@ -5979,7 +5988,7 @@ create type dbo.NameValuePair as table (
 create type dbo.OrderLine as table (
   LineId int not null primary key,
   ProductId int not null,
-  Quantity int default 1 not null,
+  Quantity int not null default 1,
   UnitPrice decimal(10, 2) not null
 );
 
@@ -6559,7 +6568,8 @@ alter table books
 
 alter table books
   add constraint fk_books_publisher
-    foreign key (publisher_id) references publishers (id);
+    foreign key (publisher_id)
+    references publishers (id);
 
 alter table books
   add constraint chk_books_stock check (in_stock >= 0);
@@ -6599,7 +6609,7 @@ create table books (
   title varchar(200) not null,
   author_id integer not null,
   price numeric(10, 2) not null,
-  in_stock integer default 1 not null,
+  in_stock integer not null default 1,
   constraint pk_books primary key (id),
   constraint fk_books_author foreign key (author_id) references authors (id),
   constraint chk_books_price check (price >= 0)
@@ -6608,7 +6618,7 @@ create table books (
 create table order_items (
   order_id integer not null,
   book_id integer not null,
-  quantity integer default 1 not null,
+  quantity integer not null default 1,
   unit_price numeric(10, 2) not null,
   constraint pk_order_items primary key (order_id, book_id),
   constraint fk_order_items_order foreign key (order_id) references orders (id),

@@ -16,9 +16,8 @@ import {
     parenItems,
     willBreak,
 } from '@prettier-sql/core/printer/utils';
-import { createIndexDoc, alterTableDoc } from '@prettier-sql/core/printer/layout';
+import { createIndexDoc, alterTableDoc, constraintDoc, checkDoc } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment, splitTopLevel, sortOrderDoc } from './helpers.js';
-import { boolEndsWithPendingComment } from './expressions.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
 import { joinBodyStatements, printSelectBody, printNode, printBool, printBoolClause, qexpr, printCtes, printStatement } from './statements.js';
@@ -336,24 +335,22 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         parts.push(line, keyword('MASKED WITH', opts), ' (', keyword('FUNCTION', opts), ` = '${maskFn.replace(/'/g, "''")}')`);
     }
 
+    // NULL / NOT NULL and DEFAULT, in the order they were written
+    const nullDoc: Doc[] = isNullable === true ? [line, keyword('NULL', opts)] : isNullable === false ? [line, keyword('NOT NULL', opts)] : [];
+    const nullBeforeDefault = propBool(node, 'nullBeforeDefault');
+    if (nullBeforeDefault) parts.push(...nullDoc);
     if (defaultValue) {
         const defaultName = propStr(node, 'defaultConstraintName');
         const defaultNamePrefix: Doc = defaultName ? [keyword('CONSTRAINT', opts), ' ', defaultName, ' '] : '';
         parts.push(line, defaultNamePrefix, keyword('DEFAULT', opts), ' ', printNode(defaultValue, opts));
         if (propBool(node, 'defaultWithValues')) parts.push(line, keyword('WITH VALUES', opts));
     }
-    if (isNullable === true) parts.push(line, keyword('NULL', opts));
-    else if (isNullable === false) parts.push(line, keyword('NOT NULL', opts));
+    if (!nullBeforeDefault) parts.push(...nullDoc);
     if (checkConstraint) {
-        const checkName = propStr(node, 'checkConstraintName');
-        const checkPrefix: Doc = checkName ? [keyword('CONSTRAINT', opts), ' ', checkName, ' '] : '';
-        // A trailing comment on the condition prints on its own new line with nothing
-        // to end it — without a break here, the closing `)` would land right after it,
-        // inside the comment, and the output wouldn't parse.
-        const needsBreak = boolEndsWithPendingComment(checkConstraint);
-        const checkDoc = printBool(checkConstraint, opts);
-        const checkNfr: Doc = propBool(node, 'checkNotForReplication') ? [' ', keyword('NOT FOR REPLICATION', opts)] : '';
-        parts.push(line, checkPrefix, keyword('CHECK', opts), checkNfr, ' (', checkDoc, needsBreak ? hardline : '', ')');
+        const checkKw: Doc = [keyword('CHECK', opts), propBool(node, 'checkNotForReplication') ? [' ', keyword('NOT FOR REPLICATION', opts)] : ''];
+        // A trailing comment on the condition breaks the parentheses, so `)` lands after it
+        const check = checkDoc(checkKw, printBool(checkConstraint, opts, true));
+        parts.push(line, constraintDoc(propStr(node, 'checkConstraintName'), [check], opts));
     }
 
     // Inline PRIMARY KEY / UNIQUE constraint (e.g. in table variable declarations)
@@ -387,41 +384,10 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         | null
         | undefined;
     if (foreignKey) {
-        if (foreignKey.constraintName) {
-            parts.push(line, keyword('CONSTRAINT', opts), ' ', foreignKey.constraintName);
-        }
-        const refSep: Doc = foreignKey.constraintName ? ' ' : line;
-        const refColsPart: Doc = foreignKey.refColumns?.length ? [' (', join(', ', foreignKey.refColumns), ')'] : '';
-        parts.push(refSep, keyword('REFERENCES', opts), ' ', schemaObjectName(foreignKey.refTable), refColsPart);
-        if (foreignKey.deleteAction) {
-            parts.push(
-                line,
-                keyword('ON DELETE', opts),
-                ' ',
-                keyword(
-                    foreignKey.deleteAction
-                        .replace(/([A-Z])/g, ' $1')
-                        .trim()
-                        .toUpperCase(),
-                    opts,
-                ),
-            );
-        }
-        if (foreignKey.updateAction) {
-            parts.push(
-                line,
-                keyword('ON UPDATE', opts),
-                ' ',
-                keyword(
-                    foreignKey.updateAction
-                        .replace(/([A-Z])/g, ' $1')
-                        .trim()
-                        .toUpperCase(),
-                    opts,
-                ),
-            );
-        }
-        if (foreignKey.notForReplication) parts.push(line, keyword('NOT FOR REPLICATION', opts));
+        const refCols = foreignKey.refColumns ?? [];
+        const references: Doc = [keyword('REFERENCES', opts), ' ', schemaObjectName(foreignKey.refTable), refCols.length ? [' ', parenItems(refCols, opts)] : ''];
+        const clauses = [references, ...referentialActions(foreignKey.updateAction, foreignKey.deleteAction, foreignKey.notForReplication, opts)];
+        parts.push(line, constraintDoc(foreignKey.constraintName ?? null, clauses, opts));
     }
 
     // Column-level INDEX ix [CLUSTERED | NONCLUSTERED]
@@ -441,6 +407,17 @@ function storageClause(props: Record<string, unknown> | undefined, opts: Options
         on ? [' ', keyword('ON', opts), ' ', on] : '',
         fileStream ? [' ', keyword('FILESTREAM_ON', opts), ' ', fileStream] : '',
     ];
+}
+
+/** ON UPDATE / ON DELETE actions and NOT FOR REPLICATION, the clauses that end a foreign key. */
+function referentialActions(update: string | null | undefined, del: string | null | undefined, nfr: boolean | undefined, opts: Options): Doc[] {
+    // SetNull → SET NULL, NoAction → NO ACTION
+    const action = (a: string): Doc => keyword(a.replace(/([A-Z])/g, ' $1').trim().toUpperCase(), opts);
+    return [
+        update ? [keyword('ON UPDATE', opts), ' ', action(update)] : '',
+        del ? [keyword('ON DELETE', opts), ' ', action(del)] : '',
+        nfr ? keyword('NOT FOR REPLICATION', opts) : '',
+    ].filter((d) => d !== '');
 }
 
 export function printConstraintDef(node: SqlNode, opts: Options): Doc {
@@ -468,12 +445,11 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
                 const dir = sortOrderDoc(c.order, opts);
                 return [c.name, dir] as Doc;
             });
-            const colsDoc = parenList(colDocs);
             const indexOptions = propStrArr(node, 'indexOptions');
             const withPart: Doc = indexOptions.length
                 ? [' ', keyword('WITH', opts), ' ', optionItems(indexOptions, opts)]
                 : '';
-            return group([namePrefix, indent([softline, kw, ' ', clusteredKw, hashKw, colsDoc, withPart, storageClause(node.props, opts)])]);
+            return [namePrefix, kw, ' ', clusteredKw, hashKw, parenItems(colDocs, opts), withPart, storageClause(node.props, opts)];
         }
         case 'DefaultConstraint': {
             const expr = prop(node, 'expression');
@@ -485,56 +461,20 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
         }
         case 'CheckConstraint': {
             const expr = prop(node, 'expression');
-            const nfr = propBool(node, 'notForReplication');
-            // See the inline CHECK case above: a trailing comment on the condition
-            // must break before the closing `)`, or it swallows it.
-            const needsBreak = expr ? boolEndsWithPendingComment(expr) : false;
-            const exprDoc = expr ? printBool(expr, opts) : '';
-            return [
-                namePrefix,
-                keyword('CHECK', opts),
-                nfr ? [' ', keyword('NOT FOR REPLICATION', opts)] : '',
-                ' (',
-                exprDoc,
-                needsBreak ? hardline : '',
-                ')',
-            ];
+            const checkKw: Doc = [keyword('CHECK', opts), propBool(node, 'notForReplication') ? [' ', keyword('NOT FOR REPLICATION', opts)] : ''];
+            // A trailing comment on the condition breaks the parentheses, so `)` lands after it
+            return constraintDoc(constraintName, [checkDoc(checkKw, expr ? printBool(expr, opts, true) : '')], opts);
         }
         case 'ForeignKeyConstraint': {
             const cols = propStrArr(node, 'columns');
             const refCols = propStrArr(node, 'refColumns');
             const refTable = prop(node, 'refTable');
             const refName = refTable ? schemaObjectName(refTable) : '';
-            const deleteAction = propStr(node, 'deleteAction');
-            const updateAction = propStr(node, 'updateAction');
-            const nfr = propBool(node, 'notForReplication');
-            const refActionKw = (action: string): Doc =>
-                keyword(
-                    action
-                        .replace(/([A-Z])/g, ' $1')
-                        .trim()
-                        .toUpperCase(),
-                    opts,
-                );
-            const fkColsDoc = parenList(cols);
-            const refColsDoc: Doc = refCols.length ? [' ', parenList(refCols)] : '';
-            return [
-                group([
-                    namePrefix,
-                    indent([
-                        softline,
-                        group([
-                            keyword('FOREIGN KEY', opts),
-                            ' ',
-                            fkColsDoc,
-                            indent([line, keyword('REFERENCES', opts), ' ', refName, refColsDoc]),
-                        ]),
-                        deleteAction ? [line, keyword('ON DELETE', opts), ' ', refActionKw(deleteAction)] : '',
-                        updateAction ? [line, keyword('ON UPDATE', opts), ' ', refActionKw(updateAction)] : '',
-                        nfr ? [line, keyword('NOT FOR REPLICATION', opts)] : '',
-                    ]),
-                ]),
-            ];
+            return constraintDoc(constraintName, [
+                [keyword('FOREIGN KEY', opts), ' ', parenItems(cols, opts)],
+                [keyword('REFERENCES', opts), ' ', refName, refCols.length ? [' ', parenItems(refCols, opts)] : ''],
+                ...referentialActions(propStr(node, 'updateAction'), propStr(node, 'deleteAction'), propBool(node, 'notForReplication'), opts),
+            ], opts);
         }
         default:
             return node.text ?? `/* constraint: ${node.type} */`;
