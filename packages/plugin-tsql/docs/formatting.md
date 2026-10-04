@@ -2476,7 +2476,7 @@ declare @message nvarchar(200) =
     + convert(nvarchar(30), @order_date, 120);
 ```
 
-Parenthesized option lists (`WITH (...)`, `ENCRYPTED WITH (...)`, `OPTION (...)`, `RESULT SETS (...)`) break one per line:
+Parenthesized option lists (`WITH (...)`, `ENCRYPTED WITH (...)`, `OPTION (...)`, `RESULT SETS (...)`, table hints, `CREATE COLUMN MASTER KEY ... WITH (...)`) and derived-table column lists (`AS v(a, b, c)`) break one per line:
 
 ```sql
 alter table dbo.Orders
