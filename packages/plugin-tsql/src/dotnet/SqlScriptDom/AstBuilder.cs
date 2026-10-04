@@ -893,6 +893,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["forClause"] = forClause,
             ["offset"] = qs.OffsetClause?.OffsetExpression != null ? BuildScalarExpression(qs.OffsetClause.OffsetExpression) : null,
             ["fetch"] = qs.OffsetClause?.FetchExpression != null ? BuildScalarExpression(qs.OffsetClause.FetchExpression) : null,
+            // ORDER BY ... FETCH APPROXIMATE NEXT n ROWS ONLY (SQL Server 2025, vector search)
+            ["fetchApproximate"] = qs.OffsetClause?.WithApproximate == true ? true : null,
         });
     }
 
@@ -903,6 +905,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["expression"] = BuildScalarExpression(expr),
             ["percent"] = top.Percent,
             ["withTies"] = top.WithTies,
+            // TOP (n) WITH APPROXIMATE (SQL Server 2025, vector search)
+            ["withApproximate"] = top.WithApproximate ? true : null,
         });
     }
 
@@ -976,6 +980,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["orderBy"] = bq.OrderByClause != null ? BuildOrderByClause(bq.OrderByClause) : null,
             ["offset"] = bq.OffsetClause?.OffsetExpression != null ? BuildScalarExpression(bq.OffsetClause.OffsetExpression) : null,
             ["fetch"] = bq.OffsetClause?.FetchExpression != null ? BuildScalarExpression(bq.OffsetClause.FetchExpression) : null,
+            // ORDER BY ... FETCH APPROXIMATE NEXT n ROWS ONLY (SQL Server 2025, vector search)
+            ["fetchApproximate"] = bq.OffsetClause?.WithApproximate == true ? true : null,
         });
 
     private static SqlNode BuildQueryParen(QueryParenthesisExpression qp) =>

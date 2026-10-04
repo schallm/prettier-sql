@@ -611,8 +611,6 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const having = prop(node, 'having');
     const orderBy = prop(node, 'orderBy');
     const windowDefs = propArr(node, 'windowDefs');
-    const offsetNode = prop(node, 'offset');
-    const fetchNode = prop(node, 'fetch');
     // SELECT INTO target — injected by BuildSelectStatement into the QuerySpecification node
     const intoTarget = prop(node, 'into');
     const intoOn = propStr(node, 'intoOn');
@@ -645,7 +643,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
 
     if (orderBy) parts.push(sep, printOrderByClause(orderBy, opts, printFn));
 
-    parts.push(...offsetFetch(offsetNode, fetchNode, sep, opts, printFn));
+    parts.push(...offsetFetch(node, sep, opts, printFn));
 
     if (forClause) parts.push(sep, printForClause(forClause, opts));
 
@@ -666,6 +664,7 @@ export function printTop(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const parts: Doc[] = [keyword('TOP', opts), ' (', expr ? printExpression(expr, opts, printFn) : '', ')'];
     if (isPercent) parts.push(' ', keyword('PERCENT', opts));
     if (withTies) parts.push(' ', keyword('WITH TIES', opts));
+    if (propBool(node, 'withApproximate')) parts.push(' ', keyword('WITH APPROXIMATE', opts));
     return parts;
 }
 
@@ -690,8 +689,6 @@ function printBinaryQuery(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const op = propStr(node, 'operator') ?? 'Union';
     const isAll = propBool(node, 'all');
     const orderBy = prop(node, 'orderBy');
-    const offsetNode = prop(node, 'offset');
-    const fetchNode = prop(node, 'fetch');
 
     const opKw =
         op === 'Union'
@@ -709,15 +706,21 @@ function printBinaryQuery(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     ];
 
     if (orderBy) parts.push(hardline, printOrderByClause(orderBy, opts, printFn));
-    parts.push(...offsetFetch(offsetNode, fetchNode, hardline, opts, printFn));
+    parts.push(...offsetFetch(node, hardline, opts, printFn));
     return parts;
 }
 
 /** `OFFSET n ROWS` and `FETCH NEXT n ROWS ONLY`, each after `sep`, at the end of a query. */
-function offsetFetch(offset: SqlNode | null, fetch: SqlNode | null, sep: Doc, opts: Options, printFn: PrintFn): Doc[] {
-    if (!offset) return [];
-    const parts: Doc[] = [sep, keyword('OFFSET', opts), ' ', printExpression(offset, opts, printFn), ' ', keyword('ROWS', opts)];
-    if (fetch) parts.push(sep, keyword('FETCH NEXT', opts), ' ', printExpression(fetch, opts, printFn), ' ', keyword('ROWS ONLY', opts));
+function offsetFetch(node: SqlNode, sep: Doc, opts: Options, printFn: PrintFn): Doc[] {
+    const offset = prop(node, 'offset');
+    const fetch = prop(node, 'fetch');
+    const parts: Doc[] = [];
+    if (offset) parts.push(sep, keyword('OFFSET', opts), ' ', printExpression(offset, opts, printFn), ' ', keyword('ROWS', opts));
+    // FETCH without OFFSET: ORDER BY ... FETCH [APPROXIMATE] NEXT n ROWS ONLY
+    if (fetch) {
+        const fetchKw = propBool(node, 'fetchApproximate') ? 'FETCH APPROXIMATE NEXT' : 'FETCH NEXT';
+        parts.push(sep, keyword(fetchKw, opts), ' ', printExpression(fetch, opts, printFn), ' ', keyword('ROWS ONLY', opts));
+    }
     return parts;
 }
 

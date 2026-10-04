@@ -76,8 +76,6 @@ export const dropped: Record<string, string> = {
     'FullTextTableReference.PropertyName': 'CONTAINSTABLE(t, PROPERTY(Doc, \'Title\'), ...) prints as CONTAINSTABLE(t, Doc, ...)',
     'FunctionCall.WithArrayWrapper': 'JSON_QUERY(d, \'$.a\' WITH ARRAY WRAPPER) loses WITH ARRAY WRAPPER',
     'InsertSpecification.InsertOption': 'INSERT OVER t prints as INSERT INTO t (INSERT t and INSERT INTO t are equivalent)',
-    'OffsetClause.WithApproximate': 'ORDER BY ... FETCH APPROXIMATE NEXT 5 ROWS ONLY without OFFSET loses the whole FETCH',
-    'TopRowFilter.WithApproximate': 'TOP (10) WITH APPROXIMATE loses WITH APPROXIMATE',
     'OpenRowsetTableReference.WithColumns': 'OPENROWSET(...) WITH (a int) loses the WITH column list',
     'BulkOpenRowset.WithColumns': 'OPENROWSET(BULK ...) WITH (a int) loses the WITH column list',
     'ProcedureParameter.IsVarying': '@c CURSOR VARYING OUTPUT prints as @c CURSOR OUTPUT, which does not compile',
