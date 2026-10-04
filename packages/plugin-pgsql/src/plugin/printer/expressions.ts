@@ -370,7 +370,7 @@ function printAggregateTail(callDoc: Doc, node: SqlNode, opts: Options, printNod
     if (!over) return callDoc;
     // Named window reference: OVER w (no inline spec)
     if (over.type === 'WindowRef') return [callDoc, ' ', makeKeyword('OVER'), ' ', over.text ?? ''];
-    return [callDoc, ' ', makeKeyword('OVER'), ' (', printWindowDef(over, opts, printNode), ')'];
+    return [callDoc, ' ', makeKeyword('OVER'), ' ', printWindowDef(over, opts, printNode)];
 }
 
 // (a, b) OVERLAPS (c, d) — the four arguments are the two rows' elements
@@ -495,10 +495,10 @@ export function printWindowDef(node: SqlNode, opts: Options, printNode: PrintFn)
     // w2 AS (w ORDER BY b): inherits w's PARTITION BY (and ORDER BY)
     if (refname) parts.push(refname);
     if (partitionBy.length > 0) {
-        parts.push([makeKeyword('PARTITION BY'), ' ', join(', ', partitionBy.map(printNode))]);
+        parts.push([makeKeyword('PARTITION BY'), ' ', clauseItems(partitionBy.map(printNode))]);
     }
     if (orderBy.length > 0) {
-        parts.push([makeKeyword('ORDER BY'), ' ', join(', ', orderBy.map(printNode))]);
+        parts.push([makeKeyword('ORDER BY'), ' ', clauseItems(orderBy.map(printNode))]);
     }
     if (frameMode) {
         const startDoc: Doc = startOffset
@@ -515,7 +515,13 @@ export function printWindowDef(node: SqlNode, opts: Options, printNode: PrintFn)
         if (frameExclude) parts.push(makeKeyword(frameExclude));
     }
 
-    return join(' ', parts);
+    // The whole `(...)`: inline when it fits, otherwise each clause on its own line
+    return group(['(', indent([softline, join(line, parts)]), softline, ')']);
+}
+
+/** The items of a PARTITION BY / ORDER BY list: a long one continues on indented lines. */
+function clauseItems(items: Doc[]): Doc {
+    return group(indent(join([',', line], items)));
 }
 
 function printCast(node: SqlNode, opts: Options, printNode: PrintFn): Doc {

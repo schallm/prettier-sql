@@ -374,7 +374,7 @@ function printSelectBody(node: SqlNode, opts: Options): Doc {
         const wDocs = windowClauses.map((w) => {
             const wName = propStr(w, 'name') ?? '';
             const wSpec = printWindowDef(w, opts, printNode);
-            return [wName, ' ', makeKeyword('AS'), ' (', wSpec, ')'];
+            return [wName, ' ', makeKeyword('AS'), ' ', wSpec];
         });
         parts.push([makeKeyword('WINDOW'), indent([hardline, join(hardSep(opts), wDocs)])]);
     }
