@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
-import { keyword, hardline, softline, join, indent, group, onOffKw, line, getDensity, parenList, parenListFill, commaFill } from '@prettier-sql/core/printer/utils';
+import { keyword, hardline, softline, join, indent, group, onOffKw, line, getDensity, parenList, parenListFill, commaFill, willBreak } from '@prettier-sql/core/printer/utils';
 import { boolEndsWithPendingComment } from './expressions.js';
 import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, assignmentOp, withTrailingComment, markSingleBody, isSingleBody } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
@@ -72,6 +72,17 @@ export function printReconfigure(node: SqlNode, opts: Options): Doc {
 // DECLARE
 // ---------------------------------------------------------------------------
 
+// Types of value that move to their own indented line when `lhs = value` doesn't fit
+// (other values, such as calls and subqueries, hug the `=` and break inside themselves).
+const WRAPPING_VALUES = new Set(['BinaryExpression', 'StringLiteral']);
+
+/** `lhs op value`, with the value on an indented line of its own when it doesn't fit. */
+function assignment(lhs: Doc, op: string, val: SqlNode | null | undefined, opts: Options, valueDoc?: Doc): Doc {
+    const value = valueDoc ?? (val ? printNode(val, opts) : '');
+    if (!val || !WRAPPING_VALUES.has(val.type) || willBreak(value)) return [lhs, ' ', op, ' ', value];
+    return group([lhs, ' ', op, indent([line, value])]);
+}
+
 export function printDeclareVariable(node: SqlNode, opts: Options): Doc {
     const decls = propArr(node, 'declarations');
     const declDocs = decls.map((d) => {
@@ -85,7 +96,7 @@ export function printDeclareVariable(node: SqlNode, opts: Options): Doc {
                 ? [dtDoc, `(${(params as string[]).join(', ')})`]
                 : dtDoc;
         const val = prop(d, 'value');
-        const inline: Doc = [name, ' ', typeStr, ...(val ? [' = ', printNode(val, opts)] : [])];
+        const inline: Doc = val ? assignment([name, ' ', typeStr], '=', val, opts) : [name, ' ', typeStr];
         return { inline, doc: [keyword('DECLARE', opts), ' ', inline, ';'] as Doc };
     });
     // DECLARE @a int, @b int as the only statement of an IF or WHILE stays one statement
@@ -172,7 +183,7 @@ export function printSetVariable(node: SqlNode, opts: Options): Doc {
         valuePart = val ? printNode(val, opts) : '';
     }
 
-    return [keyword('SET', opts), ' ', name, ' ', opStr, ' ', valuePart, ';'];
+    return [keyword('SET', opts), ' ', assignment(name, opStr, val, opts, valuePart), ';'];
 }
 
 export function printSetRowCount(node: SqlNode, opts: Options): Doc {
