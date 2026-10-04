@@ -634,7 +634,7 @@ function printRangeVar(node: SqlNode, opts: Options): Doc {
 /** ` AS alias` plus the alias's column list when present: ` AS x(a, b)`. */
 export function tableAliasDoc(node: SqlNode, opts: Options): Doc {
     const columns = propStrArr(node, 'aliasColumns');
-    return [aliasDoc(propStr(node, 'alias'), opts), columns.length > 0 ? ['(', join(', ', columns), ')'] : ''];
+    return [aliasDoc(propStr(node, 'alias'), opts), columns.length > 0 ? parenItems(columns, opts) : ''];
 }
 
 function printJoinExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -654,7 +654,7 @@ function printJoinExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 
     const condition: Doc = joinType === 'CROSS' ? ''
         : on      ? [' ', makeKeyword('ON'), ' ', printNode(on)]
-        : using.length > 0 ? [' ', makeKeyword('USING'), ' (', join(', ', using), ')', aliasDoc(usingAlias, opts)]
+        : using.length > 0 ? [' ', makeKeyword('USING'), ' ', parenItems(using, opts), aliasDoc(usingAlias, opts)]
         : '';
 
     // A join on the right-hand side must keep its parentheses: in
@@ -680,7 +680,7 @@ function printSubquery(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 //   [LATERAL] ROWS FROM (f(x) [AS (col type, …)], …) [WITH ORDINALITY] [AS alias[(cols)]]
 function printRangeFunction(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const makeKeyword = (kw: string) => keyword(kw, opts);
-    const columnDefsDoc = (defs: SqlNode[]): Doc => ['(', join(', ', defs.map(printNode)), ')'];
+    const columnDefsDoc = (defs: SqlNode[]): Doc => parenItems(defs.map(printNode), opts);
     const items = propArr(node, 'functions').map((f): Doc => {
         const call = prop(f, 'call');
         const defs = propArr(f, 'columnDefs');
