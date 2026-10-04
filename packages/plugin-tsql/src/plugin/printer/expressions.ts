@@ -380,7 +380,7 @@ const CONCAT_OPS = new Set(['Concat']);
 // operator. Flat: "a + b - c". Filling: "a + b\n  + c - d".
 function buildChain(terms: { op: string; term: Doc }[]): Doc {
     const [first, ...rest] = terms;
-    return fill([first!.term, ...rest.flatMap((t): Doc[] => [indent([line, t.op, ' ']), t.term])]);
+    return fill([first!.term, ...rest.flatMap((t): Doc[] => [indent(line), indent([t.op, ' ', t.term])])]);
 }
 
 function printBinaryExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {

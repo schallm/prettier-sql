@@ -248,7 +248,7 @@ function printBinaryExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
     const chain = chainOf(op);
     if (chain) {
         const [first, ...rest] = collectChain(node, chain, printNode);
-        return fill([first!.term, ...rest.flatMap((t): Doc[] => [indent([line, t.op, ' ']), t.term])]);
+        return fill([first!.term, ...rest.flatMap((t): Doc[] => [indent(line), indent([t.op, ' ', t.term])])]);
     }
 
     const opDoc: Doc = /^[A-Z]/.test(op) ? keyword(op, opts) : op;
