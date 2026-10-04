@@ -4282,15 +4282,13 @@ from (
   values
     (1, 'Alice'),
     (2, 'Bob')
-) as v(Id, Name);
+) as v (Id, Name);
 
 select v.Id
 from (
   values
-    (1),
-    (2),
-    (3)
-) as v(Id);
+    (1), (2), (3)
+) as v (Id);
 
 select
   p.ProductId,
@@ -4300,7 +4298,7 @@ from (
     (101, 9.99),
     (102, 14.99),
     (103, 4.99)
-) as p(ProductId, Price)
+) as p (ProductId, Price)
 where p.Price < 10;
 "
 `;
@@ -4808,7 +4806,7 @@ from
     values
       (1, 2),
       (3, 4)
-  ) as v(
+  ) as v (
     very_long_column_name_one,
     very_long_column_name_two,
     very_long_column_name_three,
@@ -4822,7 +4820,7 @@ from
     values
       (1, 2),
       (3, 4)
-  ) as v(a, b)
+  ) as v (a, b)
   cross join x;
 
 select s.*

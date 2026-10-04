@@ -638,10 +638,10 @@ function printRangeVar(node: SqlNode, opts: Options): Doc {
     return [onlyPrefix(node, opts), rangeVarName(node), tableAliasDoc(node, opts)];
 }
 
-/** ` AS alias` plus the alias's column list when present: ` AS x(a, b)`. */
+/** ` AS alias` plus the alias's column list when present: ` AS x (a, b)`. */
 export function tableAliasDoc(node: SqlNode, opts: Options): Doc {
     const columns = propStrArr(node, 'aliasColumns');
-    return [aliasDoc(propStr(node, 'alias'), opts), columns.length > 0 ? parenItems(columns, opts) : ''];
+    return [aliasDoc(propStr(node, 'alias'), opts), columns.length > 0 ? [' ', parenItems(columns, opts)] : ''];
 }
 
 function printJoinExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -703,7 +703,7 @@ function printRangeFunction(node: SqlNode, opts: Options, printNode: PrintFn): D
     const alias = propStr(node, 'alias');
     const defs = propArr(node, 'columnDefs');
     const aliasPart: Doc = defs.length > 0
-        ? [' ', makeKeyword('AS'), alias ? [' ', alias] : ' ', columnDefsDoc(defs)]
+        ? [' ', makeKeyword('AS'), alias ? [' ', alias] : '', ' ', columnDefsDoc(defs)]
         : tableAliasDoc(node, opts);
     return [lateral, body, ordinality, aliasPart];
 }
@@ -1049,7 +1049,7 @@ function printCte(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const search = prop(node, 'search');
     const cycle = prop(node, 'cycle');
     const parts: Doc[] = [
-        name, columns.length > 0 ? ['(', join(', ', columns), ')'] : '',
+        name, columns.length > 0 ? [' ', parenList(columns)] : '',
         ' ', makeKeyword('AS'), materialized ? [' ', makeKeyword(materialized)] : '',
         ' (', indent([hardline, query ? printNode(query) : '']), hardline, ')',
     ];
@@ -1129,7 +1129,7 @@ function printRangeTableSample(node: SqlNode, opts: Options, printNode: PrintFn)
     return [
         relation ? printNode(relation) : '',
         ' ', makeKeyword('TABLESAMPLE'), ' ', makeKeyword(method.toUpperCase()),
-        '(', join(', ', args.map(printNode)), ')',
+        ' (', join(', ', args.map(printNode)), ')',
         repeatable ? [' ', makeKeyword('REPEATABLE'), ' (', printNode(repeatable), ')'] : '',
     ];
 }

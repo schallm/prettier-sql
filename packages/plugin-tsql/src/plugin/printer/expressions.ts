@@ -19,7 +19,7 @@ import {
     commaFill,
     hasLineSuffix,
 } from '@prettier-sql/core/printer/utils';
-import { caseDoc, betweenDoc, operatorChain, setOpDoc, boolGroup, boolLines, boolClauseDoc, joinOnDoc, parenGroup, selectListDoc, fromClauseDoc, listClauseDoc, clauseItems, windowSpecDoc, windowClauseDoc, subqueryDoc, type BoolTerm, type CaseResult, type CaseWhen } from '@prettier-sql/core/printer/layout';
+import { caseDoc, betweenDoc, operatorChain, setOpDoc, boolGroup, boolLines, boolClauseDoc, joinOnDoc, parenGroup, selectListDoc, fromClauseDoc, listClauseDoc, clauseItems, windowSpecDoc, windowClauseDoc, subqueryDoc, valuesRow, valuesDoc, type BoolTerm, type CaseResult, type CaseWhen } from '@prettier-sql/core/printer/layout';
 import {
     prop, propArr, propStr, propStrArr, propBool, schemaObjectName, builtinTypeDoc, assignmentOp, splitTopLevel, sortOrderDoc,
     claimTrailingComment, isCommentClaimed, takeTrailingComment, withTrailingComment, appendComments,
@@ -1330,26 +1330,11 @@ function printJoinParenthesis(node: SqlNode, opts: Options, printFn: PrintFn): D
 function printInlineDerivedTable(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const rows = propArr(node, 'rows');
     const alias = propStr(node, 'alias');
-    const columns = node.props?.['columns'] as string[] | undefined;
-    const rowDocs = rows.map((r) => {
-        const vals = propArr(r, 'values').map((v) => printExpression(v, opts, printFn));
-        return parenList(vals);
-    });
-    const colsDef: Doc = columns?.length ? parenItems(columns, opts) : '';
-    const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias, colsDef] : '';
-    // compact: fill-pack rows — as many per line as fit, wrapping only when needed
-    // standard/spacious: the rows always go on their own lines, like a standalone VALUES
-    if (getDensity(opts) === 'compact') {
-        const rowsDoc: Doc = rows.length > 1 ? commaFill(rowDocs) : join([',', line], rowDocs);
-        return group(['(', keyword('VALUES', opts), ' ', indent([softline, rowsDoc]), softline, ')', aliasPart]);
-    }
-    return [
-        '(',
-        indent([hardline, keyword('VALUES', opts), indent([hardline, join([',', hardline], rowDocs)])]),
-        hardline,
-        ')',
-        aliasPart,
-    ];
+    const rowDocs = rows.map((r) => valuesRow(propArr(r, 'values').map((v) => printExpression(v, opts, printFn)), opts));
+    const valuesBody = valuesDoc(rowDocs, rows[0] ? propArr(rows[0], 'values').length : 0, opts);
+    const aliasPart: Doc = alias ? [' ', keyword('AS', opts), ' ', alias, derivedColumns(node, opts)] : '';
+    // The VALUES list on lines of its own, as a subquery's SELECT would be
+    return ['(', indent([hardline, valuesBody]), hardline, ')', aliasPart];
 }
 
 function printQueryDerivedTable(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
