@@ -16,9 +16,9 @@ import {
     commaFill,
     parenItems, optionItems,
 } from '@prettier-sql/core/printer/utils';
-import { valuesRow, valuesDoc, setClauseDoc, setOpDoc, joinStatements } from '@prettier-sql/core/printer/layout';
+import { valuesRow, valuesDoc, setClauseDoc, setOpDoc, joinStatements, boolClauseDoc } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions } from './helpers.js';
-import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, printOperand, printBoolFlat, PREC, tableAliasDoc } from './expressions.js';
+import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, boolTerms, tableAliasDoc } from './expressions.js';
 
 // ---------------------------------------------------------------------------
 // Script root
@@ -218,34 +218,9 @@ function printWith(opts: Options): PrintFn {
     };
 }
 
-/**
- * Density-aware boolean clause (WHERE / HAVING / ON CONFLICT WHERE).
- * Single predicate: inline in compact/standard; indented in spacious.
- * Multi-predicate (BoolExpr AND/OR):
- *   compact  — fill-pack predicates by width; each stays together on break
- *   standard/spacious — each predicate on its own indented line
- */
+/** WHERE / HAVING / ON CONFLICT WHERE and its predicates. */
 function printBoolClause(kw: string, where: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const makeKeyword = (k: string) => keyword(k, opts);
-    const density = getDensity(opts);
-    const isMulti = where.type === 'BoolExpr' && (propStr(where, 'op') ?? 'AND') !== 'NOT';
-    const inline = density !== 'spacious' && !isMulti;
-
-    if (inline) return [makeKeyword(kw), ' ', printNode(where)];
-
-    if (density === 'compact' && isMulti) {
-        const op = propStr(where, 'op') ?? 'AND';
-        const args = propArr(where, 'args');
-        const prec = op === 'OR' ? PREC.OR : PREC.AND;
-        const fillParts: Doc[] = [printOperand(args[0]!, prec, printNode)];
-        for (let i = 1; i < args.length; i++) {
-            fillParts.push(line);
-            fillParts.push([makeKeyword(op), ' ', printOperand(args[i]!, prec, printNode)]);
-        }
-        return [makeKeyword(kw), group([indent([line, fill(fillParts)])])];
-    }
-
-    return [makeKeyword(kw), indent([hardline, printBoolFlat(where, opts, printNode)])];
+    return boolClauseDoc(kw, boolTerms(where, printNode), opts);
 }
 
 /**

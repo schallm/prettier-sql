@@ -12,7 +12,6 @@ import {
     indent,
     line,
     softline,
-    fill,
     appendTrailingLines,
     parenList,
     hasLine,
@@ -22,7 +21,7 @@ import {
     commaFill,
     hasLineSuffix,
 } from '@prettier-sql/core/printer/utils';
-import { caseDoc, betweenDoc, operatorChain, setOpDoc, type CaseResult, type CaseWhen } from '@prettier-sql/core/printer/layout';
+import { caseDoc, betweenDoc, operatorChain, setOpDoc, boolGroup, boolLines, boolClauseDoc, joinOnDoc, parenGroup, type BoolTerm, type CaseResult, type CaseWhen } from '@prettier-sql/core/printer/layout';
 import {
     prop, propArr, propStr, propStrArr, propBool, schemaObjectName, builtinTypeDoc, assignmentOp, splitTopLevel, sortOrderDoc,
     claimTrailingComment, isCommentClaimed, takeTrailingComment, withTrailingComment, appendComments,
@@ -636,14 +635,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
             parts.push(line, keyword('FROM', opts), ' ', group(indent(join(softSep(opts), fromDocs))));
         }
 
-        if (where) {
-            // Fill-pack predicates; each and/or predicate stays together as a unit on break.
-            parts.push(
-                line,
-                keyword('WHERE', opts),
-                group([indent([line, boolWithTrailing(where, fillBoolChain(where, opts, printFn))])]),
-            );
-        }
+        if (where) parts.push(line, boolClause('WHERE', where, opts, printFn));
 
         if (groupBy) {
             const elemDocs = propArr(groupBy, 'elements').map((e) => printExpression(e, opts, printFn));
@@ -656,13 +648,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
             );
         }
 
-        if (having) {
-            parts.push(
-                line,
-                keyword('HAVING', opts),
-                group([indent([line, boolWithTrailing(having, fillBoolChain(having, opts, printFn))])]),
-            );
-        }
+        if (having) parts.push(line, boolClause('HAVING', having, opts, printFn));
     } else {
         // Standard / Spacious: single column stays inline; multiple each on own line.
         // A CASE expression always expands to multiple lines, so force it onto its own indented line.
@@ -692,16 +678,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
             }
         }
 
-        if (where) {
-            // standard: single predicate inline; multiple each on own line
-            // spacious: always indented
-            const inline = density === 'standard' && where.type !== 'BooleanBinary';
-            if (inline) {
-                parts.push(hardline, keyword('WHERE', opts), ' ', boolWithTrailing(where, printBoolExpr(where, opts, printFn)));
-            } else {
-                parts.push(hardline, keyword('WHERE', opts), indent([hardline, boolWithTrailing(where, printBoolExpr(where, opts, printFn))]));
-            }
-        }
+        if (where) parts.push(hardline, boolClause('WHERE', where, opts, printFn));
 
         if (groupBy) {
             const elems = propArr(groupBy, 'elements');
@@ -713,14 +690,7 @@ function printQuerySpec(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
             }
         }
 
-        if (having) {
-            const inline = density === 'standard' && having.type !== 'BooleanBinary';
-            if (inline) {
-                parts.push(hardline, keyword('HAVING', opts), ' ', boolWithTrailing(having, printBoolExpr(having, opts, printFn)));
-            } else {
-                parts.push(hardline, keyword('HAVING', opts), indent([hardline, boolWithTrailing(having, printBoolExpr(having, opts, printFn))]));
-            }
-        }
+        if (having) parts.push(hardline, boolClause('HAVING', having, opts, printFn));
     }
 
     // Tail clauses — same layout intent for all densities, sep varies.
@@ -912,13 +882,18 @@ export function printWindowClause(defs: SqlNode[], opts: Options, printFn: Print
 // Boolean expressions
 // ---------------------------------------------------------------------------
 
-export function printBoolExpr(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
+/**
+ * A predicate. An AND / OR chain is `grouped` (on one line when it fits) when it is an
+ * operand — inside parentheses, or under an operator it binds tighter than — and
+ * otherwise one predicate to a line.
+ */
+export function printBoolExpr(node: SqlNode, opts: Options, printFn: PrintFn, grouped = false): Doc {
     // Claim the comments this predicate tree prints between predicates, before any part prints
     claimPredicateComments(node);
-    return withTrailingComment(node, printBoolExprInner(node, opts, printFn));
+    return withTrailingComment(node, printBoolExprInner(node, opts, printFn, grouped));
 }
 
-function printBoolExprInner(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
+function printBoolExprInner(node: SqlNode, opts: Options, printFn: PrintFn, grouped: boolean): Doc {
     switch (node.type) {
         // UPDATE / DELETE ... WHERE CURRENT OF [GLOBAL] cursor
         case 'CurrentOfCursor':
@@ -930,7 +905,7 @@ function printBoolExprInner(node: SqlNode, opts: Options, printFn: PrintFn): Doc
         case 'BooleanComparison':
             return printBoolComparison(node, opts, printFn);
         case 'BooleanBinary':
-            return printBoolBinary(node, opts, printFn);
+            return printBoolBinary(node, opts, printFn, grouped);
         case 'BooleanNot':
             return printBoolNot(node, opts, printFn);
         case 'BooleanParenthesis':
@@ -1031,85 +1006,76 @@ export function boolEndsWithPendingComment(node: SqlNode): boolean {
     return found?.trailingComment !== undefined;
 }
 
-/**
- * Flatten a left-recursive AND/OR tree into a flat list of predicates.
- * Only recurses into the LEFT child so the right-side units stay intact.
- * Mixed operators (AND/OR) are preserved via the `op` field of each item.
- */
-function collectBoolChain(node: SqlNode): { op: string; pred: SqlNode }[] {
-    if (node.type !== 'BooleanBinary') return [{ op: 'AND', pred: node }];
-    const op = propStr(node, 'operator') === 'Or' ? 'OR' : 'AND';
-    const left = prop(node, 'left');
-    const right = prop(node, 'right');
-    const leftItems = left ? collectBoolChain(left) : [];
-    return right ? [...leftItems, { op, pred: right }] : leftItems;
-}
+const boolOp = (node: SqlNode): 'AND' | 'OR' => (propStr(node, 'operator') === 'Or' ? 'OR' : 'AND');
 
 /**
- * Render a boolean expression (WHERE/HAVING) as a fill-packed list in compact
- * mode. Each AND/OR predicate stays together as a unit; the operator appears at
- * the leading edge of the wrapped line. Falls back to printBoolExpr when there
- * is only one predicate or in non-compact density.
+ * The predicates of an AND / OR chain — or the one predicate of anything else. The parser
+ * nests a chain to the left, so `a AND b AND c` flattens to three predicates; an operand
+ * with the other operator (`a OR b AND c`) binds tighter and stays one predicate, grouped.
  */
-function fillBoolChain(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
-    const items = collectBoolChain(node);
-    if (items.length <= 1) return printBoolExpr(node, opts, printFn);
-    const fillParts: Doc[] = [printBoolExpr(items[0]!.pred, opts, printFn)];
-    for (let i = 1; i < items.length; i++) {
-        const { op, pred } = items[i]!;
-        // A comment on the previous predicate's rightmost leaf sits between the two
-        // predicates in the source — typically a commented-out `--and x = 1`. Print it
-        // on its own lines, as printBoolBinary does; flattening the chain used to drop it.
-        const rp = rightmostPred(items[i - 1]!.pred);
-        const between = rp ? rightmostTrailingComment(rp, rp.endOffset) : undefined;
-        if (between) {
-            const commentLines: Doc[] = between.split('\n').flatMap((c): Doc[] => [hardline, c]);
-            fillParts[fillParts.length - 1] = [fillParts[fillParts.length - 1]!, ...commentLines];
-            fillParts.push(hardline);
-        } else {
-            fillParts.push(line);
+function boolTerms(node: SqlNode, opts: Options, printFn: PrintFn): BoolTerm[] {
+    if (node.type !== 'BooleanBinary') return [{ op: 'AND', doc: printBoolExpr(node, opts, printFn) }];
+    const op = boolOp(node);
+    // Each predicate, with the chain node it ends (whose own comment follows it)
+    const preds: { pred: SqlNode; chain?: SqlNode }[] = [];
+    for (let n: SqlNode | null = node; n; n = prop(n, 'left')) {
+        if (n.type !== 'BooleanBinary' || boolOp(n) !== op) {
+            preds.unshift({ pred: n });
+            break;
         }
-        fillParts.push([keyword(op, opts), ' ', printBoolExpr(pred, opts, printFn)]);
+        const right = prop(n, 'right');
+        if (right) preds.unshift({ pred: right, chain: n === node ? undefined : n });
     }
-    return fill(fillParts);
+    const terms: BoolTerm[] = [];
+    for (const { pred, chain } of preds) {
+        const doc = printBoolExpr(pred, opts, printFn, true);
+        const term: BoolTerm = { op, doc: chain ? withTrailingComment(chain, doc) : doc };
+        // A comment on the previous predicate's rightmost leaf sits between the two
+        // predicates in the source — typically a commented-out `--and x = 1`. It goes on
+        // lines of its own after that predicate. rightmostTrailingComment also finds a
+        // comment attached to a scalar child of the predicate (the literal in "col = 1"),
+        // which shares the predicate's endOffset.
+        const prev = terms[terms.length - 1];
+        const rp = prev ? rightmostPred(preds[terms.length - 1]!.pred) : null;
+        const between = rp ? rightmostTrailingComment(rp, rp.endOffset) : undefined;
+        if (prev && between) {
+            prev.doc = [prev.doc, ...between.split('\n').flatMap((c): Doc[] => [hardline, c])];
+            term.breakBefore = true;
+        }
+        terms.push(term);
+    }
+    return terms;
 }
 
-function printBoolBinary(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
-    const left = prop(node, 'left');
-    const right = prop(node, 'right');
-    const op = propStr(node, 'operator') === 'Or' ? keyword('OR', opts) : keyword('AND', opts);
-    // compact: stay inline, wrap at printWidth; standard/spacious: each predicate on own line
-    const sep = getDensity(opts) === 'compact' ? line : hardline;
+function printBoolBinary(node: SqlNode, opts: Options, printFn: PrintFn, grouped: boolean): Doc {
+    const terms = boolTerms(node, opts, printFn);
+    // compact density keeps even a top-level chain on one line when it fits
+    return grouped || getDensity(opts) === 'compact' ? boolGroup(terms, opts) : boolLines(terms, opts);
+}
 
-    const leftDoc: Doc = left ? printBoolExpr(left, opts, printFn) : '';
-    const rightDoc: Doc = right ? printBoolExpr(right, opts, printFn) : '';
-
-    // A comment attached to the rightmost leaf of the left subtree means a
-    // commented-out predicate sits between left and right in the source.
-    // The parent BooleanBinary always handles it — never the level that holds
-    // the predicate as its own right child — so no double-printing occurs.
-    // Use rightmostTrailingComment to also find comments attached to scalar
-    // children of the predicate (e.g. the literal in "col = 1") since those
-    // share the same endOffset as the predicate itself.
-    const rp = rightmostPred(left);
-    const betweenComment = rp ? rightmostTrailingComment(rp, rp.endOffset) : undefined;
-    if (betweenComment) {
-        const commentLines: Doc[] = betweenComment.split('\n').flatMap((c): Doc[] => [hardline, c]);
-        return group([leftDoc, ...commentLines, hardline, op, ' ', rightDoc]);
-    }
-
-    return group([leftDoc, sep, op, ' ', rightDoc]);
+/**
+ * `WHERE` / `HAVING` (or another keyword) and its predicates, with any comment after the
+ * last predicate on lines of its own.
+ */
+export function boolClause(kw: string, node: SqlNode, opts: Options, printFn: PrintFn): Doc {
+    claimPredicateComments(node);
+    const terms = boolTerms(node, opts, printFn);
+    const last = terms[terms.length - 1]!;
+    // A comment attached to the chain itself, then one on its last predicate
+    if (terms.length > 1) last.doc = withTrailingComment(node, last.doc);
+    last.doc = boolWithTrailing(node, last.doc);
+    return boolClauseDoc(kw, terms, opts);
 }
 
 function printBoolNot(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
-    return [keyword('NOT', opts), ' ', expr ? printBoolExpr(expr, opts, printFn) : ''];
+    return [keyword('NOT', opts), ' ', expr ? printBoolExpr(expr, opts, printFn, true) : ''];
 }
 
 function printBoolParen(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
     if (!expr) return '()';
-    return group(['(', indent([softline, printBoolExpr(expr, opts, printFn)]), softline, ')']);
+    return parenGroup(printBoolExpr(expr, opts, printFn, true));
 }
 
 function printIsNull(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
@@ -1395,19 +1361,7 @@ function printQualifiedJoin(node: SqlNode, opts: Options, printFn: PrintFn): Doc
 
     let onDoc: Doc = '';
     if (condition) {
-        const isMultiple = condition.type === 'BooleanBinary';
-        if (density === 'compact') {
-            // Try to keep ON + condition on the same line as JOIN.
-            // If it overflows, the whole condition drops to an indented line as
-            // a unit — keeping all predicates together on that line.
-            onDoc = [onSep, keyword('ON', opts), group([indent([line, printBoolExpr(condition, opts, printFn)])])];
-        } else if (density === 'standard' && !isMultiple) {
-            // single predicate: ON stays on join line, predicate wraps below if too long
-            onDoc = [onSep, keyword('ON', opts), group([indent([line, printBoolExpr(condition, opts, printFn)])])];
-        } else {
-            // standard (multiple) or spacious (always): ON on join line, predicates indented below
-            onDoc = [onSep, keyword('ON', opts), indent([hardline, printBoolExpr(condition, opts, printFn)])];
-        }
+        onDoc = [onSep, joinOnDoc(keyword('ON', opts), printBoolExpr(condition, opts, printFn, true), condition.type === 'BooleanBinary')];
     }
 
     // A comment between two JOIN clauses lands on the rightmost descendant of

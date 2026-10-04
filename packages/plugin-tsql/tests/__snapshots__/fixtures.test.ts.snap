@@ -4364,8 +4364,7 @@ select
   oi.Quantity
 from
   Books as b
-  inner join OrderItems as oi on
-    b.Id = oi.BookId
+  inner join OrderItems as oi on b.Id = oi.BookId
     and oi.UnitPrice > 10
     and oi.Quantity > 1;
 
@@ -4375,9 +4374,7 @@ select
   b2.Title as Companion
 from
   Books as b1
-  inner join Books as b2 on
-    b1.AuthorId = b2.AuthorId
-    and b1.Id <> b2.Id;
+  inner join Books as b2 on b1.AuthorId = b2.AuthorId and b1.Id <> b2.Id;
 
 -- CROSS APPLY
 select
@@ -4760,8 +4757,7 @@ exports[`fixtures > select/long-comparisons.sql 1`] = `
 "select a.id
 from
   t as a
-  inner join u on
-    a.very_long_column_name_one = u.very_long_column_name_one
+  inner join u on a.very_long_column_name_one = u.very_long_column_name_one
     and a.very_long_column_name_two = u.very_long_column_name_two;
 
 select a.id
@@ -5830,10 +5826,7 @@ begin
   from Books
   where
     Id = @BookId
-    and (
-      InStock = 1
-      or @IncludeOutOfStock = 1
-    );
+    and (InStock = 1 or @IncludeOutOfStock = 1);
 end;
 go
 "
@@ -6239,11 +6232,10 @@ from t as a;
 
 select a.id
 from t as a
-where
-  a.status in (
-    'pending', 'shipped', 'cancelled', 'returned', 'refunded', 'on_hold',
-    'archived'
-  );
+where a.status in (
+  'pending', 'shipped', 'cancelled', 'returned', 'refunded', 'on_hold',
+  'archived'
+);
 
 select a.base_amount + a.shipping_amount * a.tax_rate - a.discount_amount
     + a.handling_fee + a.insurance_fee as total
@@ -6532,8 +6524,8 @@ where InStock = 1;
 exports[`options > sqlDensity: compact (JOIN ON wraps to indented line) 1`] = `
 "select b.Title, author.FirstName, author.LastName
 from Books as b
-  inner join Authors as author on
-    author.AuthorId = b.AuthorId and author.IsActive = 1
+  inner join Authors as author on author.AuthorId = b.AuthorId
+    and author.IsActive = 1
   inner join Genres as g on g.GenreId = b.GenreId;
 "
 `;
@@ -6587,8 +6579,7 @@ exports[`options > sqlDensity: spacious 1`] = `
   b.Price
 from
   Books as b
-  inner join Authors as a on
-    b.AuthorId = a.Id
+  inner join Authors as a on b.AuthorId = a.Id
 where
   b.InStock = 1
 order by
@@ -7146,10 +7137,7 @@ select
   title
 from books
 where
-  (
-    price < 10
-    or price > 100
-  )
+  (price < 10 or price > 100)
   and deleted_at is null;
 
 select id

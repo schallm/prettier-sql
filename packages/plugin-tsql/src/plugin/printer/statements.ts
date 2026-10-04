@@ -20,7 +20,7 @@ import {
     hasLineSuffix,
 } from '@prettier-sql/core/printer/utils';
 import { valuesRow, valuesDoc, setClauseDoc, joinStatements } from '@prettier-sql/core/printer/layout';
-import { prop, propArr, propStr, propBool, assignmentOp, claimTrailingComment, takeTrailingComment, unprintedComments, withTrailingComment, takeLeadingComments } from './helpers.js';
+import { prop, propArr, propStr, propBool, assignmentOp, takeTrailingComment, unprintedComments, withTrailingComment, takeLeadingComments } from './helpers.js';
 import {
     printExpression,
     printBoolExpr,
@@ -31,7 +31,7 @@ import {
     boolWithTrailing,
     boolEndsWithPendingComment,
     printTop,
-    rightmostPred,
+    boolClause,
 } from './expressions.js';
 import {
     printCreateTable,
@@ -234,29 +234,13 @@ export function printStatementWithComments(s: SqlNode, opts: Options): Doc {
     return withTrailing;
 }
 
-// Append any trailing comment on the rightmost predicate leaf — covers single-predicate
-// WHERE with a comment below it, and comments after the last predicate in a multi-predicate WHERE.
-function printBoolDoc(where: SqlNode, opts: Options): Doc {
-    const leaf = rightmostPred(where);
-    if (leaf?.trailingComment) claimTrailingComment(leaf);
-    const base = printBool(where, opts);
-    return appendTrailingLines(base, takeTrailingComment(leaf));
-}
-
 function printTable(node: SqlNode, opts: Options): Doc {
     return printTableRef(node, opts, (n) => printNode(n, opts));
 }
 
-/**
- * Print a clause keyword followed by a boolean expression.
- * Single-predicate stays inline (` WHERE x = 1`); multi-predicate breaks to
- * an indented block. In spacious mode all predicates are always indented.
- */
+/** A clause keyword (WHERE) followed by its predicates. */
 export function printBoolClause(kw: string, where: SqlNode, opts: Options): Doc {
-    const density = getDensity(opts);
-    const inline = density !== 'spacious' && where.type !== 'BooleanBinary';
-    const body = printBoolDoc(where, opts);
-    return [keyword(kw, opts), inline ? [' ', body] : indent([hardline, body])];
+    return boolClause(kw, where, opts, (n) => printNode(n, opts));
 }
 
 // ---------------------------------------------------------------------------

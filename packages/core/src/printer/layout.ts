@@ -1,7 +1,7 @@
 import type { Doc } from 'prettier';
 import type { SqlNode } from '../types.js';
 import {
-    keyword, getDensity, getCommaStyle, hasLineSuffix, hardSep, softSep,
+    keyword, getDensity, getCommaStyle, hasHardline, hasLineSuffix, hardSep, softSep,
     conditionalGroup, fill, group, hardline, indent, join, line, softline, willBreak,
     type Options,
 } from './utils.js';
@@ -124,6 +124,65 @@ export function setClauseDoc(assignments: Doc[], opts: Options): Doc {
         ? [' ', assignments[0]!]
         : indent([hardline, density === 'spacious' ? join(hardSep(opts), assignments) : fillList(assignments, opts)]);
     return [keyword('SET', opts), body];
+}
+
+/**
+ * One predicate of an AND / OR chain, after the operator that joins it to the one before
+ * (the first one's `op` is unused). `breakBefore` forces it onto a new line — after a
+ * comment that sits between two predicates, appended to the previous one's doc.
+ */
+export interface BoolTerm {
+    op: 'AND' | 'OR';
+    doc: Doc;
+    breakBefore?: boolean;
+}
+
+function termDoc(t: BoolTerm, opts: Options): Doc {
+    return [keyword(t.op, opts), ' ', t.doc];
+}
+
+/** An AND / OR chain one predicate to a line, for a clause that supplies the indent (WHERE, HAVING). */
+export function boolLines(terms: BoolTerm[], opts: Options): Doc {
+    return terms.map((t, i): Doc => (i === 0 ? t.doc : [hardline, termDoc(t, opts)]));
+}
+
+/** An AND / OR chain on one line when it fits; otherwise each further predicate on an indented line. */
+export function boolGroup(terms: BoolTerm[], opts: Options): Doc {
+    const [first, ...rest] = terms;
+    return group([first?.doc ?? '', indent(rest.map((t): Doc => [t.breakBefore ? hardline : line, termDoc(t, opts)]))]);
+}
+
+/** An AND / OR chain packed as many predicates to a line as fit, each kept whole. */
+function boolFill(terms: BoolTerm[], opts: Options): Doc {
+    return fill(terms.flatMap((t, i): Doc[] => (i === 0 ? [t.doc] : [t.breakBefore ? hardline : line, termDoc(t, opts)])));
+}
+
+/**
+ * `WHERE` / `HAVING` and its predicates. A single predicate stays on the keyword's line
+ * (except in spacious density). Several go on indented lines: one to a line, or packed in
+ * compact density, where the whole condition stays on the keyword's line when it fits.
+ */
+export function boolClauseDoc(kw: string, terms: BoolTerm[], opts: Options): Doc {
+    const density = getDensity(opts);
+    const kwDoc = keyword(kw, opts);
+    if (terms.length === 1) return density === 'spacious' ? [kwDoc, indent([hardline, terms[0]!.doc])] : [kwDoc, ' ', terms[0]!.doc];
+    if (density === 'compact') return [kwDoc, group(indent([line, boolFill(terms, opts)]))];
+    return [kwDoc, indent([hardline, boolLines(terms, opts)])];
+}
+
+/**
+ * `ON condition` of a join. An AND / OR chain follows ON, its further predicates on
+ * indented lines when it doesn't fit; a single predicate that doesn't fit moves whole to an
+ * indented line of its own — unless it spans lines anyway (a subquery), when it stays put.
+ */
+export function joinOnDoc(kw: Doc, condition: Doc, isChain: boolean): Doc {
+    if (isChain || hasHardline(condition)) return [kw, ' ', condition];
+    return [kw, group(indent([line, condition]))];
+}
+
+/** `(a OR b)` as an operand: inline when it fits, otherwise the chain on indented lines between the parentheses. */
+export function parenGroup(doc: Doc): Doc {
+    return group(['(', indent([softline, doc]), softline, ')']);
 }
 
 /** `lhs UNION rhs` (or INTERSECT / EXCEPT): the operator stands alone between blank lines. */

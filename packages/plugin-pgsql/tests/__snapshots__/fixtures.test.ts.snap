@@ -5315,9 +5315,7 @@ from t;
 
 select 1
 from t
-where not (
-  a = 1 and b = 2
-);
+where not (a = 1 and b = 2);
 
 select 1
 from t
