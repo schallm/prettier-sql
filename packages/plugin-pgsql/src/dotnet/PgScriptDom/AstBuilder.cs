@@ -1624,7 +1624,8 @@ public class AstBuilder {
             AlterTableType.AtAlterConstraint => "ALTER CONSTRAINT",
             AlterTableType.AtChangeOwner     => "OWNER TO",
             AlterTableType.AtSetTableSpace   => "SET TABLESPACE",
-            AlterTableType.AtSetAccessMethod => "SET ACCESS METHOD",
+            // SET ACCESS METHOD DEFAULT has no name: the default_table_access_method
+            AlterTableType.AtSetAccessMethod => string.IsNullOrEmpty(name) ? "SET ACCESS METHOD DEFAULT" : "SET ACCESS METHOD",
             AlterTableType.AtSetRelOptions   => "SET REL OPTIONS",
             AlterTableType.AtResetRelOptions => "RESET REL OPTIONS",
             AlterTableType.AtEnableTrig         => "ENABLE TRIGGER",

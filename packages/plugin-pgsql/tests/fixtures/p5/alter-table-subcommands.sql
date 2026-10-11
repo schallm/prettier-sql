@@ -99,3 +99,6 @@ alter foreign table ft add column a int;
 alter foreign table ft set schema x;
 alter foreign table ft disable trigger all;
 alter table if exists t enable row level security;
+
+-- The default access method has no name
+alter table t set access method default;
