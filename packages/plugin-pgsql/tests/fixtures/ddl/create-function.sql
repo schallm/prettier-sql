@@ -46,3 +46,6 @@ security definer
 as $$
   select a / b
 $$;
+
+-- A body ending in $ needs a tag, or it runs into the closing $$
+create function dollar_end() returns text language sql as 'select ''x''$';

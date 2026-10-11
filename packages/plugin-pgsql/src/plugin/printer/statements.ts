@@ -752,8 +752,10 @@ function sqlString(text: string): string {
 }
 
 function dollarQuote(text: string): string {
+    // The tag must first appear as the closing delimiter: a body ending in `$` would
+    // otherwise run into it — `x$` + `$$` reads as `x` + `$$` + `$`.
     let tag = '$$';
-    for (let i = 0; text.includes(tag); i++) tag = i === 0 ? '$body$' : `$body${i}$`;
+    for (let i = 0; (text + tag).indexOf(tag) < text.length; i++) tag = i === 0 ? '$body$' : `$body${i}$`;
     return `${tag}${text}${tag}`;
 }
 
