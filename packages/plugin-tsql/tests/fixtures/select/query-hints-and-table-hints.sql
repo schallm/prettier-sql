@@ -16,3 +16,6 @@ select * from dbo.t with (spatial_window_max_cells = 10)
 select * from dbo.t with (keepidentity, keepdefaults, ignore_constraints, ignore_triggers)
 
 select * from dbo.t with (forceseek (Ix (a, b)), index (Ix1, Ix2))
+
+-- Two-word hints and CARDINALITY_TUNER_LIMIT
+select a from t option (keep union, robust plan, altercolumn plan, shrinkdb plan, checkconstraints plan, cardinality_tuner_limit 1);

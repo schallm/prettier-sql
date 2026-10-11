@@ -1464,6 +1464,13 @@ public class AstBuilder : TSqlFragmentVisitor {
             OptimizerHintKind.MergeUnion => "MERGE UNION",
             OptimizerHintKind.ParameterizationSimple => "PARAMETERIZATION SIMPLE",
             OptimizerHintKind.ParameterizationForced => "PARAMETERIZATION FORCED",
+            OptimizerHintKind.KeepUnion => "KEEP UNION",
+            OptimizerHintKind.RobustPlan => "ROBUST PLAN",
+            OptimizerHintKind.AlterColumnPlan => "ALTERCOLUMN PLAN",
+            OptimizerHintKind.ShrinkDBPlan => "SHRINKDB PLAN",
+            OptimizerHintKind.CheckConstraintsPlan => "CHECKCONSTRAINTS PLAN",
+            OptimizerHintKind.CardinalityTunerLimit => "CARDINALITY_TUNER_LIMIT",
+            // FAST, MAXRECURSION, QUERYTRACEON: the kind's name is its one keyword
             _ => hint.HintKind.ToString().ToUpper(),
         };
         if (hint is LiteralOptimizerHint lit && lit.Value != null)

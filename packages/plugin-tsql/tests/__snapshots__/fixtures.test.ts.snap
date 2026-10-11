@@ -5320,6 +5320,18 @@ from dbo.t with (
 
 select *
 from dbo.t with (forceseek(Ix(a, b)), index(Ix1, Ix2));
+
+-- Two-word hints and CARDINALITY_TUNER_LIMIT
+select a
+from t
+option (
+  keep union,
+  robust plan,
+  altercolumn plan,
+  shrinkdb plan,
+  checkconstraints plan,
+  cardinality_tuner_limit 1
+);
 "
 `;
 
