@@ -24,3 +24,5 @@ create login SigningLogin from certificate SigningCert
 create login SigningLogin from certificate SigningCert with credential = SigningCred
 
 create login KeyLogin from asymmetric key SigningKey with credential = KeyCred
+
+alter login l with no credential;

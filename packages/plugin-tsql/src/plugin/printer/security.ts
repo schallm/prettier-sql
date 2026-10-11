@@ -43,6 +43,8 @@ const securityObjectKindMap: Record<string, string> = {
     Type: 'TYPE',
     XmlSchemaCollection: 'XML SCHEMA COLLECTION',
     AvailabilityGroup: 'AVAILABILITY GROUP',
+    ApplicationRole: 'APPLICATION ROLE',
+    ExternalModel: 'EXTERNAL MODEL',
 };
 
 function printSecurityTarget(target: Record<string, unknown>, opts: Options): Doc {
@@ -117,6 +119,7 @@ const principalOptionKindMap: Record<string, string> = {
     DefaultDomain: 'DEFAULT_DOMAIN',
     MustChange: 'MUST_CHANGE',
     Credential: 'CREDENTIAL',
+    NoCredential: 'NO CREDENTIAL',
     OldPassword: 'OLD_PASSWORD',
     Unlock: 'UNLOCK',
 };

@@ -3548,6 +3548,13 @@ to AppUser;
 grant control
 on database::AdventureWorks
 to AppUser;
+-- Two-word securable classes
+grant control
+on application role::r
+to u;
+grant execute
+on external model::m
+to u;
 "
 `;
 
@@ -3672,6 +3679,9 @@ with credential = SigningCred;
 create login KeyLogin
 from asymmetric key SigningKey
 with credential = KeyCred;
+
+alter login l
+with no credential;
 "
 `;
 

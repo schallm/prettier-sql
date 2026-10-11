@@ -43,3 +43,8 @@ revoke select on dbo.Books from AppUser cascade
 grant select, insert, update, delete on schema::dbo to AppUser
 
 grant control on database::AdventureWorks to AppUser
+
+-- Two-word securable classes
+grant control on application role::r to u;
+
+grant execute on external model::m to u;
