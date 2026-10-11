@@ -2154,9 +2154,8 @@ exports[`fixtures > dml/source-text-statements.sql 1`] = `
 select 'é, 日本語';
 
 -- before
-alter role r set x = 1;
+alter role r set x = 1; /* after */
 
-/* after */
 alter default privileges grant select on tables to u; -- last
 "
 `;
@@ -4467,9 +4466,8 @@ select id
 from orders;
 
 select id
-from users;
+from users; -- inline trailing comment
 
--- inline trailing comment
 /* block comment before statement */
 select id
 from events;
@@ -5939,6 +5937,23 @@ select a
 from t
 order by a
 fetch first 5 rows with ties;
+"
+`;
+
+exports[`fixtures > select/statement-trailing-comments.sql 1`] = `
+"-- A comment on the line a statement ends on stays with that statement
+insert into t
+values (1); -- seed admin
+
+insert into t
+values (2); /* seed guest */ -- and more
+
+-- on its own line: leads the next statement
+select 1;
+
+select 2; -- the second
+
+select 3; -- no semicolon
 "
 `;
 

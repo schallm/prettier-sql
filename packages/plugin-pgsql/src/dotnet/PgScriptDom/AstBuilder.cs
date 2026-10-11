@@ -99,7 +99,11 @@ public class AstBuilder {
         if (stmt == null) return null;
 
         int start = rawStmt.StmtLocation;
-        int end = rawStmt.StmtLen > 0 ? start + rawStmt.StmtLen : _bytes.Length;
+        // The last statement, with no `;` after it, runs to the end of the source: end it
+        // at its last token instead, so comments after it trail it rather than lead it
+        int end = rawStmt.StmtLen > 0 ? start + rawStmt.StmtLen
+            : Tokens().LastOrDefault(t => t.Start >= start) is { End: > 0 } lastToken ? lastToken.End
+            : _bytes.Length;
         return BuildStmtNode(stmt, start, end);
     }
 

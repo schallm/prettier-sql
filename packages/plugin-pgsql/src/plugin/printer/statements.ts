@@ -71,7 +71,9 @@ export function printScript(node: SqlNode, opts: Options): Doc {
 function printStatementWithComments(node: SqlNode, opts: Options): Doc {
     const leading = node.leadingComments;
     const body = printStatement(node, opts);
-    const trailing = node.trailingComment ? [' ', node.trailingComment] : '';
+    // Comments on the statement's last line, then any on lines of their own after it
+    const [sameLine, ...ownLines] = (node.trailingComment ?? '').split('\n');
+    const trailing: Doc = [sameLine ? [' ', sameLine] : '', ...ownLines.flatMap((c): Doc[] => [hardline, c])];
     if (!leading?.length) return [body, trailing];
     return [join(hardline, leading), hardline, body, trailing];
 }

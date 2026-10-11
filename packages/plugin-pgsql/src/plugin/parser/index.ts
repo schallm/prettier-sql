@@ -43,7 +43,7 @@ export function parse(text: string): SqlNode {
     }
 
     if (result.comments?.length) {
-        attachComments(result.ast, result.comments);
+        attachComments(result.ast, result.comments, text);
     }
 
     return result.ast;
@@ -67,7 +67,7 @@ export function unreadProperties(): string[] {
 // Comment attachment
 // ---------------------------------------------------------------------------
 
-function attachComments(ast: SqlNode, comments: CommentToken[]): void {
+function attachComments(ast: SqlNode, comments: CommentToken[], text: string): void {
     const used = new Set<CommentToken>();
     const statements = (ast.props?.['statements'] ?? []) as SqlNode[];
 
@@ -77,18 +77,33 @@ function attachComments(ast: SqlNode, comments: CommentToken[]): void {
         return;
     }
 
+    // Offsets are UTF-8 byte offsets, as libpg_query reports them
+    const bytes = Buffer.from(text, 'utf8');
+    const between = (from: number, to: number): string => bytes.subarray(from, to).toString('utf8');
+
     for (const c of comments.sort((a, b) => a.startOffset - b.startOffset)) {
         // A statement kept as its source text already holds the comments inside it
         if (statements.some((s) => s.type === 'UnknownStatement' && s.startOffset <= c.startOffset && c.endOffset <= s.endOffset)) continue;
+        // On the line a statement ends on, after it — `insert ...; -- seed data` — it trails
+        // that statement (several such comments are joined by spaces)
+        const sameLine = statements.find((s) => s.endOffset <= c.startOffset && /^[ \t;]*$/.test(between(s.endOffset, c.startOffset)))
+            ?? statements.find((s) => s.trailingComment && !s.trailingComment.includes('\n') && s.endOffset <= c.startOffset
+                && /^[ \t;]*$/.test(between(s.endOffset, c.startOffset).replace(/\/\*[\s\S]*?\*\//g, '')));
+        if (sameLine) {
+            sameLine.trailingComment = sameLine.trailingComment ? sameLine.trailingComment + ' ' + c.text : c.text;
+            used.add(c);
+            continue;
+        }
         const target = statements.find((s) => s.endOffset >= c.endOffset);
         if (target) {
             target.leadingComments = target.leadingComments ?? [];
             target.leadingComments.push(c.text);
             used.add(c);
         } else {
+            // After the last statement, on a line of its own: it stays on a line of its own
             const last = statements.at(-1);
             if (last) {
-                last.trailingComment = last.trailingComment ? last.trailingComment + '\n' + c.text : c.text;
+                last.trailingComment = (last.trailingComment ?? '') + '\n' + c.text;
                 used.add(c);
             }
         }
