@@ -5403,6 +5403,27 @@ where
 "
 `;
 
+exports[`fixtures > select/reserved-word-function-names.sql 1`] = `
+"-- A function or method named with a reserved word keeps its brackets; VALUE is a method
+select
+  dbo.[key](1),
+  x.[key](),
+  t.c.[select](),
+  $PARTITION.[order](a),
+  $PARTITION.pf(a),
+  x.value('.', 'int')
+from t as x;
+
+-- A ] inside a pivot column name is escaped
+select *
+from t
+pivot (
+  sum(a)
+  for b in ([a]]b], [c])
+) as p;
+"
+`;
+
 exports[`fixtures > select/rowset-functions.sql 1`] = `
 "select
   j.[key],

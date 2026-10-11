@@ -152,12 +152,12 @@ public class AstBuilder : TSqlFragmentVisitor {
 
     /// <summary>
     /// A function or method name: brackets only when the name can't be written bare.
-    /// KEY and VALUE are bracketed as column names by house style, but never as method
-    /// names — `x.value('.', 'int')` must not become `x.[value](...)`.
+    /// VALUE is bracketed as a column name by house style, but never as a method name —
+    /// `x.value('.', 'int')` must not become `x.[value](...)`. KEY is reserved: `x.key()`
+    /// doesn't parse, so it keeps its brackets.
     /// </summary>
     private static string? QuotedFunctionName(Identifier? id) =>
         string.Equals(id?.Value, "value", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(id?.Value, "key", StringComparison.OrdinalIgnoreCase)
             ? id!.Value
             : QuotedName(id);
 
@@ -388,7 +388,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         var args = pfc.Parameters?.Select(p => (object?)BuildScalarExpression(p)).ToList();
         return Node("PartitionFunctionCall", pfc, new Dictionary<string, object?> {
             ["database"] = QuotedName(pfc.DatabaseName),
-            ["name"] = pfc.FunctionName?.Value,
+            ["name"] = QuotedName(pfc.FunctionName),
             ["args"] = args,
         });
     }
@@ -463,7 +463,8 @@ public class AstBuilder : TSqlFragmentVisitor {
     }
 
     private static SqlNode BuildPivotedTableRef(PivotedTableReference piv) {
-        var inColumns = piv.InColumns?.Select(c => (object?)(c.Value ?? "")).ToList();
+        // Printed in brackets, so a ] inside the name is doubled: [a]]b]
+        var inColumns = piv.InColumns?.Select(c => (object?)(c.Value ?? "").Replace("]", "]]")).ToList();
         var valueColumns = piv.ValueColumns?.Select(c =>
             (object?)(QuotedName(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()) ?? "")).ToList();
         return Node("PivotedTableReference", piv, new Dictionary<string, object?> {
