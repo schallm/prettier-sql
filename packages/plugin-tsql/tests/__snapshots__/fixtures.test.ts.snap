@@ -5332,6 +5332,19 @@ option (
   checkconstraints plan,
   cardinality_tuner_limit 1
 );
+
+-- Quotes inside hint and FOR XML / FOR JSON strings stay doubled
+select a
+from t
+option (use hint ('a''b'), label = 'c''d');
+
+select a
+from t
+for xml path('a''b'), root(N'c''d');
+
+select a
+from t
+for json path, root('it''s');
 "
 `;
 

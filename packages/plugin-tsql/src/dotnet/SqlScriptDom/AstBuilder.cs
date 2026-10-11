@@ -442,14 +442,16 @@ public class AstBuilder : TSqlFragmentVisitor {
         if (fc is XmlForClause xml) {
             var options = xml.Options?.Select(o => (object?)new Dictionary<string, object?> {
                 ["kind"] = o.OptionKind.ToString(),
-                ["value"] = o.Value?.Value,
+                // The literal as written, quotes and N prefix included: PATH('it''s')
+                ["value"] = LiteralText(o.Value),
             }).ToList();
             return Node("ForXmlClause", fc, new Dictionary<string, object?> { ["options"] = options });
         }
         if (fc is JsonForClause json) {
             var options = json.Options?.Select(o => (object?)new Dictionary<string, object?> {
                 ["kind"] = o.OptionKind.ToString(),
-                ["value"] = o.Value?.Value,
+                // The literal as written, quotes and N prefix included: PATH('it''s')
+                ["value"] = LiteralText(o.Value),
             }).ToList();
             return Node("ForJsonClause", fc, new Dictionary<string, object?> { ["options"] = options });
         }
@@ -1423,7 +1425,7 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static string BuildOptimizerHint(OptimizerHint hint) {
         // USE HINT ('hint1', 'hint2', ...) — UseHintList.HintKind is Unspecified (0)
         if (hint is UseHintList uhl && uhl.Hints?.Count > 0)
-            return $"USE HINT ({string.Join(", ", uhl.Hints.Select(h => $"'{h.Value}'"))})";
+            return $"USE HINT ({string.Join(", ", uhl.Hints.Select(LiteralText))})";
         // OPTIMIZE FOR — variable list or OPTIMIZE FOR UNKNOWN
         if (hint is OptimizeForOptimizerHint ofh) {
             if (ofh.IsForUnknown) return "OPTIMIZE FOR UNKNOWN";

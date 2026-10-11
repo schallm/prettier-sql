@@ -19,3 +19,10 @@ select * from dbo.t with (forceseek (Ix (a, b)), index (Ix1, Ix2))
 
 -- Two-word hints and CARDINALITY_TUNER_LIMIT
 select a from t option (keep union, robust plan, altercolumn plan, shrinkdb plan, checkconstraints plan, cardinality_tuner_limit 1);
+
+-- Quotes inside hint and FOR XML / FOR JSON strings stay doubled
+select a from t option (use hint ('a''b'), label = 'c''d');
+
+select a from t for xml path('a''b'), root(N'c''d');
+
+select a from t for json path, root('it''s');

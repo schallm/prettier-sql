@@ -1718,7 +1718,7 @@ function printForXmlJsonOptions(forKw: string, node: SqlNode, opts: Options): Do
     if (!options?.length) return kwDoc;
     const optDocs = options.map((o) => {
         const kw = xmlJsonOptionKw(o.kind, opts);
-        return o.value != null ? [kw, "('", o.value, "')"] : kw;
+        return o.value != null ? [kw, '(', o.value, ')'] : kw;
     });
     return [kwDoc, ' ', join(', ', optDocs)];
 }
