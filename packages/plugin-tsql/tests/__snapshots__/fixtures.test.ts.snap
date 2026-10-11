@@ -3018,6 +3018,15 @@ deallocate @scrollCur;
 "
 `;
 
+exports[`fixtures > procedural/else-branch-comment.sql 1`] = `
+"-- A comment inside the ELSE branch's statement stays in that branch
+if @a = 1 select 1;
+else
+  /* two */
+  select 2;
+"
+`;
+
 exports[`fixtures > procedural/if-long-condition.sql 1`] = `
 "if exists (
   select 1

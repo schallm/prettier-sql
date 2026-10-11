@@ -281,6 +281,19 @@ function attachIntraStatement(batches: SqlNode[], comments: CommentToken[], text
                     }
                 }
 
+                // The nearest node before the comment can lie outside the innermost statement
+                // holding it — `IF ... SELECT 1 ELSE SELECT /* c */ 2` — and the comment belongs
+                // to that statement: it leads it
+                const holder = descendants
+                    .filter((n) => n.type.endsWith('Statement') && n.startOffset < c.startOffset && c.endOffset <= n.endOffset)
+                    .reduce<SqlNode | null>((inner, n) => (!inner || n.startOffset >= inner.startOffset ? n : inner), null);
+                if (holder && holder !== stmt && (!best || best.endOffset <= holder.startOffset)) {
+                    holder.leadingComments = holder.leadingComments ?? [];
+                    holder.leadingComments.push(c.text);
+                    used.add(c);
+                    continue;
+                }
+
                 // Prefer attaching as a leading comment to the next statement node.
                 // printStatementWithComments will emit it before the statement body
                 // (e.g. a comment between BEGIN and the first SELECT).
