@@ -622,6 +622,9 @@ end
 alter database scoped configuration clear procedure_cache;
 
 alter database scoped configuration for secondary set maxdop = primary;
+
+-- An option ScriptDom doesn't know keeps its case
+alter database scoped configuration set optimized_plan_forcing = on;
 go
 "
 `;
@@ -2848,6 +2851,8 @@ set @n %= 3;
 set @n &= 0xFF;
 set @n |= 0x01;
 set @n ^= 0xAA;
+-- String concatenation assignment (SQL Server 2025)
+set @s ||= N'x';
 "
 `;
 

@@ -351,7 +351,7 @@ export function printAlterDatabaseScopedConfigSet(node: SqlNode, opts: Options):
         forSec,
         keyword('SET', opts),
         ' ',
-        keyword(option, opts),
+        propBool(node, 'generic') ? option : keyword(option, opts),
         ';',
     ];
 }

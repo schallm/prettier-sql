@@ -3764,6 +3764,12 @@ public class AstBuilder : TSqlFragmentVisitor {
         var stream = stmt.ScriptTokenStream;
         if (stream == null || stream.Count == 0) return RawText(option);
         var optStart = option.StartOffset;
+        // Some options (OPTIMIZED_PLAN_FORCING, say) carry no position of their own: they
+        // start after the statement's SET
+        if (optStart < stmt.StartOffset) {
+            for (var i = Math.Max(stmt.FirstTokenIndex, 0); i + 1 < stream.Count; i++)
+                if (stream[i].TokenType == TSqlTokenType.Set) { optStart = stream[i + 1].Offset; break; }
+        }
         // `NAME = value`, or `NAME` and an optional binary plan handle: whatever follows belongs to the
         // next statement, which may come with no semicolon, and may be the end of a block
         var tokens = new List<TSqlParserToken>();
@@ -3794,6 +3800,8 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildAlterDatabaseScopedConfigSet(AlterDatabaseScopedConfigurationSetStatement stmt) =>
         Node("AlterDatabaseScopedConfigurationSetStatement", stmt, new Dictionary<string, object?> {
             ["option"] = ScopedConfigOptionText(stmt, stmt.Option),
+            // An option ScriptDom doesn't know is an identifier, kept as written
+            ["generic"] = stmt.Option is GenericConfigurationOption ? true : null,
             ["secondary"] = stmt.Secondary,
         });
 

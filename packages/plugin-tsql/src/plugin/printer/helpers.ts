@@ -150,6 +150,7 @@ const ASSIGNMENT_OPS: Record<string, string> = {
     BitwiseAndEquals: '&=',
     BitwiseOrEquals:  '|=',
     BitwiseXorEquals: '^=',
+    ConcatEquals:     '||=',
 };
 
 export function assignmentOp(op: string): string {

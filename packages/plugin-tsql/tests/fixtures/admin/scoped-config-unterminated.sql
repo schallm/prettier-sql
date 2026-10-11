@@ -7,3 +7,6 @@ begin
 end
 alter database scoped configuration clear procedure_cache
 alter database scoped configuration for secondary set maxdop = primary
+
+-- An option ScriptDom doesn't know keeps its case
+alter database scoped configuration set optimized_plan_forcing = on;

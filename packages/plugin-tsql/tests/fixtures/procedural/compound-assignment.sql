@@ -8,3 +8,6 @@ set @n %= 3
 set @n &= 0xFF
 set @n |= 0x01
 set @n ^= 0xAA
+
+-- String concatenation assignment (SQL Server 2025)
+set @s ||= N'x';
