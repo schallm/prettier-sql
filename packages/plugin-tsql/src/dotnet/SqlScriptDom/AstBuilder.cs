@@ -3230,6 +3230,7 @@ public class AstBuilder : TSqlFragmentVisitor {
 
     private static Dictionary<string, object?> ExtractSequenceOptions(IList<SequenceOption>? options) {
         string? dataType = null;
+        var isUdt = false;
         string? startWith = null;
         string? restartWith = null;
         string? incrementBy = null;
@@ -3245,7 +3246,8 @@ public class AstBuilder : TSqlFragmentVisitor {
 
         foreach (var opt in options ?? []) {
             if (opt is DataTypeSequenceOption dtOpt) {
-                dataType = RawTextOrNull(dtOpt.DataType);
+                dataType = DataTypeText(dtOpt.DataType);
+                isUdt = dtOpt.DataType is UserDataTypeReference;
             } else if (opt is ScalarExpressionSequenceOption seOpt && seOpt.OptionValue != null) {
                 var val = RawText(seOpt.OptionValue);
                 switch (seOpt.OptionKind) {
@@ -3282,6 +3284,7 @@ public class AstBuilder : TSqlFragmentVisitor {
 
         return new Dictionary<string, object?> {
             ["dataType"] = dataType,
+            ["isUdt"] = isUdt ? true : null,
             ["startWith"] = startWith,
             ["restartWith"] = restartWith,
             ["incrementBy"] = incrementBy,
@@ -3726,7 +3729,10 @@ public class AstBuilder : TSqlFragmentVisitor {
             // raw "QUERY_STORE = ON (...)"). Prepend only when the raw text lacks the keyword.
             // OnOffDatabaseOption always has raw text of just "ON"/"OFF" (no keyword prefix),
             // and always uses "= ON/OFF" syntax rather than a plain space.
-            ["options"] = MapList(stmt.Options, o => (object?)DatabaseOptionText(stmt, o)),
+            // SET HADR AVAILABILITY GROUP = name: the name is an identifier, not keyword text
+            ["options"] = MapList(stmt.Options, o => o is HadrAvailabilityGroupDatabaseOption { HadrOption: HadrDatabaseOptionKind.AvailabilityGroup } ag
+                ? new Dictionary<string, object?> { ["keyword"] = "HADR AVAILABILITY GROUP", ["name"] = QuotedName(ag.GroupName) }
+                : (object?)DatabaseOptionText(stmt, o)),
             ["termination"] = RawTextOrNull(stmt.Termination),
             // ALTER DATABASE d MODIFY (EDITION = ..., SERVICE_OBJECTIVE = ...) [WITH MANUAL_CUTOVER] (Azure SQL)
             ["modify"] = IsAlterDatabaseModify(stmt) ? true : null,

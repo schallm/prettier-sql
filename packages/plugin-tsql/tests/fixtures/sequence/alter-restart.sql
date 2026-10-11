@@ -6,3 +6,6 @@ alter sequence dbo.s restart with 5
 alter sequence dbo.s cache
 
 alter sequence dbo.s no cache
+
+-- A user-defined type keeps its case
+create sequence MySeq as dbo.MyInt;

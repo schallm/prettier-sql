@@ -1342,7 +1342,7 @@ function sequenceOptions(node: SqlNode, opts: Options): Doc[] {
 
 function sequenceHeader(kw: Doc, node: SqlNode, opts: Options): Doc {
     const dataType = propStr(node, 'dataType');
-    const asPart: Doc = dataType ? [' ', keyword('AS', opts), ' ', keyword(dataType, opts)] : '';
+    const asPart: Doc = dataType ? [' ', keyword('AS', opts), ' ', propBool(node, 'isUdt') ? dataType : keyword(dataType, opts)] : '';
     return [kw, ' ', schemaObjectName(prop(node, 'name')), asPart];
 }
 

@@ -294,7 +294,8 @@ function alterDbHeader(node: SqlNode, opts: Options): Doc {
 // ---------------------------------------------------------------------------
 
 export function printAlterDatabaseSet(node: SqlNode, opts: Options): Doc {
-    const options = node.props?.['options'] as string[] | undefined;
+    const options = (node.props?.['options'] as Array<string | { keyword: string; name: string }> | undefined)
+        ?.map((o): Doc => (typeof o === 'string' ? keyword(o, opts) : [keyword(o.keyword, opts), ' = ', o.name]));
     const termination = propStr(node, 'termination');
 
     const optPart: Doc = options?.length
@@ -303,7 +304,7 @@ export function printAlterDatabaseSet(node: SqlNode, opts: Options): Doc {
                   softline,
                   join(
                       [',', line],
-                      options.map((o) => keyword(o, opts)),
+                      options,
                   ),
               ]),
           ])
@@ -313,7 +314,7 @@ export function printAlterDatabaseSet(node: SqlNode, opts: Options): Doc {
     // ALTER DATABASE d MODIFY (EDITION = ..., SERVICE_OBJECTIVE = ...) [WITH MANUAL_CUTOVER] (Azure SQL)
     if (propBool(node, 'modify')) {
         const cutover: Doc = propBool(node, 'manualCutover') ? [' ', keyword('WITH MANUAL_CUTOVER', opts)] : '';
-        return [alterDbHeader(node, opts), hardline, keyword('MODIFY', opts), ' ', optionItems((options ?? []).map((o) => keyword(o, opts)), opts), cutover, ';'];
+        return [alterDbHeader(node, opts), hardline, keyword('MODIFY', opts), ' ', optionItems(options ?? [], opts), cutover, ';'];
     }
 
     return group([alterDbHeader(node, opts), hardline, keyword('SET', opts), ' ', optPart, termPart, ';']);
