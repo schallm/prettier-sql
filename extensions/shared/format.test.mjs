@@ -69,6 +69,18 @@ export function registerFormatTests(formatScript) {
         }
     });
 
+    test('uses the bundled plugin when .prettierrc lists plugins', () => {
+        const tmpDir = mkdtempSync(join(tmpdir(), 'prettier-sql-test-'));
+        try {
+            writeFileSync(join(tmpDir, '.prettierrc'), JSON.stringify({ plugins: ['prettier-plugin-tsql', 'prettier-plugin-postgresql'], sqlKeywordCase: 'upper' }));
+            const result = runFormat(formatScript, 'select id from users', null, join(tmpDir, 'query.sql'));
+            assert.equal(result.status, 0, result.stderr);
+            assert.match(result.stdout, /SELECT/);
+        } finally {
+            rmSync(tmpDir, { recursive: true });
+        }
+    });
+
     test('invalid options JSON exits with code 2', () => {
         const result = runFormat(formatScript, 'select 1', 'not-valid-json');
         assert.equal(result.status, 2);

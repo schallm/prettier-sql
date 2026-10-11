@@ -70,15 +70,17 @@ export async function runFormat({ callerUrl, pluginName, parser }) {
         process.exit(2);
     }
 
-    // Format — merge order: extension defaults < .prettierrc < explicit options arg
+    // Format — merge order: extension defaults < .prettierrc < explicit options arg. The
+    // bundled plugin and its parser always win: a project's .prettierrc usually lists the
+    // plugin by name (as its README says to), which would resolve from the wrong place.
     try {
         const result = await prettier.format(input, {
-            parser,
-            plugins: [plugin],
             printWidth: 120,
             tabWidth: 4,
             ...configOptions,
             ...userOptions,
+            parser,
+            plugins: [plugin],
         });
         process.stdout.write(result);
     } catch (e) {
