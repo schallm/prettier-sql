@@ -13,3 +13,6 @@ create rule no_delete as on delete to orders where old.status = 'locked' do inst
 create rule audit_delete as on delete to orders do also insert into audit_log (event, record_id) values ('delete', old.id);
 
 create or replace rule log_updates as on update to orders do also insert into order_log (id) values (new.id);
+
+-- Several actions, including NOTIFY
+create rule notify_insert as on insert to orders do instead (insert into order_log (id) values (new.id); notify orders_changed);

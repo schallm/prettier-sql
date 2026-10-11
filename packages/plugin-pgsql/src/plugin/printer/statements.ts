@@ -193,6 +193,7 @@ export function printQueryExpr(node: SqlNode, opts: Options): Doc {
         case 'RefreshMatViewStatement': return stripTrailingSemicolon(printRefreshMatView(node, opts));
         case 'DeclareCursorStatement':  return stripTrailingSemicolon(printDeclareCursor(node, opts));
         case 'ExecuteStatement':        return stripTrailingSemicolon(printExecute(node, opts));
+        case 'NotifyStatement':         return stripTrailingSemicolon(printNotify(node, opts));
         default:                return printSelectBody(node, opts);
     }
 }

@@ -1541,6 +1541,16 @@ to orders
 do also
   insert into order_log (id)
   values (new.id);
+
+-- Several actions, including NOTIFY
+create rule notify_insert
+as on insert
+to orders
+do instead (
+  insert into order_log (id)
+  values (new.id);
+  notify orders_changed
+);
 "
 `;
 

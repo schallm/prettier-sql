@@ -2755,7 +2755,8 @@ public class AstBuilder {
                 Node.NodeOneofCase.UpdateStmt => BuildUpdate(n.UpdateStmt, 0, _sql.Length),
                 Node.NodeOneofCase.DeleteStmt => BuildDelete(n.DeleteStmt, 0, _sql.Length),
                 Node.NodeOneofCase.SelectStmt => BuildSelect(n.SelectStmt, 0, _sql.Length),
-                _ => null,
+                Node.NodeOneofCase.NotifyStmt => BuildNotify(n.NotifyStmt, 0, _sql.Length),
+                _ => throw NotSupported($"rule action ({n.NodeCase})", null),
             }))
         ));
     }
