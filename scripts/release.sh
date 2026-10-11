@@ -332,7 +332,9 @@ if [[ -n "$NPM_PLAN" ]]; then
     ext_new="$(node -p "const [a, b, c] = '${ext_old}'.split('.').map(Number); [a, b, c + 1].join('.')")"
   fi
   ask_yn "Also publish the VS Code extension (${EXT_ID} ${ext_old} -> ${ext_new})?" n && DO_EXT=true
-  if $DO_EXT && [[ -z "$EXT_PLAN" ]]; then
+  # Its changeset records the plugin versions it bundles — added even when other pending
+  # changesets already bump it (a patch on top of theirs leaves the planned version as is)
+  if $DO_EXT; then
     ADD_EXT_CHANGESET=true
     EXT_PLAN="${EXT_PACKAGE} ${ext_old} ${ext_new}"
   fi
