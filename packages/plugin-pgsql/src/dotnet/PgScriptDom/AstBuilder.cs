@@ -22,9 +22,29 @@ public class UnsupportedSqlException : Exception {
 /// </summary>
 public class AstBuilder {
     private readonly string _sql;
+    // libpg_query reports every location as a byte offset into the UTF-8 source
+    private readonly byte[] _bytes;
+    private List<(int Start, int End)>? _tokens;
 
     public AstBuilder(string sql) {
         _sql = sql;
+        _bytes = System.Text.Encoding.UTF8.GetBytes(sql);
+    }
+
+    /// <summary>The source text between two byte offsets.</summary>
+    private string Slice(int start, int end) => System.Text.Encoding.UTF8.GetString(_bytes, start, end - start);
+
+    /// <summary>The source's tokens other than comments, as byte ranges.</summary>
+    private List<(int Start, int End)> Tokens() {
+        if (_tokens != null) return _tokens;
+        var scan = Parser.Scan(_sql);
+        _tokens = scan.IsSuccess && scan.Value != null
+            ? scan.Value.Tokens
+                .Where(t => t.Token != Token.SqlComment && t.Token != Token.CComment)
+                .Select(t => (t.Start, t.End))
+                .ToList()
+            : new List<(int Start, int End)>();
+        return _tokens;
     }
 
     // Most raw-parser node messages expose an int32 "Location" (byte offset into the source).
@@ -36,7 +56,8 @@ public class AstBuilder {
     }
 
     private UnsupportedSqlException NotSupported(string what, int? location) {
-        if (location is int loc && loc >= 0 && loc < _sql.Length) {
+        if (location is int byteLoc && byteLoc >= 0 && byteLoc < _bytes.Length) {
+            var loc = System.Text.Encoding.UTF8.GetCharCount(_bytes, 0, byteLoc);
             var snippetEnd = Math.Min(_sql.Length, loc + 40);
             var snippet = _sql[loc..snippetEnd].ReplaceLineEndings(" ").Trim();
             return new UnsupportedSqlException($"Unsupported {what} near position {loc}: \"{snippet}\"");
@@ -78,7 +99,7 @@ public class AstBuilder {
         if (stmt == null) return null;
 
         int start = rawStmt.StmtLocation;
-        int end = rawStmt.StmtLen > 0 ? start + rawStmt.StmtLen : _sql.Length;
+        int end = rawStmt.StmtLen > 0 ? start + rawStmt.StmtLen : _bytes.Length;
         return BuildStmtNode(stmt, start, end);
     }
 
@@ -3948,10 +3969,14 @@ public class AstBuilder {
 
     private SqlNode Fallback(int start, int end) {
         // Preserve the original SQL text verbatim so the user's code is never silently dropped.
-        var text = (start >= 0 && end > start && end <= _sql.Length)
-            ? _sql[start..end].TrimEnd(';').Trim()
-            : null;
-        return new("UnknownStatement", start, end, text, null);
+        // The range runs from just after the previous `;` (byte offsets, like every location
+        // libpg_query reports), so it can open and close with comments: keep only the
+        // statement's own tokens, and leave those comments to attachment, as for any other
+        // statement — kept in the text too, they'd print twice.
+        var own = Tokens().Where(t => t.Start >= start && t.End <= end).ToList();
+        if (own.Count == 0) throw NotSupported("statement with no text", start);
+        var (first, last) = (own[0].Start, own[^1].End);
+        return new("UnknownStatement", first, last, Slice(first, last).TrimEnd(';').Trim(), null);
     }
 
     // -------------------------------------------------------------------------

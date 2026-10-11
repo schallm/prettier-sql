@@ -15,6 +15,8 @@ export const unused: Record<string, string> = {
     'DeallocateStmt.Isall': 'DEALLOCATE ALL has no name, and a missing name prints as ALL',
     'DefineStmt.Oldstyle':
         'the old CREATE AGGREGATE syntax has no argument list and puts BASETYPE in the definition, which the builder prints',
+    'ScanResult.Version': "libpg_query's version, not part of the SQL; the builder scans only to find a statement's own tokens",
+    'ScanToken.KeywordKind': "only the token's extent matters for keeping a statement's text",
 };
 
 /**
