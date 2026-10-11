@@ -11,7 +11,12 @@
  * Exit codes: 0 = success, 1 = formatting error, 2 = parse/usage error
  */
 
-import { runFormat } from '../../shared/format-core.mjs';
+import { existsSync } from 'fs';
+
+// Packaged, format-core.mjs sits beside this file (the packaging copies it in); in the
+// repository it is shared by the extensions. The extension's own folder is all it ships.
+const core = existsSync(new URL('./format-core.mjs', import.meta.url)) ? './format-core.mjs' : '../../shared/format-core.mjs';
+const { runFormat } = await import(core);
 
 const dialect = process.argv[4] ?? 'tsql';
 const pluginName =

@@ -18,4 +18,5 @@ node_modules/
 # Keep
 !dist/**
 !bundled/format.mjs
+!bundled/format-core.mjs
 !bundled/node_modules/**

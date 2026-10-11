@@ -16,7 +16,7 @@
  *   node scripts/pack.mjs
  */
 
-import { existsSync, readdirSync, rmSync, renameSync } from 'fs';
+import { copyFileSync, existsSync, readdirSync, rmSync, renameSync } from 'fs';
 import { dirname, join } from 'path';
 import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
@@ -25,6 +25,8 @@ import { execSync } from 'child_process';
 const root = dirname(dirname(fileURLToPath(import.meta.url))); // extensions/vscode-sql/
 const bundledDir = join(root, 'bundled');
 const bundledModules = join(bundledDir, 'node_modules');
+const sharedCore = join(root, '..', 'shared', 'format-core.mjs');
+const bundledCore = join(bundledDir, 'format-core.mjs');
 
 // Use OS temp dir for the backup so vsce never sees it
 const tmp = join(tmpdir(), `prettier-sql-vsce-${Date.now()}`);
@@ -74,6 +76,9 @@ for (const pkg of ['prettier-plugin-tsql', 'prettier-plugin-postgresql']) {
 // ── 3. Swap: symlinked tree → backup, staged real files → node_modules ───────
 renameSync(bundledModules, backup);
 renameSync(stage, bundledModules);
+// bundled/format.mjs imports the shared format-core.mjs, which lives outside the
+// extension in the repository: put a copy beside it for the package
+copyFileSync(sharedCore, bundledCore);
 
 // ── 4. Run vsce package ───────────────────────────────────────────────────────
 let exitCode = 0;
@@ -86,6 +91,7 @@ try {
     // ── 5. Always restore the pnpm-managed symlinked node_modules ────────────
     rmSync(bundledModules, { recursive: true, force: true });
     renameSync(backup, bundledModules);
+    rmSync(bundledCore, { force: true });
     rmSync(tmp, { recursive: true, force: true });
     console.log('Restored bundled/node_modules.');
 }
