@@ -2628,6 +2628,13 @@ with (metric = 'cosine', type = 'DiskANN');
 "
 `;
 
+exports[`fixtures > insert/column-list-comment.sql 1`] = `
+"-- A comment after the table name, or after the last column only, follows the column list
+insert into t (a, b) -- target
+values (1, 2);
+"
+`;
+
 exports[`fixtures > insert/cte.sql 1`] = `
 "with
   src as (

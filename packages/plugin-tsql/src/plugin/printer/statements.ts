@@ -17,7 +17,7 @@ import {
     optionItems,
 } from '@prettier-sql/core/printer/utils';
 import { valuesRow, valuesDoc, setClauseDoc, joinStatements, withClauseDoc, joinOnDoc, mergeActionDoc, mergeInsertDoc } from '@prettier-sql/core/printer/layout';
-import { prop, propArr, propStr, propBool, assignmentOp, takeTrailingComment, unprintedComments, withTrailingComment, takeLeadingComments } from './helpers.js';
+import { prop, propArr, propStr, propBool, assignmentOp, takeTrailingComment, unprintedComments, withTrailingComment, takeLeadingComments, appendComments } from './helpers.js';
 import {
     printExpression,
     printBoolExpr,
@@ -843,8 +843,12 @@ function printInsert(node: SqlNode, opts: Options): Doc {
     const output = prop(node, 'output');
     const outputInto = prop(node, 'outputInto');
 
+    // A comment after the last column, with none after the others, follows the list —
+    // `(a, b) -- note` — which is also where one written after the table name lands
+    const last = columns.at(-1);
+    const listComment = last?.trailingComment && columns.slice(0, -1).every((c) => !c.trailingComment) ? takeTrailingComment(last) : undefined;
     const colsPart: Doc = columns.length
-        ? group([
+        ? appendComments(group([
               ' (',
               indent([
                   softline,
@@ -855,7 +859,7 @@ function printInsert(node: SqlNode, opts: Options): Doc {
               ]),
               softline,
               ')',
-          ])
+          ]), listComment)
         : '';
 
     const sourcePart: Doc =
