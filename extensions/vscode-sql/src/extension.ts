@@ -127,10 +127,9 @@ async function formatRange(
     const script = path.join(extensionPath, 'bundled', 'format.mjs');
     const sql = document.getText();
 
-    // Pass the full document with rangeStart/rangeEnd so Prettier can expand the
-    // selection to complete statement boundaries using our locStart/locEnd offsets.
-    // Prettier returns the full document with only the in-range statements reformatted
-    // and all out-of-range content preserved verbatim.
+    // Pass the full document with rangeStart/rangeEnd: the formatter formats the statements
+    // the selection touches (Prettier's own range formatting does nothing for a plugin
+    // language) and returns the full document with everything else as it was.
     const opts = {
         ...getOpts(document),
         rangeStart: document.offsetAt(range.start),
@@ -139,13 +138,30 @@ async function formatRange(
 
     try {
         const formatted = await runFormatter(sql, dialect, script, opts, document.uri.fsPath);
-        const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(sql.length));
-        return [vscode.TextEdit.replace(fullRange, formatted)];
+        return changedRegionEdit(document, sql, formatted);
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
         void vscode.window.showErrorMessage(`Prettier SQL (${dialect}): ${msg}`);
         return [];
     }
+}
+
+/**
+ * One edit replacing only the part of the document that changed — the formatted statements
+ * — so the cursor, scroll position and undo stay with the rest of the text.
+ */
+function changedRegionEdit(document: vscode.TextDocument, before: string, after: string): vscode.TextEdit[] {
+    if (before === after) return [];
+    let start = 0;
+    while (start < before.length && start < after.length && before[start] === after[start]) start++;
+    let end = 0;
+    while (
+        end < before.length - start &&
+        end < after.length - start &&
+        before[before.length - 1 - end] === after[after.length - 1 - end]
+    ) end++;
+    const range = new vscode.Range(document.positionAt(start), document.positionAt(before.length - end));
+    return [vscode.TextEdit.replace(range, after.slice(start, after.length - end))];
 }
 
 /** Warn the user if no .NET 8+ runtime is available (required for the parser DLL). */

@@ -73,20 +73,64 @@ export async function runFormat({ callerUrl, pluginName, parser }) {
     // Format — merge order: extension defaults < .prettierrc < explicit options arg. The
     // bundled plugin and its parser always win: a project's .prettierrc usually lists the
     // plugin by name (as its README says to), which would resolve from the wrong place.
+    const { rangeStart, rangeEnd, ...explicitOptions } = userOptions;
+    const options = {
+        printWidth: 120,
+        tabWidth: 4,
+        // Keep the file's own line endings (CRLF in most Windows projects)
+        endOfLine: 'auto',
+        ...configOptions,
+        ...explicitOptions,
+        parser,
+        plugins: [plugin],
+    };
     try {
-        const result = await prettier.format(input, {
-            printWidth: 120,
-            tabWidth: 4,
-            // Keep the file's own line endings (CRLF in most Windows projects)
-            endOfLine: 'auto',
-            ...configOptions,
-            ...userOptions,
-            parser,
-            plugins: [plugin],
-        });
+        const result = rangeStart !== undefined || rangeEnd !== undefined
+            ? await formatRange(prettier, plugin.parsers[parser], input, options, rangeStart ?? 0, rangeEnd ?? input.length)
+            : await prettier.format(input, options);
         process.stdout.write(result);
     } catch (e) {
         process.stderr.write(`Formatting error: ${e.message}\n`);
         process.exit(1);
     }
+}
+
+/**
+ * Formats the statements a selection touches and leaves the rest of the text as it was.
+ * Prettier's own rangeStart / rangeEnd only work for its built-in languages: for a plugin
+ * it returns the text unchanged. Returns the whole text, like prettier.format.
+ *
+ * @param {typeof import('prettier')} prettier
+ * @param {import('prettier').Parser} sqlParser — the plugin's parser, for its statements' offsets
+ * @param {string} text
+ * @param {import('prettier').Options} options
+ * @param {number} rangeStart — UTF-16 offsets, as editors and Prettier count them
+ * @param {number} rangeEnd
+ */
+export async function formatRange(prettier, sqlParser, text, options, rangeStart, rangeEnd) {
+    const ast = await sqlParser.parse(text, options);
+    // T-SQL groups its statements in batches (split at GO); PostgreSQL lists them directly
+    const statements = ast.props?.batches
+        ? ast.props.batches.flatMap((b) => b.props?.statements ?? [])
+        : (ast.props?.statements ?? []);
+    // A statement touches the selection if they overlap — or, for an empty selection
+    // (a cursor), if the cursor is inside or at either end of it
+    const touched = statements.filter((s) => {
+        const start = sqlParser.locStart(s);
+        const end = sqlParser.locEnd(s);
+        return rangeStart === rangeEnd ? start <= rangeStart && rangeStart <= end : start < rangeEnd && rangeStart < end;
+    });
+    if (touched.length === 0) return text;
+
+    const start = sqlParser.locStart(touched[0]);
+    let end = sqlParser.locEnd(touched.at(-1));
+    // Take the statement's semicolon, which the formatted text ends with, and a GO line
+    // after it, which the formatter adds after a CREATE PROCEDURE or VIEW
+    end += /^[ \t]*;?/.exec(text.slice(end))[0].length;
+    const go = /^[ \t]*\r?\n(?:[ \t]*\r?\n)*[ \t]*go(?:[ \t]+\d+)?[ \t]*(?=\r?\n|$)/i.exec(text.slice(end));
+    if (go) end += go[0].length;
+
+    const formatted = await prettier.format(text.slice(start, end), options);
+    // The slice's formatted text ends with a line break; the text after the slice has its own
+    return text.slice(0, start) + formatted.replace(/\r?\n$/, '') + text.slice(end);
 }

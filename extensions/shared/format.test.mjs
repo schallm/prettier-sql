@@ -95,6 +95,58 @@ export function registerFormatTests(formatScript) {
         assert.match(result.stdout, /-- ü/);
     });
 
+    // Range formatting: the extension passes rangeStart / rangeEnd and takes back the whole text
+    const formatRangeOf = (sql, start, end) => runFormat(formatScript, sql, JSON.stringify({ rangeStart: start, rangeEnd: end }));
+
+    test('range: formats only the selected statement', () => {
+        const sql = 'select   a,b   from t;\nselect   c,d   from u;\nselect   e   from v;\n';
+        const start = sql.indexOf('select   c');
+        const result = formatRangeOf(sql, start + 3, start + 10);
+        assert.equal(result.status, 0, result.stderr);
+        assert.equal(result.stdout, 'select   a,b   from t;\nselect\n    c,\n    d\nfrom u;\nselect   e   from v;\n');
+    });
+
+    test('range: a cursor formats the statement it is in', () => {
+        const sql = 'select   a   from t;\nselect   c   from u;\n';
+        const at = sql.indexOf('c   from');
+        const result = formatRangeOf(sql, at, at);
+        assert.equal(result.status, 0, result.stderr);
+        assert.equal(result.stdout, 'select   a   from t;\nselect c\nfrom u;\n');
+    });
+
+    test('range: a selection spanning statements formats each of them', () => {
+        const sql = 'select   a   from t;\nselect   c   from u;\nselect   e   from v;\n';
+        const result = formatRangeOf(sql, sql.indexOf('a   from'), sql.indexOf('c   from'));
+        assert.equal(result.status, 0, result.stderr);
+        assert.equal(result.stdout, 'select a\nfrom t;\n\nselect c\nfrom u;\nselect   e   from v;\n');
+    });
+
+    test('range: a selection of only blank space changes nothing', () => {
+        const sql = 'select   a   from t;\n\n\nselect   c   from u;\n';
+        const at = sql.indexOf('\n\n') + 1;
+        const result = formatRangeOf(sql, at, at + 1);
+        assert.equal(result.status, 0, result.stderr);
+        assert.equal(result.stdout, sql);
+    });
+
+    test('range: offsets count UTF-16 code units after non-ASCII text', () => {
+        const sql = "select N'Müller 日本 😀' as x;\nselect   c,d   from u;\n";
+        const start = sql.indexOf('select   c');
+        const result = formatRangeOf(sql, start, start + 1);
+        assert.equal(result.status, 0, result.stderr);
+        assert.equal(result.stdout, "select N'Müller 日本 😀' as x;\nselect\n    c,\n    d\nfrom u;\n");
+    });
+
+    if (formatScript.includes('tsql')) {
+        test('range: a statement followed by GO keeps one GO', () => {
+            const sql = 'create view v as select   a   from t\ngo\nselect 1\n';
+            const result = formatRangeOf(sql, 0, 5);
+            assert.equal(result.status, 0, result.stderr);
+            assert.equal(result.stdout.match(/^go$/gim)?.length, 1, result.stdout);
+            assert.match(result.stdout, /\nselect 1\n$/);
+        });
+    }
+
     test('invalid options JSON exits with code 2', () => {
         const result = runFormat(formatScript, 'select 1', 'not-valid-json');
         assert.equal(result.status, 2);

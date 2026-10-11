@@ -98,10 +98,13 @@ public class AstBuilder {
         var stmt = rawStmt.Stmt;
         if (stmt == null) return null;
 
-        int start = rawStmt.StmtLocation;
+        // The location is just after the previous `;`: start at the statement's first token
+        int start = Tokens().FirstOrDefault(t => t.Start >= rawStmt.StmtLocation) is { End: > 0 } first
+            ? first.Start
+            : rawStmt.StmtLocation;
         // The last statement, with no `;` after it, runs to the end of the source: end it
         // at its last token instead, so comments after it trail it rather than lead it
-        int end = rawStmt.StmtLen > 0 ? start + rawStmt.StmtLen
+        int end = rawStmt.StmtLen > 0 ? rawStmt.StmtLocation + rawStmt.StmtLen
             : Tokens().LastOrDefault(t => t.Start >= start) is { End: > 0 } lastToken ? lastToken.End
             : _bytes.Length;
         return BuildStmtNode(stmt, start, end);

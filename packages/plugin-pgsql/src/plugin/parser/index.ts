@@ -45,8 +45,40 @@ export function parse(text: string): SqlNode {
     if (result.comments?.length) {
         attachComments(result.ast, result.comments, text);
     }
+    // Prettier's locStart / locEnd (range formatting, cursor offsets) count UTF-16 code units
+    toCharOffsets(result.ast, text);
 
     return result.ast;
+}
+
+/**
+ * libpg_query reports UTF-8 byte offsets; turn every node's offsets into string indexes.
+ * The same for ASCII text, so then there's nothing to do.
+ */
+function toCharOffsets(ast: SqlNode, text: string): void {
+    const byteLength = Buffer.byteLength(text, 'utf8');
+    if (byteLength === text.length) return;
+    // charAt[b]: the string index of the character the byte at b belongs to
+    const charAt = new Int32Array(byteLength + 1);
+    let b = 0;
+    for (let i = 0; i < text.length; ) {
+        const cp = text.codePointAt(i)!;
+        const bytes = cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4;
+        charAt.fill(i, b, b + bytes);
+        b += bytes;
+        i += cp > 0xffff ? 2 : 1;
+    }
+    charAt[byteLength] = text.length;
+    const walk = (v: unknown): void => {
+        if (Array.isArray(v)) return v.forEach(walk);
+        if (!v || typeof v !== 'object') return;
+        const n = v as SqlNode;
+        if (typeof n.type !== 'string') return;
+        n.startOffset = charAt[Math.min(n.startOffset, byteLength)]!;
+        n.endOffset = charAt[Math.min(n.endOffset, byteLength)]!;
+        Object.values(n.props ?? {}).forEach(walk);
+    };
+    walk(ast);
 }
 
 /**
