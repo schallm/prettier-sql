@@ -178,7 +178,7 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
     return group([
         keyword('CREATE TABLE', opts),
         ' ',
-        schemaObjectName(prop(node, 'name')),
+        withTrailingComment(prop(node, 'name')!, schemaObjectName(prop(node, 'name'))),
         asFileTable
             ? [' ', keyword('AS FILETABLE', opts)]
             : [' (', indent([hardline, join([',', hardline], allDefs)]), hardline, ')'],

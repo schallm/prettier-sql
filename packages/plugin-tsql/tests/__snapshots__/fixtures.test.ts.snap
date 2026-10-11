@@ -1428,6 +1428,14 @@ alter table dbo.t
 "
 `;
 
+exports[`fixtures > create-table/name-comment.sql 1`] = `
+"-- A comment after the table's name stays at the top
+create table t ( -- the table
+  a int -- col a
+);
+"
+`;
+
 exports[`fixtures > create-table/not-enforced-keys.sql 1`] = `
 "-- Informational keys that the engine doesn't enforce (Azure Synapse, Fabric)
 create table dbo.Sales (
