@@ -93,6 +93,14 @@ public static class Ident {
     public static string QualifiedType(IReadOnlyList<string> parts) =>
         string.Join(".", parts.Select((p, i) => i == parts.Count - 1 ? QuoteType(p) : Quote(p)));
 
+    /// <summary>
+    /// Quotes a ColLabel — an option name such as <c>WITH (fillfactor = 70)</c> or
+    /// <c>OPTIONS (host 'x')</c>, where any keyword is valid bare — only if its case or
+    /// characters need it.
+    /// </summary>
+    public static string QuoteLabel(string name) =>
+        IsSafeBare(name) ? name : "\"" + name.Replace("\"", "\"\"") + "\"";
+
     /// <summary>Null-propagating <see cref="Quote"/> for optional names.</summary>
     public static string? QuoteOpt(string? name) => string.IsNullOrEmpty(name) ? name : Quote(name);
 

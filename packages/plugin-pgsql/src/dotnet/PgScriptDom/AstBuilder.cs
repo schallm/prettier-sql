@@ -401,7 +401,8 @@ public class AstBuilder {
         .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
         .Select(n => {
             var d = n.DefElem;
-            var name = string.IsNullOrEmpty(d.Defnamespace) ? d.Defname : $"{d.Defnamespace}.{d.Defname}";
+            var name = string.IsNullOrEmpty(d.Defnamespace) ? Ident.QuoteLabel(d.Defname)
+                : $"{Ident.QuoteLabel(d.Defnamespace)}.{Ident.QuoteLabel(d.Defname)}";
             var value = BuildDefElemValue(d, quoteStrings: true);
             return value == null ? name : $"{name} = {value}";
         })
@@ -1149,7 +1150,7 @@ public class AstBuilder {
                 SortByDir.SortbyAsc => "ASC",
                 SortByDir.SortbyDesc => "DESC",
                 // ORDER BY x USING <
-                SortByDir.SortbyUsing => $"USING {string.Join(".", s.UseOp.Select(o => o.String.Sval))}",
+                SortByDir.SortbyUsing => $"USING {OperatorName(s.UseOp)}",
                 _ => null,
             }),
             ("nulls", s.SortbyNulls switch {
@@ -1185,9 +1186,8 @@ public class AstBuilder {
 
     private SqlNode BuildRangeTableSample(RangeTableSample r) {
         var relation = r.Relation != null ? BuildFromItem(r.Relation) : null;
-        var method = r.Method.Count > 0 && r.Method[0].NodeCase == Node.NodeOneofCase.String
-            ? r.Method[0].String.Sval
-            : null;
+        // The method is a function name, which may be schema-qualified or need quotes
+        var method = r.Method.Count > 0 ? Ident.QualifiedFunc(r.Method.Select(n => n.String.Sval)) : null;
         return new SqlNode("RangeTableSample", 0, 0, null, BuildProps(
             ("relation",   relation),
             ("method",     method),
@@ -1758,7 +1758,7 @@ public class AstBuilder {
                     DefElemAction.DefelemDrop => "DROP",
                     _ => null,
                 }),
-                ("key", n.DefElem.Defname),
+                ("key", Ident.QuoteLabel(n.DefElem.Defname)),
                 ("val", n.DefElem.Arg?.NodeCase == Node.NodeOneofCase.String ? n.DefElem.Arg.String.Sval : null))))
             .ToList());
 
@@ -2651,7 +2651,7 @@ public class AstBuilder {
             if (n.NodeCase != Node.NodeOneofCase.DefElem) continue;
             var defElem = n.DefElem;
             if (defElem.Defname == "language" && defElem.Arg?.NodeCase == Node.NodeOneofCase.String)
-                language = defElem.Arg.String.Sval;
+                language = Ident.Quote(defElem.Arg.String.Sval);
             if (defElem.Defname == "as" && defElem.Arg?.NodeCase == Node.NodeOneofCase.String)
                 body = defElem.Arg.String.Sval;
         }
@@ -3404,7 +3404,7 @@ public class AstBuilder {
                         => defElem.Arg.AConst.Sval.Sval,
                     _ => "",
                 };
-                return (defElem.Defname, val);
+                return (Ident.QuoteLabel(defElem.Defname), val);
             })
             .ToList();
     }
@@ -3886,12 +3886,12 @@ public class AstBuilder {
         if (inner.Kind == VariableSetKind.VarSetValue) {
             var vals = inner.Args.Select(SetValue).ToList();
             return new SqlNode("AlterSystemStatement", start, end, null, BuildProps(
-                ("kind", "SET"), ("name", inner.Name),
+                ("kind", "SET"), ("name", VarName(inner.Name)),
                 ("values", MaybeList(vals))));
         }
         if (inner.Kind == VariableSetKind.VarReset)
             return new SqlNode("AlterSystemStatement", start, end, null, BuildProps(
-                ("kind", "RESET"), ("name", inner.Name)));
+                ("kind", "RESET"), ("name", VarName(inner.Name))));
         if (inner.Kind == VariableSetKind.VarResetAll)
             return new SqlNode("AlterSystemStatement", start, end, null, BuildProps(("kind", "RESET ALL")));
         return Fallback(start, end);

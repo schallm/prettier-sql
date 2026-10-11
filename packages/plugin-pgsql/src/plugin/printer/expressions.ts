@@ -1132,7 +1132,8 @@ function printRangeTableSample(node: SqlNode, opts: Options, printNode: PrintFn)
 
     return [
         relation ? printNode(relation) : '',
-        ' ', makeKeyword('TABLESAMPLE'), ' ', makeKeyword(method.toUpperCase()),
+        // The built-in methods read as keywords; any other is a function name
+        ' ', makeKeyword('TABLESAMPLE'), ' ', method === 'bernoulli' || method === 'system' ? makeKeyword(method) : method,
         ' (', join(', ', args.map(printNode)), ')',
         repeatable ? [' ', makeKeyword('REPEATABLE'), ' (', printNode(repeatable), ')'] : '',
     ];

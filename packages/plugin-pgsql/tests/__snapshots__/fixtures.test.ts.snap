@@ -513,6 +513,12 @@ with no data;
 
 create materialized view if not exists mv as
 select 1;
+
+-- Option names keep their case
+create table t (
+  a integer
+)
+with ("MixedCase" = 1, toast."Other" = 2);
 "
 `;
 
@@ -5758,6 +5764,36 @@ on table "T"
 to "Role Name";
 
 create schema "My Schema";
+"
+`;
+
+exports[`fixtures > select/quoted-names.sql 1`] = `
+"-- A schema-qualified sort operator needs OPERATOR()
+select a
+from t
+order by
+  a using operator(pg_catalog.<),
+  b using >;
+
+-- A tablesample method is a function name
+select *
+from
+  t tablesample s."MySampler" (1),
+  u tablesample "all" (2),
+  v tablesample system (3);
+
+do $$x$$
+language "MyLang";
+
+alter system set "MyExt"."Setting" = 1;
+
+alter system reset "left";
+
+create server s
+foreign data wrapper w options ("MixedCase" 'x');
+
+alter foreign table f
+  options (add "MixedCase" 'x');
 "
 `;
 

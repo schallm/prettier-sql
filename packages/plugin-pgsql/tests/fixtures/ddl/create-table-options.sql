@@ -14,3 +14,6 @@ create temp table t as select 1;
 create unlogged table t (x, y) with (fillfactor = 50) as select 1, 2 with no data;
 create materialized view mv (x) as select 1 with no data;
 create materialized view if not exists mv as select 1;
+
+-- Option names keep their case
+create table t (a int) with ("MixedCase" = 1, toast."Other" = 2);
