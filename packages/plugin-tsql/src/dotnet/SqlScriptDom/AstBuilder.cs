@@ -1511,6 +1511,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ValuesInsertSource { IsDefaultValues: true } dvs => Node("DefaultValuesSource", dvs, new Dictionary<string, object?>()),
             ValuesInsertSource vals => BuildValuesInsertSource(vals),
             SelectInsertSource sel => BuildQueryExpression(sel.Select),
+            ExecuteInsertSource exec => BuildExecute("ExecuteSource", exec, exec.Execute, null),
             _ => spec.InsertSource != null
                 ? Leaf("InsertSource", spec.InsertSource, RawText(spec.InsertSource))
                 : null,
@@ -1754,8 +1755,11 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["body"] = BuildStatement(ws.Statement),
         });
 
-    private static SqlNode BuildExecute(ExecuteStatement es) {
-        var spec = es.ExecuteSpecification;
+    private static SqlNode BuildExecute(ExecuteStatement es) =>
+        BuildExecute("ExecuteStatement", es, es.ExecuteSpecification, es.Options);
+
+    /// <summary>EXECUTE ...: a statement, or the source of INSERT ... EXECUTE (type ExecuteSource).</summary>
+    private static SqlNode BuildExecute(string type, TSqlFragment fragment, ExecuteSpecification? spec, IList<ExecuteOption>? executeOptions) {
         var entity = spec?.ExecutableEntity;
         var execProc = entity as ExecutableProcedureReference;
 
@@ -1766,7 +1770,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         })).ToList();
 
         // WITH RECOMPILE, RESULT SETS (...) | NONE | UNDEFINED
-        var options = es.Options?.Select(o => (object?)(o switch {
+        var options = executeOptions?.Select(o => (object?)(o switch {
             ResultSetsExecuteOption rs => rs.ResultSetsOptionKind switch {
                 ResultSetsOptionKind.None => "RESULT SETS NONE",
                 ResultSetsOptionKind.Undefined => "RESULT SETS UNDEFINED",
@@ -1786,7 +1790,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             _ => Leaf("ExecuteOption", o, o.OptionKind.ToString().ToUpperInvariant()),
         })).ToList();
 
-        return Node("ExecuteStatement", es, new Dictionary<string, object?> {
+        return Node(type, fragment, new Dictionary<string, object?> {
             // EXECUTE (@sql) or EXECUTE (@sql1 + @sql2) — dynamic SQL
             ["sqlStrings"] = entity is ExecutableStringList esl ? esl.Strings.Select(x => (object?)BuildScalarExpression(x)).ToList() : null,
             // Named proc: EXECUTE schema.proc[;number] | variable proc: EXECUTE @var

@@ -2653,6 +2653,18 @@ values ('manual', '2024-01-01');
 "
 `;
 
+exports[`fixtures > insert/insert-exec.sql 1`] = `
+"-- INSERT ... EXECUTE takes the EXECUTE layout and keyword case
+insert into t (a, b)
+execute dbo.p
+  @x = 1,
+  @y = 'z';
+
+insert into t
+execute ('select 1') at srv;
+"
+`;
+
 exports[`fixtures > insert/insert-over.sql 1`] = `
 "-- INSERT and INSERT INTO are the same statement; INSERT OVER is another
 insert into dbo.Orders (OrderId)

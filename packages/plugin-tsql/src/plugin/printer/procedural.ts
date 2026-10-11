@@ -435,6 +435,7 @@ export function printWhile(node: SqlNode, opts: Options): Doc {
 // EXECUTE
 // ---------------------------------------------------------------------------
 
+/** EXECUTE ...; — or, as the source of INSERT ... EXECUTE, without the semicolon. */
 export function printExecute(node: SqlNode, opts: Options): Doc {
     const sqlStrings = propArr(node, 'sqlStrings');
     const parameters = propArr(node, 'parameters');
@@ -452,7 +453,7 @@ export function printExecute(node: SqlNode, opts: Options): Doc {
         contextKind ? [' ', keyword(`AS ${contextKind}`, opts), ' = ', propStr(node, 'contextPrincipal') ?? ''] : '',
         linkedServer ? [' ', keyword('AT', opts), ' ', linkedServer] : '',
         printExecuteOptions(node, opts),
-        ';',
+        node.type === 'ExecuteSource' ? '' : ';',
     ];
 
     // EXECUTE (@sql) or EXECUTE (@sql1 + @sql2) — with pass-through parameters for AT

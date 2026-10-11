@@ -863,6 +863,8 @@ function printInsert(node: SqlNode, opts: Options): Doc {
             ? printValuesSource(source, opts)
             : source?.type === 'DefaultValuesSource'
               ? [hardline, keyword('DEFAULT VALUES', opts)]
+              : source?.type === 'ExecuteSource'
+                ? [hardline, printExecute(source, opts)]
               : source
                 ? [hardline, qexpr(source, opts)]
                 : '';
