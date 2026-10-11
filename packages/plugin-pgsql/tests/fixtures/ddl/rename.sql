@@ -61,3 +61,8 @@ alter statistics st rename to st2;
 alter conversion c rename to c2;
 
 alter event trigger e rename to e2;
+
+-- An operator class or family is named USING its access method
+alter operator family f using btree owner to u;
+
+alter operator class s.c using gist set schema t;

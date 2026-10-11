@@ -7,3 +7,6 @@ security label for my_provider on table orders is 'it''s sensitive';
 
 -- FOR provider is optional
 security label on table orders is 'sensitive';
+
+-- A provider name that needs quotes
+security label for "MyProvider" on table t is 'x';

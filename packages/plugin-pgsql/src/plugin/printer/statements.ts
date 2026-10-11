@@ -1367,7 +1367,7 @@ function printAlterOwner(node: SqlNode, opts: Options): Doc {
     const objType = propStr(node, 'objType') ?? '';
     const name    = propStr(node, 'name') ?? '';
     const newOwner = propStr(node, 'newOwner') ?? '';
-    return [[makeKeyword(`ALTER ${objType}`), ' ', name, ' ', makeKeyword('OWNER TO'), ' ', newOwner], ';'];
+    return [[makeKeyword(`ALTER ${objType}`), ' ', name, usingDoc(node, opts), ' ', makeKeyword('OWNER TO'), ' ', newOwner], ';'];
 }
 
 function printAlterObjectSchema(node: SqlNode, opts: Options): Doc {
@@ -1376,7 +1376,13 @@ function printAlterObjectSchema(node: SqlNode, opts: Options): Doc {
     const name     = propStr(node, 'name') ?? '';
     const newSchema = propStr(node, 'newSchema') ?? '';
     const ifExists: Doc = propBool(node, 'ifExists') ? [makeKeyword('IF EXISTS'), ' '] : '';
-    return [[makeKeyword(`ALTER ${objType}`), ' ', ifExists, name, ' ', makeKeyword('SET SCHEMA'), ' ', newSchema], ';'];
+    return [[makeKeyword(`ALTER ${objType}`), ' ', ifExists, name, usingDoc(node, opts), ' ', makeKeyword('SET SCHEMA'), ' ', newSchema], ';'];
+}
+
+/** ` USING method` after an operator class or family's name. */
+function usingDoc(node: SqlNode, opts: Options): Doc {
+    const method = propStr(node, 'using');
+    return method ? [' ', keyword('USING', opts), ' ', method] : '';
 }
 
 // ---------------------------------------------------------------------------

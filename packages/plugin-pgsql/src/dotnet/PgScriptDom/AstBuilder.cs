@@ -2724,7 +2724,8 @@ public class AstBuilder {
         var newOwner = s.Newowner?.Roletype == RoleSpecType.RolespecPublic ? "PUBLIC" : RoleSpecName(s.Newowner);
         return new SqlNode("AlterOwnerStatement", start, end, null, BuildProps(
             ("objType",  ObjectTypeKw(s.ObjectType)),
-            ("name",     NodeObjName(s.Object, s.ObjectType)),
+            ("name",     OpClassName(s.Object, s.ObjectType) ?? NodeObjName(s.Object, s.ObjectType)),
+            ("using",    OpClassMethod(s.Object, s.ObjectType)),
             ("newOwner", newOwner)
         ));
     }
@@ -2733,7 +2734,9 @@ public class AstBuilder {
         new("AlterObjectSchemaStatement", start, end, null, BuildProps(
             ("objType",   ObjectTypeKw(s.ObjectType)),
             // Tables, views, sequences and matviews carry their name in Relation, not Object
-            ("name",      s.Relation != null ? RangeVarQualifiedName(s.Relation) : NodeObjName(s.Object, s.ObjectType)),
+            ("name",      s.Relation != null ? RangeVarQualifiedName(s.Relation)
+                          : OpClassName(s.Object, s.ObjectType) ?? NodeObjName(s.Object, s.ObjectType)),
+            ("using",     OpClassMethod(s.Object, s.ObjectType)),
             ("ifExists",  s.MissingOk ? true : null),
             ("newSchema", Ident.QuoteOpt(s.Newschema))
         ));
@@ -3679,7 +3682,7 @@ public class AstBuilder {
                     return new SqlNode("CreateCollationStatement", start, end, null, BuildProps(
                         ("ifNotExists", s.IfNotExists ? true : null),
                         ("name",     name),
-                        ("fromName", Ident.QuoteOpt(fromVal))
+                        ("fromName", fromVal)
                     ));
                 }
                 // IF NOT EXISTS: of the objects DefineStmt defines, only a collation takes it
@@ -3715,12 +3718,11 @@ public class AstBuilder {
         };
     }
 
+    // CREATE COLLATION c FROM s.d: the source collation's name, schema included, quoted
     private static string? GetFromDefElemCollationName(DefElem defElem) {
-        if (defElem.Arg?.NodeCase == Node.NodeOneofCase.List && defElem.Arg.List.Items.Count > 0) {
-            var item = defElem.Arg.List.Items[0];
-            if (item.NodeCase == Node.NodeOneofCase.String) return item.String.Sval;
-        }
-        if (defElem.Arg?.NodeCase == Node.NodeOneofCase.String) return defElem.Arg.String.Sval;
+        if (defElem.Arg?.NodeCase == Node.NodeOneofCase.List && defElem.Arg.List.Items.Count > 0)
+            return Ident.Qualified(defElem.Arg.List.Items.Select(i => i.String.Sval));
+        if (defElem.Arg?.NodeCase == Node.NodeOneofCase.String) return Ident.Quote(defElem.Arg.String.Sval);
         return null;
     }
 
@@ -3743,7 +3745,7 @@ public class AstBuilder {
         };
 
         return new SqlNode("SecurityLabelStatement", start, end, null, BuildProps(
-            ("provider", s.Provider),
+            ("provider", Ident.QuoteOpt(s.Provider)),
             ("objType",  objType),
             ("objName",  objName),
             ("label",    s.Label)
@@ -4076,6 +4078,16 @@ public class AstBuilder {
     /// <summary>Formats a RangeVar as a quoted, possibly database- and schema-qualified name.</summary>
     private static string RangeVarQualifiedName(RangeVar rv) =>
         Ident.Qualified(new[] { rv.Catalogname, rv.Schemaname, rv.Relname }.Where(p => !string.IsNullOrEmpty(p)));
+
+    // An operator class or family is named by (access method, name...): ALTER OPERATOR
+    // CLASS s.c USING btree. The name, and the method for the USING clause.
+    private static bool IsOpClassList(Node? node, ObjectType kind) =>
+        kind is ObjectType.ObjectOpclass or ObjectType.ObjectOpfamily
+            && node?.NodeCase == Node.NodeOneofCase.List && node.List.Items.Count > 1;
+    private static string? OpClassName(Node? node, ObjectType kind) =>
+        IsOpClassList(node, kind) ? Ident.Qualified(node!.List.Items.Skip(1).Select(i => i.String.Sval)) : null;
+    private static string? OpClassMethod(Node? node, ObjectType kind) =>
+        IsOpClassList(node, kind) ? Ident.Quote(node!.List.Items[0].String.Sval) : null;
 
     /// <summary>Extracts a dotted name from a Node (RangeVar, ObjectWithArgs, List of strings, or String).</summary>
     private string? NodeObjName(Node? node, ObjectType kind = ObjectType.Undefined) => node?.NodeCase switch {
