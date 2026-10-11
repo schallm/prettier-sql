@@ -70,7 +70,7 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'SetToDefault':     return keyword('DEFAULT', opts);
         case 'Collate': {
             const arg = prop(node, 'arg');
-            return [arg ? printOperand(arg, PREC.AT, printNode) : '', ' ', keyword('COLLATE', opts), ' ', propStr(node, 'collation') ?? ''];
+            return [arg ? printOperand(arg, PREC.COLLATE, printNode) : '', ' ', keyword('COLLATE', opts), ' ', propStr(node, 'collation') ?? ''];
         }
         case 'CurrentOf':        return [keyword('CURRENT OF', opts), ' ', propStr(node, 'cursor') ?? ''];
         case 'IntervalLiteral':  return printIntervalLiteral(node, opts, printNode);
@@ -121,9 +121,10 @@ export const PREC = {
     MUL: 9,         // * / %
     EXP: 10,        // ^
     AT: 11,         // AT TIME ZONE
-    UNARY: 12,      // unary minus / plus
-    CAST: 13,       // ::
-    ATOM: 14,       // column refs, literals, function calls, parenthesized forms
+    COLLATE: 12,    // COLLATE: `(a AT TIME ZONE b) COLLATE c` keeps its parentheses
+    UNARY: 13,      // unary minus / plus
+    CAST: 14,       // ::
+    ATOM: 15,       // column refs, literals, function calls, parenthesized forms
 } as const;
 
 // Operators PostgreSQL declares %nonassoc: `a = b = c` is a syntax error, so an
@@ -159,7 +160,10 @@ function precedence(node: SqlNode): number {
         case 'XmlExpr':
             return propStr(node, 'op') === 'IS DOCUMENT' ? PREC.IS : PREC.ATOM;
         case 'BinaryExpr':
-            return prop(node, 'left') ? binaryOpPrec(propStr(node, 'op') ?? '') : PREC.UNARY;
+            // A prefix operator other than - and + (@ x, |/ x, ~ x) has the generic operator
+            // precedence, below + and *: `@ a + c` is `@ (a + c)`
+            return prop(node, 'left') ? binaryOpPrec(propStr(node, 'op') ?? '')
+                : ['-', '+'].includes(propStr(node, 'op') ?? '') ? PREC.UNARY : PREC.OTHER;
         case 'InExpr':
         case 'BetweenExpr':
             return PREC.LIKE;
@@ -175,7 +179,7 @@ function precedence(node: SqlNode): number {
         case 'Cast':
             return PREC.CAST;
         case 'Collate':
-            return PREC.AT;
+            return PREC.COLLATE;
         case 'Literal':
             // A negative numeric constant reads as unary minus: `(-1)::int`, not `-1::int`
             return node.text?.startsWith('-') ? PREC.UNARY : PREC.ATOM;
@@ -307,8 +311,10 @@ function printBoolExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
 export function boolTerms(node: SqlNode, printNode: PrintFn): BoolTerm[] {
     if (!isBoolChain(node)) return [{ op: 'AND', doc: printNode(node) }];
     const op = propStr(node, 'op') === 'OR' ? 'OR' : 'AND';
+    // The parser flattens `a AND b AND c` into one chain, so a nested chain of the same
+    // operator was parenthesized: `a AND (b AND c)` keeps its parentheses
     const prec = op === 'OR' ? PREC.OR : PREC.AND;
-    return propArr(node, 'args').map((a) => ({ op, doc: printOperand(a, prec, printNode) }));
+    return propArr(node, 'args').map((a) => ({ op, doc: printOperand(a, prec + 1, printNode) }));
 }
 
 /** An AND/OR chain with each operand on its own line, for a clause that supplies the indent itself. */
@@ -794,7 +800,8 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
         case 'NOT NULL': return [namePrefix, makeKeyword('NOT NULL'), attributes];
 
         case 'DEFAULT':
-            return [namePrefix, makeKeyword('DEFAULT'), expr ? [' ', printNode(expr)] : ''];
+            // DEFAULT takes a b_expr: `default (a and b)` keeps its parentheses
+            return [namePrefix, makeKeyword('DEFAULT'), expr ? [' ', printBExpr(expr, printNode)] : ''];
 
         case 'CHECK':
             return clauses([
@@ -1087,6 +1094,42 @@ function printInExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     return [left ? printOperand(left, PREC.LIKE + 1, printNode) : '', ' ', keywordDoc, ' ', parenItems(items, opts, literals)];
 }
 
+// Operators a b_expr can't hold — the operand of a column DEFAULT, a BETWEEN bound, an
+// XMLTABLE column's PATH or DEFAULT: AND, OR, NOT, LIKE, IN, BETWEEN, IS NULL, IS TRUE,
+// AT TIME ZONE, COLLATE, = ANY (...), OVERLAPS, IS JSON. Comparisons, IS DISTINCT FROM and
+// the arithmetic and other operators are b_expr too.
+function isAExprOnly(node: SqlNode): boolean {
+    switch (node.type) {
+        case 'BoolExpr': case 'NullTest': case 'BooleanTest': case 'InExpr': case 'BetweenExpr':
+        case 'JsonIsPredicate': case 'QuantifiedExpr':
+            return true;
+        case 'SubLink':
+            return precedence(node) !== PREC.ATOM;
+        default: {
+            const p = precedence(node);
+            return p === PREC.AT || p === PREC.COLLATE || p === PREC.LIKE
+                || (node.type === 'FunctionCall' && p === PREC.IS);
+        }
+    }
+}
+
+/**
+ * True when the expression's operator chain holds an operator a b_expr can't. (Conservative:
+ * one that will print inside parentheses of its own counts too, costing a redundant pair.)
+ */
+function hasAExprOnlyOperator(node: SqlNode | null): boolean {
+    if (!node) return false;
+    if (isAExprOnly(node)) return true;
+    if (node.type === 'BinaryExpr') return hasAExprOnlyOperator(prop(node, 'left')) || hasAExprOnlyOperator(prop(node, 'right'));
+    if (node.type === 'Cast') return hasAExprOnlyOperator(prop(node, 'arg'));
+    return false;
+}
+
+/** An expression where the grammar takes a b_expr: in parentheses when it holds more. */
+function printBExpr(node: SqlNode, printNode: PrintFn): Doc {
+    return hasAExprOnlyOperator(node) ? ['(', printNode(node), ')'] : printNode(node);
+}
+
 function printBetweenExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const makeKeyword        = (kw: string) => keyword(kw, opts);
     const arg       = prop(node, 'arg');
@@ -1099,10 +1142,13 @@ function printBetweenExpr(node: SqlNode, opts: Options, printNode: PrintFn): Doc
         ? (symmetric ? makeKeyword('NOT BETWEEN SYMMETRIC') : makeKeyword('NOT BETWEEN'))
         : (symmetric ? makeKeyword('BETWEEN SYMMETRIC')     : makeKeyword('BETWEEN'));
 
+    // A bound is a b_expr, which has no AT TIME ZONE, AT LOCAL or COLLATE anywhere along
+    // its operators: a bound with one needs parentheses
+    const bound = (b: SqlNode): Doc => (hasAExprOnlyOperator(b) ? printBExpr(b, printNode) : printOperand(b, PREC.LIKE + 1, printNode));
     return betweenDoc(
         [arg ? printOperand(arg, PREC.LIKE + 1, printNode) : '', ' ', keywordDoc],
-        low ? printOperand(low, PREC.LIKE + 1, printNode) : '',
-        [makeKeyword('AND'), ' ', high ? printOperand(high, PREC.LIKE + 1, printNode) : ''],
+        low ? bound(low) : '',
+        [makeKeyword('AND'), ' ', high ? bound(high) : ''],
     );
 }
 
@@ -1484,8 +1530,8 @@ function printXmlTable(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
         const path    = prop(col, 'path');
         const defExpr = prop(col, 'default');
         const notNull = propBool(col, 'notNull');
-        if (path)    parts.push(' ', makeKeyword('PATH'), ' ', printNode(path));
-        if (defExpr) parts.push(' ', makeKeyword('DEFAULT'), ' ', printNode(defExpr));
+        if (path)    parts.push(' ', makeKeyword('PATH'), ' ', printBExpr(path, printNode));
+        if (defExpr) parts.push(' ', makeKeyword('DEFAULT'), ' ', printBExpr(defExpr, printNode));
         if (notNull) parts.push(' ', makeKeyword('NOT NULL'));
         parts.push(comma);
         return parts;
