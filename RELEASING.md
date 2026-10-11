@@ -28,6 +28,14 @@ If you say yes, the script adds a changeset for the extension (so its version bu
 changelog ride in the same Version Packages PR), and after the npm approvals it builds
 the plugins, packages the extension with them bundled, and publishes it with `vsce`.
 
+The extension's workspace package (`prettier-sql`, in `extensions/vscode-sql`) is private,
+and Changesets 3 only versions private packages with `"privatePackages": { "version": true }`
+in `.changeset/config.json` — without it, the extension's changesets are dropped silently
+and its version never moves. Name it in a changeset for a fix that reaches the extension
+(the shared format shim in `extensions/shared`, or a plugin fix you want it to announce).
+The Visual Studio extensions (`extensions/vsix-*`) have no package version — theirs is in
+`source.extension.vsixmanifest` — so Changesets skips a changeset that names them.
+
 The first time, it needs a one-time Marketplace setup (the script prints these steps
 and prompts for the token when `vsce` isn't logged in):
 
