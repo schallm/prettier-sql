@@ -17,7 +17,7 @@ import {
     willBreak,
 } from '@prettier-sql/core/printer/utils';
 import { createIndexDoc, alterTableDoc, constraintDoc, checkDoc, optionLinesDoc, asQueryDoc, dropDoc } from '@prettier-sql/core/printer/layout';
-import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment, splitTopLevel, sortOrderDoc } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment, splitTopLevel, sortOrderDoc, appendComments, takeTrailingComment, takeLeadingComments } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
 import { joinBodyStatements, printSelectBody, printNode, printBool, printBoolClause, qexpr, printCtes, printStatement, xmlNamespaceDocs } from './statements.js';
@@ -971,11 +971,22 @@ function procedureNumber(node: SqlNode): Doc {
     return number ? [';', number] : '';
 }
 
+/**
+ * Each parameter with its comma, then the comment written after it on its line; comments
+ * on lines of their own before a parameter go above it.
+ */
+function parameterDocs(parameters: SqlNode[], opts: Options): Doc[] {
+    return parameters.map((p, i) => [
+        ...takeLeadingComments(p).flatMap((c): Doc[] => [c, hardline]),
+        appendComments([printParameter(p, opts), i < parameters.length - 1 ? ',' : ''], takeTrailingComment(p)),
+    ]);
+}
+
 export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
     const parameters = propArr(node, 'parameters');
     const body = propArr(node, 'body');
 
-    const paramDocs = parameters.map((p) => printParameter(p, opts));
+    const paramDocs = parameterDocs(parameters, opts);
 
     // Natively compiled procs have a single BEGIN ATOMIC WITH (...) body statement.
     const atomicBlock = body.length === 1 && body[0]?.type === 'BeginEndAtomicBlock' ? body[0] : null;
@@ -1001,7 +1012,7 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
             schemaObjectName(prop(node, 'name')),
             procedureNumber(node),
             preBody,
-            parameters.length > 0 ? indent([hardline, join([',', hardline], paramDocs)]) : '',
+            parameters.length > 0 ? indent([hardline, join(hardline, paramDocs)]) : '',
             postParam,
             printModuleOptions(node, opts),
             hardline,
@@ -1020,7 +1031,7 @@ export function printCreateProcedure(node: SqlNode, opts: Options): Doc {
         schemaObjectName(prop(node, 'name')),
         procedureNumber(node),
         preBody,
-        parameters.length > 0 ? indent([hardline, join([',', hardline], paramDocs)]) : '',
+        parameters.length > 0 ? indent([hardline, join(hardline, paramDocs)]) : '',
         postParam,
         printModuleOptions(node, opts),
         // FOR REPLICATION: a procedure only replication runs
@@ -1063,7 +1074,7 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
     const returnType = propStr(node, 'returnType') ?? '';
     const body = node.props?.['body'];
 
-    const paramDocs = parameters.map((p) => printParameter(p, opts));
+    const paramDocs = parameterDocs(parameters, opts);
 
     const preBody = commentsBlock(node.preBodyComments);
     const postParam = commentsBlock(node.postParamComments);
@@ -1081,7 +1092,7 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
         schemaObjectName(prop(node, 'name')),
         // comments end at a line break: the parameter list can't follow on their line
         node.preBodyComments?.length ? [preBody, hardline] : '',
-        group(['(', parameters.length > 0 ? [indent([softline, join([',', line], paramDocs)]), softline] : '', ')']),
+        group(['(', parameters.length > 0 ? [indent([softline, join(line, paramDocs)]), softline] : '', ')']),
         postParam,
     ];
 

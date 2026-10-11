@@ -6173,6 +6173,32 @@ go
 "
 `;
 
+exports[`fixtures > stored-proc/parameter-comments.sql 1`] = `
+"-- Comments that describe a parameter stay with it
+create procedure dbo.usp_Process
+  @BatchDate date = null, -- defaults to today
+  @MaxRows int = 1000, -- safety cap
+  -- debugging output
+  @Debug bit = 0
+as
+begin
+  select 1;
+end;
+go
+
+create function dbo.f(
+  @a int, -- first
+  @b int /* second */
+)
+returns int
+as
+begin
+  return @a + @b;
+end;
+go
+"
+`;
+
 exports[`fixtures > stored-proc/parameter-nullability.sql 1`] = `
 "-- A parameter's NULL / NOT NULL
 create procedure dbo.p

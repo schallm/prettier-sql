@@ -153,6 +153,22 @@ function attachLeadingAndPreBody(allStatements: SqlNode[], comments: CommentToke
         const container = allStatements.find((s) => c.startOffset > s.startOffset && c.endOffset <= s.endOffset);
 
         if (container) {
+            // On a parameter's line, after it — `@a int = 1, -- the a` — it describes that parameter
+            const params = /(Procedure|Function)Statement$/.test(container.type) ? propArr(container, 'parameters') : [];
+            const param = params.find((p) => p.endOffset <= c.startOffset && /^[ \t,]*$/.test(text.substring(p.endOffset, c.startOffset)));
+            if (param) {
+                param.trailingComment = param.trailingComment ? param.trailingComment + '\n' + c.text : c.text;
+                used.add(c);
+                continue;
+            }
+            // On a line of its own between two parameters: it leads the next one
+            const next = params.find((p, i) => i > 0 && params[i - 1]!.endOffset <= c.startOffset && c.endOffset <= p.startOffset);
+            if (next) {
+                next.leadingComments = next.leadingComments ?? [];
+                next.leadingComments.push(c.text);
+                used.add(c);
+                continue;
+            }
             // The comment is inside a statement. Route it to preBodyComments or
             // postParamComments if it falls before the body start boundary.
             //
