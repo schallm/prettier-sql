@@ -589,10 +589,10 @@ public class AstBuilder {
 
     // SET name = value / SET name FROM CURRENT / RESET name / RESET ALL, inside CREATE FUNCTION
     private string FunctionSetClause(VariableSetStmt v) => v.Kind switch {
-        VariableSetKind.VarSetValue   => $"SET {v.Name} = {string.Join(", ", v.Args.Select(SetValue))}",
-        VariableSetKind.VarSetDefault => $"SET {v.Name} TO DEFAULT",
-        VariableSetKind.VarSetCurrent => $"SET {v.Name} FROM CURRENT",
-        VariableSetKind.VarReset      => $"RESET {v.Name}",
+        VariableSetKind.VarSetValue   => $"SET {VarName(v.Name)} = {string.Join(", ", v.Args.Select(SetValue))}",
+        VariableSetKind.VarSetDefault => $"SET {VarName(v.Name)} TO DEFAULT",
+        VariableSetKind.VarSetCurrent => $"SET {VarName(v.Name)} FROM CURRENT",
+        VariableSetKind.VarReset      => $"RESET {VarName(v.Name)}",
         VariableSetKind.VarResetAll   => "RESET ALL",
         _ => throw NotSupported($"function SET clause ({v.Kind})", null),
     };
@@ -1773,7 +1773,8 @@ public class AstBuilder {
             _                                        => null,
         };
         return new SqlNode("FunctionParam", 0, 0, null, BuildProps(
-            ("name",     Ident.QuoteOpt(p.Name)),
+            // A parameter name is a type_function_name: `left` is valid bare, `position` isn't
+            ("name",     string.IsNullOrEmpty(p.Name) ? null : Ident.QuoteType(p.Name)),
             ("typeName", p.ArgType != null ? BuildPgTypeName(p.ArgType) : null),
             ("mode",     mode),
             ("default",  p.Defexpr != null ? BuildExpr(p.Defexpr) : null)
@@ -1924,7 +1925,7 @@ public class AstBuilder {
 
     private SqlNode BuildNamedArgExpr(NamedArgExpr n) =>
         new("NamedArg", 0, 0, null, BuildProps(
-            ("name", Ident.Quote(n.Name)),
+            ("name", Ident.QuoteType(n.Name)),
             ("arg",  BuildExpr(n.Arg))
         ));
 
@@ -2089,16 +2090,16 @@ public class AstBuilder {
         if (v.Kind == VariableSetKind.VarSetValue) {
             var vals = v.Args.Select(SetValue).ToList();
             return new SqlNode("VariableSetStatement", start, end, null, BuildProps(
-                ("kind", "SET"), ("name", v.Name),
+                ("kind", "SET"), ("name", VarName(v.Name)),
                 ("values", MaybeList(vals)),
                 ("local", v.IsLocal ? true : null)));
         }
         if (v.Kind == VariableSetKind.VarSetDefault)
             return new SqlNode("VariableSetStatement", start, end, null, BuildProps(
-                ("kind", "SET DEFAULT"), ("name", v.Name), ("local", v.IsLocal ? true : null)));
+                ("kind", "SET DEFAULT"), ("name", VarName(v.Name)), ("local", v.IsLocal ? true : null)));
         if (v.Kind == VariableSetKind.VarReset)
             return new SqlNode("VariableSetStatement", start, end, null, BuildProps(
-                ("kind", "RESET"), ("name", v.Name)));
+                ("kind", "RESET"), ("name", VarName(v.Name))));
         if (v.Kind == VariableSetKind.VarResetAll)
             return new SqlNode("VariableSetStatement", start, end, null, BuildProps(("kind", "RESET ALL")));
         return Fallback(start, end);
@@ -2121,8 +2122,13 @@ public class AstBuilder {
         };
     }
 
+    // SHOW ALL and SHOW "all" both name the variable all
     private static SqlNode BuildVariableShow(VariableShowStmt v, int start, int end) =>
-        new("VariableShowStatement", start, end, null, BuildProps(("name", v.Name)));
+        new("VariableShowStatement", start, end, null, BuildProps(("name", v.Name == "all" ? "all" : VarName(v.Name))));
+
+    // A configuration parameter name as the parser joined it, `work_mem` or
+    // `myext.setting`: each part is a ColId, so `"MyExt"."left"` keeps its quotes.
+    private static string VarName(string name) => Ident.Qualified(name.Split('.'));
 
     private SqlNode BuildGrant(GrantStmt g, int start, int end) {
         // A column list restricts the privilege to those columns: INSERT (a, b)

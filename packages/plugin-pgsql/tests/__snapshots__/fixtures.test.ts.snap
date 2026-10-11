@@ -702,6 +702,15 @@ create or replace procedure q()
 language sql
 security definer
 as $$select 1$$;
+
+-- Parameter names are type_function_names: left is valid bare, position isn't
+create function f("position" integer, left integer, "char" text)
+returns integer
+language sql
+set "MyExt"."Setting" = 1
+as $$select 1$$;
+
+select f("position" => 1, left => 2);
 "
 `;
 
@@ -2115,6 +2124,11 @@ show all;
 set search_path = 'MySchema', public;
 set statement_timeout = 5000;
 set enable_seqscan = off;
+-- Parameter names that are keywords or mixed case keep their quotes
+set "left" = 1;
+set "MyExt"."Setting" to default;
+reset "select";
+show "only";
 "
 `;
 

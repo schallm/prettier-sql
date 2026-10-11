@@ -22,3 +22,9 @@ show all;
 set search_path to "MySchema", public;
 set statement_timeout = 5000;
 set enable_seqscan = off;
+
+-- Parameter names that are keywords or mixed case keep their quotes
+set "left" = 1;
+set "MyExt"."Setting" to default;
+reset "select";
+show "only";

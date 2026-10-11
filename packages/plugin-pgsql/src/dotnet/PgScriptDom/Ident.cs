@@ -82,8 +82,9 @@ public static class Ident {
             : "\"" + name.Replace("\"", "\"\"") + "\"";
 
     /// <summary>
-    /// Quotes a type name part. Like <see cref="QuoteFunc"/>, and COL_NAME keywords are
-    /// quoted too: bare, <c>char</c> is the SQL type <c>bpchar(1)</c>, not <c>"char"</c>.
+    /// Quotes a type name part, or any other type_function_name such as a parameter
+    /// name. Like <see cref="QuoteFunc"/>, and COL_NAME keywords are quoted too: bare,
+    /// <c>char</c> is the SQL type <c>bpchar(1)</c>, not <c>"char"</c>.
     /// </summary>
     public static string QuoteType(string name) =>
         ColName.Contains(name) ? "\"" + name + "\"" : QuoteFunc(name);

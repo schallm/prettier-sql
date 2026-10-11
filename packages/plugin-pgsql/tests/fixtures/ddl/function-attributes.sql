@@ -5,3 +5,8 @@ create function h() returns text language sql as $x$ select '$$' $x$;
 create function k(variadic xs int[]) returns table (x int, y text) language sql set work_mem from current as 'select 1, ''a''';
 create procedure p(inout n int) language plpgsql as $$ begin n := n + 1; end $$;
 create or replace procedure q() language sql security definer as 'select 1';
+
+-- Parameter names are type_function_names: left is valid bare, position isn't
+create function f("position" int, "left" int, "char" text) returns int language sql set "MyExt.Setting" = 1 as 'select 1';
+
+select f("position" => 1, "left" => 2);
