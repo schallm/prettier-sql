@@ -1544,7 +1544,7 @@ alter table t
 CREATE PRIMARY XML INDEX px ON t (x);
 
 create table t (
-  a int constraint pk primary key with (FILLFACTOR = 80) on [PRIMARY],
+  a int constraint pk primary key with (fillfactor = 80) on [PRIMARY],
   b int unique nonclustered
 );
 "
@@ -2505,6 +2505,9 @@ alter index IX_Orders on dbo.Orders rebuild partition = 3 with (
 alter index IX_Orders on dbo.Orders rebuild partition = all with (
   data_compression = page
 );
+
+-- Index options take the keyword case
+create index i on t (a) with (pad_index = off, online = on, fillfactor = 80);
 "
 `;
 

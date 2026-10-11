@@ -98,7 +98,7 @@ export function printInlineIndex(node: SqlNode, opts: Options): Doc {
         ? [' ', keyword('INCLUDE', opts), ' ', parenList(includeColumns)]
         : '';
     const filterPart: Doc = filterPredicateNode ? [' ', printBoolClause('WHERE', filterPredicateNode, opts)] : '';
-    const withPart: Doc = indexOptions.length ? [' ', keyword('WITH', opts), ' ', optionItems(indexOptions, opts)] : '';
+    const withPart: Doc = indexOptions.length ? [' ', keyword('WITH', opts), ' ', optionItems(indexOptions.map((o) => keyword(o, opts)), opts)] : '';
 
     return [
         keyword('INDEX', opts),
@@ -369,7 +369,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         const uqOptions = (uniqueConstraint as { indexOptions?: string[] }).indexOptions ?? [];
         parts.push(
             line, constraintNamePrefix, uqKw, clusteredKw, hashKw,
-            uqOptions.length > 0 ? [' ', keyword('WITH', opts), ' ', optionItems(uqOptions, opts)] : '',
+            uqOptions.length > 0 ? [' ', keyword('WITH', opts), ' ', optionItems(uqOptions.map((o) => keyword(o, opts)), opts)] : '',
             storageClause(uniqueConstraint as Record<string, unknown>, opts),
             notEnforcedDoc(uniqueConstraint.notEnforced, opts),
         );
@@ -461,7 +461,7 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
             });
             const indexOptions = propStrArr(node, 'indexOptions');
             const withPart: Doc = indexOptions.length
-                ? [' ', keyword('WITH', opts), ' ', optionItems(indexOptions, opts)]
+                ? [' ', keyword('WITH', opts), ' ', optionItems(indexOptions.map((o) => keyword(o, opts)), opts)]
                 : '';
             return [
                 namePrefix, kw, ' ', clusteredKw, hashKw, parenItems(colDocs, opts), withPart, storageClause(node.props, opts),
@@ -699,7 +699,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         const partDoc: Doc = partitionAll ? keyword('ALL', opts) : (partitionNumber ?? '');
         const partitionPart: Doc = partitionAll || partitionNumber ? [' ', keyword('PARTITION =', opts), ' ', partDoc] : '';
         const withDoc: Doc = indexOptions.length
-            ? [' ', keyword('WITH', opts), ' ', optionItems(indexOptions, opts)]
+            ? [' ', keyword('WITH', opts), ' ', optionItems(indexOptions.map((o) => keyword(o, opts)), opts)]
             : '';
         return alter([
             keyword('REBUILD', opts),
@@ -787,7 +787,7 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
     if (includeColumns.length > 0) tail.push([keyword('INCLUDE', opts), ' ', parenItems(includeColumns, opts)]);
     if (filterPredicateNode) tail.push([keyword('WHERE', opts), ' ', printBool(filterPredicateNode, opts, true)]);
     const indexOptions = propStrArr(node, 'indexOptions');
-    if (indexOptions.length > 0) tail.push([keyword('WITH', opts), ' ', optionItems(indexOptions, opts)]);
+    if (indexOptions.length > 0) tail.push([keyword('WITH', opts), ' ', optionItems(indexOptions.map((o) => keyword(o, opts)), opts)]);
     const onFileGroup = propStr(node, 'onFileGroup');
     if (onFileGroup) tail.push([keyword('ON', opts), ' ', onFileGroup]);
     const fileStreamOn = propStr(node, 'fileStreamOn');
@@ -808,7 +808,7 @@ export function printCreateVectorIndex(node: SqlNode, opts: Options): Doc {
     const indexOptions = propStrArr(node, 'indexOptions');
     const withPart: Doc =
         indexOptions.length > 0
-            ? [hardline, keyword('WITH', opts), ' ', optionItems(indexOptions, opts)]
+            ? [hardline, keyword('WITH', opts), ' ', optionItems(indexOptions.map((o) => keyword(o, opts)), opts)]
             : '';
     const onFileGroup = propStr(node, 'onFileGroup');
     const fileGroupPart: Doc = onFileGroup ? [hardline, keyword('ON', opts), ' ', onFileGroup] : '';
@@ -856,7 +856,7 @@ export function printAlterIndex(node: SqlNode, opts: Options): Doc {
     // ALTER INDEX ... SET (options) has no WITH; REBUILD / REORGANIZE / DISABLE take WITH (options)
     const withPart: Doc =
         indexOptions.length > 0
-            ? [' ', alterType === 'Set' ? '' : [keyword('WITH', opts), ' '], optionItems(indexOptions, opts)]
+            ? [' ', alterType === 'Set' ? '' : [keyword('WITH', opts), ' '], optionItems(indexOptions.map((o) => keyword(o, opts)), opts)]
             : '';
     const partitionPart: Doc = partition ? [' ', keyword('PARTITION', opts), ' = ', partition] : '';
     return [

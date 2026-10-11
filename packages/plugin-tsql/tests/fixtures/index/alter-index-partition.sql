@@ -7,3 +7,6 @@ alter index IX_Orders on dbo.Orders
 alter index IX_Orders on dbo.Orders
     rebuild partition = all
     with (data_compression = page)
+
+-- Index options take the keyword case
+create index i on t (a) with (PAD_INDEX = OFF, ONLINE = ON, FILLFACTOR = 80);
