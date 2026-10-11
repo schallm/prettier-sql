@@ -71,6 +71,20 @@ describe('unsupported constructs', () => {
             /Unsupported type modifier \(AExpr\)/
         );
     });
+
+    // Each operator of a chain nests one node deeper: past ~30 the JSON the parser sends
+    // needs more than the serializer's default depth, past ~50 pgsqlparser's protobuf decoder gives up
+    const chain = (n: number) => `select ${Array.from({ length: n }, (_, i) => `c${i}`).join(' || ')} from t;`;
+
+    it('formats a long operator chain', async () => {
+        const out = await fmt(chain(45));
+        expect(out).toContain('c44');
+        expect(await fmt(out)).toBe(out);
+    });
+
+    it('throws a clear error for a chain too deep for the parser', async () => {
+        await expect(fmt(chain(60))).rejects.toThrow(/nested too deeply/);
+    });
 });
 
 // ---------------------------------------------------------------------------

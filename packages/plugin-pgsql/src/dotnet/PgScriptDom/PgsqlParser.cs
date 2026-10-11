@@ -13,10 +13,24 @@ public static class PgsqlParser {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         WriteIndented = false,
+        // The default, 64, is a chain of about 30 operators: a || b || ... nests one node per operator
+        MaxDepth = 100_000,
     };
 
     public static string Parse(string sql) {
-        var parseResult = Parser.Parse(sql);
+        PgSqlParser.Result<ParseResult?> parseResult;
+        try {
+            parseResult = Parser.Parse(sql);
+        } catch (Google.Protobuf.InvalidProtocolBufferException) {
+            // pgsqlparser decodes libpg_query's tree with protobuf's default limit of 100
+            // levels, which a chain of about 50 operators (a || b || ...) passes
+            var errList = new[] { new {
+                kind = "unsupported",
+                message = "statement nested too deeply for the parser (a chain of about 50 or more operators, such as a || b || ...)",
+                line = 0, column = 0, offset = 0,
+            }};
+            return JsonSerializer.Serialize(new { errors = errList }, JsonOptions);
+        }
 
         if (!parseResult.IsSuccess || parseResult.Value == null) {
             var err = parseResult.Error;
@@ -79,10 +93,12 @@ public static class PgsqlParser {
     public static string? Canonical(string sql) {
         var parseResult = Parser.Parse(sql);
         if (!parseResult.IsSuccess || parseResult.Value == null) return null;
-        var tree = System.Text.Json.Nodes.JsonNode.Parse(Google.Protobuf.JsonFormatter.Default.Format(parseResult.Value));
+        var tree = System.Text.Json.Nodes.JsonNode.Parse(
+            Google.Protobuf.JsonFormatter.Default.Format(parseResult.Value),
+            documentOptions: new System.Text.Json.JsonDocumentOptions { MaxDepth = 100_000 });
         StripPositions(tree);
         var comments = ExtractComments(sql).Select(c => c.Text.Trim());
-        return JsonSerializer.Serialize(new { tree, comments }, new JsonSerializerOptions { WriteIndented = true });
+        return JsonSerializer.Serialize(new { tree, comments }, new JsonSerializerOptions { WriteIndented = true, MaxDepth = 100_000 });
     }
 
     private static void SortUnordered(System.Text.Json.Nodes.JsonNode? list) {
