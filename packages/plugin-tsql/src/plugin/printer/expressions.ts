@@ -670,7 +670,8 @@ export function printTop(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     if (isPercent) parts.push(' ', keyword('PERCENT', opts));
     if (withTies) parts.push(' ', keyword('WITH TIES', opts));
     if (propBool(node, 'withApproximate')) parts.push(' ', keyword('WITH APPROXIMATE', opts));
-    return parts;
+    // A comment right after TOP (5) attaches to the TOP clause itself
+    return withTrailingComment(node, parts);
 }
 
 function printGroupingSet(kw: string, node: SqlNode, opts: Options, printFn: PrintFn): Doc {

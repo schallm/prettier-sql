@@ -5684,6 +5684,13 @@ from dbo.Employee for system_time all;
 "
 `;
 
+exports[`fixtures > select/top-comment.sql 1`] = `
+"-- A comment right after TOP (n)
+select top (5) a -- first five
+from t;
+"
+`;
+
 exports[`fixtures > select/unary-operators.sql 1`] = `
 "-- Unary operators: a double negation must not become a -- comment
 select
