@@ -133,7 +133,8 @@ function attachSameLineTrailing(
                     }
                 }
             }
-            const c = findTrailingLineComment(stmt, comments, text, used);
+            // In `select 1; select 2 -- x` the comment belongs to the second statement
+            const c = findTrailingLineComment(stmt, comments, text, used, statements);
             if (c) {
                 stmt.trailingComment = c.text;
                 used.add(c);
@@ -348,13 +349,15 @@ function findTrailingLineComment(
     comments: CommentToken[],
     text: string,
     used: Set<CommentToken>,
+    siblings: SqlNode[] = [],
 ): CommentToken | undefined {
     return comments.find(
         (c) =>
             c.type === 'line' &&
             !used.has(c) &&
             c.startOffset >= node.endOffset &&
-            !text.substring(node.endOffset, c.startOffset).includes('\n'),
+            !text.substring(node.endOffset, c.startOffset).includes('\n') &&
+            !siblings.some((s) => s !== node && s.startOffset >= node.endOffset && s.startOffset < c.startOffset),
     );
 }
 
