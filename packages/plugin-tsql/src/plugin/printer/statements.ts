@@ -193,8 +193,10 @@ function endsInPendingLineComment(doc: Doc): boolean {
 
 /**
  * Append a trailing comment to a doc.
- * Line comments (--) stay on the same line via lineSuffix.
- * Block comments go on their own line(s) after the doc.
+ * Line comments (--) stay on the same line via lineSuffix, and so does a single block
+ * comment that was on the statement's line: on a line of its own it would lead the next
+ * statement — or ELSE branch — when formatted again.
+ * Other block comments go on their own line(s) after the doc.
  */
 function appendTrailingComment(doc: Doc, comment: string | undefined): Doc {
     if (!comment) return doc;
@@ -207,6 +209,9 @@ function appendTrailingComment(doc: Doc, comment: string | undefined): Doc {
         const [first, ...rest] = comment.split(/\r?\n/);
         const withFirst: Doc = [doc, lineSuffix([' ', first!])];
         return rest.length > 0 ? appendTrailingLines(withFirst, rest.join('\n')) : withFirst;
+    }
+    if (/^\/\*[^\n]*\*\/$/.test(comment) && comment.indexOf('*/') === comment.length - 2 && !endsInPendingLineComment(doc)) {
+        return [doc, ' ', comment];
     }
     return appendTrailingLines(doc, comment);
 }

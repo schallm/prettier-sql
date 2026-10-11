@@ -4515,8 +4515,7 @@ from
   inner join u -- j
   on t.a = u.a
   -- on
-  left join v on v.a = u.a;
-/* v */
+  left join v on v.a = u.a; /* v */
 "
 `;
 
