@@ -915,7 +915,11 @@ public class AstBuilder {
     }
 
     private SqlNode BuildFuncCall(FuncCall f) {
-        var name = Ident.QualifiedFunc(f.Funcname.Select(n => n.String.Sval));
+        // substring(a, 1, 2) and overlay(a, b, 1) also parse, bare, to a plain call of
+        // that one-part name; any other COL_NAME keyword is quoted as a function name.
+        var name = f.Funcname is [{ String.Sval: "substring" or "overlay" } only]
+            ? only.String.Sval
+            : Ident.QualifiedFunc(f.Funcname.Select(n => n.String.Sval));
         return new SqlNode("FunctionCall", 0, 0, null, BuildProps(
             ("name",     name),
             // Written in SQL-standard syntax (TRIM(LEADING FROM x), EXTRACT(...), ...)
@@ -3601,9 +3605,13 @@ public class AstBuilder {
         var nameParts = s.Defnames.Select(n => n.NodeCase == Node.NodeOneofCase.String
             ? n.String.Sval
             : n.NodeCase.ToString());
-        var name = s.Kind == ObjectType.ObjectOperator
-            ? Ident.QualifiedObj(nameParts)
-            : Ident.QualifiedFunc(nameParts);
+        // An aggregate takes a func_name; a collation, type or text search object takes
+        // an any_name, where `left` must be quoted but `position` needn't be.
+        var name = s.Kind switch {
+            ObjectType.ObjectOperator  => Ident.QualifiedObj(nameParts),
+            ObjectType.ObjectAggregate => Ident.QualifiedFunc(nameParts),
+            _                          => Ident.Qualified(nameParts),
+        };
 
         var defList = s.Definition
             .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)

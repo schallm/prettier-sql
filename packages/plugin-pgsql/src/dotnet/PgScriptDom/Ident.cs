@@ -98,9 +98,15 @@ public static class Ident {
     /// <summary>Quotes each part of a dotted name and joins them: schema.table, t.col, …</summary>
     public static string Qualified(IEnumerable<string> parts) => string.Join(".", parts.Select(Quote));
 
-    /// <summary>Like <see cref="Qualified"/>, with the last part quoted as a function name.</summary>
+    /// <summary>
+    /// Like <see cref="Qualified"/>, with the last part quoted as a function name. An
+    /// unqualified name also quotes COL_NAME keywords: bare, <c>position(a, b)</c> or
+    /// <c>char(a)</c> is the SQL-standard syntax or a syntax error, never a call to a
+    /// function named "position" or "char". After a schema any keyword is a valid name.
+    /// </summary>
     public static string QualifiedFunc(IEnumerable<string> parts) {
         var list = parts.ToList();
+        if (list.Count == 1) return QuoteType(list[0]);
         return string.Join(".", list.Select((p, i) => i == list.Count - 1 ? QuoteFunc(p) : Quote(p)));
     }
 
@@ -119,6 +125,7 @@ public static class Ident {
         return string.Join(".", list.Select((p, i) =>
             i < list.Count - 1 ? Quote(p)
             : IsOperatorSymbol(p) ? p
+            : list.Count == 1 ? QuoteType(p)
             : QuoteFunc(p)));
     }
 }
