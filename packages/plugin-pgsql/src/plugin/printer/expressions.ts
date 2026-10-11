@@ -11,7 +11,8 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'SelectStatement': return printQueryExpr(node, opts);
         case 'SetOpStatement':  return printQueryExpr(node, opts);
         case 'ValuesStatement': return printStatement(node, opts);
-        case 'Literal': return node.text ?? '';
+        // NULL, TRUE and FALSE are keywords, and take the keyword case like IS NULL does
+        case 'Literal': return node.text === 'null' || node.text === 'true' || node.text === 'false' ? keyword(node.text, opts) : node.text ?? '';
         case 'ColumnRef': return propStr(node, 'name') ?? '';
         case 'BinaryExpr': return printBinaryExpr(node, opts, printNode);
         case 'BoolExpr': return printBoolExpr(node, opts, printNode);

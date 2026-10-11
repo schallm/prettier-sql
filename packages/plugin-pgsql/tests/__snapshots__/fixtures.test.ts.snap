@@ -6543,7 +6543,7 @@ exports[`options > sqlKeywordCase: upper 1`] = `
   price
 FROM books
 WHERE
-  in_stock = true
+  in_stock = TRUE
   AND price < 50
 ORDER BY price ASC
 LIMIT 10;
