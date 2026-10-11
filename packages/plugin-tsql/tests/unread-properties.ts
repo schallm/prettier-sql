@@ -31,8 +31,6 @@ export const unused: Record<string, string> = {
     'ColumnMasterKeyStoreProviderNameParameter.ParameterKind': "fixed by the parameter's class, which the builder switches on",
     'EncryptedValueParameter.ParameterKind': "fixed by the parameter's class, which the builder switches on",
     // Kept through source text rather than a property read
-    'SchemaDeclarationItemOpenjson.ColumnDefinition': 'OPENJSON WITH columns are kept as source text (BuildSchemaItem)',
-    'SchemaDeclarationItemOpenjson.Mapping': 'OPENJSON WITH columns are kept as source text (BuildSchemaItem)',
     'TriggerAction.EventTypeGroup': 'a DDL event group is printed from its source text (TriggerActionToSql)',
     'FileStreamDatabaseOption.NonTransactedAccess': 'database options are printed from their source text (DatabaseOptionText)',
     'CryptoMechanism.PasswordOrSignature': 'kept in the source text of the crypto mechanism',

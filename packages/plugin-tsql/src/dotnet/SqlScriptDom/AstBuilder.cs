@@ -3405,6 +3405,18 @@ public class AstBuilder : TSqlFragmentVisitor {
     }
 
     private static SqlNode BuildSchemaItem(SchemaDeclarationItem item) {
+        // name type [COLLATE c] ['path'] [AS JSON]: built from its parts, so the type takes the
+        // keyword case like any other
+        if (item.ColumnDefinition is { ColumnIdentifier: not null, DataType: not null } col)
+            return Node("SchemaItem", item, new Dictionary<string, object?> {
+                ["name"] = QuotedName(col.ColumnIdentifier),
+                ["dataType"] = DataTypeText(col.DataType),
+                ["isUdt"] = UdtFlag(col.DataType),
+                ["collation"] = QuotedName(col.Collation),
+                ["mapping"] = RawTextOrNull(item.Mapping),
+                // SchemaDeclarationItemOpenjson.AsJson is outside the fragment span
+                ["asJson"] = item is SchemaDeclarationItemOpenjson { AsJson: true } ? true : null,
+            });
         var text = RawText(item);
         // SchemaDeclarationItemOpenjson.AsJson is outside the fragment span — append manually
         if (item is SchemaDeclarationItemOpenjson ojItem && ojItem.AsJson)

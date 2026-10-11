@@ -1474,12 +1474,30 @@ function rowsetWithClause(items: SqlNode[], opts: Options): Doc {
         indent([
             hardline,
             join(
-                [',', hardline],
-                items.map((i) => i.text ?? ''),
+                hardline,
+                // Each column with its comma, then the comment written after it on its line
+                items.map((i, n): Doc => appendComments([rowsetWithItem(i, opts), n < items.length - 1 ? ',' : ''], takeTrailingComment(i))),
             ),
         ]),
         hardline,
         ')',
+    ];
+}
+
+/** One column of a rowset function's WITH list: name type [COLLATE c] ['path'] [AS JSON]. */
+function rowsetWithItem(i: SqlNode, opts: Options): Doc {
+    if (!i.props) return i.text ?? '';
+    const dataType = propStr(i, 'dataType') ?? '';
+    const collation = propStr(i, 'collation');
+    const mapping = propStr(i, 'mapping');
+    return [
+        propStr(i, 'name') ?? '',
+        ' ',
+        // The type takes the keyword case like any other; a user-defined one keeps its own
+        propBool(i, 'isUdt') ? dataType : builtinTypeDoc(dataType, opts),
+        collation ? [' ', keyword('COLLATE', opts), ' ', collation] : '',
+        mapping ? [' ', mapping] : '',
+        propBool(i, 'asJson') ? [' ', keyword('AS JSON', opts)] : '',
     ];
 }
 

@@ -5515,7 +5515,7 @@ from
   Orders as o
   cross apply openjson(o.JsonData, '$.items') with (
     OrderId int '$.id',
-    amount decimal(10,2) '$.amount',
+    amount decimal(10, 2) '$.amount',
     notes nvarchar(500) '$.notes'
   ) as j;
 
@@ -5599,6 +5599,20 @@ from openrowset(
   Id int,
   Name nvarchar(100)
 ) as c;
+
+-- OPENJSON WITH columns take the keyword case
+select *
+from openjson(@j) with (
+  A int '$.a',
+  B nvarchar(max) '$.b' as json,
+  C varchar(10) collate Latin1_General_BIN '$.c'
+);
+
+select *
+from openjson(@j) with (
+  a int '$.a', -- the a
+  b nvarchar(max) '$.b' as json -- the b
+) as x;
 "
 `;
 
