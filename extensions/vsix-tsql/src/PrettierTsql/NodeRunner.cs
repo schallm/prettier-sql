@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace PickyCode.PrettierTsql;
@@ -41,16 +42,26 @@ internal static class NodeRunner {
             RedirectStandardError  = true,
             UseShellExecute        = false,
             CreateNoWindow         = true,
+            // node reads and writes UTF-8; the default is the console's code page, which
+            // garbles any character outside it (N'Müller', a comment in Japanese)
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding  = Encoding.UTF8,
         };
 
         using var process = Process.Start(psi)
             ?? throw new FormattingException("Failed to start node process.");
 
-        await process.StandardInput.WriteAsync(sql);
+        // .NET Framework can't set StandardInput's encoding, so write the UTF-8 bytes directly
+        var input = new UTF8Encoding(false).GetBytes(sql);
+        await process.StandardInput.BaseStream.WriteAsync(input, 0, input.Length);
+        await process.StandardInput.BaseStream.FlushAsync();
         process.StandardInput.Close();
 
-        var stdout = await process.StandardOutput.ReadToEndAsync();
-        var stderr = await process.StandardError.ReadToEndAsync();
+        // Read both streams at once: one left unread can fill its pipe and stall node
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
+        var stdout = await stdoutTask;
+        var stderr = await stderrTask;
         await Task.Run(() => process.WaitForExit());
 
         if (process.ExitCode != 0)

@@ -81,6 +81,20 @@ export function registerFormatTests(formatScript) {
         }
     });
 
+    test('keeps CRLF line endings', () => {
+        const result = runFormat(formatScript, 'select id,\r\nname from users\r\n');
+        assert.equal(result.status, 0, result.stderr);
+        assert.match(result.stdout, /\r\n/);
+        assert.doesNotMatch(result.stdout, /[^\r]\n/);
+    });
+
+    test('round-trips non-ASCII text', () => {
+        const result = runFormat(formatScript, "select N'Müller 日本' as x -- ü\n");
+        assert.equal(result.status, 0, result.stderr);
+        assert.match(result.stdout, /Müller 日本/);
+        assert.match(result.stdout, /-- ü/);
+    });
+
     test('invalid options JSON exits with code 2', () => {
         const result = runFormat(formatScript, 'select 1', 'not-valid-json');
         assert.equal(result.status, 2);

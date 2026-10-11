@@ -77,6 +77,8 @@ export async function runFormat({ callerUrl, pluginName, parser }) {
         const result = await prettier.format(input, {
             printWidth: 120,
             tabWidth: 4,
+            // Keep the file's own line endings (CRLF in most Windows projects)
+            endOfLine: 'auto',
             ...configOptions,
             ...userOptions,
             parser,

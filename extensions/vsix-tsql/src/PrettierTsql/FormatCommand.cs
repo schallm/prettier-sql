@@ -68,6 +68,8 @@ internal sealed class FormatCommand {
         }
 
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        // Edited while formatting ran: the result no longer matches the text, so leave it be
+        if (textView.TextBuffer.CurrentSnapshot != snapshot) return;
         using var edit = textView.TextBuffer.CreateEdit();
         edit.Replace(new Span(0, snapshot.Length), formatted);
         edit.Apply();
