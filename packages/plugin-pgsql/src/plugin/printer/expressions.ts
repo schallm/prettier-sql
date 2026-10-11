@@ -1153,9 +1153,10 @@ function printSubscript(node: SqlNode, _opts: Options, printNode: PrintFn): Doc 
     const subscripts = propArr(node, 'subscripts');
     // Only a plain column or parameter can take a subscript directly: `f(x)[1]`
     // is a syntax error, and `(t.col).field` must not print as `t.col.field`,
-    // which names a different column.
+    // which names a different column. A subscripted arg keeps its parentheses too:
+    // `(a[1])[2]` takes one subscript of a 2-D array (NULL), `a[1][2]` takes an element.
     const bare = (arg?.type === 'ColumnRef' || arg?.type === 'ParamRef') && subscripts[0]?.type !== 'FieldAccess';
-    const base: Doc = !arg ? '' : bare || arg.type === 'Subscript' ? printNode(arg) : ['(', printNode(arg), ')'];
+    const base: Doc = !arg ? '' : bare ? printNode(arg) : ['(', printNode(arg), ')'];
     return [base, ...printIndirection(subscripts, printNode)];
 }
 
