@@ -53,13 +53,19 @@ function resolveDialect(document: vscode.TextDocument): 'tsql' | 'pgsql' {
     return cfg.get<string>('defaultDialect') === 'pgsql' ? 'pgsql' : 'tsql';
 }
 
+/**
+ * The extension's settings, passed as defaults: a project's .prettierrc wins over them, as
+ * the README promises (as explicit options they would override it, even unset ones).
+ */
 function getOpts(document: vscode.TextDocument): Record<string, unknown> {
     const cfg = vscode.workspace.getConfiguration('prettierSql', document.uri);
     return {
-        sqlKeywordCase: cfg.get<string>('sqlKeywordCase'),
-        sqlDensity: cfg.get<string>('sqlDensity'),
-        sqlCommaStyle: cfg.get<string>('sqlCommaStyle'),
-        printWidth: cfg.get<number>('printWidth'),
+        defaults: {
+            sqlKeywordCase: cfg.get<string>('sqlKeywordCase'),
+            sqlDensity: cfg.get<string>('sqlDensity'),
+            sqlCommaStyle: cfg.get<string>('sqlCommaStyle'),
+            printWidth: cfg.get<number>('printWidth'),
+        },
     };
 }
 
@@ -168,8 +174,9 @@ function changedRegionEdit(document: vscode.TextDocument, before: string, after:
 function checkDotnetRuntime(): void {
     try {
         const output = execSync('dotnet --list-runtimes', { encoding: 'utf-8', timeout: 5000 });
-        const match = /Microsoft\.NETCore\.App (\d+)\./.exec(output);
-        const hasNet8Plus = match !== null && parseInt(match[1]!, 10) >= 8;
+        // Every installed runtime is listed, oldest first: any 8 or later will do
+        const majors = [...output.matchAll(/Microsoft\.NETCore\.App (\d+)\./g)].map((m) => parseInt(m[1]!, 10));
+        const hasNet8Plus = majors.some((major) => major >= 8);
         if (!hasNet8Plus) {
             promptDotnetDownload();
         }

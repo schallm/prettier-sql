@@ -2,7 +2,9 @@
  * Formatting shim invoked by VS extensions.
  *
  * Reads SQL from stdin, formats it with the configured plugin, writes result to stdout.
- * argv[2] — optional JSON string of Prettier option overrides
+ * argv[2] — optional JSON string of Prettier option overrides; its `defaults` entry holds
+ *           options that only apply where the project's .prettierrc doesn't set them (an
+ *           editor's own settings), and rangeStart / rangeEnd format just those statements
  * argv[3] — optional file path used to resolve the nearest .prettierrc / prettier.config.*
  *
  * Exit codes:
@@ -70,15 +72,17 @@ export async function runFormat({ callerUrl, pluginName, parser }) {
         process.exit(2);
     }
 
-    // Format — merge order: extension defaults < .prettierrc < explicit options arg. The
+    // Format — merge order: extension defaults < editor settings (`defaults`) < .prettierrc <
+    // explicit options arg. The
     // bundled plugin and its parser always win: a project's .prettierrc usually lists the
     // plugin by name (as its README says to), which would resolve from the wrong place.
-    const { rangeStart, rangeEnd, ...explicitOptions } = userOptions;
+    const { rangeStart, rangeEnd, defaults = {}, ...explicitOptions } = userOptions;
     const options = {
         printWidth: 120,
         tabWidth: 4,
         // Keep the file's own line endings (CRLF in most Windows projects)
         endOfLine: 'auto',
+        ...defaults,
         ...configOptions,
         ...explicitOptions,
         parser,

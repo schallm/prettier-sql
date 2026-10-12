@@ -147,6 +147,20 @@ export function registerFormatTests(formatScript) {
         });
     }
 
+    test('editor settings passed as defaults yield to .prettierrc', () => {
+        const tmpDir = mkdtempSync(join(tmpdir(), 'prettier-sql-test-'));
+        try {
+            writeFileSync(join(tmpDir, '.prettierrc'), JSON.stringify({ sqlKeywordCase: 'upper' }));
+            const opts = JSON.stringify({ defaults: { sqlKeywordCase: 'lower', sqlDensity: 'compact' } });
+            const result = runFormat(formatScript, 'select id, name from users where id = 1', opts, join(tmpDir, 'query.sql'));
+            assert.equal(result.status, 0, result.stderr);
+            assert.match(result.stdout, /SELECT/); // from .prettierrc
+            assert.match(result.stdout, /SELECT id, name/); // compact, from the defaults
+        } finally {
+            rmSync(tmpDir, { recursive: true });
+        }
+    });
+
     test('invalid options JSON exits with code 2', () => {
         const result = runFormat(formatScript, 'select 1', 'not-valid-json');
         assert.equal(result.status, 2);
