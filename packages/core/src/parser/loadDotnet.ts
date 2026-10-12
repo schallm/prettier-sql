@@ -1,4 +1,5 @@
 import { createRequire } from 'module';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -15,6 +16,7 @@ export interface DotnetHandle {
  * @param pluginName  — plugin package name used in error messages, e.g. 'prettier-plugin-tsql'
  */
 export function loadDotnetDll(callerUrl: string, dllName: string, pluginName: string): DotnetHandle {
+    ensureDotnetRoot();
     const require = createRequire(callerUrl);
     const dotnet = require('node-api-dotnet') as DotnetHandle;
 
@@ -34,4 +36,29 @@ export function loadDotnetDll(callerUrl: string, dllName: string, pluginName: st
         );
     }
     return dotnet;
+}
+
+/**
+ * node-api-dotnet finds .NET through DOTNET_ROOT or the installer's default location
+ * (/usr/local/share/dotnet, C:\Program Files\dotnet, ...), so a .NET installed elsewhere —
+ * Homebrew, mise, asdf, a snap — wasn't found though `dotnet` runs fine. Without DOTNET_ROOT,
+ * use the folder of the `dotnet` on PATH (following symlinks), when it holds a .NET host.
+ */
+function ensureDotnetRoot(): void {
+    if (process.env['DOTNET_ROOT']) return;
+    const exe = process.platform === 'win32' ? 'dotnet.exe' : 'dotnet';
+    for (const dir of (process.env['PATH'] ?? '').split(path.delimiter)) {
+        if (!dir) continue;
+        let real: string;
+        try {
+            real = fs.realpathSync(path.join(dir, exe));
+        } catch {
+            continue;
+        }
+        const root = path.dirname(real);
+        if (fs.existsSync(path.join(root, 'host', 'fxr'))) {
+            process.env['DOTNET_ROOT'] = root;
+            return;
+        }
+    }
 }
