@@ -73,58 +73,74 @@ All options are available in **Settings** → search "Prettier SQL".
 
 ```sql
 -- lower (default)
-select id, title from books where in_stock = 1;
+select
+    id,
+    title
+from books
+where in_stock = 1;
 
 -- upper
-SELECT id, title FROM books WHERE in_stock = 1;
+SELECT
+    id,
+    title
+FROM books
+WHERE in_stock = 1;
 ```
+
+`preserve` uses whichever of the two the file's keywords mostly use.
 
 ### `sqlDensity`
 
 ```sql
--- standard (default): one clause per line, short predicates stay inline
+-- standard (default): one clause per line, a single short predicate stays inline
 select
-  id,
-  title,
-  price
+    id,
+    title,
+    price
 from books
 where in_stock = 1
 order by title;
 
--- compact: fits more on each line, wraps at printWidth
-select id, title, price
+-- compact: as much on each line as printWidth allows
+select id, title, price, author_id, published_on, page_count
 from books
-where in_stock = 1
+where in_stock = 1 and price < 20
 order by title;
 
--- spacious: every predicate on its own indented line
+-- spacious: every clause's contents on indented lines of their own
 select
-  id,
-  title,
-  price
-from books
+    id,
+    title,
+    price
+from
+    books
 where
-  in_stock = 1
-order by title;
+    in_stock = 1
+order by
+    title;
 ```
 
 ### `sqlCommaStyle`
 
+Applies to the lists of a query or DML statement (`SELECT`, `GROUP BY`, `ORDER BY`, `INSERT`, `SET`) once they break over lines.
+
 ```sql
 -- trailing (default)
 select
-  id,
-  title,
-  price
+    id,
+    title,
+    price
 from books;
 
 -- leading
 select
-  id
-  , title
-  , price
+    id
+    , title
+    , price
 from books;
 ```
+
+The examples use the extension's defaults: a print width of 120 and an indent of 4 spaces (`tabWidth`, which a `.prettierrc` can change).
 
 ## Prettier config file support
 
