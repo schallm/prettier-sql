@@ -17,7 +17,7 @@ import {
     optionItems,
 } from '@prettier-sql/core/printer/utils';
 import { valuesRow, valuesDoc, setClauseDoc, joinStatements, withClauseDoc, joinOnDoc, mergeActionDoc, mergeInsertDoc } from '@prettier-sql/core/printer/layout';
-import { prop, propArr, propStr, propBool, assignmentOp, takeTrailingComment, unprintedComments, withTrailingComment, takeLeadingComments, appendComments } from './helpers.js';
+import { prop, propArr, propStr, propBool, assignmentOp, takeTrailingComment, unprintedComments, withTrailingComment, takeLeadingComments, appendComments, unprintable } from './helpers.js';
 import {
     printExpression,
     printBoolExpr,
@@ -736,7 +736,7 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
             // Raw-text fallback for statement types not yet explicitly handled.
             // ScriptDOM includes the trailing ';' terminator in the fragment when the
             // source already has one; strip it so we can add exactly one semicolon.
-            const raw = node.text ?? `/* unhandled statement: ${node.type} */`;
+            const raw = node.text ?? unprintable(node);
             const clean = raw.replace(/;\s*$/, '');
             return [clean, ';'];
         }
@@ -1147,7 +1147,7 @@ function printMergeAction(node: SqlNode, opts: Options): Doc {
         case 'MergeDeleteAction':
             return keyword('DELETE', opts);
         default:
-            return node.text ?? `/* ${node.type} */`;
+            return node.text ?? unprintable(node);
     }
 }
 

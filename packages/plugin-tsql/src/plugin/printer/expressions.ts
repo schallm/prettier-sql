@@ -22,8 +22,7 @@ import {
 import { caseDoc, betweenDoc, operatorChain, setOpDoc, boolGroup, boolLines, boolClauseDoc, joinOnDoc, parenGroup, selectListDoc, fromClauseDoc, listClauseDoc, clauseItems, windowSpecDoc, windowClauseDoc, subqueryDoc, valuesRow, valuesDoc, type BoolTerm, type CaseResult, type CaseWhen } from '@prettier-sql/core/printer/layout';
 import {
     prop, propArr, propStr, propStrArr, propBool, schemaObjectName, builtinTypeDoc, assignmentOp, splitTopLevel, sortOrderDoc,
-    claimTrailingComment, isCommentClaimed, takeTrailingComment, withTrailingComment, appendComments,
-} from './helpers.js';
+    claimTrailingComment, isCommentClaimed, takeTrailingComment, withTrailingComment, appendComments, unprintable } from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // Module-level lookup tables (created once, not per call)
@@ -191,7 +190,7 @@ function printExpressionInner(node: SqlNode, opts: Options, printFn: PrintFn): D
         case 'QueryParenthesis':
             return printQueryExpression(node, opts, printFn);
         default:
-            return node.text ?? `/* ${node.type} */`;
+            return node.text ?? unprintable(node);
     }
 }
 
@@ -597,7 +596,7 @@ function printQueryExpressionInner(node: SqlNode, opts: Options, printFn: PrintF
             return group(['(', indent([sep, inner]), sep, ')', tableAliasDoc(node, opts)]);
         }
         default:
-            return node.text ?? `/* ${node.type} */`;
+            return node.text ?? unprintable(node);
     }
 }
 
@@ -859,7 +858,7 @@ function printBoolExprInner(node: SqlNode, opts: Options, printFn: PrintFn, grou
         case 'GraphMatchPredicate':
             return [keyword('MATCH', opts), '(', propStr(node, 'pattern') ?? '', ')'];
         default:
-            return node.text ?? `/* ${node.type} */`;
+            return node.text ?? unprintable(node);
     }
 }
 
@@ -1137,7 +1136,7 @@ function printTableRefInner(node: SqlNode, opts: Options, printFn: PrintFn): Doc
         case 'NamedTableReference':
             return printNamedTableRef(node, opts, printFn);
         case 'VariableTableReference': {
-            const varName = propStr(node, 'name') ?? node.text ?? '/* unknown table var */';
+            const varName = propStr(node, 'name') ?? node.text ?? unprintable(node);
             const varAlias = propStr(node, 'alias');
             return varAlias ? [varName, aliasDoc(varAlias, opts)] : varName;
         }
@@ -1172,7 +1171,7 @@ function printTableRefInner(node: SqlNode, opts: Options, printFn: PrintFn): Doc
         case 'InlineDerivedTable':
             return printInlineDerivedTable(node, opts, printFn);
         default:
-            return node.text ?? `/* ${node.type} */`;
+            return node.text ?? unprintable(node);
     }
 }
 
@@ -1707,7 +1706,7 @@ function printTemporalClause(node: SqlNode, opts: Options, printFn: PrintFn): Do
         case 'TemporalAll':
             return [...prefix, ' ', keyword('ALL', opts)];
         default:
-            return '';
+            throw new Error(`prettier-plugin-tsql: no printer for FOR SYSTEM_TIME ${clauseType}`);
     }
 }
 

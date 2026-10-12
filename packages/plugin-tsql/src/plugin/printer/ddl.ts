@@ -17,7 +17,7 @@ import {
     willBreak,
 } from '@prettier-sql/core/printer/utils';
 import { createIndexDoc, alterTableDoc, constraintDoc, checkDoc, optionLinesDoc, asQueryDoc, dropDoc } from '@prettier-sql/core/printer/layout';
-import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment, splitTopLevel, sortOrderDoc, appendComments, takeTrailingComment, takeLeadingComments } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment, splitTopLevel, sortOrderDoc, appendComments, takeTrailingComment, takeLeadingComments, unprintable } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
 import { joinBodyStatements, printSelectBody, printNode, printBool, printBoolClause, qexpr, printCtes, printStatement, xmlNamespaceDocs } from './statements.js';
@@ -495,7 +495,7 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
             ], opts);
         }
         default:
-            return node.text ?? `/* constraint: ${node.type} */`;
+            return node.text ?? unprintable(node);
     }
 }
 

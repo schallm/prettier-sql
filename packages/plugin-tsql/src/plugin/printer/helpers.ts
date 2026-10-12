@@ -186,3 +186,8 @@ export function splitTopLevel(text: string): string[] {
     out.push(text.slice(start).trim());
     return out.filter((s) => s !== '');
 }
+
+/** A node with no printer and no source text: fail loudly rather than print a placeholder in the user's SQL. */
+export function unprintable(node: SqlNode): never {
+    throw new Error(`prettier-plugin-tsql: no printer for ${node.type}`);
+}
