@@ -1,5 +1,29 @@
 # prettier-plugin-postgresql
 
+## 0.4.1
+
+### Patch Changes
+
+- 7a6cc3c: Fix the `sqlCommaStyle` help text, which said leading commas weren't implemented; it now says which lists the option applies to.
+- a15f650: Find a .NET installed outside the default location (Homebrew, mise, asdf, a snap) through the `dotnet` on `PATH`; the plugins failed with ".NET installation not found" unless `DOTNET_ROOT` was set.
+- bcc834a: Report statement positions (`locStart` / `locEnd`) in characters, as Prettier counts them, not in UTF-8 bytes, and start each statement at its first token rather than just after the previous semicolon.
+- eb26e39: Format statements with a chain of more than about 30 operators (`a || b || ...`), which failed with "A possible object cycle was detected", and give a clear error for the chains of about 50 or more that the parser itself can't read.
+- 3ad2f76: Dollar-quote a function or `DO` body that ends in `$` with a tag, so it no longer runs into the closing `$$`.
+- b081afd: Keep the quotes on a function named like a keyword (`"position"(a, b)`, `"char"(a)`), and on a collation or text search object named `"left"` and the like; bare, these are different syntax or a syntax error.
+- 217ab9c: Keep the quotes on configuration parameter names in `SET`, `RESET` and `SHOW` (`set "left" = 1`), and on function parameter and named argument names such as `"position"`.
+- a93cd16: Load libpg_query for the platform the plugin runs on. The published package only worked on Linux: on macOS and Windows every format failed with "Unable to load shared library 'libpg_query'".
+- 757d2c1: Keep the parentheses of a subscripted expression that is subscripted again: `(a[1])[2]` no longer prints as `a[1][2]`, which takes a different element.
+- f1d63d1: Apply `sqlKeywordCase` to the constants `NULL`, `TRUE` and `FALSE`, as the T-SQL plugin does; they always printed in lower case.
+- 26a8442: Keep the schema of `CREATE COLLATION ... FROM s.c`, the `USING method` of `ALTER OPERATOR CLASS / FAMILY ... OWNER TO / SET SCHEMA`, and the quotes on a `SECURITY LABEL FOR` provider.
+- 72321f9: Keep the parentheses that change meaning in `(a AT TIME ZONE b) COLLATE c`, `(@ a) + c` and other prefix operators, a `BETWEEN` bound or column `DEFAULT` holding `AND`, `LIKE`, `AT TIME ZONE`, `COLLATE` and the like, and a nested `a AND (b AND c)`.
+- cf1ba44: Keep `OPERATOR()` around a schema-qualified `ORDER BY ... USING` operator, the schema and quotes of a `TABLESAMPLE` method, and the quotes on `DO LANGUAGE`, `ALTER SYSTEM` parameter names and storage and FDW option names.
+- 7945aa0: Keep NOTIFY actions of `CREATE RULE`; a rule with several actions lost every NOTIFY.
+- 0e3d041: Format `ALTER SEQUENCE s LOGGED` / `UNLOGGED`, which failed with "Unsupported sequence option".
+- 0982ed1: Keep `DEFAULT` in `ALTER TABLE ... SET ACCESS METHOD DEFAULT`.
+- 78f6104: Fix statements kept as their source text (such as `ALTER ROLE ... SET` and `ALTER DEFAULT PRIVILEGES`): after non-ASCII text earlier in the file they were replaced by a `/* unknown statement */` placeholder or cut at the wrong place, the comments around them were printed twice, and a line comment at the end swallowed the semicolon.
+- 1bf65f7: Keep a comment written on the line a statement ends on (`insert ...; -- seed data`) after that statement; it moved above the next one.
+- 94673e9: `sqlKeywordCase: preserve` no longer counts the keywords of a dollar-quoted function body, which is kept as written: an upper-case PL/pgSQL body turned a lower-case script upper case.
+
 ## 0.4.0
 
 ### Minor Changes
