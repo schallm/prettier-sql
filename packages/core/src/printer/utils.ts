@@ -40,7 +40,9 @@ let styleCache: { text: string; style: 'upper' | 'lower' } | undefined;
  */
 function keywordStyleOf(text: string): 'upper' | 'lower' {
     if (styleCache?.text === text) return styleCache.style;
-    const code = text.replace(/--[^\n]*|\/\*[\s\S]*?\*\/|'(?:[^']|'')*'|"(?:[^"]|"")*"|\[[^\]]*\]/g, ' ');
+    // Comments, strings, quoted names and PostgreSQL dollar-quoted bodies (a PL/pgSQL body,
+    // kept as written, is often in the other case) don't count
+    const code = text.replace(/--[^\n]*|\/\*[\s\S]*?\*\/|'(?:[^']|'')*'|"(?:[^"]|"")*"|\[[^\]]*\]|\$([A-Za-z_]\w*)?\$[\s\S]*?\$\1\$/g, ' ');
     let upper = 0;
     let lower = 0;
     for (const word of code.match(/\b[A-Za-z_]+\b/g) ?? []) {

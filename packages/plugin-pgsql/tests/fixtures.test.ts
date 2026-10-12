@@ -34,6 +34,13 @@ describe('options', () => {
         expect(out).toContain("select id\nfrom books\nwhere title = 'SELECT FROM WHERE'");
     });
 
+    it('sqlKeywordCase: preserve ignores a dollar-quoted body', async () => {
+        const sql = 'create table t (a int);\ncreate function f() returns int language plpgsql as $$ BEGIN RETURN 1; END IF; END LOOP; END $$;\nselect a from t;';
+        const out = await fmt(sql, { sqlKeywordCase: 'preserve' });
+        expect(out).toContain('create table t');
+        expect(out).toContain('$$ BEGIN RETURN 1;');
+    });
+
     it('sqlKeywordCase: upper', async () => {
         expect(await fmt(OPTION_SQL, { sqlKeywordCase: 'upper' })).toMatchSnapshot();
     });
