@@ -166,7 +166,9 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'CreateTableSpaceStatement':      return printCreateTableSpace(node, opts);
         case 'DropTableSpaceStatement':        return printDropTableSpace(node, opts);
         // Passthrough: AstBuilder extracted the original SQL text verbatim so it is not lost.
-        case 'UnknownStatement': return [node.text ?? `/* unknown statement: ${node.type} */`, ';'];
+        case 'UnknownStatement':
+            if (node.text == null) throw new Error('prettier-plugin-postgresql: a statement kept as written has no text');
+            return [node.text, ';'];
         default: return [node.text ?? `/* unknown: ${node.type} */`, ';'];
     }
 }

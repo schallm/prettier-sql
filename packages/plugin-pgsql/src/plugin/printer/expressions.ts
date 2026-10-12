@@ -96,7 +96,11 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
         case 'JsonSerializeExpr':     return printJsonUnaryCall('json_serialize', node, opts, printNode);
         case 'JsonParseExpr':         return printJsonUnaryCall('json', node, opts, printNode);
         case 'JsonArrayQueryConstructor': return printJsonArrayQuery(node, opts, printNode);
-        default: return node.text ?? `/* unknown: ${node.type} */`;
+        // A node the printer has no case for: fail loudly rather than print a placeholder
+        // in the user's SQL
+        default:
+            if (node.text != null) return node.text;
+            throw new Error(`prettier-plugin-postgresql: no printer for ${node.type}`);
     }
 }
 
