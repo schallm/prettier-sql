@@ -9,6 +9,9 @@ namespace PrettierPgsql;
 // name, so two loaded plugins that both define SqlParser (in different namespaces)
 // collide, and whichever loads second can't find its parser.
 public static class PgsqlParser {
+    // Before any call into pgsqlparser: find libpg_query for this platform
+    static PgsqlParser() => NativeLibraries.Register();
+
     private static readonly JsonSerializerOptions JsonOptions = new() {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,

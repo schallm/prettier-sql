@@ -82,11 +82,15 @@ Oneof cases: `Ival`, `Fval`, `Boolval`, `Sval`, `Bsval`.
 ### Native library
 
 `pgsqlparser` ships `libpg_query` as a platform native library under
-`runtimes/<rid>/native/`. The build script runs `scripts/copy-native.mjs` after
-`dotnet msbuild ... /t:Publish` to copy the correct platform library flat into
-`bin/dotnet/` so .NET's `DllImport` probing finds it.
+`runtimes/<rid>/native/`, and the publish copies all of them into `bin/dotnet/runtimes/`.
+An assembly node-api-dotnet loads gets no deps.json native probing, so `NativeLibraries.cs`
+registers a `DllImport` resolver (from `PgsqlParser`'s static constructor) that loads the
+current platform's build from there. The package is built on Linux in CI and used
+everywhere, so don't rely on anything platform-specific the build machine adds.
+`scripts/copy-native.mjs` also copies the build machine's library flat into `bin/dotnet/`
+(the resolver's fallback); `tests/native.test.ts` checks every platform's build ships.
 
-If you add a new platform RID, update `scripts/copy-native.mjs`.
+If you add a new platform RID, update `NativeLibraries.cs` and `tests/native.test.ts`.
 
 ## TypeScript project — `src/plugin/`
 

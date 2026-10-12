@@ -1,5 +1,6 @@
-// Copies the platform-specific libpg_query native library into bin/dotnet/
-// so .NET can resolve it via standard DllImport probing (same directory as PgScriptDom.dll).
+// Copies this platform's libpg_query native library into bin/dotnet/, beside PgScriptDom.dll.
+// Only a convenience for local runs: the package is built on one platform and used on all,
+// so NativeLibraries.cs loads the right build from bin/dotnet/runtimes/<rid>/native/.
 import { copyFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
