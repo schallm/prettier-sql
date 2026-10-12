@@ -1726,8 +1726,10 @@ drop synonym if exists dbo.MyAlias;
 
 ```sql
 create schema sales;
+go
 
 create schema sales authorization dbo;
+go
 ```
 
 `ALTER SCHEMA … TRANSFER` moves an object from one schema to another. A securable-type qualifier is emitted only when explicitly required:
@@ -2340,7 +2342,7 @@ from windows;
 
 create login WindowsUser
 from windows
-with default_domain = CORP;
+with default_database = master, default_language = us_english;
 ```
 
 #### ALTER LOGIN
@@ -2360,9 +2362,7 @@ alter login AppLogin
 with password = 'NewP@ss';
 
 alter login AppLogin
-with
-  password = 'NewP@ss',
-  old_password = 'OldP@ss';
+with password = 'NewP@ss' old_password = 'OldP@ss';
 ```
 
 #### DROP LOGIN
@@ -2859,14 +2859,25 @@ value from the fragment span (known ScriptDom quirk, fixed by token-stream scann
 
 ```sql
 alter database AdventureWorks add filegroup FG2;
+
 alter database AdventureWorks add filegroup FG2 contains memory_optimized_data;
+
 alter database AdventureWorks remove filegroup FG2;
+
 alter database AdventureWorks remove file AW_Data2;
+
 alter database AdventureWorks modify filegroup FG2 readonly;
+
 alter database AdventureWorks modify filegroup FG2 default;
-alter database AdventureWorks modify file (name = AW_Data, size = 100mb);
-alter database AdventureWorks add file (...);
-alter database AdventureWorks rebuild log on (...);
+
+alter database AdventureWorks
+modify file (name = AW_Data, size = 100mb);
+
+alter database AdventureWorks
+add file (name = AW_Data2, filename = 'C:\Data\AW_Data2.ndf', size = 10mb) to filegroup FG2;
+
+alter database AdventureWorks
+add log file (name = AW_Log2, filename = 'C:\Data\AW_Log2.ldf');
 ```
 
 File spec parenthesised content is emitted as raw text.

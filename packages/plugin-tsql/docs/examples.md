@@ -364,8 +364,7 @@ referential action, and check constraint:
 
 ```diff
 - CREATE VIEW dbo.BookSummary AS SELECT Books.Id, Books.Title, Books.Price, Genres.Name AS Genre FROM Books INNER JOIN Genres ON Books.GenreId = Genres.Id WHERE Books.InStock = 1
-+ create view dbo.BookSummary
-+ as
++ create view dbo.BookSummary as
 + select
 +   Books.Id,
 +   Books.Title,
