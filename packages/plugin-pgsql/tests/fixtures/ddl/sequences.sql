@@ -14,3 +14,6 @@ restart with 1
 increment by 5;
 
 alter sequence if exists order_seq restart with 1000;
+
+-- LOGGED / UNLOGGED written as a sequence option
+alter sequence s unlogged;

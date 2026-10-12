@@ -2444,6 +2444,9 @@ public class AstBuilder {
                 "maxvalue"  => value != null ? $"MAXVALUE {value}" : "NO MAXVALUE",
                 "cache"     => $"CACHE {value ?? "1"}",
                 "cycle"     => GetBoolFromArg(defElem.Arg) ? "CYCLE" : "NO CYCLE",
+                // ALTER SEQUENCE s LOGGED / UNLOGGED (written without SET)
+                "logged"    => "LOGGED",
+                "unlogged"  => "UNLOGGED",
                 "as" when defElem.Arg?.NodeCase == Node.NodeOneofCase.TypeName
                             => $"AS {BuildPgTypeName(defElem.Arg.TypeName)}",
                 "owned_by" when defElem.Arg?.NodeCase == Node.NodeOneofCase.List
