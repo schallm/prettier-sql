@@ -3,7 +3,7 @@
     "name": "prettier-sql",
     "displayName": "Prettier SQL",
     "description": "Format T-SQL and PostgreSQL files using Prettier. Powered by prettier-plugin-tsql and prettier-plugin-postgresql.",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "publisher": "PickyCode",
     "private": true,
     "license": "MIT",

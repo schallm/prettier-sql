@@ -1,5 +1,28 @@
 # prettier-plugin-tsql
 
+## 0.10.1
+
+### Patch Changes
+
+- 7a6cc3c: Fix the `sqlCommaStyle` help text, which said leading commas weren't implemented; it now says which lists the option applies to.
+- a15f650: Find a .NET installed outside the default location (Homebrew, mise, asdf, a snap) through the `dotnet` on `PATH`; the plugins failed with ".NET installation not found" unless `DOTNET_ROOT` was set.
+- 3a2f48a: Keep a comment after the table name of `CREATE TABLE t -- note` at the top of the statement; it moved after the closing parenthesis.
+- df59f1a: Keep a comment inside a statement of an `ELSE` branch (`else select /* c */ 2`) in that branch; it moved to the statement before `ELSE`.
+- e6b510a: Keep doubled quotes and the `N` prefix in `USE HINT (...)` and in `FOR XML` / `FOR JSON` options such as `PATH('it''s')`.
+- 64a4bd2: Keep the case of a user-defined type in `CREATE SEQUENCE ... AS` and of the group name in `ALTER DATABASE ... SET HADR AVAILABILITY GROUP = name`; both were keyword-cased.
+- 27b6893: Apply `sqlKeywordCase` to index options in `WITH (...)` (`PAD_INDEX = OFF`, `FILLFACTOR = 80`) of `CREATE INDEX`, `ALTER INDEX` and key constraints; they kept the input's case.
+- 3e70885: Keep a `/* comment */` on the line of the statement it follows. Inside `IF`, `WHILE` or a `BEGIN ... END` block it moved to a line of its own, and the next format moved it again, into the next statement or the `ELSE` branch.
+- abf68c4: Format `INSERT INTO t -- note` followed by its column list the same way every time; the second format moved the comment into the list and broke it over several lines.
+- 2dcdc45: Format the `EXECUTE` of `INSERT ... EXECUTE` like any other `EXECUTE`; it was kept as written, ignoring `sqlKeywordCase`.
+- c511f05: Format the columns of `OPENJSON ... WITH (...)` and `OPENXML ... WITH (...)`: their types and `AS JSON` take the keyword case, and a comment after a column stays with it instead of moving after the statement.
+- 433d057: Keep comments on procedure and function parameters (`@a int = 1, -- the a`) with their parameter; they all moved above the parameter list.
+- 1652d4c: Keep the brackets on a function or method named `[key]` and on a `$PARTITION` function name, and escape a `]` in a `PIVOT ... IN` column name.
+- 9afe508: Keep a line comment after the second of two statements on one line (`select 1; select 2 -- note`) with that statement; it moved to the first.
+- 03cd65e: Keep `ALTER DATABASE SCOPED CONFIGURATION SET` options that ScriptDom doesn't know, such as `OPTIMIZED_PLAN_FORCING = ON`, which printed as `SET ALTER`; and print `SET @s ||= ...` instead of `SET @s ConcatEquals ...`.
+- 08664f6: Keep a comment written right after `TOP (n)` there, instead of moving it after the statement.
+- 487aa3f: Keep the space in the `KEEP UNION`, `ROBUST PLAN`, `ALTERCOLUMN PLAN`, `SHRINKDB PLAN` and `CHECKCONSTRAINTS PLAN` query hints, and the underscores in `CARDINALITY_TUNER_LIMIT`.
+- 9864750: Keep the space in `APPLICATION ROLE::` and `EXTERNAL MODEL::` securables and in `ALTER LOGIN ... WITH NO CREDENTIAL`.
+
 ## 0.10.0
 
 ### Minor Changes
