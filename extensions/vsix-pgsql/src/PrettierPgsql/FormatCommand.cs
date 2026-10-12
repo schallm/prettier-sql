@@ -106,7 +106,7 @@ internal sealed class FormatCommand {
             frame.GetProperty((int)__VSFPROPID.VSFPROPID_pszMkDocument, out var docPath);
             if (docPath is string path &&
                 (path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase) ||
-                 path.EndsWith(".tsql", StringComparison.OrdinalIgnoreCase)))
+                 path.EndsWith(".pgsql", StringComparison.OrdinalIgnoreCase)))
                 return path;
         }
         return null;
@@ -117,7 +117,7 @@ internal sealed class FormatCommand {
         VsShellUtilities.ShowMessageBox(
             _package,
             message,
-            "Prettier T-SQL",
+            "Prettier PostgreSQL",
             OLEMSGICON.OLEMSGICON_WARNING,
             OLEMSGBUTTON.OLEMSGBUTTON_OK,
             OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);

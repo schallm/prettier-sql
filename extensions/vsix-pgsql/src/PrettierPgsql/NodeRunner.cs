@@ -11,12 +11,12 @@ namespace PickyCode.PrettierPgsql;
 /// <summary>
 /// Finds a Node.js executable and runs the bundled format.mjs shim.
 /// Node.js must be available — either on the system PATH or via Visual Studio's
-/// own bundled runtime. Prettier and prettier-plugin-tsql are bundled inside the
+/// own bundled runtime. Prettier and prettier-plugin-postgresql are bundled inside the
 /// extension so no npm install or project setup is needed by the user.
 /// </summary>
 internal static class NodeRunner {
     /// <summary>
-    /// Formats the given SQL using the bundled prettier-plugin-tsql.
+    /// Formats the given SQL using the bundled prettier-plugin-postgresql.
     /// </summary>
     /// <param name="sql">Raw SQL text.</param>
     /// <param name="optionsJson">Optional JSON string of Prettier options to override defaults.</param>
