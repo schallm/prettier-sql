@@ -28,6 +28,9 @@
         "sqlserver"
     ],
     "main": "./dist/extension.js",
+    "activationEvents": [
+        "onLanguage:sql"
+    ],
     "contributes": {
         "languages": [
             {
