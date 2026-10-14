@@ -211,6 +211,9 @@ public static class TsqlParser {
                     if (PositionProperties.Contains(prop.Name) || prop.GetIndexParameters().Length > 0) continue;
                     // [name] and name are the same identifier
                     if (fragment is Identifier && prop.Name == "QuoteType") continue;
+                    // A bare GO at the end only ends the last batch, as the end of the script does;
+                    // GO n repeat counts are compared separately (goCounts)
+                    if (fragment is TSqlScript && prop.Name == nameof(TSqlScript.TrailingGoCount)) continue;
                     var propValue = prop.GetValue(fragment);
                     // A procedure or trigger body is its statement list: AS BEGIN ... END and
                     // AS ... are the same body, and the printer adds the BEGIN/END

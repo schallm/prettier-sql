@@ -1472,8 +1472,16 @@ public class AstBuilder : TSqlFragmentVisitor {
             OptimizerHintKind.ShrinkDBPlan => "SHRINKDB PLAN",
             OptimizerHintKind.CheckConstraintsPlan => "CHECKCONSTRAINTS PLAN",
             OptimizerHintKind.CardinalityTunerLimit => "CARDINALITY_TUNER_LIMIT",
-            // FAST, MAXRECURSION, QUERYTRACEON: the kind's name is its one keyword
-            _ => hint.HintKind.ToString().ToUpper(),
+            OptimizerHintKind.ForceSingleNodePlan => "FORCE SINGLE NODE PLAN",
+            OptimizerHintKind.ForceDistributedPlan => "FORCE DISTRIBUTED PLAN",
+            OptimizerHintKind.ForTimestampAsOf => "FOR TIMESTAMP AS OF",
+            OptimizerHintKind.Fast => "FAST",
+            OptimizerHintKind.MaxRecursion => "MAXRECURSION",
+            OptimizerHintKind.QueryTraceOn => "QUERYTRACEON",
+            OptimizerHintKind.Label => "LABEL",
+            // A kind's name isn't always its spelling (ForceDistributedPlan is FORCE DISTRIBUTED PLAN),
+            // so a hint kind added in a new ScriptDom must get its own arm rather than print wrong
+            _ => throw new NotSupportedException($"Optimizer hint {hint.HintKind} has no spelling in BuildOptimizerHint"),
         };
         if (hint is LiteralOptimizerHint lit && lit.Value != null)
             // LABEL = 'x', MIN_GRANT_PERCENT = 10 take an equals sign; MAXDOP 1, FAST 10, USE PLAN N'..' do not

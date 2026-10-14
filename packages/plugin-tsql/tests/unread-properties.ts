@@ -10,6 +10,7 @@ export const unused: Record<string, string> = {
     'SchemaObjectName.Count': 'the number of Identifiers, which the builder reads',
     'Identifier.QuoteType': '[a], "a" and a are the same identifier; the printer brackets a name where it needs to',
     'StringLiteral.LiteralType': 'always String for a StringLiteral',
+    'TSqlScript.TrailingGoCount': 'a bare GO at the end only ends the last batch, as the end of the script does; GO n counts are read from the source',
     'StringLiteral.IsLargeObject': 'whether the value exceeds 8000 bytes, which follows from the value',
     'AlterIndexStatement.All': 'ALTER INDEX ALL has no index name, and a missing name prints as ALL',
     'AlterTableConstraintModificationStatement.All': 'CHECK/NOCHECK CONSTRAINT ALL has no constraint names, and an empty list prints as ALL',
@@ -51,6 +52,9 @@ export const unreachable: Record<string, string> = {
     'CreateTableStatement.CloneSource': 'CREATE TABLE ... AS CLONE OF is Fabric-only and does not parse',
     'SelectStatement.ComputeClauses': 'COMPUTE was removed in SQL Server 2012 and does not parse',
     'FromClause.PredictTableReference': 'FROM PREDICT(...) parses as a table reference instead; no syntax found that sets it',
+    'OrderByClause.All': 'ORDER BY ALL is Fabric-only and does not parse',
+    'OrderByClause.AllSortOrder': 'ORDER BY ALL is Fabric-only and does not parse',
+    'QualifiedJoin.JoinHintColumnsCount': 'REDISTRIBUTE (n) / REPLICATE join hints are Fabric-only and do not parse',
 };
 
 /**
