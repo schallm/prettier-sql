@@ -138,8 +138,11 @@ their own terminal; don't run it from an agent (use `--dry-run` to check it). Se
 ## C# project pattern
 
 Each plugin's `src/dotnet/<Name>/<Name>.csproj` targets net8.0 and references
-`PrettierSql.Core.csproj`. The build chain: `Core` compiles first; then each plugin
-compiles against it. `dotnet publish` output lands in `bin/dotnet/` where node-api-dotnet
+`PrettierSql.Core.csproj`. The build chain: `@prettier-sql/core`'s `build` compiles `Core`
+once; then each plugin compiles against that output with `/p:BuildProjectReferences=false`
+(and `dotnet restore --no-dependencies`), so the two plugins can build in parallel without
+both writing Core's `obj/`. A plugin's `build` therefore needs core built first —
+`pnpm --filter <plugin>... build` (trailing `...`) includes it. `dotnet publish` output lands in `bin/dotnet/` where node-api-dotnet
 can load it.
 
 ## Pending tasks

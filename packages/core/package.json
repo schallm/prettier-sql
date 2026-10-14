@@ -15,8 +15,9 @@
     "./parser": "./dist/parser/loadDotnet.js"
   },
   "scripts": {
+    "build:dotnet": "dotnet build src/dotnet/Core/PrettierSql.Core.csproj -c Release",
     "build:ts": "tsc -p tsconfig.json",
-    "build": "npm run build:ts"
+    "build": "npm run build:dotnet && npm run build:ts"
   },
   "peerDependencies": {
     "prettier": ">=3.0.0"

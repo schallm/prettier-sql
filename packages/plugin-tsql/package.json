@@ -47,7 +47,7 @@
     "@prettier-sql/core": "workspace:*"
   },
   "scripts": {
-    "build:dotnet": "dotnet restore src/dotnet/SqlScriptDom/SqlScriptDom.csproj && dotnet msbuild src/dotnet/SqlScriptDom/SqlScriptDom.csproj /t:Publish /p:Configuration=Release \"/p:PublishDir=../../../bin/dotnet/\"",
+    "build:dotnet": "dotnet restore --no-dependencies src/dotnet/SqlScriptDom/SqlScriptDom.csproj && dotnet msbuild src/dotnet/SqlScriptDom/SqlScriptDom.csproj /t:Publish /p:Configuration=Release /p:BuildProjectReferences=false \"/p:PublishDir=../../../bin/dotnet/\"",
     "build:ts": "tsc -p tsconfig.json && node scripts/bundle-core.mjs",
     "build:ts:watch": "tsc -p tsconfig.json --watch",
     "build": "pnpm run build:dotnet && pnpm run build:ts",
