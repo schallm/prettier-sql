@@ -91,7 +91,7 @@ describe('unsupported constructs', () => {
     });
 
     it('throws a clear error for a chain too deep for the parser', async () => {
-        await expect(fmt(chain(2000))).rejects.toThrow(/nested more than 4000 levels deep/);
+        await expect(fmt(chain(2000))).rejects.toThrow(/^PostgreSQL formatting error: statement nested too deeply/);
     });
 });
 

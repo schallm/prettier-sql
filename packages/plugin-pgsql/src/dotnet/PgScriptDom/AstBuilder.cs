@@ -24,25 +24,21 @@ public class AstBuilder {
     private readonly string _sql;
     // libpg_query reports every location as a byte offset into the UTF-8 source
     private readonly byte[] _bytes;
-    private List<(int Start, int End)>? _tokens;
+    // The source's tokens other than comments, as byte ranges
+    private readonly List<(int Start, int End)> _tokens;
 
-    public AstBuilder(string sql) {
+    /// <param name="tokens">The source's tokens, from <see cref="PgsqlParser.ScanTokens"/>.</param>
+    internal AstBuilder(string sql, IEnumerable<SourceToken> tokens) {
         _sql = sql;
         _bytes = System.Text.Encoding.UTF8.GetBytes(sql);
+        _tokens = tokens
+            .Where(t => t.Token is not (Token.SqlComment or Token.CComment))
+            .Select(t => (t.Start, t.End))
+            .ToList();
     }
 
     /// <summary>The source text between two byte offsets.</summary>
     private string Slice(int start, int end) => System.Text.Encoding.UTF8.GetString(_bytes, start, end - start);
-
-    /// <summary>The source's tokens other than comments, as byte ranges.</summary>
-    private List<(int Start, int End)> Tokens() {
-        if (_tokens != null) return _tokens;
-        _tokens = PgsqlParser.ScanTokens(_sql)
-            .Where(t => t.Token != Token.SqlComment && t.Token != Token.CComment)
-            .Select(t => (t.Start, t.End))
-            .ToList();
-        return _tokens;
-    }
 
     // Most raw-parser node messages expose an int32 "Location" (byte offset into the source).
     // There's no shared interface for it across the ~180 protobuf message types, so we read it
@@ -96,13 +92,13 @@ public class AstBuilder {
         if (stmt == null) return null;
 
         // The location is just after the previous `;`: start at the statement's first token
-        int start = Tokens().FirstOrDefault(t => t.Start >= rawStmt.StmtLocation) is { End: > 0 } first
+        int start = _tokens.FirstOrDefault(t => t.Start >= rawStmt.StmtLocation) is { End: > 0 } first
             ? first.Start
             : rawStmt.StmtLocation;
         // The last statement, with no `;` after it, runs to the end of the source: end it
         // at its last token instead, so comments after it trail it rather than lead it
         int end = rawStmt.StmtLen > 0 ? rawStmt.StmtLocation + rawStmt.StmtLen
-            : Tokens().LastOrDefault(t => t.Start >= start) is { End: > 0 } lastToken ? lastToken.End
+            : _tokens.LastOrDefault(t => t.Start >= start) is { End: > 0 } lastToken ? lastToken.End
             : _bytes.Length;
         return BuildStmtNode(stmt, start, end);
     }
@@ -426,12 +422,12 @@ public class AstBuilder {
 
     // WITH (storage_parameter = value, ...) as ready-to-print "name = value" strings.
     // RETURNING WITH (OLD AS o, NEW AS n): the names the old and new rows go by (PostgreSQL 18)
-    private static object? ReturningWith(ReturningClause? r) => r == null ? null : MaybeList(r.Options
+    private object? ReturningWith(ReturningClause? r) => r == null ? null : MaybeList(r.Options
         .Select(o => (object?)new SqlNode("ReturningOption", 0, 0, null, BuildProps(
             ("row",   o.ReturningOption.Option switch {
                 ReturningOptionKind.ReturningOptionOld => "OLD",
                 ReturningOptionKind.ReturningOptionNew => "NEW",
-                _ => throw new UnsupportedSqlException($"Unsupported RETURNING option ({o.ReturningOption.Option})"),
+                _ => throw NotSupported($"RETURNING option ({o.ReturningOption.Option})", o.ReturningOption.Location),
             }),
             ("alias", Ident.Quote(o.ReturningOption.Value)))))
         .ToList());
@@ -4020,7 +4016,7 @@ public class AstBuilder {
         // libpg_query reports), so it can open and close with comments: keep only the
         // statement's own tokens, and leave those comments to attachment, as for any other
         // statement — kept in the text too, they'd print twice.
-        var own = Tokens().Where(t => t.Start >= start && t.End <= end).ToList();
+        var own = _tokens.Where(t => t.Start >= start && t.End <= end).ToList();
         if (own.Count == 0) throw NotSupported("statement with no text", start);
         var (first, last) = (own[0].Start, own[^1].End);
         return new("UnknownStatement", first, last, Slice(first, last).TrimEnd(';').Trim(), null);

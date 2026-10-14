@@ -879,8 +879,12 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
             ];
         }
 
-        case 'GENERATED':
-            return [namePrefix, makeKeyword('GENERATED ALWAYS AS'), ' (', expr ? printNode(expr) : '', ') ', makeKeyword(propStr(node, 'generatedKind') ?? 'STORED')];
+        case 'GENERATED': {
+            // STORED or VIRTUAL, always set by the builder: with neither written, PostgreSQL 18 makes it VIRTUAL
+            const kind = propStr(node, 'generatedKind');
+            if (!kind) throw new Error('GENERATED column constraint without a generatedKind');
+            return [namePrefix, makeKeyword('GENERATED ALWAYS AS'), ' (', expr ? printNode(expr) : '', ') ', makeKeyword(kind)];
+        }
 
         default:
             return [namePrefix, makeKeyword(contype)];

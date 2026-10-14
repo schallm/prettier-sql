@@ -21,55 +21,36 @@ public static class PgsqlParser {
     };
 
     public static string Parse(string sql) {
-        PgSqlParser.Result<ParseResult> parseResult;
-        try {
-            parseResult = Parser.Parse(sql);
-        } catch (Google.Protobuf.InvalidProtocolBufferException) {
-            // pgsqlparser reports a tree deeper than it decodes (4000 levels, a chain of about
-            // 2000 operators such as a || b || ...) as a parse error; this is the decoder's own limit
-            var errList = new[] { new {
-                kind = "unsupported",
-                message = "statement nested too deeply for the parser (a chain of about 2000 or more operators, such as a || b || ...)",
-                line = 0, column = 0, offset = 0,
-            }};
-            return JsonSerializer.Serialize(new { errors = errList }, JsonOptions);
-        }
-
+        var parseResult = Parser.Parse(sql);
         if (!parseResult.IsSuccess || parseResult.Value == null) {
             var err = parseResult.Error;
-            var errList = new[] { new {
-                kind = "parse",
-                message = err?.Message ?? "Unknown parse error",
-                line = 0,
-                column = err?.CursorPos ?? 0,
-                offset = err?.CursorPos ?? 0,
-            }};
-            return JsonSerializer.Serialize(new { errors = errList }, JsonOptions);
+            // A statement nested too deeply isn't a syntax error and has no position:
+            // libpg_query gives up past 4000 levels, a chain of about 2000 operators (a || b || ...)
+            if (err != null && (err.Message.StartsWith("parse tree is nested") || err.FuncName == "check_stack_depth"))
+                return ErrorJson("unsupported",
+                    "statement nested too deeply for the parser (a chain of about 2000 or more operators, such as a || b || ...)", 0);
+            return ErrorJson("parse", err?.Message ?? "Unknown parse error", err?.CursorPos ?? 0);
         }
 
+        // One scan serves both the builder (statement extents) and the comments
+        var tokens = ScanTokens(sql);
         SqlNode root;
         try {
-            var builder = new AstBuilder(sql);
-            root = builder.Build(parseResult.Value);
+            root = new AstBuilder(sql, tokens).Build(parseResult.Value);
         } catch (UnsupportedSqlException ex) {
-            var errList = new[] { new {
-                kind = "unsupported",
-                message = ex.Message,
-                line = 0,
-                column = 0,
-                offset = 0,
-            }};
-            return JsonSerializer.Serialize(new { errors = errList }, JsonOptions);
+            return ErrorJson("unsupported", ex.Message, 0);
         }
 
-        var comments = ExtractComments(sql);
-
+        var comments = Comments(tokens);
         return JsonSerializer.Serialize(
             comments.Count > 0
                 ? new { ast = root, comments } as object
                 : new { ast = root } as object,
             JsonOptions);
     }
+
+    private static string ErrorJson(string kind, string message, int offset) =>
+        JsonSerializer.Serialize(new { errors = new[] { new { kind, message, line = 0, column = offset, offset } } }, JsonOptions);
 
     // Parse-tree fields that record where something was written, not what it means:
     // location, stmt_location, name_location, …, stmt_len, and where a parenthesized list
@@ -103,7 +84,7 @@ public static class PgsqlParser {
             Google.Protobuf.JsonFormatter.Default.Format(parseResult.Value),
             documentOptions: new System.Text.Json.JsonDocumentOptions { MaxDepth = 100_000 });
         StripPositions(tree);
-        var comments = ExtractComments(sql).Select(c => c.Text.Trim());
+        var comments = Comments(ScanTokens(sql)).Select(c => c.Text.Trim());
         return JsonSerializer.Serialize(new { tree, comments }, new JsonSerializerOptions { WriteIndented = true, MaxDepth = 100_000 });
     }
 
@@ -136,26 +117,17 @@ public static class PgsqlParser {
         }
     }
 
-    private static List<CommentToken> ExtractComments(string sql) {
-        var sqlBytes = System.Text.Encoding.UTF8.GetBytes(sql);
-        var comments = new List<CommentToken>();
-        foreach (var (token, start, end) in ScanTokens(sql)) {
-            if (token != Token.SqlComment && token != Token.CComment) continue;
-            comments.Add(new CommentToken {
-                Text        = System.Text.Encoding.UTF8.GetString(sqlBytes, start, end - start),
-                StartOffset = start,
-                EndOffset   = end,
-            });
-        }
-        return comments;
-    }
+    private static List<CommentToken> Comments(List<SourceToken> tokens) => tokens
+        .Where(t => t.Token is Token.SqlComment or Token.CComment)
+        .Select(t => new CommentToken { Text = t.Text, StartOffset = t.Start, EndOffset = t.End })
+        .ToList();
 
     /// <summary>
     /// The source's tokens, as UTF-8 byte ranges like every location in the parse tree.
     /// Scan reports string indexes, not bytes (pgsqlparser 2.0 changed that); everything
     /// downstream works in bytes until the plugin turns node offsets into string indexes.
     /// </summary>
-    internal static List<(Token Token, int Start, int End)> ScanTokens(string sql) {
+    internal static List<SourceToken> ScanTokens(string sql) {
         var scan = Parser.Scan(sql);
         if (!scan.IsSuccess || scan.Value == null) return new();
         // byteAt[i]: the byte offset of the string index i
@@ -168,10 +140,15 @@ public static class PgsqlParser {
         }
         return scan.Value.Tokens
             .Where(t => t.Start >= 0 && t.End <= sql.Length && t.End > t.Start)
-            .Select(t => (t.Token, byteAt[t.Start], byteAt[t.End]))
+            .Select(t => new SourceToken(t.Token, byteAt[t.Start], byteAt[t.End],
+                // Only comments need their text: it's what the printer keeps of them
+                t.Token is Token.SqlComment or Token.CComment ? sql[t.Start..t.End] : ""))
             .ToList();
     }
 }
+
+/// <summary>A scanned token: its kind, its UTF-8 byte range, and (for a comment) its text.</summary>
+internal readonly record struct SourceToken(Token Token, int Start, int End, string Text);
 
 internal class CommentToken {
     public string Text        { get; init; } = "";

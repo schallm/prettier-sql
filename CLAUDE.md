@@ -31,12 +31,14 @@ pnpm install              # install all workspace packages
 pnpm -r build             # build all packages in dependency order
 pnpm -r test              # run all test suites
 
-# Per-package (from root):
-pnpm --filter prettier-plugin-postgresql build
+# Per-package (from root). The trailing ... builds @prettier-sql/core first: a plugin's
+# own build compiles against Core's existing output and doesn't rebuild it
+pnpm --filter prettier-plugin-postgresql... build
 pnpm --filter prettier-plugin-postgresql test
 pnpm --filter prettier-plugin-tsql test
 
-# Or cd into a package and use pnpm run:
+# Or cd into a package and use pnpm run (build core first if its C# changed):
+cd packages/core         && pnpm run build
 cd packages/plugin-pgsql && pnpm run build
 cd packages/plugin-tsql  && pnpm run test
 ```

@@ -122,7 +122,8 @@ fixtures from `packages/core/tests/fixtures/shared/`. The `sharedDir` path in
 ## Build & test
 
 ```bash
-pnpm run build        # dotnet publish + copy native + tsc
+pnpm run build        # dotnet publish + copy native + tsc (against core's built output:
+                      # after changing core's C#, run `pnpm --filter <this plugin>... build` from the root)
 pnpm run test         # vitest run
 pnpm run test:watch   # vitest watch
 ```
