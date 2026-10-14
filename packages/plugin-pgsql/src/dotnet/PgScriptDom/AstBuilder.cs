@@ -37,13 +37,10 @@ public class AstBuilder {
     /// <summary>The source's tokens other than comments, as byte ranges.</summary>
     private List<(int Start, int End)> Tokens() {
         if (_tokens != null) return _tokens;
-        var scan = Parser.Scan(_sql);
-        _tokens = scan.IsSuccess && scan.Value != null
-            ? scan.Value.Tokens
-                .Where(t => t.Token != Token.SqlComment && t.Token != Token.CComment)
-                .Select(t => (t.Start, t.End))
-                .ToList()
-            : new List<(int Start, int End)>();
+        _tokens = PgsqlParser.ScanTokens(_sql)
+            .Where(t => t.Token != Token.SqlComment && t.Token != Token.CComment)
+            .Select(t => (t.Start, t.End))
+            .ToList();
         return _tokens;
     }
 
@@ -316,7 +313,7 @@ public class AstBuilder {
             ("override",   overrideStr),
             ("source",     source),
             ("onConflict", s.OnConflictClause != null ? BuildOnConflict(s.OnConflictClause) : null),
-            ("returning",  MapList(s.ReturningList, BuildExpr))
+            ("returning",  MapList(s.ReturningClause?.Exprs, BuildExpr))
         ));
     }
 
@@ -354,7 +351,7 @@ public class AstBuilder {
             ("sets",      BuildAssignments(s.TargetList)),
             ("from",      MapList(s.FromClause, BuildFromItem)),
             ("where",     BuildExpr(s.WhereClause)),
-            ("returning", MapList(s.ReturningList, BuildExpr))
+            ("returning", MapList(s.ReturningClause?.Exprs, BuildExpr))
         ));
 
     private SqlNode BuildDelete(DeleteStmt s, int start, int end) =>
@@ -363,7 +360,7 @@ public class AstBuilder {
             ("target",    BuildRangeVar(s.Relation)),
             ("using",     MapList(s.UsingClause, BuildFromItem)),
             ("where",     BuildExpr(s.WhereClause)),
-            ("returning", MapList(s.ReturningList, BuildExpr))
+            ("returning", MapList(s.ReturningClause?.Exprs, BuildExpr))
         ));
 
     // -------------------------------------------------------------------------
@@ -1691,8 +1688,10 @@ public class AstBuilder {
             case AlterTableType.AtChangeOwner:
                 name = RoleSpecName(cmd.Newowner);
                 break;
-            case AlterTableType.AtAlterConstraint when def?.NodeCase == Node.NodeOneofCase.Constraint:
-                name = Ident.QuoteOpt(def.Constraint.Conname);
+            case AlterTableType.AtAlterConstraint when def?.NodeCase == Node.NodeOneofCase.AtalterConstraint:
+                if (def.AtalterConstraint.AlterEnforceability || def.AtalterConstraint.AlterInheritability)
+                    throw NotSupported("ALTER CONSTRAINT ... ENFORCED / INHERIT", null);
+                name = Ident.QuoteOpt(def.AtalterConstraint.Conname);
                 break;
             case AlterTableType.AtAddInherit or AlterTableType.AtDropInherit when def?.NodeCase == Node.NodeOneofCase.RangeVar:
                 parent = BuildRangeVar(def.RangeVar);
@@ -1747,8 +1746,8 @@ public class AstBuilder {
             ("concurrently", concurrently ? true : null),
             ("finalize", finalize ? true : null),
             // ALTER CONSTRAINT c [NOT] DEFERRABLE [INITIALLY DEFERRED]
-            ("deferrable",   cmd.Subtype == AlterTableType.AtAlterConstraint && def?.Constraint?.Deferrable == true ? true : null),
-            ("initDeferred", cmd.Subtype == AlterTableType.AtAlterConstraint && def?.Constraint?.Initdeferred == true ? true : null),
+            ("deferrable",   def?.AtalterConstraint?.Deferrable == true ? true : null),
+            ("initDeferred", def?.AtalterConstraint?.Initdeferred == true ? true : null),
             // MissingOk means IF NOT EXISTS for ADD COLUMN and IF EXISTS for the DROPs
             ("ifExists", cmd.MissingOk ? true : null),
             ("cascade",  cmd.Behavior == DropBehavior.DropCascade ? true : null)
@@ -2700,7 +2699,7 @@ public class AstBuilder {
             ("source",    m.SourceRelation != null ? BuildFromItem(m.SourceRelation) : null),
             ("on",        BuildExpr(m.JoinCondition)),
             ("whens",     MapList(m.MergeWhenClauses, BuildExpr)),
-            ("returning", MapList(m.ReturningList, BuildExpr))
+            ("returning", MapList(m.ReturningClause?.Exprs, BuildExpr))
         ));
 
     private SqlNode BuildMergeWhen(MergeWhenClause w) {

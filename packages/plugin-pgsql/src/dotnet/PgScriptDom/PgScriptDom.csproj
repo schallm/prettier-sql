@@ -12,9 +12,17 @@
     <DebugType>embedded</DebugType>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="pgsqlparser" Version="1.0.0" />
+    <PackageReference Include="pgsqlparser" Version="2.1.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../../../core/src/dotnet/Core/PrettierSql.Core.csproj" />
   </ItemGroup>
+  <!-- pgsqlparser ships libpg_query for more platforms than NativeLibraries.cs loads: leave
+       the others out of the package rather than ship libraries nothing can use -->
+  <Target Name="RemoveUnsupportedNatives" AfterTargets="Publish">
+    <ItemGroup>
+      <_UnsupportedRid Include="linux-arm64;linux-musl-x64;linux-musl-arm64;win-arm64" />
+    </ItemGroup>
+    <RemoveDir Directories="@(_UnsupportedRid->'$(PublishDir)runtimes/%(Identity)')" />
+  </Target>
 </Project>

@@ -80,7 +80,8 @@ describe('unsupported constructs', () => {
     });
 
     // Each operator of a chain nests one node deeper: past ~30 the JSON the parser sends
-    // needs more than the serializer's default depth, past ~50 pgsqlparser's protobuf decoder gives up
+    // needs more than the serializer's default depth, and at ~2000 the parse tree passes
+    // the 4000 levels pgsqlparser decodes
     const chain = (n: number) => `select ${Array.from({ length: n }, (_, i) => `c${i}`).join(' || ')} from t;`;
 
     it('formats a long operator chain', async () => {
@@ -90,7 +91,7 @@ describe('unsupported constructs', () => {
     });
 
     it('throws a clear error for a chain too deep for the parser', async () => {
-        await expect(fmt(chain(60))).rejects.toThrow(/nested too deeply/);
+        await expect(fmt(chain(2000))).rejects.toThrow(/nested more than 4000 levels deep/);
     });
 });
 

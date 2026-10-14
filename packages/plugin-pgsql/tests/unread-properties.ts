@@ -15,8 +15,11 @@ export const unused: Record<string, string> = {
     'DeallocateStmt.Isall': 'DEALLOCATE ALL has no name, and a missing name prints as ALL',
     'DefineStmt.Oldstyle':
         'the old CREATE AGGREGATE syntax has no argument list and puts BASETYPE in the definition, which the builder prints',
-    'ScanResult.Version': "libpg_query's version, not part of the SQL; the builder scans only to find a statement's own tokens",
-    'ScanToken.KeywordKind': "only the token's extent matters for keeping a statement's text",
+    'VariableSetStmt.JumbleArgs': 'marks the SET TIME ZONE spelling for query IDs; SET TIME ZONE x is SET timezone TO x',
+    'ATAlterConstraint.AlterDeferrability':
+        'an ALTER CONSTRAINT that changes neither enforceability nor inheritance changes deferrability',
+    'ATAlterConstraint.IsEnforced': 'only meaningful with AlterEnforceability, which the builder rejects for now',
+    'ATAlterConstraint.Noinherit': 'only meaningful with AlterInheritability, which the builder rejects for now',
 };
 
 /**
@@ -60,7 +63,6 @@ export const unreachable: Record<string, string> = {
     'CommonTableExpr.Cterecursive': 'WITH RECURSIVE is WithClause.Recursive, which the builder reads',
     'CommonTableExpr.Cterefcount': 'filled in by parse analysis or when the statement runs; the raw parser never sets it',
     'Constraint.CookedExpr': 'filled in by parse analysis or when the statement runs; the raw parser never sets it',
-    'Constraint.Inhcount': 'filled in by parse analysis or when the statement runs; the raw parser never sets it',
     'Constraint.OldConpfeqop': 'filled in by parse analysis or when the statement runs; the raw parser never sets it',
     'Constraint.OldPktableOid': 'an object id, filled in when the statement runs',
     'Constraint.ResetDefaultTblspc': 'filled in by parse analysis or when the statement runs; the raw parser never sets it',
@@ -116,6 +118,8 @@ export const unreachable: Record<string, string> = {
     'XmlExpr.Type': 'a type or type modifier, filled in by parse analysis',
     'XmlExpr.Typmod': 'filled in by parse analysis or when the statement runs; the raw parser never sets it',
     'XmlExpr.Xpr': 'the header of an analyzed expression; empty in a raw parse tree',
+    'CreateStmt.Nnconstraints': "filled in by parse analysis; the raw parser keeps NOT NULL constraints in tableElts",
+    'IndexStmt.Iswithoutoverlaps': 'set for the index behind a WITHOUT OVERLAPS constraint; CREATE INDEX has no syntax for it',
 };
 
 /**
@@ -123,4 +127,10 @@ export const unreachable: Record<string, string> = {
  * and printer, add a fixture, and take the entry out.
  */
 export const dropped: Record<string, string> = {
+    'ReturningClause.Options': 'RETURNING WITH (OLD AS o, NEW AS n) loses its WITH list',
+    'Constraint.GeneratedKind': 'GENERATED ALWAYS AS (...) VIRTUAL prints as STORED',
+    'Constraint.IsEnforced': 'a table-level CHECK or FOREIGN KEY ... NOT ENFORCED prints as NOT VALID',
+    'Constraint.WithoutOverlaps': 'PRIMARY KEY / UNIQUE (..., p WITHOUT OVERLAPS) loses WITHOUT OVERLAPS',
+    'Constraint.FkWithPeriod': 'FOREIGN KEY (..., PERIOD p) loses PERIOD',
+    'Constraint.PkWithPeriod': 'REFERENCES t (..., PERIOD p) loses PERIOD',
 };
