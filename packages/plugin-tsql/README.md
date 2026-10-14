@@ -15,7 +15,7 @@ Parses T-SQL via the official ScriptDom library (no hand-rolled grammar). Config
 - [`SELECT`](docs/examples.md#select-with-joins-and-where), [`INSERT`](docs/examples.md#insert), [`UPDATE`](docs/examples.md#update-with-join), [`DELETE`](docs/examples.md#delete-with-join)
 - [`MERGE INTO … USING … ON … WHEN MATCHED/NOT MATCHED`](docs/examples.md#merge)
 - `OUTPUT` / `OUTPUT INTO` on `INSERT`, `UPDATE`, `DELETE`, and `MERGE` (including `$action`, `inserted.*`, `deleted.*`); `MERGE … INSERT DEFAULT VALUES`
-- `OPTION (…)` query hints on `SELECT`, `INSERT`, `UPDATE`, `DELETE`, and `MERGE`
+- `OPTION (…)` query hints on `SELECT`, `INSERT`, `UPDATE`, `DELETE`, and `MERGE`, including the distributed-query hints `FORCE DISTRIBUTED PLAN`, `FORCE SINGLE NODE PLAN` and `FOR TIMESTAMP AS OF '…'`
 - `UPDATE` / `DELETE … WHERE CURRENT OF [GLOBAL] cursor`
 - [CTEs](docs/examples.md#cte-with-window-function), `UNION`/`UNION ALL`, subqueries, derived tables (with column lists: `(SELECT …) AS s (a, b)`)
 - `SELECT … INTO new_table [ON filegroup]`

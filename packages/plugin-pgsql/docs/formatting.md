@@ -713,6 +713,22 @@ returning
   email;
 ```
 
+### RETURNING old and new values (PostgreSQL 18)
+
+`INSERT`, `UPDATE`, `DELETE` and `MERGE` can return the row before (`old`) and after (`new`) the change. `RETURNING WITH (…)` gives them other names, for a table with columns called `old` or `new`:
+
+```sql
+update accounts
+set balance = balance - 100
+where id = 7
+returning
+  old.balance as before,
+  new.balance as after;
+
+delete from audit
+returning with (old as prior) prior.id;
+```
+
 ### UPDATE with CTE
 
 ```sql
@@ -860,14 +876,56 @@ create table order_items (
 );
 ```
 
-Generated columns and identity columns:
+Generated columns and identity columns. A generated column is `stored` or `virtual` (PostgreSQL 18); written with neither, PostgreSQL 18 makes it virtual, and the formatter prints `virtual` so the kind is always visible:
 
 ```sql
 create table sales (
   id integer generated always as identity,
   quantity integer not null,
   unit_price numeric(10, 2) not null,
-  total numeric generated always as (quantity * unit_price) stored
+  total numeric generated always as (quantity * unit_price) stored,
+  tax numeric generated always as (quantity * unit_price * 0.2) virtual
+);
+```
+
+`CHECK` and foreign-key constraints can be `not enforced` (PostgreSQL 18), at column or table level:
+
+```sql
+create table shipments (
+  id integer primary key,
+  order_id integer references orders (id) not enforced,
+  weight numeric check (weight > 0) not enforced,
+  constraint shipments_order_fk
+    foreign key (order_id)
+    references orders (id)
+    deferrable
+    not enforced
+);
+```
+
+Temporal keys (PostgreSQL 18): a primary key or unique constraint `without overlaps` on its last column, and a foreign key that references it with `period`:
+
+```sql
+create table rooms (
+  room_id integer,
+  booked tstzrange,
+  constraint rooms_pk primary key (room_id, booked without overlaps)
+);
+
+create table bookings (
+  room_id integer,
+  booked tstzrange,
+  foreign key (room_id, period booked) references rooms (room_id, period booked)
+);
+```
+
+A named `not null` constraint can also be written at table level (PostgreSQL 18):
+
+```sql
+create table people (
+  id integer,
+  name text,
+  constraint people_name_nn not null name no inherit
 );
 ```
 
@@ -951,6 +1009,21 @@ alter table products
 
 alter table products
   drop constraint old_check;
+```
+
+#### Alter constraint
+
+`alter constraint` prints only what it changes: deferrability, and in PostgreSQL 18 enforcement or inheritance:
+
+```sql
+alter table orders
+  alter constraint fk_customer deferrable initially deferred;
+
+alter table orders
+  alter constraint fk_customer not enforced;
+
+alter table people
+  alter constraint people_name_nn no inherit;
 ```
 
 ### CREATE / REPLACE VIEW

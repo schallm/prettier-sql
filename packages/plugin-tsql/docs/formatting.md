@@ -879,6 +879,22 @@ order by Title asc
 option (recompile, maxdop 4);
 ```
 
+Multi-word hints keep their spaces, including the distributed-query hints and `FOR TIMESTAMP AS OF`:
+
+```sql
+select BookId
+from Books
+option (force distributed plan);
+
+select BookId
+from Books
+option (force single node plan, maxdop 2);
+
+select BookId
+from Books
+option (for timestamp as of '2024-05-01T00:00:00');
+```
+
 ---
 
 ### INSERT

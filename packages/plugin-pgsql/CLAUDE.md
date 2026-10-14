@@ -11,9 +11,10 @@ See the root `CLAUDE.md` for the full monorepo structure and shared code in `@pr
 SQL string
   → C# (PgScriptDom.dll via node-api-dotnet)
       PgsqlParser.Parse(sql)
-        → pgsqlparser (libpg_query .NET wrapper) produces a protobuf parse tree
-        → AstBuilder walks the tree, emits SqlNode JSON
-        → Parser.Scan(sql) extracts comment tokens (SqlComment, CComment)
+        → pgsqlparser (libpg_query .NET wrapper, PostgreSQL 18 parser) produces a protobuf parse tree
+        → PgsqlParser.ScanTokens(sql): Parser.Scan once, offsets turned into UTF-8 bytes
+        → AstBuilder walks the tree with those tokens, emits SqlNode JSON
+        → the comment tokens (SqlComment, CComment) go alongside
         → JSON: { ast: SqlNode, comments?: CommentToken[] }
   → TypeScript (Prettier plugin)
       parser/index.ts receives JSON, calls attachComments() to attach
@@ -31,9 +32,11 @@ ScriptDOM calls you. PostgreSQL has no visitor; `AstBuilder.cs` manually switche
 ## C# project — `src/dotnet/PgScriptDom/`
 
 ### `PgsqlParser.cs`
-Calls `PgSqlParser.Parser.Parse(sql)` which returns `Result<ParseResult?>`.
+Calls `PgSqlParser.Parser.Parse(sql)` which returns `Result<ParseResult>`.
 Serializes `AstBuilder.Build(result.Value)` as JSON with camelCase keys, null values omitted.
-Also calls `Parser.Scan(sql)` to extract comment tokens and includes them in the JSON output.
+`ScanTokens(sql)` runs `Parser.Scan` once; its tokens go to `AstBuilder` (statement extents)
+and its comments into the JSON output. Scan reports string indexes, but every parse-tree
+location is a UTF-8 byte offset, so `ScanTokens` converts the tokens to bytes too.
 
 ### `AstBuilder.cs`
 Walks the `ParseResult.Stmts` list. Each `RawStmt` has a `Stmt` (`Node`) with a `NodeCase` oneof.
