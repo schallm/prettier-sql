@@ -102,3 +102,8 @@ alter table if exists t enable row level security;
 
 -- The default access method has no name
 alter table t set access method default;
+alter table t alter constraint c not enforced;
+alter table t alter constraint c enforced;
+alter table t alter constraint c deferrable not enforced;
+alter table t alter constraint c no inherit;
+alter table t alter constraint c inherit;

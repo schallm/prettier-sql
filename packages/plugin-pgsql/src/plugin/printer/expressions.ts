@@ -768,7 +768,12 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
     const indexName = propStr(node, 'indexName');
 
     const namePrefix: Doc = name ? [makeKeyword('CONSTRAINT'), ' ', name, ' '] : '';
-    const colList = (cols: string[]): Doc => (cols.length > 0 ? [' ', parenItems(cols, opts)] : '');
+    const colList = (cols: Doc[]): Doc => (cols.length > 0 ? [' ', parenItems(cols, opts)] : '');
+    // (id, valid WITHOUT OVERLAPS) / (id, PERIOD valid): the last column is a period (PostgreSQL 18)
+    const periodCols = (cols: string[], marked: boolean, mark: (col: string) => Doc): Doc[] =>
+        marked && cols.length > 0 ? [...cols.slice(0, -1), mark(cols[cols.length - 1]!)] : cols;
+    const keyCols = periodCols(keys, propBool(node, 'withoutOverlaps'), (c) => [c, ' ', makeKeyword('WITHOUT OVERLAPS')]);
+    const withPeriod = (c: string): Doc => [makeKeyword('PERIOD'), ' ', c];
 
     // PRIMARY KEY / UNIQUE / EXCLUDE: INCLUDE (...) WITH (...) USING INDEX TABLESPACE ts
     const including = propStrArr(node, 'including');
@@ -780,13 +785,14 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
         indexSpace ? [' ', makeKeyword('USING INDEX TABLESPACE'), ' ', indexSpace] : '',
     ];
     // ADD PRIMARY KEY USING INDEX i takes the index in place of a column list
-    const keyTarget: Doc = indexName ? [' ', makeKeyword('USING INDEX'), ' ', indexName] : [colList(keys), indexParams];
+    const keyTarget: Doc = indexName ? [' ', makeKeyword('USING INDEX'), ' ', indexName] : [colList(keyCols), indexParams];
 
     // Constraint attributes: table-level constraints carry these as flags (column-level
     // ones arrive as separate DEFERRABLE / INITIALLY ... constraints)
     const attributes: Doc = [
         propBool(node, 'deferrable') ? [' ', makeKeyword('DEFERRABLE')] : '',
         propBool(node, 'initDeferred') ? [' ', makeKeyword('INITIALLY DEFERRED')] : '',
+        propBool(node, 'notEnforced') ? [' ', makeKeyword('NOT ENFORCED')] : '',
         propBool(node, 'notValid') ? [' ', makeKeyword('NOT VALID')] : '',
         propBool(node, 'noInherit') ? [' ', makeKeyword('NO INHERIT')] : '',
     ];
@@ -794,6 +800,7 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
     // The same attributes as separate clauses, for a constraint that wraps one clause per line
     const attrClauses: Doc[] = [
         propBool(node, 'deferrable') ? [makeKeyword('DEFERRABLE'), propBool(node, 'initDeferred') ? [' ', makeKeyword('INITIALLY DEFERRED')] : ''] : '',
+        propBool(node, 'notEnforced') ? makeKeyword('NOT ENFORCED') : '',
         propBool(node, 'notValid') ? makeKeyword('NOT VALID') : '',
         propBool(node, 'noInherit') ? makeKeyword('NO INHERIT') : '',
     ].filter((d) => d !== '');
@@ -801,7 +808,8 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
 
     switch (contype) {
         case 'NULL':     return [namePrefix, makeKeyword('NULL')];
-        case 'NOT NULL': return [namePrefix, makeKeyword('NOT NULL'), attributes];
+        // A table-level NOT NULL names its one column, without parentheses (PostgreSQL 18)
+        case 'NOT NULL': return [namePrefix, makeKeyword('NOT NULL'), keys.length > 0 ? [' ', keys[0]!] : '', attributes];
 
         case 'DEFAULT':
             // DEFAULT takes a b_expr: `default (a and b)` keeps its parentheses
@@ -848,11 +856,12 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
             const fkDelAction = propStr(node, 'fkDelAction');
             const fkDelSetCols = propStrArr(node, 'fkDelSetCols');
             const references: Doc = [
-                makeKeyword('REFERENCES'), ' ', pktable ? printRangeVar(pktable, opts) : '', colList(propStrArr(node, 'pkAttrs')),
+                makeKeyword('REFERENCES'), ' ', pktable ? printRangeVar(pktable, opts) : '',
+                colList(periodCols(propStrArr(node, 'pkAttrs'), propBool(node, 'pkPeriod'), withPeriod)),
                 fkMatch ? [' ', makeKeyword('MATCH'), ' ', makeKeyword(fkMatch)] : '',
             ];
             return clauses([
-                ...(fkAttrs.length > 0 ? [[makeKeyword('FOREIGN KEY'), colList(fkAttrs)] as Doc] : []),
+                ...(fkAttrs.length > 0 ? [[makeKeyword('FOREIGN KEY'), colList(periodCols(fkAttrs, propBool(node, 'fkPeriod'), withPeriod))] as Doc] : []),
                 references,
                 ...(fkUpdAction ? [[makeKeyword('ON UPDATE'), ' ', makeKeyword(fkUpdAction)] as Doc] : []),
                 ...(fkDelAction ? [[makeKeyword('ON DELETE'), ' ', makeKeyword(fkDelAction), colList(fkDelSetCols)] as Doc] : []),
@@ -871,7 +880,7 @@ function printConstraint(node: SqlNode, opts: Options, printNode: PrintFn): Doc 
         }
 
         case 'GENERATED':
-            return [namePrefix, makeKeyword('GENERATED ALWAYS AS'), ' (', expr ? printNode(expr) : '', ') ', makeKeyword('STORED')];
+            return [namePrefix, makeKeyword('GENERATED ALWAYS AS'), ' (', expr ? printNode(expr) : '', ') ', makeKeyword(propStr(node, 'generatedKind') ?? 'STORED')];
 
         default:
             return [namePrefix, makeKeyword(contype)];
@@ -943,12 +952,19 @@ function printAlterCmd(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
             return [makeKeyword('ALTER COLUMN'), ' ', name, printAlterOptions(node, opts)];
         case 'OPTIONS':
             return [makeKeyword('OPTIONS'), ' ', optionItems(alterOptionDocs(node, opts), opts)];
-        case 'ALTER CONSTRAINT':
+        case 'ALTER CONSTRAINT': {
+            const enforced = propStr(node, 'enforced');
+            const inherit = propStr(node, 'inherit');
             return [
-                makeKeyword('ALTER CONSTRAINT'), ' ', name, ' ',
-                propBool(node, 'deferrable') ? makeKeyword('DEFERRABLE') : makeKeyword('NOT DEFERRABLE'),
-                propBool(node, 'initDeferred') ? [' ', makeKeyword('INITIALLY DEFERRED')] : '',
+                makeKeyword('ALTER CONSTRAINT'), ' ', name,
+                propBool(node, 'setDeferrability')
+                    ? [' ', propBool(node, 'deferrable') ? makeKeyword('DEFERRABLE') : makeKeyword('NOT DEFERRABLE'),
+                        propBool(node, 'initDeferred') ? [' ', makeKeyword('INITIALLY DEFERRED')] : '']
+                    : '',
+                enforced ? [' ', makeKeyword(enforced)] : '',
+                inherit ? [' ', makeKeyword(inherit)] : '',
             ];
+        }
         case 'SET REL OPTIONS':
             return [makeKeyword('SET'), ' ', optionItems(propStrArr(node, 'options'), opts)];
         case 'RESET REL OPTIONS':

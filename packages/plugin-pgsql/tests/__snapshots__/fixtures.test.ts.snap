@@ -1344,6 +1344,58 @@ to r;
 "
 `;
 
+exports[`fixtures > ddl/pg18-constraints.sql 1`] = `
+"-- PostgreSQL 18: virtual generated columns (the default when neither is written)
+create table orders (
+  net numeric not null,
+  tax numeric generated always as (net * 0.2) virtual,
+  gross numeric generated always as (net * 1.2) stored,
+  cents bigint generated always as ((net * 100)::bigint) virtual
+);
+
+-- NOT ENFORCED check and foreign key constraints
+create table shipments (
+  id integer primary key,
+  order_id integer references orders (id) not enforced,
+  weight numeric check (weight > 0) not enforced,
+  constraint shipments_order_fk
+    foreign key (order_id)
+    references orders (id)
+    deferrable
+    not enforced,
+  check (weight < 1000)
+);
+
+alter table shipments
+  add constraint light check (weight < 100) not enforced;
+
+alter table shipments
+  add constraint heavy check (weight > 1) not valid;
+
+-- Temporal keys: WITHOUT OVERLAPS and PERIOD
+create table rooms (
+  room_id integer,
+  booked tstzrange,
+  constraint rooms_pk primary key (room_id, booked without overlaps),
+  unique (room_id, booked without overlaps)
+);
+
+create table bookings (
+  room_id integer,
+  booked tstzrange,
+  foreign key (room_id, period booked) references rooms (room_id, period booked)
+);
+
+-- Named table-level NOT NULL constraints
+create table people (
+  id integer,
+  name text,
+  constraint people_id_nn not null id,
+  constraint people_name_nn not null name no inherit
+);
+"
+`;
+
 exports[`fixtures > ddl/policies.sql 1`] = `
 "create policy view_own_data
 on users
@@ -2124,6 +2176,56 @@ execute get_user(42);
 deallocate get_user;
 
 deallocate all;
+"
+`;
+
+exports[`fixtures > dml/returning-old-new.sql 1`] = `
+"-- PostgreSQL 18: RETURNING can read the row before and after the change
+update accounts
+set balance = balance - 100
+where id = 7
+returning
+  old.balance as before,
+  new.balance as after;
+
+insert into counters (name, hits)
+values ('home', 1)
+on conflict (name) do update
+set hits = counters.hits + 1
+returning
+  old.hits,
+  new.hits;
+
+delete from sessions
+where expires_at < now()
+returning old.*;
+
+-- WITH (OLD AS o, NEW AS n) renames them, for a table that has columns called old or new
+update price_history
+set
+  old = 3, new = 4
+where id = 1
+returning with (old as o, new as n)
+  o.old,
+  o.new,
+  n.old,
+  n.new;
+
+delete from audit
+returning with (old as prior) prior.id;
+
+merge into stock as s
+using deliveries as d
+on s.item = d.item
+when matched then
+  update set qty = s.qty + d.qty
+when not matched then
+  insert (item, qty)
+  values (d.item, d.qty)
+returning with (old as was, new as now)
+  merge_action(),
+  was.qty,
+  now.qty;
 "
 `;
 
@@ -3065,6 +3167,21 @@ alter table if exists t
 -- The default access method has no name
 alter table t
   set access method default;
+
+alter table t
+  alter constraint c not enforced;
+
+alter table t
+  alter constraint c enforced;
+
+alter table t
+  alter constraint c deferrable not enforced;
+
+alter table t
+  alter constraint c no inherit;
+
+alter table t
+  alter constraint c inherit;
 "
 `;
 

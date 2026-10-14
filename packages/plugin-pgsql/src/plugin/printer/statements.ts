@@ -234,6 +234,16 @@ function printListClause(kw: string, items: SqlNode[], opts: Options, printNode:
     return listClauseDoc(keyword(kw, opts), items.map(printNode), opts);
 }
 
+/** RETURNING [WITH (OLD AS o, NEW AS n)] expr, ... */
+function printReturning(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const aliases = propArr(node, 'returningWith').map((o): Doc =>
+        [keyword(propStr(o, 'row') ?? '', opts), ' ', keyword('AS', opts), ' ', propStr(o, 'alias') ?? '']);
+    const kw: Doc = aliases.length > 0
+        ? [keyword('RETURNING', opts), ' ', keyword('WITH', opts), ' ', parenItems(aliases, opts)]
+        : keyword('RETURNING', opts);
+    return listClauseDoc(kw, propArr(node, 'returning').map(printNode), opts);
+}
+
 function printFromClause(items: SqlNode[], opts: Options, printNode: PrintFn): Doc {
     return fromClauseDoc(keyword('FROM', opts), items.map(printNode), items.some((i) => i.type === 'JoinExpr'), opts);
 }
@@ -348,7 +358,7 @@ function printInsertBody(node: SqlNode, opts: Options): Doc {
     if (onConflict) parts.push(printOnConflict(onConflict, opts, printNode));
 
     if (returning.length > 0) {
-        parts.push(printListClause('RETURNING', returning, opts, printNode));
+        parts.push(printReturning(node, opts, printNode));
     }
 
     return group(join(hardline, parts));
@@ -388,7 +398,7 @@ function printUpdateBody(node: SqlNode, opts: Options): Doc {
     if (where) parts.push(printBoolClause('WHERE', where, opts, printNode));
 
     if (returning.length > 0) {
-        parts.push(printListClause('RETURNING', returning, opts, printNode));
+        parts.push(printReturning(node, opts, printNode));
     }
 
     return group(join(hardline, parts));
@@ -420,7 +430,7 @@ function printDeleteBody(node: SqlNode, opts: Options): Doc {
     if (where) parts.push(printBoolClause('WHERE', where, opts, printNode));
 
     if (returning.length > 0) {
-        parts.push(printListClause('RETURNING', returning, opts, printNode));
+        parts.push(printReturning(node, opts, printNode));
     }
 
     return group(join(hardline, parts));
@@ -1342,7 +1352,7 @@ function printMerge(node: SqlNode, opts: Options): Doc {
     }
 
     if (returning.length > 0) {
-        parts.push(printListClause('RETURNING', returning, opts, printNode));
+        parts.push(printReturning(node, opts, printNode));
     }
 
     return [join(hardline, parts), ';'];

@@ -313,7 +313,8 @@ public class AstBuilder {
             ("override",   overrideStr),
             ("source",     source),
             ("onConflict", s.OnConflictClause != null ? BuildOnConflict(s.OnConflictClause) : null),
-            ("returning",  MapList(s.ReturningClause?.Exprs, BuildExpr))
+            ("returning",  MapList(s.ReturningClause?.Exprs, BuildExpr)),
+            ("returningWith", ReturningWith(s.ReturningClause))
         ));
     }
 
@@ -351,7 +352,8 @@ public class AstBuilder {
             ("sets",      BuildAssignments(s.TargetList)),
             ("from",      MapList(s.FromClause, BuildFromItem)),
             ("where",     BuildExpr(s.WhereClause)),
-            ("returning", MapList(s.ReturningClause?.Exprs, BuildExpr))
+            ("returning", MapList(s.ReturningClause?.Exprs, BuildExpr)),
+            ("returningWith", ReturningWith(s.ReturningClause))
         ));
 
     private SqlNode BuildDelete(DeleteStmt s, int start, int end) =>
@@ -360,7 +362,8 @@ public class AstBuilder {
             ("target",    BuildRangeVar(s.Relation)),
             ("using",     MapList(s.UsingClause, BuildFromItem)),
             ("where",     BuildExpr(s.WhereClause)),
-            ("returning", MapList(s.ReturningClause?.Exprs, BuildExpr))
+            ("returning", MapList(s.ReturningClause?.Exprs, BuildExpr)),
+            ("returningWith", ReturningWith(s.ReturningClause))
         ));
 
     // -------------------------------------------------------------------------
@@ -422,6 +425,17 @@ public class AstBuilder {
     };
 
     // WITH (storage_parameter = value, ...) as ready-to-print "name = value" strings.
+    // RETURNING WITH (OLD AS o, NEW AS n): the names the old and new rows go by (PostgreSQL 18)
+    private static object? ReturningWith(ReturningClause? r) => r == null ? null : MaybeList(r.Options
+        .Select(o => (object?)new SqlNode("ReturningOption", 0, 0, null, BuildProps(
+            ("row",   o.ReturningOption.Option switch {
+                ReturningOptionKind.ReturningOptionOld => "OLD",
+                ReturningOptionKind.ReturningOptionNew => "NEW",
+                _ => throw new UnsupportedSqlException($"Unsupported RETURNING option ({o.ReturningOption.Option})"),
+            }),
+            ("alias", Ident.Quote(o.ReturningOption.Value)))))
+        .ToList());
+
     private static object? StorageOptions(IEnumerable<Node> options) => MaybeList(options
         .Where(n => n.NodeCase == Node.NodeOneofCase.DefElem)
         .Select(n => {
@@ -1506,8 +1520,13 @@ public class AstBuilder {
             ConstrType.ConstrAttrNotDeferrable => "NOT DEFERRABLE",
             ConstrType.ConstrAttrDeferred      => "INITIALLY DEFERRED",
             ConstrType.ConstrAttrImmediate     => "INITIALLY IMMEDIATE",
-            _                                  => constraint.Contype.ToString(),
+            ConstrType.ConstrAttrEnforced      => "ENFORCED",
+            ConstrType.ConstrAttrNotEnforced   => "NOT ENFORCED",
+            _ => throw NotSupported($"constraint ({constraint.Contype})", constraint.Location),
         };
+        // Only CHECK and FOREIGN KEY record enforcement (PostgreSQL 18); a table-level NOT ENFORCED
+        // also sets skip_validation, which on its own is NOT VALID
+        var notEnforced = constraint.Contype is ConstrType.ConstrCheck or ConstrType.ConstrForeign && !constraint.IsEnforced;
 
         // FK actions: 'a'=NO ACTION, 'r'=RESTRICT, 'c'=CASCADE, 'n'=SET NULL, 'd'=SET DEFAULT
         string FkAction(string ch) => ch switch {
@@ -1536,16 +1555,29 @@ public class AstBuilder {
             ("name",             Ident.QuoteOpt(constraint.Conname)),
             ("expr",             constraint.RawExpr != null ? BuildExpr(constraint.RawExpr) : null),
             ("keys",             keys),
+            // PRIMARY KEY / UNIQUE (id, valid WITHOUT OVERLAPS): the last key is the period
+            ("withoutOverlaps",  constraint.WithoutOverlaps ? true : null),
             ("nullsNotDistinct", constraint.NullsNotDistinct ? true : null),
             ("pktable",          constraint.Pktable != null ? BuildRangeVar(constraint.Pktable) : null),
             ("fkAttrs",          fkAttrs),
             ("pkAttrs",          pkAttrs),
+            // FOREIGN KEY (id, PERIOD valid) REFERENCES p (id, PERIOD valid): the last column of each is a period
+            ("fkPeriod",         constraint.FkWithPeriod ? true : null),
+            ("pkPeriod",         constraint.PkWithPeriod ? true : null),
             ("fkUpdAction",      string.IsNullOrEmpty(constraint.FkUpdAction) || constraint.FkUpdAction == "a" ? null : FkAction(constraint.FkUpdAction)),
             ("fkDelAction",      string.IsNullOrEmpty(constraint.FkDelAction) || constraint.FkDelAction == "a" ? null : FkAction(constraint.FkDelAction)),
             ("generatedWhen",    string.IsNullOrEmpty(constraint.GeneratedWhen) ? null : (constraint.GeneratedWhen == "a" ? "ALWAYS" : "BY DEFAULT")),
+            // GENERATED ALWAYS AS (...) STORED / VIRTUAL; with neither, PostgreSQL 18 makes it VIRTUAL
+            ("generatedKind",    constraint.Contype != ConstrType.ConstrGenerated ? null
+                                 : constraint.GeneratedKind switch {
+                                     "s" => "STORED",
+                                     "v" => "VIRTUAL",
+                                     _ => throw NotSupported($"generated column kind ({constraint.GeneratedKind})", constraint.Location),
+                                 }),
             ("deferrable",       constraint.Deferrable ? true : null),
             ("initDeferred",     constraint.Initdeferred ? true : null),
-            ("notValid",         constraint.SkipValidation ? true : null),
+            ("notValid",         constraint.SkipValidation && !notEnforced ? true : null),
+            ("notEnforced",      notEnforced ? true : null),
             ("noInherit",        constraint.IsNoInherit ? true : null),
             // MATCH FULL / PARTIAL; 's' (SIMPLE) is the default
             ("fkMatch",          constraint.FkMatchtype switch { "f" => "FULL", "p" => "PARTIAL", _ => null }),
@@ -1689,8 +1721,6 @@ public class AstBuilder {
                 name = RoleSpecName(cmd.Newowner);
                 break;
             case AlterTableType.AtAlterConstraint when def?.NodeCase == Node.NodeOneofCase.AtalterConstraint:
-                if (def.AtalterConstraint.AlterEnforceability || def.AtalterConstraint.AlterInheritability)
-                    throw NotSupported("ALTER CONSTRAINT ... ENFORCED / INHERIT", null);
                 name = Ident.QuoteOpt(def.AtalterConstraint.Conname);
                 break;
             case AlterTableType.AtAddInherit or AlterTableType.AtDropInherit when def?.NodeCase == Node.NodeOneofCase.RangeVar:
@@ -1745,9 +1775,15 @@ public class AstBuilder {
             ("bound",   bound),
             ("concurrently", concurrently ? true : null),
             ("finalize", finalize ? true : null),
-            // ALTER CONSTRAINT c [NOT] DEFERRABLE [INITIALLY DEFERRED]
+            // ALTER CONSTRAINT c [[NOT] DEFERRABLE [INITIALLY DEFERRED]] [[NOT] ENFORCED] | [NO] INHERIT:
+            // each part only when it's being changed
+            ("setDeferrability", def?.AtalterConstraint?.AlterDeferrability == true ? true : null),
             ("deferrable",   def?.AtalterConstraint?.Deferrable == true ? true : null),
             ("initDeferred", def?.AtalterConstraint?.Initdeferred == true ? true : null),
+            ("enforced",     def?.AtalterConstraint is { AlterEnforceability: true } e
+                             ? (e.IsEnforced ? "ENFORCED" : "NOT ENFORCED") : null),
+            ("inherit",      def?.AtalterConstraint is { AlterInheritability: true } i
+                             ? (i.Noinherit ? "NO INHERIT" : "INHERIT") : null),
             // MissingOk means IF NOT EXISTS for ADD COLUMN and IF EXISTS for the DROPs
             ("ifExists", cmd.MissingOk ? true : null),
             ("cascade",  cmd.Behavior == DropBehavior.DropCascade ? true : null)
@@ -2699,7 +2735,8 @@ public class AstBuilder {
             ("source",    m.SourceRelation != null ? BuildFromItem(m.SourceRelation) : null),
             ("on",        BuildExpr(m.JoinCondition)),
             ("whens",     MapList(m.MergeWhenClauses, BuildExpr)),
-            ("returning", MapList(m.ReturningClause?.Exprs, BuildExpr))
+            ("returning", MapList(m.ReturningClause?.Exprs, BuildExpr)),
+            ("returningWith", ReturningWith(m.ReturningClause))
         ));
 
     private SqlNode BuildMergeWhen(MergeWhenClause w) {

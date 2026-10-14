@@ -16,10 +16,6 @@ export const unused: Record<string, string> = {
     'DefineStmt.Oldstyle':
         'the old CREATE AGGREGATE syntax has no argument list and puts BASETYPE in the definition, which the builder prints',
     'VariableSetStmt.JumbleArgs': 'marks the SET TIME ZONE spelling for query IDs; SET TIME ZONE x is SET timezone TO x',
-    'ATAlterConstraint.AlterDeferrability':
-        'an ALTER CONSTRAINT that changes neither enforceability nor inheritance changes deferrability',
-    'ATAlterConstraint.IsEnforced': 'only meaningful with AlterEnforceability, which the builder rejects for now',
-    'ATAlterConstraint.Noinherit': 'only meaningful with AlterInheritability, which the builder rejects for now',
 };
 
 /**
@@ -127,10 +123,4 @@ export const unreachable: Record<string, string> = {
  * and printer, add a fixture, and take the entry out.
  */
 export const dropped: Record<string, string> = {
-    'ReturningClause.Options': 'RETURNING WITH (OLD AS o, NEW AS n) loses its WITH list',
-    'Constraint.GeneratedKind': 'GENERATED ALWAYS AS (...) VIRTUAL prints as STORED',
-    'Constraint.IsEnforced': 'a table-level CHECK or FOREIGN KEY ... NOT ENFORCED prints as NOT VALID',
-    'Constraint.WithoutOverlaps': 'PRIMARY KEY / UNIQUE (..., p WITHOUT OVERLAPS) loses WITHOUT OVERLAPS',
-    'Constraint.FkWithPeriod': 'FOREIGN KEY (..., PERIOD p) loses PERIOD',
-    'Constraint.PkWithPeriod': 'REFERENCES t (..., PERIOD p) loses PERIOD',
 };
