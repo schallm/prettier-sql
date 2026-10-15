@@ -864,6 +864,14 @@ function printDrop(node: SqlNode, opts: Options): Doc {
 // SET / SHOW / RESET
 // ---------------------------------------------------------------------------
 
+/**
+ * The values of SET or ALTER SYSTEM SET, which arrive as SQL text (numbers, bare words or
+ * quoted literals): ON / OFF / TRUE / FALSE are keywords, as in a utility option.
+ */
+function settingValueDocs(values: string[], opts: Options): Doc[] {
+    return values.map((v): Doc => (/^(on|off|true|false)$/i.test(v) ? keyword(v, opts) : v));
+}
+
 function printVariableSet(node: SqlNode, opts: Options): Doc {
     const makeKeyword     = (k: string) => keyword(k, opts);
     const kind   = propStr(node, 'kind') ?? 'SET';
@@ -887,11 +895,8 @@ function printVariableSet(node: SqlNode, opts: Options): Doc {
                  propStr(node, 'intervalValue') ?? '', fields ? [' ', makeKeyword(fields)] : ''], ';'];
     }
 
-    // Values arrive as SQL text (numbers, bare words, or quoted literals); ON / OFF / TRUE / FALSE
-    // are keywords, as in a utility option. The values fill an indented line of their own when
-    // they don't fit after the =
-    const valueDocs = values.map((v): Doc => (/^(on|off|true|false)$/i.test(v) ? makeKeyword(v) : v));
-    return [group([makeKeyword('SET'), ' ', localKw, name, ' =', indent([line, commaFill(valueDocs)])]), ';'];
+    // The values fill an indented line of their own when they don't fit after the =
+    return [group([makeKeyword('SET'), ' ', localKw, name, ' =', indent([line, commaFill(settingValueDocs(values, opts))])]), ';'];
 }
 
 function printVariableShow(node: SqlNode, opts: Options): Doc {
@@ -2208,8 +2213,7 @@ function printAlterSystem(node: SqlNode, opts: Options): Doc {
     if (kind === 'RESET ALL') return [[makeKeyword('ALTER SYSTEM RESET ALL')], ';'];
     if (kind === 'RESET')     return [[makeKeyword('ALTER SYSTEM RESET'), ' ', name], ';'];
 
-    // Values arrive as SQL text (numbers, bare words, or quoted literals)
-    return [[makeKeyword('ALTER SYSTEM SET'), ' ', name, ' = ', join(', ', values)], ';'];
+    return [[makeKeyword('ALTER SYSTEM SET'), ' ', name, ' = ', join(', ', settingValueDocs(values, opts))], ';'];
 }
 
 function printReassignOwned(node: SqlNode, opts: Options): Doc {

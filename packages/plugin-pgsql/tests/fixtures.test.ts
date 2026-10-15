@@ -50,6 +50,7 @@ describe('options', () => {
             ['ABORT;', 'ROLLBACK;\n'],
             ['CLUSTER books_pkey ON books;', 'CLUSTER books USING books_pkey;\n'],
             ['SET enable_seqscan = ON;', 'SET enable_seqscan = ON;\n'],
+            ['ALTER SYSTEM SET fsync = ON;', 'ALTER SYSTEM SET fsync = ON;\n'],
             ['VACUUM (PARALLEL 4, INDEX_CLEANUP ON) books;', 'VACUUM (PARALLEL 4, INDEX_CLEANUP ON) books;\n'],
         ];
         for (const [sql, expected] of cases) {
