@@ -2519,7 +2519,8 @@ public class AstBuilder {
             ("name",        Ident.QuoteOpt(cs.Schemaname)),
             // CREATE SCHEMA s CREATE TABLE ... CREATE VIEW ...: the objects created inside the schema
             ("elements",    MapList(cs.SchemaElts, n => BuildStmtNode(n, start, end))),
-            ("authRole",    Ident.QuoteOpt(cs.Authrole?.Rolename)),
+            // AUTHORIZATION role | CURRENT_ROLE | CURRENT_USER | SESSION_USER
+            ("authRole",    RoleSpecName(cs.Authrole)),
             ("ifNotExists", cs.IfNotExists ? true : null)
         ));
 

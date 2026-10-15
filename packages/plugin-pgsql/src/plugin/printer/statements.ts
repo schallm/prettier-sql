@@ -1088,7 +1088,8 @@ function printCreateSchema(node: SqlNode, opts: Options): Doc {
     const ifNotExists = propBool(node, 'ifNotExists');
 
     const ifNotExistsDoc: Doc   = ifNotExists ? [makeKeyword('IF NOT EXISTS'), ' '] : '';
-    const authDoc: Doc = authRole ? [' ', makeKeyword('AUTHORIZATION'), ' ', authRole] : '';
+    // CREATE SCHEMA AUTHORIZATION r names the schema after the role: no name before it
+    const authDoc: Doc = authRole ? [name ? ' ' : '', makeKeyword('AUTHORIZATION'), ' ', authRole] : '';
     // Schema elements follow without separators: a ';' would end the CREATE SCHEMA
     const elements = propArr(node, 'elements').map((e) => stripTrailingSemicolon(printStatement(e, opts)));
     return [[makeKeyword('CREATE SCHEMA'), ' ', ifNotExistsDoc, name, authDoc,
