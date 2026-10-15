@@ -48,3 +48,8 @@ grant control on database::AdventureWorks to AppUser
 grant control on application role::r to u;
 
 grant execute on external model::m to u;
+
+-- NULL as a principal
+grant select on dbo.Books to public, null, [ReportUser], Auditor;
+deny update on dbo.Books to null cascade;
+revoke grant option for select on dbo.Books from null, public cascade;

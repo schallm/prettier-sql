@@ -64,7 +64,10 @@ function printSecurityTarget(target: Record<string, unknown>, opts: Options): Do
 function printSecurityPrincipal(p: Record<string, unknown>, opts: Options): Doc {
     const type = (p['principalType'] as string) ?? '';
     if (type === 'Public') return keyword('PUBLIC', opts);
-    return (p['name'] as string) ?? '';
+    // GRANT ... TO NULL: ScriptDom's principal with no name
+    if (type === 'Null') return keyword('NULL', opts);
+    if (type === 'Identifier') return (p['name'] as string) ?? '';
+    throw new Error(`Unsupported security principal type: ${type}`);
 }
 
 function printPermission(p: Record<string, unknown>, opts: Options): Doc {
