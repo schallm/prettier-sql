@@ -20,3 +20,6 @@ select * from t;
 
 -- TRUE / FALSE written out are the defaults
 with recursive t as (select 1 as id) cycle id set is_cycle to true default false using path select * from t;
+
+-- A typed constant in CYCLE ... TO / DEFAULT keeps its type-first spelling
+with recursive chain (id, parent) as (select id, parent_id from categories union all select c.id, c.parent_id from categories c join chain on c.id = chain.parent) cycle id set looped to point '(1,1)' default point '(0,0)' using path select * from chain;

@@ -1100,8 +1100,15 @@ function printCte(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
         // SET mark [TO value DEFAULT default]
         const markValue = prop(cycle, 'markValue');
         const markDefault = prop(cycle, 'markDefault');
+        // TO and DEFAULT take a constant: a typed one is written point '(1,1)', '(1,1)'::point doesn't parse
+        const constDoc = (n: SqlNode): Doc => {
+            const arg = prop(n, 'arg');
+            return n.type === 'Cast' && arg?.type === 'Literal'
+                ? [keyword(propStr(n, 'typeName') ?? '', opts), ' ', printNode(arg)]
+                : printNode(n);
+        };
         const marks: Doc = markValue && markDefault
-            ? [' ', makeKeyword('TO'), ' ', printNode(markValue), ' ', makeKeyword('DEFAULT'), ' ', printNode(markDefault)]
+            ? [' ', makeKeyword('TO'), ' ', constDoc(markValue), ' ', makeKeyword('DEFAULT'), ' ', constDoc(markDefault)]
             : '';
         parts.push(hardline, makeKeyword('CYCLE'), ' ', join(', ', propStrArr(cycle, 'columns')), ' ', makeKeyword('SET'), ' ',
             propStr(cycle, 'markColumn') ?? '', marks, ' ', makeKeyword('USING'), ' ', propStr(cycle, 'pathColumn') ?? '');
