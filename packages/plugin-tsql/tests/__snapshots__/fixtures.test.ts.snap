@@ -4491,6 +4491,25 @@ from
 "
 `;
 
+exports[`fixtures > select/distinct-from-subquery.sql 1`] = `
+"-- IS [NOT] DISTINCT FROM with ALL / ANY / SOME and a subquery
+select BookId
+from Books
+where AuthorId is distinct from all (
+  select Id
+  from Authors
+  where Country = 'NZ'
+);
+
+select BookId
+from Books
+where AuthorId is not distinct from any (
+  select Id
+  from Authors
+);
+"
+`;
+
 exports[`fixtures > select/empty-name-parts.sql 1`] = `
 "-- An empty part in the middle is kept: db..t1 is t1 in db's default schema
 select *

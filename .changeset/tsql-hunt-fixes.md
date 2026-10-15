@@ -33,3 +33,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - Names in option values keep their case under keyword casing: `CREDENTIAL = UserCredential`, `DEFAULT_LANGUAGE = English`, `NAME = LibraryData`, and the columns of a columnstore index's `ORDER (ColA, ColB)`.
 - `ALTER DATABASE … SET DB_CHAINING`, `VARDECIMAL_STORAGE_FORMAT`, `ARITHABORT` and `NUMERIC_ROUNDABORT` keep their names; they printed as `dbchaining`, `var_decimal_storage_format`, `arith_abort` and `numeric_round_abort`, which don't parse.
 - `ALTER DATABASE … SET PARTNER SAFETY FULL | OFF` and `PARTNER TIMEOUT 10` keep `SAFETY` and `TIMEOUT`; they printed as `PARTNER FULL` and `PARTNER 10`, which don't parse.
+- `a IS [NOT] DISTINCT FROM ALL | ANY | SOME (subquery)` prints its operator; it printed as `IsDistinctFrom`, which doesn't parse.

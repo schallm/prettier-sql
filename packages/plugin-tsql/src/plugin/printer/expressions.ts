@@ -860,14 +860,22 @@ function printBoolExprInner(node: SqlNode, opts: Options, printFn: PrintFn, grou
     }
 }
 
-function cmpOp(op: string): string {
-    return CMP_OP_MAP[op] ?? op;
+// IS [NOT] DISTINCT FROM is a comparison type too, in `a IS DISTINCT FROM ALL (subquery)`
+const CMP_KEYWORD_MAP: Record<string, string> = {
+    IsDistinctFrom:    'IS DISTINCT FROM',
+    IsNotDistinctFrom: 'IS NOT DISTINCT FROM',
+};
+
+function cmpOp(op: string, opts: Options): Doc {
+    if (CMP_OP_MAP[op]) return CMP_OP_MAP[op];
+    if (CMP_KEYWORD_MAP[op]) return keyword(CMP_KEYWORD_MAP[op], opts);
+    throw new Error(`Unknown comparison type ${op}`);
 }
 
 function printBoolComparison(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const left = prop(node, 'left');
     const right = prop(node, 'right');
-    const op = cmpOp(propStr(node, 'operator') ?? '=');
+    const op = cmpOp(propStr(node, 'operator') ?? 'Equals', opts);
     return operatorDoc(
         left ? printExpression(left, opts, printFn) : '',
         op,
@@ -889,7 +897,7 @@ function printDistinctPredicate(node: SqlNode, opts: Options, printFn: PrintFn):
 
 function printSubqueryComparison(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const expr = prop(node, 'expr');
-    const op = cmpOp(propStr(node, 'operator') ?? '');
+    const op = cmpOp(propStr(node, 'operator') ?? 'Equals', opts);
     const quantifier = propStr(node, 'quantifier'); // ALL, ANY, or null
     const subquery = prop(node, 'subquery');
     const subDoc = subquery ? subqueryDoc(printQueryExpression(subquery, opts, printFn), opts) : '';
