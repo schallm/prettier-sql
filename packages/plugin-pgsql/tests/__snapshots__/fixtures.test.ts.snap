@@ -5204,6 +5204,30 @@ from
     from books
     where author_id = b.author_id
   ) as r;
+
+-- LATERAL table functions that read an earlier FROM item
+select x.*
+from
+  xmldata,
+  lateral xmltable(
+    '/rows/row'
+    passing data
+    columns
+      id integer path '@id',
+      name text
+  ) as x;
+
+select j.*
+from
+  orders as o,
+  lateral json_table(
+    o.doc,
+    '$.items[*]'
+    columns (
+      sku text path '$.sku',
+      qty integer path '$.qty'
+    )
+  ) as j;
 "
 `;
 

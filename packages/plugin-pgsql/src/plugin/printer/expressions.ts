@@ -1576,7 +1576,8 @@ function printXmlTable(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
         indent(colDocs.map((c) => [hardline, c])),
     ]);
 
-    return [makeKeyword('XMLTABLE'), '(', inner, hardline, ')', tableAliasDoc(node, opts)];
+    const lateral: Doc = propBool(node, 'lateral') ? [makeKeyword('LATERAL'), ' '] : '';
+    return [lateral, makeKeyword('XMLTABLE'), '(', inner, hardline, ')', tableAliasDoc(node, opts)];
 }
 
 function printJsonTable(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
@@ -1600,7 +1601,8 @@ function printJsonTable(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
         printJsonBehavior(prop(node, 'onError'), 'ON ERROR', opts, printNode),
     ]);
 
-    return [makeKeyword('JSON_TABLE'), '(', inner, hardline, ')', tableAliasDoc(node, opts)];
+    const lateral: Doc = propBool(node, 'lateral') ? [makeKeyword('LATERAL'), ' '] : '';
+    return [lateral, makeKeyword('JSON_TABLE'), '(', inner, hardline, ')', tableAliasDoc(node, opts)];
 }
 
 function buildJsonTableColumnDocs(columns: SqlNode[], opts: Options, printNode: PrintFn): Doc[] {
