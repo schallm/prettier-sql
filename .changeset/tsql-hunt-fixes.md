@@ -31,3 +31,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - A column written as just `timestamp` (`CREATE TABLE t (timestamp NOT NULL)`) no longer gains a type: it printed as `timestamp int`.
 - Bracketed names inside option text keep their case (`CREDENTIAL = [Bob's Key]`); keyword casing changed them, and an apostrophe inside one could recase a string literal after it.
 - Names in option values keep their case under keyword casing: `CREDENTIAL = UserCredential`, `DEFAULT_LANGUAGE = English`, `NAME = LibraryData`, and the columns of a columnstore index's `ORDER (ColA, ColB)`.
+- `ALTER DATABASE … SET DB_CHAINING`, `VARDECIMAL_STORAGE_FORMAT`, `ARITHABORT` and `NUMERIC_ROUNDABORT` keep their names; they printed as `dbchaining`, `var_decimal_storage_format`, `arith_abort` and `numeric_round_abort`, which don't parse.

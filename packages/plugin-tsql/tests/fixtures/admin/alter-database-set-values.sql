@@ -20,3 +20,7 @@ alter database Library set remote_data_archive = on (server = N'ArchiveServer', 
 
 -- Names in option values keep their case
 alter database current set default_fulltext_language = English, default_language = [French];
+
+-- Option names whose spelling differs from ScriptDom's enum names
+alter database Library set db_chaining on, vardecimal_storage_format on;
+alter database Library set arithabort on, numeric_roundabort off;

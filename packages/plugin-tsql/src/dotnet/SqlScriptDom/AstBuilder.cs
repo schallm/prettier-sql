@@ -3808,11 +3808,18 @@ public class AstBuilder : TSqlFragmentVisitor {
             if (inside.Count >= 2 && inside[1].TokenType == TSqlTokenType.EqualsSign) sep = " = ";
             if (inside.Count >= 1 && inside[0].Text.Replace("_", "").Equals(name.Replace("_", ""), StringComparison.OrdinalIgnoreCase))
                 name = inside[0].Text.ToUpperInvariant();
-            var prev = stream
+            var before = stream
                 .Where(t => t.Offset < o.StartOffset && Significant(t))
                 .OrderByDescending(t => t.Offset)
-                .FirstOrDefault();
+                .Take(2)
+                .ToList();
+            var prev = before.FirstOrDefault();
             if (prev?.TokenType == TSqlTokenType.EqualsSign) sep = " = ";
+            // In ALTER DATABASE the name comes just before the fragment (or its `=`): its spelling too
+            // differs from the enum's (DB_CHAINING, ARITHABORT, VARDECIMAL_STORAGE_FORMAT)
+            var nameToken = prev?.TokenType == TSqlTokenType.EqualsSign ? before.ElementAtOrDefault(1) : prev;
+            if (nameToken != null && nameToken.Text.Replace("_", "").Equals(name.Replace("_", ""), StringComparison.OrdinalIgnoreCase))
+                name = nameToken.Text.ToUpperInvariant();
         }
         // AUTO_CREATE_STATISTICS ON (INCREMENTAL = ON | OFF)
         if (o is AutoCreateStatisticsDatabaseOption { HasIncremental: true } autoStats)
