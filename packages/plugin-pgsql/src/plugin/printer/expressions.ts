@@ -564,7 +564,7 @@ function castCallDoc(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     const interval = node.type === 'IntervalLiteral';
     const arg = prop(node, interval ? 'value' : 'arg');
     const field = propStr(node, 'field');
-    const type = interval ? ['INTERVAL', field ? ` ${field}` : ''].join('') : propStr(node, 'typeName') ?? '';
+    const type = interval ? (field ? `INTERVAL ${field}` : 'INTERVAL') : propStr(node, 'typeName') ?? '';
     return [keyword('CAST', opts), '(', arg ? printNode(arg) : '', ' ', keyword('AS', opts), ' ', keyword(type, opts), ')'];
 }
 
@@ -1113,7 +1113,8 @@ function printCte(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
         // TO and DEFAULT take a constant: a typed one is written point '(1,1)', '(1,1)'::point doesn't parse
         const constDoc = (n: SqlNode): Doc => {
             const arg = prop(n, 'arg');
-            return n.type === 'Cast' && arg?.type === 'Literal'
+            // type 'value' takes a string: '...', E'...' or U&'...'
+            return n.type === 'Cast' && arg?.type === 'Literal' && /^(E|U&)?'/i.test(arg.text ?? '')
                 ? [keyword(propStr(n, 'typeName') ?? '', opts), ' ', printNode(arg)]
                 : printNode(n);
         };
