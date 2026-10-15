@@ -36,3 +36,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - `a IS [NOT] DISTINCT FROM ALL | ANY | SOME (subquery)` prints its operator; it printed as `IsDistinctFrom`, which doesn't parse.
 - `CREATE INDEX … WITH PAD_INDEX, FILLFACTOR = 80` (SQL Server 2000 options, without parentheses) prints as `WITH (PAD_INDEX = ON, FILLFACTOR = 80)`; it printed `WITH (PAD_INDEX, …)`, which doesn't parse.
 - A column's clauses print in the order T-SQL accepts: `HIDDEN` after `MASKED WITH (…)` and before `IDENTITY` / `ROWGUIDCOL`, `SPARSE` / `FILESTREAM` before `IDENTITY` and `ROWGUIDCOL`, and `GENERATED ALWAYS` before `SPARSE`; the output didn't parse.
+- `BACKUP` / `RESTORE … FILE = ('f1', @f2)` and `FILEGROUP = (@a, @b)` keep their parentheses; without them the output didn't parse.

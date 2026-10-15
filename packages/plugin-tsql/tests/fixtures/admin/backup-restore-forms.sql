@@ -18,3 +18,7 @@ backup database d to disk = 'x' with expiredate = '2030-01-01', retaindays = 5, 
 backup database d to Dev1, Dev2
 
 restore database d from Dev1
+
+-- A list of files or filegroups keeps its parentheses
+backup database Library file = 'LibraryData', file = ('LibraryIndex', @extraFile) to disk = 'C:\backup\lib.bak';
+restore database Library filegroup = (@primaryGroup, 'Archive') from disk = 'C:\backup\lib.bak';

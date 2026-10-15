@@ -3649,7 +3649,12 @@ public class AstBuilder : TSqlFragmentVisitor {
             var other => System.Text.RegularExpressions.Regex
                          .Replace(other, "(?<=[a-z])(?=[A-Z])", "_").ToUpperInvariant().Replace("FILE_GROUPS", "FILEGROUPS"),
         };
-        return f.Items.Count == 0 ? kind : $"{kind} = {string.Join(", ", f.Items.Select(i => RawText(i).Trim()))}";
+        // More than one item is a list in parentheses: FILE = ('f1', @f2)
+        return f.Items.Count switch {
+            0 => kind,
+            1 => $"{kind} = {RawText(f.Items[0]).Trim()}",
+            _ => $"{kind} = ({string.Join(", ", f.Items.Select(i => RawText(i).Trim()))})",
+        };
     }
 
     // ENCRYPTION (ALGORITHM = AES_256, SERVER CERTIFICATE = c)
