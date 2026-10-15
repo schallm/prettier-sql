@@ -14,3 +14,4 @@ Fixes found by formatting PostgreSQL's regression tests:
 - `SELECT … INTO t` keeps all of the query's clauses (`DISTINCT`, `WITH …`, `FOR UPDATE`, `WINDOW`), and an `INTO` in a `UNION`'s first query or in a subquery is kept; they were dropped.
 - `CREATE INDEX ON t (…)` without a name no longer prints a double space.
 - With `sqlKeywordCase: 'preserve'`, a short statement with none of the common keywords (`END;`, `CLUSTER t`, `COPY … TO STDOUT`) keeps the case its first word is written in; it fell back to lower case, and formatting upper-case output again could change its case.
+- `VACUUM (INDEX_CLEANUP ON)` and other utility options print `ON` / `OFF` in the keyword case; they were always lower case.

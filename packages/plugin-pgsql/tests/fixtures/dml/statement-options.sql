@@ -27,3 +27,6 @@ create type q as enum ('a''b', 'c');
 alter type addr add attribute zip text, drop attribute if exists old cascade, alter attribute a type int;
 
 create function f() returns table (a int, b text) as $$ select 1, 'x' $$ language sql;
+
+-- ON / OFF values follow the keyword case
+vacuum (parallel 4, index_cleanup on) books;

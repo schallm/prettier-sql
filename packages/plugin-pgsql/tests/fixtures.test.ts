@@ -49,6 +49,7 @@ describe('options', () => {
             ['end;', 'commit;\n'],
             ['CLUSTER books_pkey ON books;', 'CLUSTER books USING books_pkey;\n'],
             ['SET enable_seqscan = ON;', 'SET enable_seqscan = on;\n'],
+            ['VACUUM (PARALLEL 4, INDEX_CLEANUP ON) books;', 'VACUUM (PARALLEL 4, INDEX_CLEANUP ON) books;\n'],
         ];
         for (const [sql, expected] of cases) {
             const out = await fmt(sql, { sqlKeywordCase: 'preserve' });

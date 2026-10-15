@@ -2352,6 +2352,9 @@ create function f()
 returns table (a integer, b text)
 language sql
 as $$ select 1, 'x' $$;
+
+-- ON / OFF values follow the keyword case
+vacuum (parallel 4, index_cleanup on) books;
 "
 `;
 

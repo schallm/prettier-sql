@@ -1672,7 +1672,9 @@ function utilityOptionDoc(option: UtilityOption, opts: Options): Doc {
     const name = keyword(option.name.toUpperCase(), opts);
     const value = option.value;
     if (value == null) return name;
-    return [name, ' ', value === 'true' || value === 'false' ? keyword(value, opts) : value];
+    // TRUE / FALSE / ON / OFF are keywords; INDEX_CLEANUP ON printed as `on` under upper case
+    // also made sqlKeywordCase: preserve read the output as lower case
+    return [name, ' ', /^(true|false|on|off)$/.test(value) ? keyword(value, opts) : value];
 }
 
 // ---------------------------------------------------------------------------
