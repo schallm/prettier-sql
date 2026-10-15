@@ -3777,6 +3777,9 @@ public class AstBuilder : TSqlFragmentVisitor {
                 .FirstOrDefault();
             if (prev?.TokenType == TSqlTokenType.EqualsSign) sep = " = ";
         }
+        // AUTO_CREATE_STATISTICS ON (INCREMENTAL = ON | OFF)
+        if (o is AutoCreateStatisticsDatabaseOption { HasIncremental: true } autoStats)
+            return $"{name}{sep}{(autoStats.OptionState == OptionState.On ? "ON" : "OFF")} (INCREMENTAL = {(autoStats.IncrementalState == OptionState.On ? "ON" : "OFF")})";
         if (o is OnOffDatabaseOption onOff)
             return $"{name}{sep}{(onOff.OptionState == OptionState.On ? "ON" : "OFF")}";
         var val = RawText(o).Trim();

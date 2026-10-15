@@ -10,3 +10,7 @@ alter database d set filestream (non_transacted_access = full, directory_name = 
 alter database d set recovery simple with rollback immediate
 
 alter database d set auto_close off, auto_shrink on
+
+-- AUTO_CREATE_STATISTICS keeps INCREMENTAL
+alter database Library set auto_create_statistics on (incremental = on), auto_update_statistics on;
+alter database Library set auto_update_statistics on, auto_create_statistics on (incremental = off);
