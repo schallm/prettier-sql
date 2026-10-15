@@ -883,8 +883,9 @@ function printInsert(node: SqlNode, opts: Options): Doc {
         colsPart,
     ];
 
+    // OUTPUT ... INTO @t and a plain OUTPUT can both be given, in that order
     if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
-    else if (output) parts.push(hardline, printOutputClause(output, opts));
+    if (output) parts.push(hardline, printOutputClause(output, opts));
 
     parts.push(sourcePart, optionClause(node, opts), ';');
     return group(parts);
@@ -962,8 +963,9 @@ function printUpdate(node: SqlNode, opts: Options): Doc {
     ];
 
     // OUTPUT comes before FROM in UPDATE (and multi-table DELETE)
+    // OUTPUT ... INTO @t and a plain OUTPUT can both be given, in that order
     if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
-    else if (output) parts.push(hardline, printOutputClause(output, opts));
+    if (output) parts.push(hardline, printOutputClause(output, opts));
 
     if (from) parts.push(hardline, printFromClause(from, opts, (n) => printNode(n, opts)));
 
@@ -997,8 +999,9 @@ function printDelete(node: SqlNode, opts: Options): Doc {
     }
 
     // OUTPUT follows the target and comes before any FROM
+    // OUTPUT ... INTO @t and a plain OUTPUT can both be given, in that order
     if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
-    else if (output) parts.push(hardline, printOutputClause(output, opts));
+    if (output) parts.push(hardline, printOutputClause(output, opts));
 
     if (from) parts.push(hardline, printFromClause(from, opts, (n) => printNode(n, opts)));
 
@@ -1103,8 +1106,9 @@ function printMerge(node: SqlNode, opts: Options): Doc {
         parts.push(hardline, printMergeClause(clause, opts));
     }
 
+    // OUTPUT ... INTO @t and a plain OUTPUT can both be given, in that order
     if (outputInto) parts.push(hardline, printOutputIntoClause(outputInto, opts));
-    else if (output) parts.push(hardline, printOutputClause(output, opts));
+    if (output) parts.push(hardline, printOutputClause(output, opts));
 
     parts.push(optionClause(node, opts), ';');
     return group(parts);
