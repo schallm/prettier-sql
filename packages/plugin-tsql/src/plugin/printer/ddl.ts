@@ -592,6 +592,9 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         const column = propStr(node, 'column') ?? '';
         const alterColumnOption = propStr(node, 'alterColumnOption');
         const maskingFunction = propStr(node, 'maskingFunction');
+        // WITH (ONLINE = ON): after a type change or an ADD / DROP alike
+        const columnOptions = propStrArr(node, 'columnOptions');
+        const withPart: Doc = columnOptions.length ? [' ', keyword('WITH', opts), ' ', optionItems(columnOptions, opts)] : '';
 
         // ADD/DROP modifier variants (no data type change, just add/remove a column property)
         if (alterColumnOption) {
@@ -625,6 +628,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
                 column,
                 ' ',
                 optDoc,
+                withPart,
             ]);
         }
 
@@ -641,7 +645,6 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             | undefined;
         const encryptionPart: Doc = encryption ? [' ', encryptedWithDoc(encryption, opts)] : '';
         const generatedAlways = propStr(node, 'generatedAlways');
-        const columnOptions = propStrArr(node, 'columnOptions');
         return alter([
             keyword('ALTER COLUMN', opts),
             ' ',
@@ -667,7 +670,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
                   ]
                 : '',
             nullPart,
-            columnOptions.length ? [' ', keyword('WITH', opts), ' ', optionItems(columnOptions, opts)] : '',
+            withPart,
         ]);
     }
 

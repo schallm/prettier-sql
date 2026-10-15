@@ -852,6 +852,16 @@ alter table dbo.t
 
 alter table dbo.t
   alter column a varchar(10) collate latin1_general_bin not null;
+
+-- ADD / DROP keep their WITH (ONLINE = ...)
+alter table dbo.Books
+  alter column Guid add rowguidcol with (online = on);
+
+alter table dbo.Books
+  alter column Guid drop rowguidcol with (online = off);
+
+alter table dbo.Books
+  alter column BookId add not for replication with (online = on);
 "
 `;
 

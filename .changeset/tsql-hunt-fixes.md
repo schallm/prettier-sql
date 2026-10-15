@@ -17,3 +17,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - A computed column keeps its constraints (`c AS a + b UNIQUE`, `PERSISTED PRIMARY KEY`, `CHECK`, `REFERENCES`); only `NULL` / `NOT NULL` was kept.
 - A column-level `PRIMARY KEY` / `UNIQUE` or `FOREIGN KEY` keeps its column list (`c varchar(9) PRIMARY KEY (id ASC)`, `c int FOREIGN KEY (other) REFERENCES t (x)`); without it the constraint applied to the column it was written on, which can be a different column.
 - `ALTER TABLE … DROP CONSTRAINT a WITH (…), b WITH (…)` keeps each constraint's options with it; they were all moved onto the last one.
+- `ALTER COLUMN c ADD | DROP ROWGUIDCOL` (and the other `ADD` / `DROP` forms) keeps its `WITH (ONLINE = …)`.
