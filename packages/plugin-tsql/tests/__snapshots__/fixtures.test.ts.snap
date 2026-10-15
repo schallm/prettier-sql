@@ -2916,6 +2916,21 @@ drop index ix1 on t1, ix2 on t2;
 "
 `;
 
+exports[`fixtures > index/old-style-options.sql 1`] = `
+"-- SQL Server 2000 index options, without parentheses: naming an option turns it on
+create index IX_Books_Title on Books (Title)
+  with (pad_index = on, fillfactor = 70);
+
+create unique index UQ_Books_Isbn on Books (Isbn)
+  with (
+    ignore_dup_key = on,
+    drop_existing = on,
+    statistics_norecompute = on,
+    sort_in_tempdb = on
+  );
+"
+`;
+
 exports[`fixtures > index/vector-index.sql 1`] = `
 "-- CREATE VECTOR INDEX — SQL Server 2025
 create vector index IX_Embeddings_Vec

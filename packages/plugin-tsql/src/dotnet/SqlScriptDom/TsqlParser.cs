@@ -213,6 +213,10 @@ public static class TsqlParser {
                 return new System.Text.Json.Nodes.JsonObject { ["$type"] = nameof(DefaultLiteral) };
             case MaxLiteral:
                 return new System.Text.Json.Nodes.JsonObject { ["$type"] = nameof(MaxLiteral) };
+            // The old-style WITH IGNORE_DUP_KEY parses as an IndexStateOption, IGNORE_DUP_KEY = ON as
+            // its subclass: the same option, until SUPPRESS_MESSAGES is given
+            case IgnoreDupKeyIndexOption { SuppressMessagesOption: null } dup:
+                return CanonicalNode(new IndexStateOption { OptionKind = dup.OptionKind, OptionState = dup.OptionState });
             case Identifier id when caseInsensitive:
                 return new System.Text.Json.Nodes.JsonObject { ["$type"] = nameof(Identifier), ["Value"] = id.Value.ToLowerInvariant() };
             case TSqlFragment fragment: {
@@ -227,6 +231,9 @@ public static class TsqlParser {
                     // A bare GO at the end only ends the last batch, as the end of the script does;
                     // GO n repeat counts are compared separately (goCounts)
                     if (fragment is TSqlScript && prop.Name == nameof(TSqlScript.TrailingGoCount)) continue;
+                    // WITH PAD_INDEX, FILLFACTOR = 80 is SQL Server 2000's spelling of
+                    // WITH (PAD_INDEX = ON, FILLFACTOR = 80): the flag records only which was written
+                    if (fragment is CreateIndexStatement && prop.Name == nameof(CreateIndexStatement.Translated80SyntaxTo90)) continue;
                     var propValue = prop.GetValue(fragment);
                     // A procedure or trigger body is its statement list: AS BEGIN ... END and
                     // AS ... are the same body, and the printer adds the BEGIN/END

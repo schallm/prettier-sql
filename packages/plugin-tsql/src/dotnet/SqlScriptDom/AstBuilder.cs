@@ -2032,6 +2032,10 @@ public class AstBuilder : TSqlFragmentVisitor {
                     : beo.Expression != null ? RawText(beo.Expression).Trim() : "0";
             return $"bucket_count = {val}";
         }
+        // The old-style WITH PAD_INDEX, FILLFACTOR = 80 (no parentheses) turns an option on by
+        // naming it; inside the parentheses it's printed in, it needs its = ON
+        if (opt is IndexStateOption { OptionState: OptionState.On } state && !RawText(state).Contains('='))
+            return $"{RawText(state).Trim()} = ON";
         return RawText(opt).Trim();
     }
 
