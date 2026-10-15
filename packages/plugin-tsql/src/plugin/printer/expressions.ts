@@ -1785,7 +1785,8 @@ function printPivotedTableRef(node: SqlNode, opts: Options, printFn: PrintFn): D
         ' (',
         indent([
             softline,
-            keyword(aggregateFn, opts),
+            // A built-in aggregate (SUM) is a keyword; a qualified one (dbo.MyAgg) is a name, as written
+            aggregateFn.includes('.') ? aggregateFn : keyword(aggregateFn, opts),
             '(',
             aggArgs,
             ')',

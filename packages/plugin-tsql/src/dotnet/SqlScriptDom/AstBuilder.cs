@@ -183,8 +183,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             : name;
     }
 
-    /// <summary>A multi-part object name as text: `server.db.schema.name`, each part bracketed only when it must be.</summary>
-    private static string SchemaObjectText(SchemaObjectName name) =>
+    /// <summary>A multi-part name as text: `server.db.schema.name`, each part bracketed only when it must be.</summary>
+    private static string SchemaObjectText(MultiPartIdentifier name) =>
         string.Join(".", name.Identifiers.Select(i => QuotedName(i)));
 
     private static SqlNode? BuildSchemaObjectName(SchemaObjectName? name) =>
@@ -325,7 +325,8 @@ public class AstBuilder : TSqlFragmentVisitor {
                 // XML/instance method: Data.value() — separator is "."
                 // Expression method: @g.STDistance() — ExpressionCallTarget, separator is "."
                 ["callTarget"] = fc.CallTarget is UserDefinedTypeCallTarget udt
-                    ? (object?)(QuotedName(udt.SchemaObjectName?.Identifiers?.LastOrDefault()) ?? RawText(fc.CallTarget).Trim())
+                    // dbo.MyType::Create(): the type keeps its schema
+                    ? (object?)(udt.SchemaObjectName != null ? SchemaObjectText(udt.SchemaObjectName) : RawText(fc.CallTarget).Trim())
                     : fc.CallTarget is MultiPartIdentifierCallTarget mpit
                         ? (object?)string.Join(".", mpit.MultiPartIdentifier?.Identifiers.Select(i => QuotedName(i) ?? i.Value) ?? [])
                         : null,
@@ -467,13 +468,14 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildPivotedTableRef(PivotedTableReference piv) {
         // Printed in brackets, so a ] inside the name is doubled: [a]]b]
         var inColumns = piv.InColumns?.Select(c => (object?)(c.Value ?? "").Replace("]", "]]")).ToList();
+        // Columns and the aggregate keep their qualifiers: st.Cost, dbo.MyAggregate
         var valueColumns = piv.ValueColumns?.Select(c =>
-            (object?)(QuotedName(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()) ?? "")).ToList();
+            (object?)(c.MultiPartIdentifier != null ? SchemaObjectText(c.MultiPartIdentifier) : "")).ToList();
         return Node("PivotedTableReference", piv, new Dictionary<string, object?> {
             ["tableRef"] = BuildTableReference(piv.TableReference),
-            ["aggregateFn"] = QuotedName(piv.AggregateFunctionIdentifier?.Identifiers?.LastOrDefault()),
+            ["aggregateFn"] = piv.AggregateFunctionIdentifier != null ? SchemaObjectText(piv.AggregateFunctionIdentifier) : null,
             ["valueColumns"] = valueColumns,
-            ["pivotColumn"] = QuotedName(piv.PivotColumn?.MultiPartIdentifier?.Identifiers?.LastOrDefault()),
+            ["pivotColumn"] = piv.PivotColumn?.MultiPartIdentifier != null ? SchemaObjectText(piv.PivotColumn.MultiPartIdentifier) : null,
             ["inColumns"] = inColumns,
             ["alias"] = QuotedName(piv.Alias),
         });
@@ -4208,11 +4210,7 @@ public class AstBuilder : TSqlFragmentVisitor {
     // -------------------------------------------------------------------------
 
     private static SqlNode BuildEnableDisableTrigger(EnableDisableTriggerStatement et) {
-        var names = et.TriggerNames?.Select(n => {
-            var schema = QuotedName(n.SchemaIdentifier);
-            var baseName = QuotedName(n.BaseIdentifier) ?? RawText(n).Trim();
-            return (object?)(schema != null ? $"{schema}.{baseName}" : baseName);
-        }).ToList();
+        var names = et.TriggerNames?.Select(n => (object?)SchemaObjectText(n)).ToList();
         var scope = et.TriggerObject?.TriggerScope.ToString() ?? "Normal";
         var targetName = scope == "Normal" ? BuildSchemaObjectName(et.TriggerObject?.Name) : null;
         return Node("EnableDisableTriggerStatement", et, new Dictionary<string, object?> {
