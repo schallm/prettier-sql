@@ -24,3 +24,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - `SELECT … INTO t` in the first query of a `UNION`, or inside parentheses, keeps its `INTO`; it was dropped, so the query returned rows instead of creating the table.
 - A cursor's query (`DECLARE c CURSOR FOR …`, `SET @c = CURSOR FOR …`) keeps a leading `WITH cte AS (…)` and a trailing `OPTION (…)`; both were dropped.
 - An inline table-valued function's `RETURN (WITH … SELECT …)` keeps its CTEs and `XMLNAMESPACES`.
+- A CLR table-valued function keeps its `ORDER (…)` hint.

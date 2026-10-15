@@ -3104,6 +3104,12 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["returnIsUdt"] = ReturnTypeIsUdt(f.ReturnType),
                 ["returnColumns"] = (f.ReturnType as TableValuedFunctionReturnType)?.DeclareTableVariableBody?.Definition?.ColumnDefinitions
                     ?.Select(c => (object?)BuildColumnDefinition(c)).ToList(),
+                // ORDER (c3 DESC, c1): the order a CLR table-valued function returns its rows in
+                ["orderHint"] = f.OrderHint?.Columns?.Count > 0 ? f.OrderHint.Columns.Select(c => (object?)new Dictionary<string, object?> {
+                    ["name"] = QuotedName(c.Column?.MultiPartIdentifier?.Identifiers.LastOrDefault()),
+                    ["order"] = c.SortOrder.ToString(),
+                }).ToList() : null,
+                ["orderUnique"] = f.OrderHint?.IsUnique == true ? (object?)true : null,
                 ["externalName"] = externalName,
             });
         }

@@ -10,6 +10,7 @@ export const unused: Record<string, string> = {
     'SchemaObjectName.Count': 'the number of Identifiers, which the builder reads',
     'Identifier.QuoteType': '[a], "a" and a are the same identifier; the printer brackets a name where it needs to',
     'StringLiteral.LiteralType': 'always String for a StringLiteral',
+    'OrderBulkInsertOption.OptionKind': 'always Order for an OrderBulkInsertOption',
     'ViewHashDistributionPolicy.DistributionColumn': 'the first of DistributionColumns, which the builder reads',
     'TSqlScript.TrailingGoCount': 'a bare GO at the end only ends the last batch, as the end of the script does; GO n counts are read from the source',
     'StringLiteral.IsLargeObject': 'whether the value exceeds 8000 bytes, which follows from the value',

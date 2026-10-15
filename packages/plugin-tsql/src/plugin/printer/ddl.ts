@@ -1095,6 +1095,7 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
     const externalName = propStr(node, 'externalName');
     if (externalName) {
         const clrColumns = propArr(node, 'returnColumns');
+        const orderHint = keyColumnDocs(node.props?.['orderHint'], opts);
         return [
             nameAndParamsNoOpts,
             hardline,
@@ -1110,6 +1111,9 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
                   ]
                 : returnTypeDoc(node, returnType, opts),
             printModuleOptions(node, opts),
+            orderHint.length > 0
+                ? [hardline, keyword('ORDER', opts), ' ', parenItems(orderHint, opts), propBool(node, 'orderUnique') ? [' ', keyword('UNIQUE', opts)] : '']
+                : '',
             hardline,
             keyword('AS', opts),
             ' ',
