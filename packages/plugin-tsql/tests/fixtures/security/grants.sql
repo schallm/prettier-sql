@@ -53,3 +53,7 @@ grant execute on external model::m to u;
 grant select on dbo.Books to public, null, [ReportUser], Auditor;
 deny update on dbo.Books to null cascade;
 revoke grant option for select on dbo.Books from null, public cascade;
+
+-- ON SERVER, with or without a name
+grant view server state on server to Auditor;
+revoke create on server::Srv1 from null cascade;

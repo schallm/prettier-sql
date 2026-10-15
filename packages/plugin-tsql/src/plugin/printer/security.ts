@@ -52,7 +52,8 @@ function printSecurityTarget(target: Record<string, unknown>, opts: Options): Do
     const objName = target['objectName'] as string | undefined;
     const cols = target['columns'] as string[] | undefined;
 
-    if (kind === 'Server') return keyword('SERVER', opts);
+    // ON SERVER (the current one), or ON SERVER::name
+    if (kind === 'Server') return objName ? [keyword('SERVER', opts), '::', objName] : keyword('SERVER', opts);
 
     const className = securityObjectKindMap[kind] ?? kind.toUpperCase();
     const prefix: Doc = className ? [keyword(className, opts), '::'] : '';
