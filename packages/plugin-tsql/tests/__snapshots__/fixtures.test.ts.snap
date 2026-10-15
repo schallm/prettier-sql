@@ -501,6 +501,9 @@ dbcc freeproccache;
 dbcc dropcleanbuffers;
 
 dbcc show_statistics('dbo.Orders', IX_Orders_CustId);
+
+-- Options joined by JOIN
+dbcc show_statistics('dbo.Books', IX_Books_Title) with stat_header join density_vector;
 "
 `;
 

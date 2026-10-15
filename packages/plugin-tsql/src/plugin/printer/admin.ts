@@ -29,14 +29,14 @@ export function printDbcc(node: SqlNode, opts: Options): Doc {
 
     const argPart: Doc = literals?.length ? ['(', join([', '], literals), ')'] : '';
 
-    const optSep = optionsUseJoin ? ' JOIN ' : ', ';
+    const optSep: Doc = optionsUseJoin ? [' ', keyword('JOIN', opts), ' '] : ', ';
     const withPart: Doc = options?.length
         ? [
               ' ',
               keyword('WITH', opts),
               ' ',
               join(
-                  [optSep],
+                  optSep,
                   options.map((o) => optionText(o, opts)),
               ),
           ]

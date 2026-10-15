@@ -45,3 +45,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - Graph pseudo-columns (`$node_id`, `$edge_id`, `$from_id`, `$to_id`) are kept in index keys and `INCLUDE (…)`; they printed as nothing (`ON t ()`), or failed to format. `CREATE TABLE t AS EDGE` with no columns no longer prints an empty `()`.
 - `ADD CONSTRAINT c FOREIGN KEY REFERENCES t (x)` (no column list) no longer prints `FOREIGN KEY ()`, which didn't parse.
 - A function call written `.f()` (the default schema's function) keeps its leading dot; without it the call was to a built-in function.
+- `DBCC … WITH STAT_HEADER JOIN DENSITY_VECTOR` follows `sqlKeywordCase` for `JOIN`; it was always upper case, so with `preserve` a second format changed the output.
