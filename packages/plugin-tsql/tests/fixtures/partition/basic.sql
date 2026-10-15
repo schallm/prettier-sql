@@ -32,3 +32,6 @@ truncate table dbo.Orders with (partitions (1, 2, 3))
 truncate table dbo.Orders with (partitions (1 to 3))
 
 truncate table dbo.Orders with (partitions (1, 5 to 10, 20))
+
+-- SPLIT / MERGE without a RANGE
+alter partition function pfOrderDate() split;

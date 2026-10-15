@@ -40,3 +40,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - A user table-valued function named `AI_GENERATE_CHUNKS` keeps its brackets (`dbo.[AI_GENERATE_CHUNKS](SOURCE)`); without them it read as the built-in function and didn't parse.
 - `SERVICE_OBJECTIVE = ELASTIC_POOL (NAME = pool)` in `CREATE DATABASE` and `ALTER DATABASE … MODIFY` keeps its closing parenthesis; the output didn't parse.
 - `EXEC (…) AS LOGIN` with no name no longer prints a dangling `= `, which didn't parse.
+- `ALTER PARTITION FUNCTION f() SPLIT` / `MERGE` with no range prints as written; it printed `SPLIT RANGE ()`, which doesn't parse.

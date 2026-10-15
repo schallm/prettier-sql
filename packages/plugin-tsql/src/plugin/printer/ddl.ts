@@ -1751,13 +1751,16 @@ export function printAlterPartitionFunction(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name') ?? '';
     const isSplit = propBool(node, 'isSplit');
     const boundary = prop(node, 'boundary');
-    const action = isSplit ? keyword('SPLIT RANGE', opts) : keyword('MERGE RANGE', opts);
+    // A bare SPLIT / MERGE (no RANGE) parses too
+    const action = boundary
+        ? [keyword(isSplit ? 'SPLIT RANGE' : 'MERGE RANGE', opts), ' (', printNode(boundary as SqlNode, opts), ')']
+        : keyword(isSplit ? 'SPLIT' : 'MERGE', opts);
     return [
         keyword('ALTER PARTITION FUNCTION', opts),
         ' ',
         name,
         '()',
-        indent([hardline, action, ' (', boundary ? printNode(boundary as SqlNode, opts) : '', ')']),
+        indent([hardline, action]),
         ';',
     ];
 }
