@@ -3525,11 +3525,35 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildBulkOpenRowset(BulkOpenRowset bulk) =>
         Node("BulkOpenRowset", bulk, new Dictionary<string, object?> {
             ["dataFiles"] = MapList(bulk.DataFiles, f => (object?)RawText(f)),
-            ["options"] = MapList(bulk.Options, o => (object?)RawText(o)),
+            ["options"] = MapList(bulk.Options, o => (object?)BulkOptionText(o)),
             // OPENROWSET(BULK ...) WITH (a int, b varchar(10) 2, c int '$.c'): the columns to read
             ["withColumns"] = MapList(bulk.WithColumns, c => (object?)Leaf("RowsetColumn", c, RawText(c))),
             ["alias"] = QuotedName(bulk.Alias),
+            // AS a (c1, c2): names for the result's columns
+            ["aliasColumns"] = MapList(bulk.Columns, c => (object?)QuotedName(c)),
         });
+
+    /// <summary>
+    /// An OPENROWSET(BULK ...) option as written, up to the comma or parenthesis that ends it.
+    /// ScriptDom ends some options' fragments early — HEADER_ROW = TRUE and ROWSET_OPTIONS = '...'
+    /// cover only the name, ORDER (...) UNIQUE stops before UNIQUE — so the fragment alone drops
+    /// the rest.
+    /// </summary>
+    private static string BulkOptionText(BulkInsertOption o) {
+        var stream = o.ScriptTokenStream;
+        var depth = 0;
+        var end = o.FirstTokenIndex;
+        for (var i = o.FirstTokenIndex; i < stream.Count; i++) {
+            var t = stream[i].TokenType;
+            if (t == TSqlTokenType.LeftParenthesis) depth++;
+            else if (t == TSqlTokenType.RightParenthesis && depth-- == 0) break;
+            else if (t == TSqlTokenType.Comma && depth == 0) break;
+            if (t is not (TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment)) end = i;
+        }
+        return string.Concat(Enumerable.Range(o.FirstTokenIndex, end - o.FirstTokenIndex + 1)
+            .Select(i => stream[i])
+            .Select(t => t.TokenType is TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment ? " " : t.Text));
+    }
 
     // -------------------------------------------------------------------------
     // Database administration: DROP DATABASE, DBCC, BACKUP, RESTORE,
