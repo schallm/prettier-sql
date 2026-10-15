@@ -61,6 +61,12 @@ describe('options', () => {
         expect(out).toContain('SELECT id\nFROM books\nWHERE price < 50');
     });
 
+    // No common keyword to count: an upper-case statement keyword decides, a name doesn't
+    it('sqlKeywordCase: preserve goes by a first word only when it is a keyword', async () => {
+        expect(await fmt('DBCC CHECKDB;', { sqlKeywordCase: 'preserve' })).toBe('DBCC CHECKDB;\n');
+        expect(await fmt('MYPROC 1;', { sqlKeywordCase: 'preserve' })).toBe('execute MYPROC\n  1;\n');
+    });
+
     it('sqlKeywordCase: preserve follows a lower-case input', async () => {
         const out = await fmt(`select id from books where title = 'SELECT FROM WHERE'`, { sqlKeywordCase: 'preserve' });
         expect(out).toContain("select id\nfrom books\nwhere title = 'SELECT FROM WHERE'");

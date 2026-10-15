@@ -30,6 +30,18 @@ const STYLE_KEYWORDS = new Set([
     'return', 'if', 'exists', 'union', 'all', 'distinct', 'between', 'like', 'limit', 'top',
 ]);
 
+// Words that start a statement without any of the keywords above (END, CLUSTER t, DBCC ...):
+// a tie between upper- and lower-case keywords goes by one of these when it comes first
+const STATEMENT_KEYWORDS = new Set([
+    'analyze', 'backup', 'bulk', 'call', 'checkpoint', 'close', 'cluster', 'comment', 'commit',
+    'copy', 'dbcc', 'deallocate', 'deny', 'disable', 'discard', 'do', 'enable', 'explain', 'fetch',
+    'get', 'go', 'grant', 'import', 'kill', 'listen', 'load', 'lock', 'merge', 'move', 'notify',
+    'open', 'prepare', 'print', 'raiserror', 'readtext', 'receive', 'reconfigure', 'refresh',
+    'reindex', 'release', 'reset', 'restore', 'revert', 'revoke', 'rollback', 'savepoint',
+    'security', 'send', 'setuser', 'show', 'shutdown', 'start', 'throw', 'truncate', 'unlisten',
+    'updatetext', 'use', 'vacuum', 'waitfor', 'writetext',
+]);
+
 let styleCache: { text: string; style: 'upper' | 'lower' } | undefined;
 
 /**
@@ -52,12 +64,15 @@ function keywordStyleOf(text: string): 'upper' | 'lower' {
         else if (word === word.toLowerCase()) lower++;
     }
     // A tie (a short statement such as END, CLUSTER t or SET x = ON may have none of the common
-    // keywords) goes by the first word, the statement's own keyword, which keeps its case when
-    // printed: so formatting the output again finds the same case
+    // keywords) goes by the first word when it's the statement's keyword, which keeps its case
+    // when printed: so formatting the output again finds the same case. A first word that is a
+    // name (MYPROC 1, a label) says nothing
     const first = words[0];
+    const firstIsKeyword = first !== undefined
+        && (STYLE_KEYWORDS.has(first.toLowerCase()) || STATEMENT_KEYWORDS.has(first.toLowerCase()));
     const style = upper !== lower
         ? (upper > lower ? 'upper' : 'lower')
-        : first && first !== first.toLowerCase() && first === first.toUpperCase() ? 'upper' : 'lower';
+        : firstIsKeyword && first !== first.toLowerCase() && first === first.toUpperCase() ? 'upper' : 'lower';
     styleCache = { text, style };
     return style;
 }
