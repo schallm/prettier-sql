@@ -5224,7 +5224,7 @@ option (recompile, maxdop 4);
 "
 `;
 
-exports[`fixtures > select/option-distributed-hints.sql 1`] = `
+exports[`fixtures > select/option-multiword-hints.sql 1`] = `
 "select BookId
 from Books
 option (force distributed plan);
@@ -5243,6 +5243,14 @@ option (for timestamp as of '2024-05-01T00:00:00');
 select BookId
 from Books
 option (fast 10, maxrecursion 5, querytraceon 9481, label = 'books');
+
+select BookId
+from Books
+option (bypass optimizer_queue, expand views);
+
+select BookId
+from Books
+option (checkconstraints plan, optimize correlated union all);
 "
 `;
 

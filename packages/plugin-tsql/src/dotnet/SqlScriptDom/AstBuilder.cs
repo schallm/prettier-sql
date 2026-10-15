@@ -1471,6 +1471,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             OptimizerHintKind.AlterColumnPlan => "ALTERCOLUMN PLAN",
             OptimizerHintKind.ShrinkDBPlan => "SHRINKDB PLAN",
             OptimizerHintKind.CheckConstraintsPlan => "CHECKCONSTRAINTS PLAN",
+            OptimizerHintKind.BypassOptimizerQueue => "BYPASS OPTIMIZER_QUEUE",
+            OptimizerHintKind.OptimizeCorrelatedUnionAll => "OPTIMIZE CORRELATED UNION ALL",
             OptimizerHintKind.CardinalityTunerLimit => "CARDINALITY_TUNER_LIMIT",
             OptimizerHintKind.ForceSingleNodePlan => "FORCE SINGLE NODE PLAN",
             OptimizerHintKind.ForceDistributedPlan => "FORCE DISTRIBUTED PLAN",
