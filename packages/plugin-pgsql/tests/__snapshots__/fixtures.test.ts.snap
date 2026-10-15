@@ -1344,6 +1344,24 @@ to r;
 "
 `;
 
+exports[`fixtures > ddl/only-relations.sql 1`] = `
+"-- ONLY: the table itself, without inheritance children or partitions
+vacuum only measurements;
+
+analyze only measurements (city_id, logdate);
+
+vacuum (verbose, analyze) only measurements, cities;
+
+create publication pub_only
+for table only measurements, cities (id, name) where (id > 0);
+
+create publication pub_mixed
+for table only pubme.t0 (c, d) where (c > 0), tables in schema pubme;
+
+alter publication pub_only add table only cities;
+"
+`;
+
 exports[`fixtures > ddl/pg18-constraints.sql 1`] = `
 "-- PostgreSQL 18: virtual generated columns (the default when neither is written)
 create table orders (

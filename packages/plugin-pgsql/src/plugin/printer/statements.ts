@@ -1831,7 +1831,7 @@ function printVacuum(node: SqlNode, opts: Options): Doc {
     const relDoc: Doc = relations.length > 0
         ? [' ', join(', ', relations.map((r): Doc => {
             const columns = propStrArr(r, 'columns');
-            return [rangeVarName(r), columns.length > 0 ? [' (', join(', ', columns), ')'] : ''];
+            return [onlyPrefix(r, opts), rangeVarName(r), columns.length > 0 ? [' (', join(', ', columns), ')'] : ''];
         }))]
         : '';
 
@@ -1980,7 +1980,7 @@ function printPublicationTableItem(node: SqlNode, opts: Options, printNode: Prin
     const columns  = propStrArr(node, 'columns');
     const where    = prop(node, 'where');
     return [
-        relation ? rangeVarName(relation) : '',
+        relation ? [onlyPrefix(relation, opts), rangeVarName(relation)] : '',
         columns.length > 0 ? [' (', join(', ', columns), ')'] : '',
         where ? [' ', makeKeyword('WHERE'), ' (', printNode(where), ')'] : '',
     ];
