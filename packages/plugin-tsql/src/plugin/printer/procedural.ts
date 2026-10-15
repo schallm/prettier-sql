@@ -7,7 +7,7 @@ import { boolEndsWithPendingComment } from './expressions.js';
 import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, assignmentOp, withTrailingComment, markSingleBody, isSingleBody } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
-import { printStatementWithComments, joinBodyStatements, printNode, printBool, qexpr } from './statements.js';
+import { printStatementWithComments, joinBodyStatements, printNode, printBool, printSelectBody } from './statements.js';
 import { printColumnDef, printConstraintDef, printInlineIndex } from './ddl.js';
 
 // ---------------------------------------------------------------------------
@@ -173,7 +173,7 @@ export function printSetVariable(node: SqlNode, opts: Options): Doc {
             Array.isArray(cursorOptions) && cursorOptions.length > 0
                 ? [' ', join(' ', cursorOptions.map((o) => keyword(o as string, opts)))]
                 : '';
-        valuePart = group(asQueryDoc([keyword('CURSOR', opts), optPart], keyword('FOR', opts), cursorSelect ? qexpr(cursorSelect, opts) : ''));
+        valuePart = group(asQueryDoc([keyword('CURSOR', opts), optPart], keyword('FOR', opts), cursorSelect ? printSelectBody(cursorSelect, opts) : ''));
     } else {
         valuePart = val ? printNode(val, opts) : '';
     }
@@ -515,7 +515,8 @@ export function printDeclareCursor(node: SqlNode, opts: Options): Doc {
         asQueryDoc(
             [keyword('DECLARE', opts), ' ', name, isoForm ? [optPart, ' ', keyword('CURSOR', opts)] : [' ', keyword('CURSOR', opts), optPart]],
             keyword('FOR', opts),
-            select ? qexpr(select, opts) : '',
+            // The whole SELECT statement: WITH cte AS (...) ... OPTION (...)
+            select ? printSelectBody(select, opts) : '',
         ),
         ';',
     ]);

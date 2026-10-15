@@ -22,3 +22,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - `UPDATE STATISTICS … WITH RESAMPLE ON PARTITIONS (…)` keeps its partitions; it resampled every partition.
 - `DECLARE @v int NOT NULL = 4` (and `NULL`) keeps its nullability.
 - `SELECT … INTO t` in the first query of a `UNION`, or inside parentheses, keeps its `INTO`; it was dropped, so the query returned rows instead of creating the table.
+- A cursor's query (`DECLARE c CURSOR FOR …`, `SET @c = CURSOR FOR …`) keeps a leading `WITH cte AS (…)` and a trailing `OPTION (…)`; both were dropped.

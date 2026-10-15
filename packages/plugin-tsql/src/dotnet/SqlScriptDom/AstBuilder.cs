@@ -1762,9 +1762,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         if (sv.CursorDefinition != null) {
             var curOpts = sv.CursorDefinition.Options
                 ?.Select(o => (object?)SerializeCursorOption(o.OptionKind)).ToList();
-            var curSelect = sv.CursorDefinition.Select != null
-                ? BuildQueryExpression(sv.CursorDefinition.Select.QueryExpression)
-                : null;
+            var curSelect = sv.CursorDefinition.Select != null ? BuildSelectStatement(sv.CursorDefinition.Select) : null;
             cursorDef = Node("CursorDefinition", sv.CursorDefinition, new Dictionary<string, object?> {
                 ["options"] = curOpts,
                 ["select"] = curSelect,
@@ -3244,9 +3242,8 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static SqlNode BuildDeclareCursor(DeclareCursorStatement dc) {
         var opts = dc.CursorDefinition?.Options
             ?.Select(o => (object?)SerializeCursorOption(o.OptionKind)).ToList();
-        var select = dc.CursorDefinition?.Select != null
-            ? BuildQueryExpression(dc.CursorDefinition.Select.QueryExpression)
-            : null;
+        // The whole SELECT statement: a cursor's query can start WITH cte AS (...) and end OPTION (...)
+        var select = dc.CursorDefinition?.Select != null ? BuildSelectStatement(dc.CursorDefinition.Select) : null;
         return Node("DeclareCursorStatement", dc, new Dictionary<string, object?> {
             ["name"] = QuotedName(dc.Name),
             ["options"] = opts,
