@@ -950,6 +950,18 @@ alter table dbo.Orders
 
 alter table dbo.BigTable
   drop constraint CL_BigTable with (ONLINE = ON, MAXDOP = 4);
+
+-- Each constraint keeps its own options
+alter table dbo.Books
+  drop constraint
+    PK_Books with (ONLINE = OFF, MOVE TO Archive),
+    UQ_Isbn with (MAXDOP = 4);
+
+alter table dbo.Books
+  drop column
+    Notes,
+    constraint PK_Old with (ONLINE = ON),
+    PK_Older with (MOVE TO Archive(Year), MAXDOP = 2);
 "
 `;
 

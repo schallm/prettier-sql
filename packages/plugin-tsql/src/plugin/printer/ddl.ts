@@ -546,21 +546,20 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             const kw = itemKw(e);
             // The first keyword stays on the DROP line
             const elementName = e.name ?? '';
-            return kw && i > 0 ? [keyword(kw, opts), elementName ? ' ' : '', elementName] : elementName;
+            // WITH (ONLINE = ON, MOVE TO fg, ...) belongs to the constraint it follows:
+            // DROP CONSTRAINT a WITH (...), b WITH (...)
+            const withPart: Doc = e.dropOptions?.length ? [' ', keyword('WITH', opts), ' ', optionItems(e.dropOptions, opts)] : '';
+            const item: Doc = elementName ? [elementName, withPart] : '';
+            return kw && i > 0 ? [keyword(kw, opts), elementName ? ' ' : '', item] : item;
         });
         const firstKw = elements[0] ? itemKw(elements[0]) : null;
         const dropKw = keyword(firstKw ? `DROP ${firstKw}` : 'DROP', opts);
-        const nameList: Doc = group([indent([softline, join([',', line], itemDocs.filter((d) => d !== ''))])]);
-        // WITH (ONLINE = ON, WAIT_AT_LOW_PRIORITY ...) on DROP CLUSTERED CONSTRAINT
-        const allDropOptions = elements.flatMap((e) => e.dropOptions ?? []);
-        const withPart: Doc =
-            allDropOptions.length
-                ? [' ', keyword('WITH', opts), ' ', optionItems(allDropOptions, opts)]
-                : '';
+        const items = itemDocs.filter((d) => d !== '');
+        // One element stays on the DROP line, its WITH (...) breaking on its own
+        const nameList: Doc = items.length === 1 ? items[0]! : group([indent([softline, join([',', line], items)])]);
         return alter([
             dropKw,
-            itemDocs.every((d) => d === '') ? '' : [' ', nameList],
-            withPart,
+            items.length === 0 ? '' : [' ', nameList],
         ]);
     }
 

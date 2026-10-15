@@ -11,3 +11,7 @@ with (online = on, wait_at_low_priority (max_duration = 10 minutes, abort_after_
 alter table dbo.BigTable
 drop constraint CL_BigTable
 with (online = on, maxdop = 4)
+
+-- Each constraint keeps its own options
+alter table dbo.Books drop constraint PK_Books with (online = off, move to Archive), UQ_Isbn with (maxdop = 4);
+alter table dbo.Books drop column Notes, constraint PK_Old with (online = on), PK_Older with (move to Archive (Year), maxdop = 2);
