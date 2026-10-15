@@ -2595,12 +2595,22 @@ public class AstBuilder : TSqlFragmentVisitor {
             CreateOrAlterViewStatement coa => coa.ViewOptions,
             _ => null,
         };
-        var withOptions = rawOptions?.Select(o => (object?)(o.OptionKind switch {
+        // A materialized view (Azure Synapse) takes (DISTRIBUTION = ..., FOR_APPEND) instead of attributes
+        var materialized = view is CreateViewStatement { IsMaterialized: true } or AlterViewStatement { IsMaterialized: true };
+        var withOptions = materialized ? null : rawOptions?.Select(o => (object?)(o.OptionKind switch {
             ViewOptionKind.SchemaBinding => "SCHEMABINDING",
             ViewOptionKind.Encryption => "ENCRYPTION",
             ViewOptionKind.ViewMetadata => "VIEW_METADATA",
-            _ => o.OptionKind.ToString(),
+            _ => throw new NotSupportedException($"View option {o.OptionKind} has no spelling in BuildViewStatement"),
         })).ToList();
+        var materializedOptions = materialized ? rawOptions?.Select(o => (object?)(o switch {
+            ViewDistributionOption { Value: ViewHashDistributionPolicy hash } => new Dictionary<string, object?> {
+                ["kind"] = "HASH", ["columns"] = hash.DistributionColumns.Select(c => (object?)QuotedName(c)).ToList(),
+            },
+            ViewDistributionOption { Value: ViewRoundRobinDistributionPolicy } => new Dictionary<string, object?> { ["kind"] = "ROUND_ROBIN" },
+            ViewForAppendOption => new Dictionary<string, object?> { ["kind"] = "FOR_APPEND" },
+            _ => throw new NotSupportedException($"Materialized view option {o.GetType().Name} has no spelling in BuildViewStatement"),
+        })).ToList() : null;
 
         var body = view.SelectStatement;
         var queryExpr = body != null ? BuildQueryExpression(body.QueryExpression) : null;
@@ -2610,10 +2620,13 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["columns"] = view.Columns?.Select(c => (object?)QuotedName(c)).ToList(),
             // AS WITH c AS (...) SELECT ...: the body's CTEs (and XMLNAMESPACES)
             ["ctes"] = body?.WithCtesAndXmlNamespaces?.CommonTableExpressions?.Select(c => (object?)BuildCte(c)).ToList(),
-            ["xmlNamespaces"] = body?.WithCtesAndXmlNamespaces?.XmlNamespaces?.XmlNamespacesElements is { Count: > 0 } ns
-                ? ns.Select(e => (object?)BuildXmlNamespaceElement(e)).ToList()
-                : null,
+            ["xmlNamespaces"] = XmlNamespacesOf(body?.WithCtesAndXmlNamespaces),
             ["withOptions"] = withOptions,
+            ["materialized"] = materialized ? true : null,
+            ["materializedOptions"] = materializedOptions,
+            // ALTER MATERIALIZED VIEW v REBUILD | DISABLE: no query
+            ["alterAction"] = view is AlterViewStatement { IsRebuild: true } ? "REBUILD"
+                : view is AlterViewStatement { IsDisable: true } ? "DISABLE" : null,
             ["withCheckOption"] = view.WithCheckOption ? (object?)true : null,
             ["body"] = queryExpr,
         });

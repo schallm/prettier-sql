@@ -1221,16 +1221,32 @@ export function printCreateView(node: SqlNode, opts: Options): Doc {
     const withOptions = propStrArr(node, 'withOptions');
     const body = prop(node, 'body');
 
+    const materialized = propBool(node, 'materialized');
+    const viewKw = materialized ? 'MATERIALIZED VIEW' : 'VIEW';
     const kw =
         node.type === 'CreateOrAlterViewStatement'
-            ? keyword('CREATE OR ALTER VIEW', opts)
+            ? keyword(`CREATE OR ALTER ${viewKw}`, opts)
             : node.type === 'AlterViewStatement'
-              ? keyword('ALTER VIEW', opts)
-              : keyword('CREATE VIEW', opts);
+              ? keyword(`ALTER ${viewKw}`, opts)
+              : keyword(`CREATE ${viewKw}`, opts);
+
+    // ALTER MATERIALIZED VIEW v REBUILD | DISABLE has no query
+    const alterAction = propStr(node, 'alterAction');
+    if (alterAction) return [kw, ' ', schemaObjectName(prop(node, 'name')), ' ', keyword(alterAction, opts), ';'];
 
     const colsPart: Doc = columns.length ? [' ', parenList(columns)] : '';
 
-    const withPart: Doc = withOptions.length
+    // WITH (DISTRIBUTION = HASH(a, b) | ROUND_ROBIN, FOR_APPEND), in the order written
+    const materializedOptions = ((node.props?.['materializedOptions'] as Record<string, unknown>[] | undefined) ?? []).map((o): Doc => {
+        const kind = o['kind'] as string;
+        if (kind === 'HASH') return [keyword('DISTRIBUTION = HASH', opts), '(', join(', ', o['columns'] as string[]), ')'];
+        if (kind === 'ROUND_ROBIN') return keyword('DISTRIBUTION = ROUND_ROBIN', opts);
+        return keyword(kind, opts);
+    });
+
+    const withPart: Doc = materializedOptions.length
+        ? [hardline, keyword('WITH', opts), ' ', parenList(materializedOptions)]
+        : withOptions.length
         ? [
               hardline,
               keyword('WITH', opts),
