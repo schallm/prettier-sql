@@ -265,14 +265,15 @@ public class AstBuilder : TSqlFragmentVisitor {
     }
 
     private static SqlNode BuildColumnRef(ColumnReferenceExpression col) {
-        // COUNT(*) uses ColumnType.Wildcard with no identifiers
+        var parts = col.MultiPartIdentifier?.Identifiers.Select(i => QuotedName(i)).ToList() ?? [];
+        // COUNT(*) uses ColumnType.Wildcard with no identifiers; FREETEXT(t.*, ...) keeps its table
         if (col.ColumnType == ColumnType.Wildcard)
-            return Leaf("WildcardColumn", col, "*");
+            return Leaf("WildcardColumn", col, string.Join("", parts.Select(p => p + ".")) + "*");
 
-        var parts = col.MultiPartIdentifier?.Identifiers.Select(i => QuotedName(i)).ToList();
-        // Pseudo-columns ($action, $IDENTITY, $ROWGUID, $node_id, ...) have no identifier
-        // parts; without this they printed as nothing at all.
-        if (parts == null || parts.Count == 0) parts = [RawText(col).Trim()];
+        // A pseudo-column (identitycol, rowguidcol, $identity, $rowguid, $action, $node_id, ...)
+        // isn't one of the identifiers: it's the column's last token, after any qualifier
+        // (t.$identity, a.b.rowguidcol). Without it a qualified one printed as just t.
+        if (col.ColumnType != ColumnType.Regular) parts.Add(col.ScriptTokenStream[col.LastTokenIndex].Text);
         var colNode = new SqlNode(
             "ColumnReference",
             col.StartOffset,

@@ -81,8 +81,9 @@ export function printExpression(node: SqlNode, opts: Options, printFn: PrintFn):
 
 function printExpressionInner(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     switch (node.type) {
+        // * or t.*: the builder keeps the qualifier in the text
         case 'WildcardColumn':
-            return '*';
+            return node.text ?? '*';
         case 'ColumnReference':
             return printColumnRef(node);
         case 'CollateExpression': {
@@ -1415,13 +1416,12 @@ function printOpenQueryTableRef(node: SqlNode, opts: Options): Doc {
 // Full-text: CONTAINS / FREETEXT predicates and CONTAINSTABLE / FREETEXTTABLE
 // ---------------------------------------------------------------------------
 
-/** Render the column-list argument: single column → bare name, multiple → (a, b), wildcard → *, PROPERTY(column, 'name') */
+/** Render the column-list argument: single column → bare name, multiple → (a, b), wildcard → * or t.*, PROPERTY(column, 'name') */
 function fullTextColumnsPart(node: SqlNode, opts: Options, printFn: PrintFn): Doc {
     const columns = propArr(node, 'columns');
     const propertyName = propStr(node, 'propertyName');
     if (propertyName && columns.length === 1) return [keyword('PROPERTY', opts), '(', printFn(columns[0]!), ', ', propertyName, ')'];
     if (columns.length === 0) return '*';
-    if (columns.length === 1 && columns[0]!.type === 'WildcardColumn') return '*';
     if (columns.length === 1) return printFn(columns[0]!);
     return ['(', join(', ', columns.map(printFn)), ')'];
 }
