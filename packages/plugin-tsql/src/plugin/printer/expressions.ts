@@ -319,7 +319,8 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
     const callTargetSep = (node.props?.['callTargetSeparator'] as string) ?? '::';
     const callTargetPrefix: Doc = callTargetExprNode
         ? [printFn(callTargetExprNode), callTargetSep]
-        : callTarget
+        : // .f2(): an empty schema is still a call target, the default schema's UDF, not a built-in
+          callTarget != null
           ? [callTarget, callTargetSep]
           : '';
     // compact: fill-pack args — as many per line as fit, wrap only when required

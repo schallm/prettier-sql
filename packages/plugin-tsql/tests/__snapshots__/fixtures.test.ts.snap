@@ -6436,6 +6436,15 @@ from t;
 "
 `;
 
+exports[`fixtures > select/udf-default-schema-call.sql 1`] = `
+"-- .f(): a scalar UDF in the default schema; without the dot it would be a built-in function call
+select
+  .LateFee(DueDate, default) as Fee,
+  ..LateFee(DueDate, 2) as Fee2
+from Loans;
+"
+`;
+
 exports[`fixtures > select/udf-named-like-builtin.sql 1`] = `
 "-- A user function named AI_GENERATE_CHUNKS keeps its brackets: bare, it is the built-in function
 select c.Chunk
