@@ -2213,8 +2213,9 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["nullable"] = col.Constraints?.OfType<NullableConstraintDefinition>()
                     .FirstOrDefault()?.Nullable,
                 ["identity"] = col.IdentityOptions != null,
-                ["identitySeed"] = (col.IdentityOptions?.IdentitySeed as Literal)?.Value,
-                ["identityIncrement"] = (col.IdentityOptions?.IdentityIncrement as Literal)?.Value,
+                // IDENTITY(+100000, -2): a signed seed or increment is an expression, not a Literal
+                ["identitySeed"] = RawTextOrNull(col.IdentityOptions?.IdentitySeed)?.Trim(),
+                ["identityIncrement"] = RawTextOrNull(col.IdentityOptions?.IdentityIncrement)?.Trim(),
                 ["identityNotForReplication"] = col.IdentityOptions?.IsIdentityNotForReplication == true ? (object?)true : null,
                 ["defaultValue"] = col.DefaultConstraint != null
                     ? BuildScalarExpression(col.DefaultConstraint.Expression)

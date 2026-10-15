@@ -13,3 +13,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - Multi-word type spellings keep their type: `char varying(10)` became `char(10)`, `national char varying` and `nchar varying` lost `varying` or `national`. They now print as `varchar`, `nvarchar`, `nchar`, `varbinary` and `ntext`.
 - Qualified pseudo-columns keep the pseudo-column: `t.identitycol`, `a.b.rowguidcol`, `t.$identity` and `t.$rowguid` printed as just `t` (or `a.b`). A full-text predicate's `t.*` keeps its table; it printed as `*`.
 - `UNPIVOT (… IN (t.c0, c1))` keeps each column's qualifier.
+- `IDENTITY(+100000, -2)` keeps a signed seed and increment; they were dropped, leaving `IDENTITY` (1, 1).

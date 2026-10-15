@@ -1067,6 +1067,13 @@ exports[`fixtures > create-table/basic.sql 1`] = `
   PublishedDate datetime2 not null default getdate(),
   constraint PK_Books primary key (Id)
 );
+
+-- IDENTITY with signed or decimal seed and increment
+create table Counters (
+  Up int identity(+100000, 2),
+  Down int identity(-1, -1),
+  Dec numeric(10, 0) identity(1., 1.)
+);
 "
 `;
 
