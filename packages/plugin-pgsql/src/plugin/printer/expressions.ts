@@ -40,8 +40,10 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
             const opclass = propStr(node, 'opclass');
             const opclassOptions = propStrArr(node, 'opclassOptions');
             const nulls = propStr(node, 'nulls');
-            // An expression other than a bare function call needs its own parentheses
-            const base = expr ? (expr.type === 'FunctionCall' ? printNode(expr) : ['(', printNode(expr), ')']) : (name ?? '');
+            // An expression other than a bare function call needs its own parentheses, and so does
+            // a call with OVER, FILTER or WITHIN GROUP: only a windowless call can go bare
+            const bareCall = expr?.type === 'FunctionCall' && !prop(expr, 'over') && !prop(expr, 'filter') && !propBool(expr, 'withinGroup');
+            const base = expr ? (bareCall ? printNode(expr) : ['(', printNode(expr), ')']) : (name ?? '');
             return [
                 base,
                 collation ? [' ', keyword('COLLATE', opts), ' ', collation] : '',

@@ -46,3 +46,6 @@ create table orders_apac
 
 -- MODULUS 0 parses (PostgreSQL rejects it when run): its bound is kept
 create table orders_bad partition of orders_by_hash for values with (modulus 0, remainder 1);
+
+-- A key that's a call with OVER or FILTER keeps its parentheses (PostgreSQL rejects it when run, but it parses)
+create table scores (player int, points int) partition by range ((avg(points) over (partition by player)));

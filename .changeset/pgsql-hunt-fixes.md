@@ -20,3 +20,4 @@ Fixes found by formatting PostgreSQL's regression tests:
 - A typed constant in a recursive query's `CYCLE … SET m TO point '(1,1)' DEFAULT …` keeps its `type 'value'` spelling; printed as `'(1,1)'::point` it didn't parse.
 - `XMLTABLE((…) PASSING (…))` and `XMLEXISTS((…) PASSING (…))` keep the parentheses around an operator expression or a `::` cast; without them the output didn't parse.
 - A `JSON_TABLE` column written `c boolean EXISTS` (no path) no longer prints `EXISTS PATH` with nothing after it, which didn't parse.
+- An index or partition key that is a call with `OVER`, `FILTER` or `WITHIN GROUP` keeps its parentheses; without them the output didn't parse.
