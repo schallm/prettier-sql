@@ -17,3 +17,6 @@ insert into archive select * from (values (1)) as v(x);
 -- CTE column lists
 with totals(customer_id, total) as (select customer_id, sum(amount) from orders group by customer_id) select * from totals;
 with recursive r(n) as (select 1 union all select n + 1 from r where n < 3) select * from r;
+
+-- A cast in FROM is a function call: CAST(... AS ...), not ::
+select * from cast(current_date as text) as today, rows from (cast('7' as int), generate_series(1, 3)) as r (a, b);

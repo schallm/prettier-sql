@@ -552,6 +552,12 @@ function printCast(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     return [arg ? printOperand(arg, PREC.CAST, printNode) : '', '::', keyword(typeName, opts)];
 }
 
+/** A cast as CAST(x AS type), where `::` can't be written. */
+function castCallDoc(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
+    const arg = prop(node, 'arg');
+    return [keyword('CAST', opts), '(', arg ? printNode(arg) : '', ' ', keyword('AS', opts), ' ', keyword(propStr(node, 'typeName') ?? '', opts), ')'];
+}
+
 /** A subquery in an expression; `not` prints `x IN (subquery)` as `x NOT IN (subquery)`. */
 function printSubLink(node: SqlNode, opts: Options, printNode: PrintFn, not = false): Doc {
     const makeKeyword = (kw: string) => keyword(kw, opts);
@@ -707,7 +713,9 @@ function printRangeFunction(node: SqlNode, opts: Options, printNode: PrintFn): D
     const items = propArr(node, 'functions').map((f): Doc => {
         const call = prop(f, 'call');
         const defs = propArr(f, 'columnDefs');
-        return [call ? printNode(call) : '', defs.length > 0 ? [' ', makeKeyword('AS'), ' ', columnDefsDoc(defs)] : ''];
+        // A function in FROM is written as a call: CAST('1' AS int), not '1'::int
+        const callDoc: Doc = !call ? '' : call.type === 'Cast' ? castCallDoc(call, opts, printNode) : printNode(call);
+        return [callDoc, defs.length > 0 ? [' ', makeKeyword('AS'), ' ', columnDefsDoc(defs)] : ''];
     });
     const body: Doc = propBool(node, 'rowsFrom') ? [makeKeyword('ROWS FROM'), ' ', parenItems(items, opts)] : join(', ', items);
     const lateral: Doc = propBool(node, 'lateral') ? [makeKeyword('LATERAL'), ' '] : '';
