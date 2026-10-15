@@ -23,3 +23,7 @@ create index docs_body_trgm on docs using gist (body gist_trgm_ops (siglen = 32)
 
 -- No name: PostgreSQL picks one
 create index on books (author_id);
+
+-- A key written as an operator keeps its parentheses
+create index on events ((happened_at at time zone 'UTC'));
+create index on bookings (((starts, ends) overlaps (opens, closes)));

@@ -22,3 +22,6 @@ select xmlserialize(document x as text), xmlserialize(content x as text indent);
 -- XMLTABLE's row expression and PASSING argument keep the parentheses they need
 select x.* from documents d, xmltable(('/root/' || d.kind) passing (d.body::xml) columns id int path '@id') as x;
 select xmlexists(('//' || 'item') passing (body::xml)) from documents;
+
+-- An IN subquery is no primary expression: it keeps its parentheses
+select xmlexists('//item' passing (body in (select doc from templates))) from documents;

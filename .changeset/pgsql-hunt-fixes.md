@@ -21,3 +21,4 @@ Fixes found by formatting PostgreSQL's regression tests:
 - `XMLTABLE((…) PASSING (…))` and `XMLEXISTS((…) PASSING (…))` keep the parentheses around an operator expression or a `::` cast; without them the output didn't parse.
 - A `JSON_TABLE` column written `c boolean EXISTS` (no path) no longer prints `EXISTS PATH` with nothing after it, which didn't parse.
 - An index or partition key that is a call with `OVER`, `FILTER` or `WITHIN GROUP` keeps its parentheses; without them the output didn't parse.
+- An index key written as an operator (`(ts AT TIME ZONE 'UTC')`, `OVERLAPS`), and an `IN (subquery)` passed to `XMLEXISTS` / `XMLTABLE`, keep their parentheses; the output didn't parse.

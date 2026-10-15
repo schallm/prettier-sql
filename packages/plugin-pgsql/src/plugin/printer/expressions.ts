@@ -41,8 +41,10 @@ export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn
             const opclassOptions = propStrArr(node, 'opclassOptions');
             const nulls = propStr(node, 'nulls');
             // An expression other than a bare function call needs its own parentheses, and so does
-            // a call with OVER, FILTER or WITHIN GROUP: only a windowless call can go bare
-            const bareCall = expr?.type === 'FunctionCall' && !prop(expr, 'over') && !prop(expr, 'filter') && !propBool(expr, 'withinGroup');
+            // a call with OVER, FILTER or WITHIN GROUP, or one written as an operator (x AT TIME
+            // ZONE z, OVERLAPS, IS NORMALIZED): only a windowless call in call syntax can go bare
+            const bareCall = expr?.type === 'FunctionCall' && precedence(expr) === PREC.ATOM
+                && !prop(expr, 'over') && !prop(expr, 'filter') && !propBool(expr, 'withinGroup');
             const base = expr ? (bareCall ? printNode(expr) : ['(', printNode(expr), ')']) : (name ?? '');
             return [
                 base,
@@ -1170,13 +1172,12 @@ function hasAExprOnlyOperator(node: SqlNode | null): boolean {
  * An expression where the grammar takes a c_expr (XMLTABLE's row expression and PASSING
  * argument, a FETCH FIRST ... ROWS count): a constant, column, parameter, function call,
  * subquery, CASE, ARRAY or ROW as it is; anything else — an operator, a `::` cast, a signed
- * number — in parentheses.
+ * number, a call written as an operator — in parentheses.
  */
 export function printCExpr(node: SqlNode, printNode: PrintFn): Doc {
-    const bare = node.type === 'Literal'
-        ? !/^[-+]/.test(node.text ?? '')
-        : ['ColumnRef', 'ParamRef', 'FunctionCall', 'SubLink', 'CaseExpr', 'ArrayExpr', 'RowExpr'].includes(node.type);
-    return bare ? printNode(node) : ['(', printNode(node), ')'];
+    // A primary expression ranks as an atom: not a call written as an operator (x AT TIME ZONE z,
+    // OVERLAPS), not x IN (subquery)
+    return precedence(node) === PREC.ATOM ? printNode(node) : ['(', printNode(node), ')'];
 }
 
 /** An expression where the grammar takes a b_expr: in parentheses when it holds more. */

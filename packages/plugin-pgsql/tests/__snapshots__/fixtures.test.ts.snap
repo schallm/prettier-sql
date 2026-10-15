@@ -432,6 +432,11 @@ create index docs_body_trgm on docs using gist (
 
 -- No name: PostgreSQL picks one
 create index on books (author_id);
+
+-- A key written as an operator keeps its parentheses
+create index on events ((happened_at at time zone 'UTC'));
+
+create index on bookings (((starts, ends) overlaps (opens, closes)));
 "
 `;
 
@@ -6556,6 +6561,13 @@ from
   ) as x;
 
 select xmlexists(('//' || 'item') passing (body::xml))
+from documents;
+
+-- An IN subquery is no primary expression: it keeps its parentheses
+select xmlexists('//item' passing (body in (
+  select doc
+  from templates
+)))
 from documents;
 "
 `;
