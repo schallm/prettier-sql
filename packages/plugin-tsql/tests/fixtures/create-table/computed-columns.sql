@@ -21,3 +21,13 @@ create table dbo.Employees (
   LastName nvarchar(50) not null,
   FullName as (FirstName + ' ' + LastName) persisted not null
 )
+
+-- Constraints on computed columns
+create table Totals (
+    Net money not null,
+    Tax as Net * 0.2 unique,
+    Gross as Net * 1.2 persisted not null constraint PK_Totals primary key nonclustered,
+    Flag as case when Net > 0 then 1 else 0 end persisted check (Flag in (0, 1)),
+    Ref as Net persisted references dbo.Amounts (Amount)
+);
+alter table Totals add Half as Net / 2 unique, Twice as Net * 2 persisted primary key;

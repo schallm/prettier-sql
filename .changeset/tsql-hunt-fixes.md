@@ -14,3 +14,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - Qualified pseudo-columns keep the pseudo-column: `t.identitycol`, `a.b.rowguidcol`, `t.$identity` and `t.$rowguid` printed as just `t` (or `a.b`). A full-text predicate's `t.*` keeps its table; it printed as `*`.
 - `UNPIVOT (… IN (t.c0, c1))` keeps each column's qualifier.
 - `IDENTITY(+100000, -2)` keeps a signed seed and increment; they were dropped, leaving `IDENTITY` (1, 1).
+- A computed column keeps its constraints (`c AS a + b UNIQUE`, `PERSISTED PRIMARY KEY`, `CHECK`, `REFERENCES`); only `NULL` / `NOT NULL` was kept.

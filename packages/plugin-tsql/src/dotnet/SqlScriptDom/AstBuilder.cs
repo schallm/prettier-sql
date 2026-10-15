@@ -2161,22 +2161,6 @@ public class AstBuilder : TSqlFragmentVisitor {
                 if (ranks[i] < ranks[i - 1]) return Leaf("ColumnDefinition", col, RawText(col).Trim());
         }
 
-        if (col.ComputedColumnExpression != null) {
-            return new SqlNode(
-                "ColumnDefinition",
-                col.StartOffset,
-                col.StartOffset + col.FragmentLength,
-                QuotedName(col.ColumnIdentifier),
-                new Dictionary<string, object?> {
-                    ["name"] = QuotedName(col.ColumnIdentifier),
-                    ["computedExpression"] = BuildScalarExpression(col.ComputedColumnExpression),
-                    ["isPersisted"] = col.IsPersisted ? (object?)true : null,
-                    // Computed PERSISTED columns can have NOT NULL — preserve nullability
-                    ["nullable"] = col.Constraints?.OfType<NullableConstraintDefinition>()
-                        .FirstOrDefault()?.Nullable,
-                });
-        }
-
         var dt = col.DataType;
         var dataTypeName = TypeName(dt);
         // A user-defined or alias type keeps its schema and is an identifier, not a keyword
@@ -2203,6 +2187,10 @@ public class AstBuilder : TSqlFragmentVisitor {
             QuotedName(col.ColumnIdentifier),
             new Dictionary<string, object?> {
                 ["name"] = QuotedName(col.ColumnIdentifier),
+                // Computed column: name AS expression [PERSISTED], in place of a type; its constraints
+                // (NOT NULL, CHECK, UNIQUE / PRIMARY KEY, REFERENCES) are built as for any column
+                ["computedExpression"] = col.ComputedColumnExpression != null ? BuildScalarExpression(col.ComputedColumnExpression) : null,
+                ["isPersisted"] = col.IsPersisted ? (object?)true : null,
                 // Column-level INDEX ix [CLUSTERED | NONCLUSTERED]
                 ["index"] = col.Index != null ? BuildInlineIndex(col.Index) : null,
                 ["dataType"] = dataTypeName,

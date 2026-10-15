@@ -243,22 +243,8 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
 
     const name = propStr(node, 'name') ?? 'col';
 
-    // Computed column: Name AS expression [PERSISTED] [NOT NULL|NULL]
+    // Computed column: Name AS expression [PERSISTED], then constraints as for any column
     const computedExpr = prop(node, 'computedExpression');
-    if (computedExpr) {
-        const isPersisted = node.props?.['isPersisted'] as boolean | undefined;
-        // Computed PERSISTED columns may have an explicit nullability constraint
-        const computedNullPart = nullablePart(node.props?.['nullable'], opts);
-        return [
-            name,
-            ' ',
-            keyword('AS', opts),
-            ' ',
-            printNode(computedExpr, opts),
-            isPersisted ? [' ', keyword('PERSISTED', opts)] : '',
-            computedNullPart,
-        ];
-    }
 
     const dataType = propStr(node, 'dataType') ?? 'INT';
     // A user-defined type is an identifier: keep its case
@@ -288,7 +274,9 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         return baseType;
     })();
 
-    const parts: Doc[] = [name, ' ', typeStr];
+    const parts: Doc[] = computedExpr
+        ? [name, ' ', keyword('AS', opts), ' ', printNode(computedExpr, opts), propBool(node, 'isPersisted') ? [' ', keyword('PERSISTED', opts)] : '']
+        : [name, ' ', typeStr];
 
     // COLLATE clause comes right after the data type
     if (collation) parts.push(' ', keyword('COLLATE', opts), ' ', collation);
