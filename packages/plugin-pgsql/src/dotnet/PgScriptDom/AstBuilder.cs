@@ -3680,7 +3680,8 @@ public class AstBuilder {
                 var defElem = n.DefElem;
                 string argStr = BuildDefElemStringValue(defElem);
                 return new SqlNode("DefOption", 0, 0, null, BuildProps(
-                    ("key", defElem.Defname),
+                    // "Sfunc1" = ...: a mixed-case name keeps its quotes
+                    ("key", Ident.QuoteLabel(defElem.Defname)),
                     ("val", argStr.Length > 0 ? argStr : null)
                 ));
             })

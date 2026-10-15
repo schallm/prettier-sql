@@ -16,3 +16,6 @@ drop aggregate a(order by int);
 drop aggregate a(int, int order by int), b(*);
 alter aggregate a(int order by int) rename to b;
 comment on aggregate a(*) is 'x';
+
+-- A quoted mixed-case option name keeps its quotes
+create aggregate my_sum (int4) ("Sfunc" = int4pl, "Stype" = int4);

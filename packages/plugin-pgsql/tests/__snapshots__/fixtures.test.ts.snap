@@ -3953,6 +3953,12 @@ drop aggregate a(integer, integer, integer), b(*);
 alter aggregate a(integer, integer) rename to b;
 
 comment on aggregate a(*) is 'x';
+
+-- A quoted mixed-case option name keeps its quotes
+create aggregate my_sum (int4) (
+  "Sfunc" = int4pl,
+  "Stype" = int4
+);
 "
 `;
 

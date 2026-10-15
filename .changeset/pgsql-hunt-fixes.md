@@ -16,3 +16,4 @@ Fixes found by formatting PostgreSQL's regression tests:
 - With `sqlKeywordCase: 'preserve'`, a short statement with none of the common keywords (`END;`, `CLUSTER t`, `COPY … TO STDOUT`) keeps the case its first word is written in; it fell back to lower case, and formatting upper-case output again could change its case.
 - `VACUUM (INDEX_CLEANUP ON)` and other utility options print `ON` / `OFF` in the keyword case; they were always lower case.
 - `FOR VALUES WITH (MODULUS 0, REMAINDER 1)` is kept (PostgreSQL rejects it when run, but it parses); it was dropped, leaving output that didn't parse.
+- A quoted mixed-case option name in `CREATE AGGREGATE` / `CREATE OPERATOR` (`"Sfunc" = f`) keeps its quotes; without them it named a different option, or didn't parse.
