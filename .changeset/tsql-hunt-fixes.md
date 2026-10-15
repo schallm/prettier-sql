@@ -28,3 +28,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - `JSON_OBJECTAGG(…) OVER (…)` and `JSON_ARRAYAGG(… ORDER BY …) OVER (…)` keep their `OVER`; without it they aggregated the whole result.
 - `OPENROWSET(BULK …)` keeps every data file in `BULK ('f1', 'f2')`, an `AS a (c1, c2)` column list, `ORDER (…) UNIQUE`, and the values of `HEADER_ROW = TRUE` and `ROWSET_OPTIONS = '…'` (which printed without a value and didn't parse).
 - `GRANT` / `DENY` / `REVOKE … ON SERVER::name` keeps the server's name.
+- A column written as just `timestamp` (`CREATE TABLE t (timestamp NOT NULL)`) no longer gains a type: it printed as `timestamp int`.

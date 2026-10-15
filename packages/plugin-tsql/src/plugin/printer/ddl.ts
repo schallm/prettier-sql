@@ -246,7 +246,8 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
     // Computed column: Name AS expression [PERSISTED], then constraints as for any column
     const computedExpr = prop(node, 'computedExpression');
 
-    const dataType = propStr(node, 'dataType') ?? 'INT';
+    // CREATE TABLE t (timestamp NOT NULL): a column named timestamp, of type timestamp, has no type of its own
+    const dataType = propStr(node, 'dataType');
     // A user-defined type is an identifier: keep its case
     const isUdtType = propBool(node, 'isUdt');
     const params = node.props?.['dataTypeParams'];
@@ -262,7 +263,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
     const collation = propStr(node, 'collation');
 
     const typeStr: Doc = (() => {
-        const baseType = isUdtType ? dataType : keyword(dataType, opts);
+        const baseType = isUdtType ? (dataType ?? '') : keyword(dataType ?? '', opts);
         if (Array.isArray(params) && params.length > 0) {
             return [baseType, `(${(params as string[]).join(', ')})`] as Doc;
         }
@@ -276,7 +277,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
 
     const parts: Doc[] = computedExpr
         ? [name, ' ', keyword('AS', opts), ' ', printNode(computedExpr, opts), propBool(node, 'isPersisted') ? [' ', keyword('PERSISTED', opts)] : '']
-        : [name, ' ', typeStr];
+        : dataType ? [name, ' ', typeStr] : [name];
 
     // COLLATE clause comes right after the data type
     if (collation) parts.push(' ', keyword('COLLATE', opts), ' ', collation);
