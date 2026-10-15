@@ -18,7 +18,7 @@ import {
     valuesRow, valuesDoc, setClauseDoc, setOpDoc, joinStatements, boolClauseDoc,
     selectListDoc, fromClauseDoc, listClauseDoc, windowClauseDoc, withClauseDoc, joinOnDoc, mergeActionDoc, mergeInsertDoc, createIndexDoc, alterTableDoc, grantDoc, optionLinesDoc, asQueryDoc, dropDoc,
 } from '@prettier-sql/core/printer/layout';
-import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions, sqlString } from './helpers.js';
 import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, boolTerms, isBoolChain, tableAliasDoc } from './expressions.js';
 
 // ---------------------------------------------------------------------------
@@ -736,7 +736,7 @@ function printCreateFunction(node: SqlNode, opts: Options): Doc {
         parts.push(hardline, makeKeyword('AS'), ' ', dollarQuote(body[0]!));
     } else if (body.length > 1) {
         // C function: AS 'obj_file', 'link_symbol'
-        parts.push(hardline, makeKeyword('AS'), ' ', join(', ', body.map((b) => `'${b.replace(/'/g, "''")}'`)));
+        parts.push(hardline, makeKeyword('AS'), ' ', join(', ', body.map(sqlString)));
     }
 
     // SQL-standard body: RETURN expr | BEGIN ATOMIC stmt; ... END
@@ -760,11 +760,6 @@ function printCreateFunction(node: SqlNode, opts: Options): Doc {
 }
 
 /** Dollar-quotes `text` with a tag that doesn't occur in it: $$…$$, else $body$…$body$, $body1$… */
-/** A single-quoted SQL string literal, with embedded quotes doubled. */
-function sqlString(text: string): string {
-    return `'${text.replace(/'/g, "''")}'`;
-}
-
 function dollarQuote(text: string): string {
     // The tag must first appear as the closing delimiter: a body ending in `$` would
     // otherwise run into it — `x$` + `$$` reads as `x` + `$$` + `$`.
@@ -1240,7 +1235,7 @@ function printComment(node: SqlNode, opts: Options): Doc {
     const object  = propStr(node, 'object') ?? '';
     const comment = propStr(node, 'comment');
 
-    const commentVal: Doc = comment != null ? `'${comment.replace(/'/g, "''")}'` : makeKeyword('NULL');
+    const commentVal: Doc = comment != null ? sqlString(comment) : makeKeyword('NULL');
     const tailKw   = propStr(node, 'tailKw');
     const tailName = propStr(node, 'tailName') ?? '';
     // CAST (source AS target) is the one form whose two names sit inside parentheses

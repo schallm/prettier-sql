@@ -137,4 +137,30 @@ public static class Ident {
             : list.Count == 1 ? QuoteType(p)
             : QuoteFunc(p)));
     }
+
+    /// <summary>
+    /// A string constant: <c>'it''s'</c>, or an escape string <c>E'a\rb'</c> when the value
+    /// holds a control character other than a newline or tab. Written raw, a carriage return
+    /// (or a CRLF pair) would be turned into a newline by the line-ending normalization of the
+    /// next format or any editor, changing the value; other control characters are invisible.
+    /// </summary>
+    public static string Literal(string value) {
+        if (!value.Any(c => c < 0x20 && c != '\n' && c != '\t' || c == 0x7F))
+            return $"'{value.Replace("'", "''")}'";
+        var sb = new System.Text.StringBuilder("E'");
+        foreach (var c in value) {
+            sb.Append(c switch {
+                '\'' => "''",
+                '\\' => "\\\\",
+                '\n' => "\\n",
+                '\r' => "\\r",
+                '\t' => "\\t",
+                '\b' => "\\b",
+                '\f' => "\\f",
+                _ when c < 0x20 || c == 0x7F => $"\\x{(int)c:x2}",
+                _ => c.ToString(),
+            });
+        }
+        return sb.Append('\'').ToString();
+    }
 }

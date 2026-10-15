@@ -34,7 +34,21 @@ export function printFdwOptions(node: SqlNode, opts: Options): Doc {
     const pairs = options.map((o) => {
         const key = propStr(o, 'key') ?? '';
         const val = propStr(o, 'val') ?? '';
-        return [key, " '", val.replace(/'/g, "''"), "'"].join('') as Doc;
+        return [key, ' ', sqlString(val)].join('') as Doc;
     });
     return [' ', keyword('OPTIONS', opts), ' ', optionItems(pairs, opts)];
+}
+
+/**
+ * A string constant: `'it''s'`, or an escape string `E'a\rb'` when the value holds a control
+ * character other than a newline or tab. Written raw, a carriage return (or a CRLF pair)
+ * would be turned into a newline by the line-ending normalization of the next format or any
+ * editor, changing the value; other control characters are invisible. Mirrors Ident.Literal.
+ */
+export function sqlString(text: string): string {
+    // eslint-disable-next-line no-control-regex
+    if (!/[\x00-\x08\x0b-\x1f\x7f]/.test(text)) return `'${text.replace(/'/g, "''")}'`;
+    const escapes: Record<string, string> = { "'": "''", '\\': '\\\\', '\n': '\\n', '\r': '\\r', '\t': '\\t', '\b': '\\b', '\f': '\\f' };
+    // eslint-disable-next-line no-control-regex
+    return `E'${text.replace(/['\\\x00-\x1f\x7f]/g, (c) => escapes[c] ?? `\\x${c.charCodeAt(0).toString(16).padStart(2, '0')}`)}'`;
 }

@@ -735,7 +735,7 @@ public class AstBuilder {
             Node.NodeOneofCase.RowExpr => BuildRowExpr(node.RowExpr),
             Node.NodeOneofCase.Integer => new SqlNode("Literal", 0, 0, node.Integer.Ival.ToString(), null),
             Node.NodeOneofCase.Float => new SqlNode("Literal", 0, 0, node.Float.Fval, null),
-            Node.NodeOneofCase.String => new SqlNode("Literal", 0, 0, $"'{node.String.Sval.Replace("'", "''")}'", null),
+            Node.NodeOneofCase.String => new SqlNode("Literal", 0, 0, Ident.Literal(node.String.Sval), null),
             Node.NodeOneofCase.ParamRef => new SqlNode("ParamRef", 0, 0, $"${node.ParamRef.Number}", null),
             Node.NodeOneofCase.AArrayExpr => BuildArrayExpr(node.AArrayExpr),
             Node.NodeOneofCase.CoalesceExpr => BuildCoalesceExpr(node.CoalesceExpr),
@@ -804,7 +804,7 @@ public class AstBuilder {
         string? text = c.ValCase switch {
             A_Const.ValOneofCase.Ival => c.Ival.Ival.ToString(),
             A_Const.ValOneofCase.Fval => c.Fval.Fval,
-            A_Const.ValOneofCase.Sval => $"'{c.Sval.Sval.Replace("'", "''")}'",
+            A_Const.ValOneofCase.Sval => Ident.Literal(c.Sval.Sval),
             A_Const.ValOneofCase.Boolval => c.Boolval.Boolval ? "true" : "false",
             // Bit strings keep their B / X prefix in the value: B'101', X'ff'
             A_Const.ValOneofCase.Bsval => $"{char.ToLowerInvariant(c.Bsval.Bsval[0])}'{c.Bsval.Bsval.Substring(1)}'",
@@ -1922,7 +1922,7 @@ public class AstBuilder {
                 Node.NodeOneofCase.Integer => m.Integer.Ival.ToString(),
                 Node.NodeOneofCase.AConst when m.AConst.ValCase == A_Const.ValOneofCase.Ival => m.AConst.Ival.Ival.ToString(),
                 Node.NodeOneofCase.AConst when m.AConst.ValCase == A_Const.ValOneofCase.Fval => m.AConst.Fval.Fval,
-                Node.NodeOneofCase.AConst when m.AConst.ValCase == A_Const.ValOneofCase.Sval => $"'{m.AConst.Sval.Sval.Replace("'", "''")}'",
+                Node.NodeOneofCase.AConst when m.AConst.ValCase == A_Const.ValOneofCase.Sval => Ident.Literal(m.AConst.Sval.Sval),
                 Node.NodeOneofCase.ColumnRef => string.Join(".", m.ColumnRef.Fields.Select(f => Ident.Quote(f.String.Sval))),
                 _ => throw NotSupported($"type modifier ({m.NodeCase})", TryGetLocation(GetOneofValue(m))),
             })
@@ -2142,7 +2142,7 @@ public class AstBuilder {
                 ("kind", "SET TIME ZONE"),
                 ("name", v.Name),
                 ("local", v.IsLocal ? true : null),
-                ("intervalValue", $"'{tc.Arg.AConst.Sval.Sval.Replace("'", "''")}'"),
+                ("intervalValue", Ident.Literal(tc.Arg.AConst.Sval.Sval)),
                 // `interval(3) 'x'` takes a precision before the string; fields come after it
                 ("intervalPrecision", rest.StartsWith("(") ? rest : null),
                 ("intervalFields", rest.Length > 0 && !rest.StartsWith("(") ? rest.Trim() : null)));
@@ -2177,7 +2177,7 @@ public class AstBuilder {
             A_Const.ValOneofCase.Fval => a.AConst.Fval.Fval,
             A_Const.ValOneofCase.Sval => a.AConst.Sval.Sval is "on" or "true" or "false" || Ident.Quote(a.AConst.Sval.Sval) == a.AConst.Sval.Sval
                 ? a.AConst.Sval.Sval
-                : $"'{a.AConst.Sval.Sval.Replace("'", "''")}'",
+                : Ident.Literal(a.AConst.Sval.Sval),
             _ => throw NotSupported($"SET value ({a.AConst.ValCase})", a.AConst.Location),
         };
     }
@@ -2297,14 +2297,14 @@ public class AstBuilder {
                     var pwd = defElem.Arg?.NodeCase == Node.NodeOneofCase.String ? defElem.Arg.String.Sval
                         : defElem.Arg?.NodeCase == Node.NodeOneofCase.AConst && defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval
                             ? defElem.Arg.AConst.Sval.Sval : null;
-                    result.Add(pwd != null ? $"PASSWORD '{pwd.Replace("'", "''")}'" : "PASSWORD NULL");
+                    result.Add(pwd != null ? "PASSWORD " + Ident.Literal(pwd) : "PASSWORD NULL");
                     break;
                 case "connectionlimit":
                     result.Add($"CONNECTION LIMIT {defElem.Arg?.Integer?.Ival ?? -1}");
                     break;
                 case "validUntil":
                     var until = defElem.Arg?.NodeCase == Node.NodeOneofCase.String ? defElem.Arg.String.Sval : null;
-                    result.Add(until != null ? $"VALID UNTIL '{until.Replace("'", "''")}'" : "VALID UNTIL NULL");
+                    result.Add(until != null ? "VALID UNTIL " + Ident.Literal(until) : "VALID UNTIL NULL");
                     break;
                 case "sysid":
                     if (defElem.Arg?.NodeCase == Node.NodeOneofCase.Integer)
@@ -2595,7 +2595,7 @@ public class AstBuilder {
             // Trigger arguments are always string constants
             ("funcArgs",     MaybeList(t.Args
                 .Where(a => a.NodeCase == Node.NodeOneofCase.String)
-                .Select(a => $"'{a.String.Sval.Replace("'", "''")}'")
+                .Select(a => Ident.Literal(a.String.Sval))
                 .ToList())),
             ("when",         t.WhenClause != null ? BuildExpr(t.WhenClause) : null)
         ));
@@ -2624,7 +2624,7 @@ public class AstBuilder {
                 ["values"] = w.DefElem.Arg?.NodeCase == Node.NodeOneofCase.List
                     ? w.DefElem.Arg.List.Items
                         .Where(v => v.NodeCase == Node.NodeOneofCase.String)
-                        .Select(v => (object?)$"'{v.String.Sval.Replace("'", "''")}'")
+                        .Select(v => (object?)Ident.Literal(v.String.Sval))
                         .ToList()
                     : new List<object?>(),
             })
@@ -3338,7 +3338,7 @@ public class AstBuilder {
     private string? UtilityOptionValue(DefElem d) {
         if (d.Arg == null) return null;
         var a = d.Arg;
-        string Word(string v) => v is "true" or "false" or "on" or "off" || Ident.Quote(v) == v ? v : $"'{v.Replace("'", "''")}'";
+        string Word(string v) => v is "true" or "false" or "on" or "off" || Ident.Quote(v) == v ? v : Ident.Literal(v);
         return a.NodeCase switch {
             Node.NodeOneofCase.String  => Word(a.String.Sval),
             Node.NodeOneofCase.Integer => a.Integer.Ival.ToString(),
@@ -3371,7 +3371,7 @@ public class AstBuilder {
     // and the user's original bare `true`/`off`/`on` spelling reads better than `'true'`.
     private static object? BuildDefElemValue(DefElem defElem, bool quoteStrings = false) {
         if (defElem.Arg == null) return null;
-        string Quote(string v) => quoteStrings && !Ident.IsReservedKeyword(v) ? $"'{v.Replace("'", "''")}'" : v;
+        string Quote(string v) => quoteStrings && !Ident.IsReservedKeyword(v) ? Ident.Literal(v) : v;
         return defElem.Arg.NodeCase switch {
             Node.NodeOneofCase.String  => Quote(defElem.Arg.String.Sval),
             Node.NodeOneofCase.Integer => defElem.Arg.Integer.Ival.ToString(),
@@ -3490,8 +3490,8 @@ public class AstBuilder {
             ("ifNotExists", s.IfNotExists ? true : null),
             ("name",    Ident.QuoteOpt(s.Servername)),
             // TYPE 'server_type' VERSION 'server_version'
-            ("serverType", string.IsNullOrEmpty(s.Servertype) ? null : $"'{s.Servertype.Replace("'", "''")}'"),
-            ("version",    string.IsNullOrEmpty(s.Version) ? null : $"'{s.Version.Replace("'", "''")}'"),
+            ("serverType", string.IsNullOrEmpty(s.Servertype) ? null : Ident.Literal(s.Servertype)),
+            ("version",    string.IsNullOrEmpty(s.Version) ? null : Ident.Literal(s.Version)),
             ("fdwName", Ident.QuoteOpt(s.Fdwname)),
             ("options", OptionsToObject(options))
         ));
@@ -3764,10 +3764,10 @@ public class AstBuilder {
     private string BuildDefElemStringValue(DefElem defElem) {
         if (defElem.Arg == null) return "";
         return defElem.Arg.NodeCase switch {
-            Node.NodeOneofCase.String   => $"'{defElem.Arg.String.Sval.Replace("'", "''")}'",
+            Node.NodeOneofCase.String   => Ident.Literal(defElem.Arg.String.Sval),
             Node.NodeOneofCase.TypeName => BuildPgTypeName(defElem.Arg.TypeName),
             Node.NodeOneofCase.AConst when defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Sval
-                => $"'{defElem.Arg.AConst.Sval.Sval.Replace("'", "''")}'",
+                => Ident.Literal(defElem.Arg.AConst.Sval.Sval),
             Node.NodeOneofCase.AConst when defElem.Arg.AConst.ValCase == A_Const.ValOneofCase.Ival
                 => defElem.Arg.AConst.Ival.Ival.ToString(),
             Node.NodeOneofCase.Integer => defElem.Arg.Integer.Ival.ToString(),

@@ -4,7 +4,7 @@ import type { Options, PrintFn } from '@prettier-sql/core/printer/utils';
 import { keyword, join, indent, hardline, softline, group, line, getDensity, aliasDoc, parenList, parenItems, optionItems, bracketItems, willBreak, hasHardline, hasLine } from '@prettier-sql/core/printer/utils';
 import { caseDoc, betweenDoc, operatorChain, boolGroup, boolLines, joinOnDoc, parenGroup, clauseItems, windowSpecDoc, subqueryDoc, constraintDoc, checkDoc, type BoolTerm, type CaseResult } from '@prettier-sql/core/printer/layout';
 import { printStatement, printQueryExpr } from './statements.js';
-import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, onlyPrefix, printFdwOptions } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, onlyPrefix, printFdwOptions, sqlString } from './helpers.js';
 
 export function printExpression(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     switch (node.type) {
@@ -1008,7 +1008,7 @@ function alterOptionDocs(node: SqlNode, opts: Options): Doc[] {
         return [
             action ? [keyword(action, opts), ' '] : '',
             key,
-            val !== null ? [" '", val.replace(/'/g, "''"), "'"] : '',
+            val !== null ? [' ', sqlString(val)] : '',
         ];
     });
 }
