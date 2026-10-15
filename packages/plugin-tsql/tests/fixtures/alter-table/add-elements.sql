@@ -14,3 +14,8 @@ ALTER TABLE t ADD CONSTRAINT df DEFAULT 0 FOR a WITH VALUES;
 ALTER TABLE t ALTER COLUMN s ADD MASKED WITH (FUNCTION = 'partial(1,"XX",0)');
 
 CREATE TABLE t (s varchar(10) MASKED WITH (FUNCTION = 'partial(1,''X'',0)'));
+
+-- Columns and constraints stay in the order written, with their comments
+alter table Loans add check (Fee >= 0), -- no negative fees
+    ReturnedOn date null, -- set when the book comes back
+    constraint DF_Loans_Fee default 0 for Fee;

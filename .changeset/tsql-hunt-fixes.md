@@ -49,3 +49,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - `ALTER DATABASE … SET QUERY_STORE CLEAR ALL` keeps `ALL`; it printed as `QUERY_STORE CLEAR`.
 - `ALTER DATABASE SCOPED CONFIGURATION SET option = -10` keeps its number; it printed as `= -`, which didn't parse.
 - `OPTION (USEPLAN 2)` keeps its one-word spelling; it printed as `USE PLAN 2`, which doesn't parse.
+- `CREATE TABLE` and `ALTER TABLE … ADD` keep columns, constraints and indexes in the order written; columns were moved first, which reordered their comments too.

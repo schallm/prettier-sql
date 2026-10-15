@@ -4,3 +4,10 @@ create table t (
     b int, /* second */
     c int -- third
 );
+
+-- A table constraint written between columns stays there
+create table Reservations (
+    ReservationId int not null,
+    constraint PK_Reservations primary key (ReservationId), -- one row per reservation
+    BookId int not null -- the book reserved
+);

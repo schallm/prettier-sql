@@ -125,11 +125,11 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
         | undefined;
 
     const indexes = propArr(node, 'indexes');
-    const allDefs: Doc[] = [
-        ...columns.map((col) => withTrailingComment(col, printColumnDef(col, opts))),
-        ...constraints.map((c) => withTrailingComment(c, printConstraintDef(c, opts))),
-        ...indexes.map((idx) => withTrailingComment(idx, printInlineIndex(idx, opts))),
-    ];
+    const allDefs: Doc[] = inSourceOrder([
+        ...columns.map((col) => [col, withTrailingComment(col, printColumnDef(col, opts))] as const),
+        ...constraints.map((c) => [c, withTrailingComment(c, printConstraintDef(c, opts))] as const),
+        ...indexes.map((idx) => [idx, withTrailingComment(idx, printInlineIndex(idx, opts))] as const),
+    ]);
 
     // PERIOD FOR SYSTEM_TIME (ValidFrom, ValidTo) — always last in the table body
     if (systemTimePeriod) {
@@ -193,6 +193,14 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
         withPart,
         ';',
     ]);
+}
+
+/**
+ * A table's columns, constraints and indexes, which ScriptDom keeps in separate lists, in the
+ * order they were written: their comments stay with them, and the table reads as it was written.
+ */
+function inSourceOrder(defs: ReadonlyArray<readonly [SqlNode, Doc]>): Doc[] {
+    return [...defs].sort((a, b) => a[0].startOffset - b[0].startOffset).map(([, doc]) => doc);
 }
 
 /**
@@ -516,11 +524,11 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
                 : withCheck === 'NoCheck'
                   ? [keyword('WITH NOCHECK', opts), hardline]
                   : '';
-        const defs = [
-            ...propArr(node, 'columns').map((c) => withTrailingComment(c, printColumnDef(c, opts))),
-            ...propArr(node, 'constraints').map((c) => withTrailingComment(c, printConstraintDef(c, opts))),
-            ...propArr(node, 'indexes').map((i) => withTrailingComment(i, printInlineIndex(i, opts))),
-        ];
+        const defs = inSourceOrder([
+            ...propArr(node, 'columns').map((c) => [c, withTrailingComment(c, printColumnDef(c, opts))] as const),
+            ...propArr(node, 'constraints').map((c) => [c, withTrailingComment(c, printConstraintDef(c, opts))] as const),
+            ...propArr(node, 'indexes').map((i) => [i, withTrailingComment(i, printInlineIndex(i, opts))] as const),
+        ]);
         const period = propStr(node, 'systemTimePeriod');
         if (period) defs.push([keyword('PERIOD FOR SYSTEM_TIME', opts), ' (', period, ')']);
         const addPart: Doc = defs.length === 1 ? [' ', defs[0]!] : indent([hardline, join([',', hardline], defs)]);
