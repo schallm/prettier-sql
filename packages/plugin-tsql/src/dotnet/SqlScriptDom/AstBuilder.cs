@@ -1425,10 +1425,15 @@ public class AstBuilder : TSqlFragmentVisitor {
 
         // SELECT INTO: inject the target table name into the QuerySpecification node so the
         // printer can place "INTO #target" between the column list and the FROM clause.
-        if (sel.Into != null && queryExpr?.Props != null) {
-            queryExpr.Props["into"] = BuildSchemaObjectName(sel.Into);
+        // INTO belongs to the first SELECT: (SELECT a INTO t FROM s) UNION SELECT ... puts it in the
+        // UNION's left side, inside any parentheses
+        var intoTarget = queryExpr;
+        while (intoTarget?.Type is "BinaryQueryExpression" or "QueryParenthesis")
+            intoTarget = (SqlNode?)intoTarget.Props![intoTarget.Type == "BinaryQueryExpression" ? "left" : "query"];
+        if (sel.Into != null && intoTarget?.Props != null) {
+            intoTarget.Props["into"] = BuildSchemaObjectName(sel.Into);
             // SELECT ... INTO t ON filegroup: where the new table is created
-            queryExpr.Props["intoOn"] = QuotedName(sel.On);
+            intoTarget.Props["intoOn"] = QuotedName(sel.On);
         }
 
         return Node("SelectStatement", sel, new Dictionary<string, object?> {

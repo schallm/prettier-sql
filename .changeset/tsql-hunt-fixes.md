@@ -21,3 +21,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - `ALTER DATABASE … SET AUTO_CREATE_STATISTICS ON (INCREMENTAL = ON)` keeps `INCREMENTAL`.
 - `UPDATE STATISTICS … WITH RESAMPLE ON PARTITIONS (…)` keeps its partitions; it resampled every partition.
 - `DECLARE @v int NOT NULL = 4` (and `NULL`) keeps its nullability.
+- `SELECT … INTO t` in the first query of a `UNION`, or inside parentheses, keeps its `INTO`; it was dropped, so the query returned rows instead of creating the table.
