@@ -749,6 +749,10 @@ with fullscan, all;
 
 update statistics dbo.t (s1, s2)
 with fullscan;
+
+-- RESAMPLE ON PARTITIONS keeps its partitions
+update statistics dbo.Sales Stats_Date
+with fullscan, incremental = on, resample on partitions (1, 3 to 7, 10);
 "
 `;
 

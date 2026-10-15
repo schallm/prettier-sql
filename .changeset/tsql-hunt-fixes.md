@@ -19,3 +19,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - `ALTER TABLE … DROP CONSTRAINT a WITH (…), b WITH (…)` keeps each constraint's options with it; they were all moved onto the last one.
 - `ALTER COLUMN c ADD | DROP ROWGUIDCOL` (and the other `ADD` / `DROP` forms) keeps its `WITH (ONLINE = …)`.
 - `ALTER DATABASE … SET AUTO_CREATE_STATISTICS ON (INCREMENTAL = ON)` keeps `INCREMENTAL`.
+- `UPDATE STATISTICS … WITH RESAMPLE ON PARTITIONS (…)` keeps its partitions; it resampled every partition.

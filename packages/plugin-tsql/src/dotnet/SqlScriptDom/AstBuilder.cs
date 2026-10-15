@@ -4284,6 +4284,9 @@ public class AstBuilder : TSqlFragmentVisitor {
         LiteralStatisticsOption lo when o.OptionKind == StatisticsOptionKind.SampleRows
             => $"SAMPLE {lo.Literal?.Value} ROWS",
         LiteralStatisticsOption lo => $"{StatisticsOptionKeyword(o.OptionKind)} = {lo.Literal?.Value}",
+        // RESAMPLE ON PARTITIONS (1, 3 TO 7, 10)
+        ResampleStatisticsOption { Partitions.Count: > 0 } rs =>
+            $"RESAMPLE ON PARTITIONS ({string.Join(", ", rs.Partitions.Select(p => p.To != null ? $"{p.From.Value} TO {p.To.Value}" : p.From.Value))})",
         _ => StatisticsOptionKeyword(o.OptionKind),
     };
 
