@@ -2056,6 +2056,38 @@ go
 "
 `;
 
+exports[`fixtures > ddl/equivalent-spellings.sql 1`] = `
+"-- Spellings the database treats as the same: the formatter may print either
+alter database scoped configuration clear procedure_cache 0x06000600d5629633a06f79ac33020000;
+
+create table dbo.LoanHistory (
+  LoanId int not null,
+  ValidFrom datetime2 generated always as row start not null,
+  ValidTo datetime2 generated always as row end not null,
+  period for system_time (ValidFrom, ValidTo)
+)
+on [default]
+textimage_on [default]
+with (system_versioning = on (history_retention_period = 6 months));
+
+create index IX_LoanHistory_LoanId on dbo.LoanHistory (LoanId) on [default];
+
+select Title
+from Books
+where Title like 'x!%%' escape '!';
+
+declare @recent table (
+  BookId int
+);
+
+dbcc tracestatus;
+
+select {fn current_time()} as Now;
+
+alter schema Archive transfer dbo.OldLoans;
+"
+`;
+
 exports[`fixtures > ddl/filtered-index.sql 1`] = `
 "create index IX_Books_InStock on Books (Price asc) where InStock = 1;
 

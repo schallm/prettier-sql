@@ -177,6 +177,15 @@ public static class TsqlParser {
         _ => false,
     };
 
+    /// <summary>Properties that name a filegroup (or partition scheme), as a string or an identifier.</summary>
+    private static bool IsFileGroupName(TSqlFragment owner, string property) => (owner, property) switch {
+        (FileGroupOrPartitionScheme, nameof(FileGroupOrPartitionScheme.Name)) => true,
+        (CreateTableStatement, nameof(CreateTableStatement.TextImageOn)) => true,
+        (CreateTableStatement, nameof(CreateTableStatement.FileStreamOn)) => true,
+        (FileStreamOnDropIndexOption, nameof(FileStreamOnDropIndexOption.FileStreamOn)) => true,
+        _ => false,
+    };
+
     private static System.Text.Json.Nodes.JsonNode? CanonicalNode(object? value, bool caseInsensitive = false) {
         switch (value) {
             case null:
@@ -236,7 +245,26 @@ public static class TsqlParser {
                     // WITH PAD_INDEX, FILLFACTOR = 80 is SQL Server 2000's spelling of
                     // WITH (PAD_INDEX = ON, FILLFACTOR = 80): the flag records only which was written
                     if (fragment is CreateIndexStatement && prop.Name == nameof(CreateIndexStatement.Translated80SyntaxTo90)) continue;
+                    // LIKE 'x%' {ESCAPE '\'} and LIKE 'x%' ESCAPE '\' match the same rows
+                    if (fragment is LikePredicate && prop.Name == nameof(LikePredicate.OdbcEscape)) continue;
+                    // DECLARE @t AS TABLE and DECLARE @t TABLE declare the same variable
+                    if (fragment is DeclareTableVariableBody && prop.Name == nameof(DeclareTableVariableBody.AsDefined)) continue;
+                    // DBCC TRACESTATUS () and DBCC TRACESTATUS run the same command
+                    if (fragment is DbccStatement && prop.Name == nameof(DbccStatement.ParenthesisRequired)) continue;
+                    // {fn CURRENT_TIME} and {fn CURRENT_TIME()} call the same function
+                    if (fragment is OdbcFunctionCall && prop.Name == nameof(OdbcFunctionCall.ParametersUsed)) continue;
                     var propValue = prop.GetValue(fragment);
+                    // 0x0A and 0x0a are the same bytes
+                    if (fragment is BinaryLiteral && prop.Name == nameof(BinaryLiteral.Value)) propValue = (propValue as string)?.ToLowerInvariant();
+                    // A retention period of 1 MONTHS is 1 MONTH, and 6 MONTH is 6 MONTHS
+                    if (fragment is RetentionPeriodDefinition && prop.Name == nameof(RetentionPeriodDefinition.Units))
+                        propValue = propValue?.ToString()?.TrimEnd('s');
+                    // ALTER SCHEMA s TRANSFER OBJECT::t and TRANSFER t: OBJECT is the class when none is given
+                    if (fragment is AlterSchemaStatement && prop.Name == nameof(AlterSchemaStatement.ObjectKind) && propValue?.ToString() == "Object")
+                        propValue = "NotSpecified";
+                    // ON 'fg', ON "fg" and ON [fg] name the same filegroup ('default' and [default] the default one)
+                    if (IsFileGroupName(fragment, prop.Name) && propValue is IdentifierOrValueExpression { ValueExpression: StringLiteral fileGroup })
+                        propValue = new IdentifierOrValueExpression { Identifier = new Identifier { Value = fileGroup.Value } };
                     // A procedure or trigger body is its statement list: AS BEGIN ... END and
                     // AS ... are the same body, and the printer adds the BEGIN/END
                     if (fragment is ProcedureStatementBody or TriggerStatementBody && prop.Name == "StatementList"

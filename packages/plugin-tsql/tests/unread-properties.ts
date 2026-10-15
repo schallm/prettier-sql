@@ -22,7 +22,7 @@ export const unused: Record<string, string> = {
     'DeclareTableVariableBody.AsDefined': 'DECLARE @t AS TABLE and DECLARE @t TABLE declare the same variable',
     'CreateIndexStatement.Translated80SyntaxTo90':
         'records that SQL Server 2000 option syntax was read; the options themselves are built',
-    'OdbcFunctionCall.ParametersUsed': 'TSql180Parser requires the parentheses ({fn now} does not parse), so it is always true',
+    'OdbcFunctionCall.ParametersUsed': '{fn CURRENT_TIME} and {fn CURRENT_TIME()} call the same function; a call with arguments always has its parentheses',
     'CreateExternalModelStatement.ModelTypeSpecification': 'the same option as ModelType, which the builder reads',
     'ColumnEncryptionAlgorithmNameParameter.ParameterKind': "fixed by the parameter's class, which the builder switches on",
     'ColumnEncryptionAlgorithmParameter.ParameterKind': "fixed by the parameter's class, which the builder switches on",
