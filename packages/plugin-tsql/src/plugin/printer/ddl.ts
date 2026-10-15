@@ -487,7 +487,8 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
             const refTable = prop(node, 'refTable');
             const refName = refTable ? schemaObjectName(refTable) : '';
             return constraintDoc(constraintName, [
-                [keyword('FOREIGN KEY', opts), ' ', parenItems(cols, opts)],
+                // ADD CONSTRAINT c FOREIGN KEY REFERENCES t (x) parses without a column list
+                cols.length ? [keyword('FOREIGN KEY', opts), ' ', parenItems(cols, opts)] : keyword('FOREIGN KEY', opts),
                 [keyword('REFERENCES', opts), ' ', refName, refCols.length ? [' ', parenItems(refCols, opts)] : ''],
                 ...referentialActions(propStr(node, 'updateAction'), propStr(node, 'deleteAction'), propBool(node, 'notForReplication'), opts),
                 ...(propBool(node, 'notEnforced') ? [keyword('NOT ENFORCED', opts)] : []),
