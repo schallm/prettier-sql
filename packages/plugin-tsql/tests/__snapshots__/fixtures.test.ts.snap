@@ -82,6 +82,10 @@ set auto_update_statistics on, auto_create_statistics on (incremental = off);
 alter database Library
 set
   remote_data_archive = on (server = n'ArchiveServer', credential = [Archive's Credential]);
+
+-- Names in option values keep their case
+alter database current
+set default_fulltext_language = English, default_language = [French];
 "
 `;
 
@@ -293,6 +297,11 @@ create database s
 on
   (name = f1, filename = 'c:\\s1.ss')
 as snapshot of d;
+
+create database Library2
+on
+  (name = LibraryData, filename = 'lib.mdf')
+for attach;
 "
 `;
 

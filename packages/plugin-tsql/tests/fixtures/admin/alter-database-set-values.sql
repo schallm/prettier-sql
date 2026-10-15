@@ -17,3 +17,6 @@ alter database Library set auto_update_statistics on, auto_create_statistics on 
 
 -- Bracketed names keep their case, even with an apostrophe inside
 alter database Library set remote_data_archive = on (server = N'ArchiveServer', credential = [Archive's Credential]);
+
+-- Names in option values keep their case
+alter database current set default_fulltext_language = English, default_language = [French];

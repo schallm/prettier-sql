@@ -191,3 +191,46 @@ export function splitTopLevel(text: string): string[] {
 export function unprintable(node: SqlNode): never {
     throw new Error(`prettier-plugin-tsql: no printer for ${node.type}`);
 }
+
+// Options whose value is a name, not a keyword: CREDENTIAL = UserCredential, DEFAULT_LANGUAGE = English
+const NAME_VALUED_OPTIONS = new Set([
+    'CREDENTIAL', 'DEFAULT_LANGUAGE', 'DEFAULT_FULLTEXT_LANGUAGE', 'DEFAULT_SCHEMA', 'NAME', 'NEWNAME',
+]);
+
+/**
+ * An option string (`SORT_IN_TEMPDB = ON`, `ORDER (ColA, ColB)`, `CREDENTIAL = UserCredential`)
+ * in the keyword case, except for the names in it: the bare name after a name-valued option
+ * and the columns of an ORDER (...) list keep their case, as quoted and bracketed names and
+ * strings already do in keyword().
+ */
+export function optionText(text: string, opts: Options): Doc {
+    const tokens = text.match(/N?'(?:[^']|'')*'|\[(?:[^\]]|\]\])*\]|"(?:[^"]|"")*"|[A-Za-z_#@$][\w@#$]*|\s+|[\s\S]/g) ?? [];
+    let out = '';
+    let lastWord = '';
+    let keepNextWord = false;
+    let orderDepth = 0; // inside ORDER ( ... ): column names
+    let depth = 0;
+    for (let i = 0; i < tokens.length; i++) {
+        const t = tokens[i]!;
+        if (t === '(') {
+            depth++;
+            if (orderDepth === 0 && /^ORDER$/i.test(lastWord)) orderDepth = depth;
+        } else if (t === ')') {
+            if (depth === orderDepth) orderDepth = 0;
+            depth--;
+        }
+        if (/^[A-Za-z_#@$]/.test(t)) {
+            const kept = keepNextWord || orderDepth > 0;
+            out += kept ? t : (keyword(t, opts) as string);
+            keepNextWord = false;
+            lastWord = t;
+            continue;
+        }
+        if (t === '=' && NAME_VALUED_OPTIONS.has(lastWord.toUpperCase())) keepNextWord = true;
+        else if (!/^\s+$/.test(t)) keepNextWord = false;
+        // Quoted and bracketed names and strings go through keyword(), which keeps them
+        out += /^\s+$/.test(t) || t.length === 1 ? t : (keyword(t, opts) as string);
+        if (t !== '(' && !/^\s+$/.test(t)) lastWord = t === '=' ? lastWord : t;
+    }
+    return out;
+}

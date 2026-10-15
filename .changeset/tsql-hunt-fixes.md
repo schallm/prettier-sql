@@ -30,3 +30,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - `GRANT` / `DENY` / `REVOKE … ON SERVER::name` keeps the server's name.
 - A column written as just `timestamp` (`CREATE TABLE t (timestamp NOT NULL)`) no longer gains a type: it printed as `timestamp int`.
 - Bracketed names inside option text keep their case (`CREDENTIAL = [Bob's Key]`); keyword casing changed them, and an apostrophe inside one could recase a string literal after it.
+- Names in option values keep their case under keyword casing: `CREDENTIAL = UserCredential`, `DEFAULT_LANGUAGE = English`, `NAME = LibraryData`, and the columns of a columnstore index's `ORDER (ColA, ColB)`.

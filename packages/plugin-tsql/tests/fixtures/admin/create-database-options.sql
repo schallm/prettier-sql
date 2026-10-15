@@ -8,3 +8,5 @@ create database d containment = partial
 create database d (edition = 'basic', service_objective = 'basic')
 
 create database s on (name = f1, filename = 'c:\s1.ss') as snapshot of d
+
+create database Library2 on (name = LibraryData, filename = 'lib.mdf') for attach;

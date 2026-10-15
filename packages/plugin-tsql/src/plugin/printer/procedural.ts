@@ -4,7 +4,7 @@ import type { Options } from '@prettier-sql/core/printer/utils';
 import { keyword, hardline, softline, join, indent, group, onOffKw, line, getDensity, parenList, parenListFill, optionItems, commaFill, willBreak, hardSep } from '@prettier-sql/core/printer/utils';
 import { asQueryDoc } from '@prettier-sql/core/printer/layout';
 import { boolEndsWithPendingComment } from './expressions.js';
-import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, assignmentOp, withTrailingComment, markSingleBody, isSingleBody } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, assignmentOp, withTrailingComment, markSingleBody, isSingleBody, optionText } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
 import { printStatementWithComments, joinBodyStatements, printNode, printBool, printSelectBody } from './statements.js';
@@ -339,7 +339,7 @@ export function printRaiseError(node: SqlNode, opts: Options): Doc {
     const withOpts = node.props?.['withOptions'] as string[] | undefined;
     const withPart: Doc =
         withOpts && withOpts.length > 0
-            ? [' ', keyword('WITH', opts), ' ', join(', ', withOpts.map((o) => keyword(o, opts)))]
+            ? [' ', keyword('WITH', opts), ' ', join(', ', withOpts.map((o) => optionText(o, opts)))]
             : '';
     const argList = getDensity(opts) === 'compact' ? parenListFill(allArgs) : parenList(allArgs);
     return [keyword('RAISERROR', opts), ' ', argList, withPart, ';'];
@@ -505,7 +505,7 @@ export function printDeclareCursor(node: SqlNode, opts: Options): Doc {
     const options = node.props?.['options'];
     const optPart: Doc =
         Array.isArray(options) && options.length > 0
-            ? [' ', join(' ', (options as string[]).map((o) => keyword(o, opts)))]
+            ? [' ', join(' ', (options as string[]).map((o) => optionText(o, opts)))]
             : '';
     const select = prop(node, 'select');
     // INSENSITIVE exists only in the ISO form, where options come before CURSOR:

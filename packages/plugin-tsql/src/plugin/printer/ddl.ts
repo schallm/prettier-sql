@@ -17,7 +17,7 @@ import {
     willBreak,
 } from '@prettier-sql/core/printer/utils';
 import { createIndexDoc, alterTableDoc, constraintDoc, checkDoc, optionLinesDoc, asQueryDoc, dropDoc } from '@prettier-sql/core/printer/layout';
-import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment, splitTopLevel, sortOrderDoc, appendComments, takeTrailingComment, takeLeadingComments, unprintable } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, printDropSingleObject, withTrailingComment, splitTopLevel, sortOrderDoc, appendComments, takeTrailingComment, takeLeadingComments, unprintable, optionText } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
 import { joinBodyStatements, printSelectBody, printNode, printBool, printBoolClause, qexpr, printCtes, printStatement, xmlNamespaceDocs } from './statements.js';
@@ -98,7 +98,7 @@ export function printInlineIndex(node: SqlNode, opts: Options): Doc {
         ? [' ', keyword('INCLUDE', opts), ' ', parenList(includeColumns)]
         : '';
     const filterPart: Doc = filterPredicateNode ? [' ', printBoolClause('WHERE', filterPredicateNode, opts)] : '';
-    const withPart: Doc = indexOptions.length ? [' ', keyword('WITH', opts), ' ', optionItems(indexOptions.map((o) => keyword(o, opts)), opts)] : '';
+    const withPart: Doc = indexOptions.length ? [' ', keyword('WITH', opts), ' ', optionItems(indexOptions.map((o) => optionText(o, opts)), opts)] : '';
 
     return [
         keyword('INDEX', opts),
@@ -360,7 +360,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         parts.push(
             line, constraintNamePrefix, uqKw, clusteredKw, hashKw,
             uqColumns.length > 0 ? [' ', parenItems(uqColumns, opts)] : '',
-            uqOptions.length > 0 ? [' ', keyword('WITH', opts), ' ', optionItems(uqOptions.map((o) => keyword(o, opts)), opts)] : '',
+            uqOptions.length > 0 ? [' ', keyword('WITH', opts), ' ', optionItems(uqOptions.map((o) => optionText(o, opts)), opts)] : '',
             storageClause(uniqueConstraint as Record<string, unknown>, opts),
             notEnforcedDoc(uniqueConstraint.notEnforced, opts),
         );
@@ -455,7 +455,7 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
             const colDocs = keyColumnDocs(node.props?.['columns'], opts);
             const indexOptions = propStrArr(node, 'indexOptions');
             const withPart: Doc = indexOptions.length
-                ? [' ', keyword('WITH', opts), ' ', optionItems(indexOptions.map((o) => keyword(o, opts)), opts)]
+                ? [' ', keyword('WITH', opts), ' ', optionItems(indexOptions.map((o) => optionText(o, opts)), opts)]
                 : '';
             return [
                 namePrefix, kw, ' ', clusteredKw, hashKw, parenItems(colDocs, opts), withPart, storageClause(node.props, opts),
@@ -695,7 +695,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
         const partDoc: Doc = partitionAll ? keyword('ALL', opts) : (partitionNumber ?? '');
         const partitionPart: Doc = partitionAll || partitionNumber ? [' ', keyword('PARTITION =', opts), ' ', partDoc] : '';
         const withDoc: Doc = indexOptions.length
-            ? [' ', keyword('WITH', opts), ' ', optionItems(indexOptions.map((o) => keyword(o, opts)), opts)]
+            ? [' ', keyword('WITH', opts), ' ', optionItems(indexOptions.map((o) => optionText(o, opts)), opts)]
             : '';
         return alter([
             keyword('REBUILD', opts),
@@ -783,7 +783,7 @@ export function printCreateIndex(node: SqlNode, opts: Options): Doc {
     if (includeColumns.length > 0) tail.push([keyword('INCLUDE', opts), ' ', parenItems(includeColumns, opts)]);
     if (filterPredicateNode) tail.push([keyword('WHERE', opts), ' ', printBool(filterPredicateNode, opts, true)]);
     const indexOptions = propStrArr(node, 'indexOptions');
-    if (indexOptions.length > 0) tail.push([keyword('WITH', opts), ' ', optionItems(indexOptions.map((o) => keyword(o, opts)), opts)]);
+    if (indexOptions.length > 0) tail.push([keyword('WITH', opts), ' ', optionItems(indexOptions.map((o) => optionText(o, opts)), opts)]);
     const onFileGroup = propStr(node, 'onFileGroup');
     if (onFileGroup) tail.push([keyword('ON', opts), ' ', onFileGroup]);
     const fileStreamOn = propStr(node, 'fileStreamOn');
@@ -804,7 +804,7 @@ export function printCreateVectorIndex(node: SqlNode, opts: Options): Doc {
     const indexOptions = propStrArr(node, 'indexOptions');
     const withPart: Doc =
         indexOptions.length > 0
-            ? [hardline, keyword('WITH', opts), ' ', optionItems(indexOptions.map((o) => keyword(o, opts)), opts)]
+            ? [hardline, keyword('WITH', opts), ' ', optionItems(indexOptions.map((o) => optionText(o, opts)), opts)]
             : '';
     const onFileGroup = propStr(node, 'onFileGroup');
     const fileGroupPart: Doc = onFileGroup ? [hardline, keyword('ON', opts), ' ', onFileGroup] : '';
@@ -852,7 +852,7 @@ export function printAlterIndex(node: SqlNode, opts: Options): Doc {
     // ALTER INDEX ... SET (options) has no WITH; REBUILD / REORGANIZE / DISABLE take WITH (options)
     const withPart: Doc =
         indexOptions.length > 0
-            ? [' ', alterType === 'Set' ? '' : [keyword('WITH', opts), ' '], optionItems(indexOptions.map((o) => keyword(o, opts)), opts)]
+            ? [' ', alterType === 'Set' ? '' : [keyword('WITH', opts), ' '], optionItems(indexOptions.map((o) => optionText(o, opts)), opts)]
             : '';
     const partitionPart: Doc = partition ? [' ', keyword('PARTITION', opts), ' = ', partition] : '';
     return [
@@ -1253,7 +1253,7 @@ export function printCreateView(node: SqlNode, opts: Options): Doc {
               ' ',
               join(
                   ', ',
-                  withOptions.map((o) => keyword(o, opts)),
+                  withOptions.map((o) => optionText(o, opts)),
               ),
           ]
         : '';
@@ -1834,7 +1834,7 @@ export function printCreateColumnStoreIndex(node: SqlNode, opts: Options): Doc {
                     softline,
                     join(
                         [',', line],
-                        options.map((o) => keyword(o, opts)),
+                        options.map((o) => optionText(o, opts)),
                     ),
                 ]),
                 softline,

@@ -2,7 +2,7 @@ import type { Doc } from 'prettier';
 import type { SqlNode } from '@prettier-sql/core/types';
 import type { Options } from '@prettier-sql/core/printer/utils';
 import { keyword, hardline, join, indent, group, line, softline, ifExistsDoc, optionItems } from '@prettier-sql/core/printer/utils';
-import { splitTopLevel } from './helpers.js';
+import { splitTopLevel, optionText } from './helpers.js';
 import { propStr, propBool } from './helpers.js';
 
 // ---------------------------------------------------------------------------
@@ -37,7 +37,7 @@ export function printDbcc(node: SqlNode, opts: Options): Doc {
               ' ',
               join(
                   [optSep],
-                  options.map((o) => keyword(o, opts)),
+                  options.map((o) => optionText(o, opts)),
               ),
           ]
         : '';
@@ -208,7 +208,7 @@ export function printRestore(node: SqlNode, opts: Options): Doc {
 function fileSpecDoc(spec: string, opts: Options): Doc {
     const m = /^\((.*)\)$/s.exec(spec);
     if (!m) return spec;
-    const options = splitTopLevel(m[1]!).map((o) => kwOpt(o, opts));
+    const options = splitTopLevel(m[1]!).map((o) => optionText(o, opts));
     return group(['(', indent([softline, join([',', line], options)]), softline, ')']);
 }
 
@@ -295,7 +295,7 @@ function alterDbHeader(node: SqlNode, opts: Options): Doc {
 
 export function printAlterDatabaseSet(node: SqlNode, opts: Options): Doc {
     const options = (node.props?.['options'] as Array<string | { keyword: string; name: string }> | undefined)
-        ?.map((o): Doc => (typeof o === 'string' ? keyword(o, opts) : [keyword(o.keyword, opts), ' = ', o.name]));
+        ?.map((o): Doc => (typeof o === 'string' ? optionText(o, opts) : [keyword(o.keyword, opts), ' = ', o.name]));
     const termination = propStr(node, 'termination');
 
     const optPart: Doc = options?.length
