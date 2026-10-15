@@ -116,20 +116,13 @@ export function printInlineIndex(node: SqlNode, opts: Options): Doc {
 }
 
 export function printCreateTable(node: SqlNode, opts: Options): Doc {
-    const columns = propArr(node, 'columns');
-    const constraints = propArr(node, 'constraints');
     const options = propStrArr(node, 'options');
     const systemTimePeriod = node.props?.['systemTimePeriod'] as
         | { startColumn: string; endColumn: string }
         | null
         | undefined;
 
-    const indexes = propArr(node, 'indexes');
-    const allDefs: Doc[] = inSourceOrder([
-        ...columns.map((col) => [col, withTrailingComment(col, printColumnDef(col, opts))] as const),
-        ...constraints.map((c) => [c, withTrailingComment(c, printConstraintDef(c, opts))] as const),
-        ...indexes.map((idx) => [idx, withTrailingComment(idx, printInlineIndex(idx, opts))] as const),
-    ]);
+    const allDefs: Doc[] = tableElementDocs(node, opts);
 
     // PERIOD FOR SYSTEM_TIME (ValidFrom, ValidTo) — always last in the table body
     if (systemTimePeriod) {
@@ -196,11 +189,17 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
 }
 
 /**
- * A table's columns, constraints and indexes, which ScriptDom keeps in separate lists, in the
- * order they were written: their comments stay with them, and the table reads as it was written.
+ * A table's columns, constraints and indexes (CREATE TABLE, ALTER TABLE ... ADD, a table
+ * variable or table type), which ScriptDom keeps in separate lists, in the order they were
+ * written: their comments stay with them, and the table reads as it was written.
  */
-function inSourceOrder(defs: ReadonlyArray<readonly [SqlNode, Doc]>): Doc[] {
-    return [...defs].sort((a, b) => a[0].startOffset - b[0].startOffset).map(([, doc]) => doc);
+export function tableElementDocs(node: SqlNode, opts: Options): Doc[] {
+    const defs: Array<readonly [SqlNode, Doc]> = [
+        ...propArr(node, 'columns').map((c) => [c, withTrailingComment(c, printColumnDef(c, opts))] as const),
+        ...propArr(node, 'constraints').map((c) => [c, withTrailingComment(c, printConstraintDef(c, opts))] as const),
+        ...propArr(node, 'indexes').map((i) => [i, withTrailingComment(i, printInlineIndex(i, opts))] as const),
+    ];
+    return defs.sort((a, b) => a[0].startOffset - b[0].startOffset).map(([, doc]) => doc);
 }
 
 /**
@@ -524,11 +523,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
                 : withCheck === 'NoCheck'
                   ? [keyword('WITH NOCHECK', opts), hardline]
                   : '';
-        const defs = inSourceOrder([
-            ...propArr(node, 'columns').map((c) => [c, withTrailingComment(c, printColumnDef(c, opts))] as const),
-            ...propArr(node, 'constraints').map((c) => [c, withTrailingComment(c, printConstraintDef(c, opts))] as const),
-            ...propArr(node, 'indexes').map((i) => [i, withTrailingComment(i, printInlineIndex(i, opts))] as const),
-        ]);
+        const defs = tableElementDocs(node, opts);
         const period = propStr(node, 'systemTimePeriod');
         if (period) defs.push([keyword('PERIOD FOR SYSTEM_TIME', opts), ' (', period, ')']);
         const addPart: Doc = defs.length === 1 ? [' ', defs[0]!] : indent([hardline, join([',', hardline], defs)]);
@@ -1446,11 +1441,7 @@ export function printCreateTypeUddt(node: SqlNode, opts: Options): Doc {
 }
 
 export function printCreateTypeTable(node: SqlNode, opts: Options): Doc {
-    const allDefs = [
-        ...propArr(node, 'columns').map((c) => withTrailingComment(c, printColumnDef(c, opts))),
-        ...propArr(node, 'constraints').map((c) => withTrailingComment(c, printConstraintDef(c, opts))),
-        ...propArr(node, 'indexes').map((i) => withTrailingComment(i, printInlineIndex(i, opts))),
-    ];
+    const allDefs = tableElementDocs(node, opts);
     const options = propStrArr(node, 'options');
     return group([
         keyword('CREATE TYPE', opts),

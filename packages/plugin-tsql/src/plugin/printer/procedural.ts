@@ -4,11 +4,11 @@ import type { Options } from '@prettier-sql/core/printer/utils';
 import { keyword, hardline, softline, join, indent, group, onOffKw, line, getDensity, parenList, parenListFill, optionItems, commaFill, willBreak, hardSep } from '@prettier-sql/core/printer/utils';
 import { asQueryDoc } from '@prettier-sql/core/printer/layout';
 import { boolEndsWithPendingComment } from './expressions.js';
-import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, assignmentOp, withTrailingComment, markSingleBody, isSingleBody, optionText } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, assignmentOp, markSingleBody, isSingleBody, optionText } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
 import { printStatementWithComments, joinBodyStatements, printNode, printBool, printSelectBody } from './statements.js';
-import { printColumnDef, printConstraintDef, printInlineIndex } from './ddl.js';
+import { tableElementDocs } from './ddl.js';
 
 // ---------------------------------------------------------------------------
 // Transactions
@@ -111,11 +111,7 @@ export function printDeclareVariable(node: SqlNode, opts: Options): Doc {
 
 export function printDeclareTableVariable(node: SqlNode, opts: Options): Doc {
     const name = propStr(node, 'name') ?? '@t';
-    const allDefs = [
-        ...propArr(node, 'columns').map((c) => withTrailingComment(c, printColumnDef(c, opts))),
-        ...propArr(node, 'constraints').map((c) => withTrailingComment(c, printConstraintDef(c, opts))),
-        ...propArr(node, 'indexes').map((i) => withTrailingComment(i, printInlineIndex(i, opts))),
-    ];
+    const allDefs = tableElementDocs(node, opts);
     // compact: try to keep everything on one line; fill-pack when it wraps
     // standard/spacious: always one definition per line with hard breaks
     const isCompact = getDensity(opts) === 'compact';

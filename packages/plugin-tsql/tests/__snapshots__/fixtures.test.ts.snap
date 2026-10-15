@@ -7281,6 +7281,19 @@ create type dbo.OrderLine as table (
 drop type dbo.IdList;
 
 drop type if exists dbo.NameValuePair;
+
+-- A table type and a table variable keep their elements in the order written
+create type dbo.LoanList as table (
+  index IX_Book (BookId),
+  LoanId int,
+  BookId int
+);
+
+declare @loans table (
+  primary key (LoanId), -- one row per loan
+  LoanId int,
+  BookId int
+);
 "
 `;
 
