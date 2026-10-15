@@ -3799,7 +3799,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             },
             ["options"] = MapList(stmt.Options, o => (object?)DatabaseOptionText(stmt, o)),
             // Azure's CREATE DATABASE d (EDITION = 'basic', ...) writes the options in parentheses, without WITH
-            ["optionsParen"] = stmt.Options.Count > 0 && PreviousSignificantToken(stmt, stmt.Options[0].StartOffset)?.TokenType == TSqlTokenType.LeftParenthesis ? (object?)true : null,
+            ["optionsParen"] = stmt.Options.Count > 0 && SignificantTokensBefore(stmt.Options[0]).FirstOrDefault()?.TokenType == TSqlTokenType.LeftParenthesis ? (object?)true : null,
             ["collation"] = stmt.Collation?.Value,
             ["snapshot"] = QuotedName(stmt.DatabaseSnapshot),
             ["copyOf"] = RawTextOrNull(stmt.CopyOf),
@@ -3813,18 +3813,23 @@ public class AstBuilder : TSqlFragmentVisitor {
         stmt.UseCurrent ? "CURRENT" : (QuotedName(stmt.DatabaseName) ?? "");
 
     /// <summary>
+    /// The tokens before a fragment, nearest first, skipping whitespace and comments.
+    /// </summary>
+    private static IEnumerable<TSqlParserToken> SignificantTokensBefore(TSqlFragment f) {
+        var stream = f.ScriptTokenStream;
+        if (stream == null) yield break;
+        for (var i = Math.Min(f.FirstTokenIndex, stream.Count) - 1; i >= 0; i--)
+            if (stream[i].TokenType is not (TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment))
+                yield return stream[i];
+    }
+
+    /// <summary>
     /// One option of ALTER DATABASE ... SET as text. The option's raw text sometimes omits its
     /// keyword (`RECOVERY FULL` gives "FULL") and sometimes includes it (`QUERY_STORE = ON (...)`),
     /// so the keyword is added only when missing. Whether `=` separates the keyword from the value
     /// (AUTOMATIC_INDEX_COMPACTION = ON, TARGET_RECOVERY_TIME = 60 SECONDS) or not (AUTO_CLOSE ON,
     /// RECOVERY FULL) is read from the token just before the option's fragment.
     /// </summary>
-    private static TSqlParserToken? PreviousSignificantToken(TSqlStatement stmt, int offset) =>
-        stmt.ScriptTokenStream?
-            .Where(t => t.Offset < offset && t.TokenType is not (TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment))
-            .OrderByDescending(t => t.Offset)
-            .FirstOrDefault();
-
     private static string DatabaseOptionText(TSqlStatement stmt, DatabaseOption o) {
         var name = DatabaseOptionKindToSql(o.OptionKind);
         var sep = " ";
@@ -3838,11 +3843,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             if (inside.Count >= 2 && inside[1].TokenType == TSqlTokenType.EqualsSign) sep = " = ";
             if (inside.Count >= 1 && inside[0].Text.Replace("_", "").Equals(name.Replace("_", ""), StringComparison.OrdinalIgnoreCase))
                 name = inside[0].Text.ToUpperInvariant();
-            var before = stream
-                .Where(t => t.Offset < o.StartOffset && Significant(t))
-                .OrderByDescending(t => t.Offset)
-                .Take(2)
-                .ToList();
+            var before = SignificantTokensBefore(o).Take(2).ToList();
             var prev = before.FirstOrDefault();
             if (prev?.TokenType == TSqlTokenType.EqualsSign) sep = " = ";
             // In ALTER DATABASE the name comes just before the fragment (or its `=`): its spelling too
