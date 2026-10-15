@@ -2564,6 +2564,40 @@ go
 "
 `;
 
+exports[`fixtures > function/inline-tvf-with.sql 1`] = `
+"-- An inline table-valued function's query keeps its WITH
+create function dbo.RecentBooks()
+returns table
+as
+return (
+  with
+    New as (
+      select
+        BookId,
+        Year
+      from dbo.Books
+      where Year > 2000
+    )
+  select BookId
+  from New
+);
+go
+
+create function dbo.BookTitles()
+returns table
+as
+return (
+  with
+    xmlnamespaces (
+      default 'urn:books'
+    )
+  select Doc.value('(/book/title)[1]', 'nvarchar(100)') as Title
+  from dbo.Books
+);
+go
+"
+`;
+
 exports[`fixtures > function/multi-statement-tvf.sql 1`] = `
 "create function GetTopBooks(@MaxPrice decimal(10, 2))
 returns @result table (

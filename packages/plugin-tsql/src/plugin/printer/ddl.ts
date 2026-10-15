@@ -1122,7 +1122,7 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
 
     if (bodyType === 'table') {
         // Inline TVF: RETURNS TABLE [WITH options] AS RETURN (query) — no BEGIN/END
-        const queryDoc = body && !Array.isArray(body) ? qexpr(body as SqlNode, opts) : '/* query */';
+        const queryDoc = body && !Array.isArray(body) ? printSelectBody(body as SqlNode, opts) : '/* query */';
         return [
             nameAndParamsNoOpts,
             hardline,

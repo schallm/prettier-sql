@@ -3113,9 +3113,12 @@ public class AstBuilder : TSqlFragmentVisitor {
 
         if (f.ReturnType is SelectFunctionReturnType selRet) {
             bodyType = "table";
-            QueryExpression? qexpr = selRet.SelectStatement?.QueryExpression;
-            while (qexpr is QueryParenthesisExpression qpe) qexpr = qpe.QueryExpression;
-            body = BuildQueryExpression(qexpr);
+            // The whole SELECT statement, so RETURN (WITH cte AS (...) SELECT ...) keeps its WITH;
+            // RETURN's own parentheses are printed around it, so the query's are dropped
+            var select = selRet.SelectStatement != null ? BuildSelectStatement(selRet.SelectStatement) : null;
+            while (select?.Props?["queryExpression"] is SqlNode { Type: "QueryParenthesis" } paren)
+                select.Props["queryExpression"] = paren.Props!["query"];
+            body = select;
         } else if (f.ReturnType is TableValuedFunctionReturnType tvf) {
             bodyType = "inline-table";
             body = f.StatementList?.Statements?.Select(s => (object?)BuildStatement(s)).ToList();
