@@ -5672,6 +5672,10 @@ select
   {fn ucase('a')},
   {fn curdate()},
   {fn concat('a', 'b')};
+
+-- {fn EXTRACT(part FROM date)}
+select {fn extract(hour from DueDate)} as DueHour
+from Loans;
 "
 `;
 

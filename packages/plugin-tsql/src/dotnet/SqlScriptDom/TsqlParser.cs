@@ -166,6 +166,8 @@ public static class TsqlParser {
         // TRIM(BOTH/LEADING/TRAILING ... FROM ...): TrimOptions is a keyword, not an identifier
         (FunctionCall, "TrimOptions") => true,
         (PivotedTableReference, "AggregateFunctionIdentifier") => true,
+        // {fn EXTRACT(HOUR FROM x)}: the date part is a keyword
+        (ExtractFromExpression, "ExtractedElement") => true,
         // GRANT SELECT, EXECUTE, ...: permission names are keywords
         (Permission, "Identifiers") => true,
         (BuiltInFunctionTableReference, "Name") => true,

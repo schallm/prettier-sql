@@ -41,3 +41,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - `SERVICE_OBJECTIVE = ELASTIC_POOL (NAME = pool)` in `CREATE DATABASE` and `ALTER DATABASE … MODIFY` keeps its closing parenthesis; the output didn't parse.
 - `EXEC (…) AS LOGIN` with no name no longer prints a dangling `= `, which didn't parse.
 - `ALTER PARTITION FUNCTION f() SPLIT` / `MERGE` with no range prints as written; it printed `SPLIT RANGE ()`, which doesn't parse.
+- `{fn EXTRACT(HOUR FROM x)}` no longer prints as `{fn extract(extract(hour from x))}`, which didn't parse.

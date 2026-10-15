@@ -125,11 +125,16 @@ function printExpressionInner(node: SqlNode, opts: Options, printFn: PrintFn): D
             return printFunctionCall(node, opts, printFn);
         case 'BinaryExpression':
             return printBinaryExpr(node, opts, printFn);
-        case 'OdbcFunctionCall':
+        case 'OdbcFunctionCall': {
+            // {fn EXTRACT(HOUR FROM x)}: the argument is the whole EXTRACT(... FROM ...) and prints its own name
+            const args = propArr(node, 'args');
+            if (args.length === 1 && args[0]!.type === 'ExtractFromExpression')
+                return ['{', keyword('fn', opts), ' ', printExpression(args[0]!, opts, printFn), '}'];
             return [
                 '{', keyword('fn', opts), ' ', keyword(propStr(node, 'name') ?? '', opts),
-                '(', join(', ', propArr(node, 'args').map((a) => printExpression(a, opts, printFn))), ')}',
+                '(', join(', ', args.map((a) => printExpression(a, opts, printFn))), ')}',
             ];
+        }
         case 'UnaryExpression':
             return printUnaryExpr(node, opts, printFn);
         case 'ParenthesisExpression':
