@@ -10,3 +10,4 @@ Fixes found by formatting PostgreSQL's regression tests:
 - `CREATE SCHEMA … AUTHORIZATION CURRENT_ROLE` (or `CURRENT_USER`, `SESSION_USER`) keeps its `AUTHORIZATION`; it was dropped.
 - `OFFSET (n - 1) ROWS` and `FETCH FIRST (n * 2) ROWS WITH TIES` keep the parentheses around a computed count; without them the output didn't parse.
 - A cast written as a `FROM` item (`FROM CAST(x AS int)`, also inside `ROWS FROM (…)`) keeps its `CAST(… AS …)` form; printed as `x::integer` it didn't parse.
+- `CREATE COLLATION c (FROM = s)` keeps its source collation; it printed as `CREATE COLLATION c ()`, which didn't parse.

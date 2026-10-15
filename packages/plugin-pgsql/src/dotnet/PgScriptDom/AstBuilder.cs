@@ -3740,8 +3740,11 @@ public class AstBuilder {
                 ));
             }
             case ObjectType.ObjectCollation: {
+                // CREATE COLLATION c FROM s gives a list; (FROM = s) a type name, a different tree,
+                // so that one is kept as an option
                 var fromDef = s.Definition.FirstOrDefault(n =>
-                    n.NodeCase == Node.NodeOneofCase.DefElem && n.DefElem.Defname == "from");
+                    n.NodeCase == Node.NodeOneofCase.DefElem && n.DefElem.Defname == "from"
+                    && n.DefElem.Arg?.NodeCase == Node.NodeOneofCase.List);
                 if (fromDef != null) {
                     var fromVal = GetFromDefElemCollationName(fromDef.DefElem);
                     return new SqlNode("CreateCollationStatement", start, end, null, BuildProps(
