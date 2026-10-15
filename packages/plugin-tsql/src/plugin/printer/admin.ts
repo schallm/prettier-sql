@@ -78,6 +78,9 @@ function kwOpt(opt: string, opts: Options): Doc {
     // FILESTREAM (DIRECTORY_NAME = 'dir')
     const fileStream = /^FILESTREAM \(DIRECTORY_NAME = (.+)\)$/.exec(opt);
     if (fileStream) return [keyword('FILESTREAM', opts), ' (', keyword('DIRECTORY_NAME', opts), ' = ', fileStream[1]!, ')'];
+    // SERVICE_OBJECTIVE = ELASTIC_POOL (NAME = pool): the pool's name keeps its case
+    const pool = /^SERVICE_OBJECTIVE = ELASTIC_POOL \(NAME = (.+)\)$/.exec(opt);
+    if (pool) return [keyword('SERVICE_OBJECTIVE', opts), ' = ', keyword('ELASTIC_POOL', opts), ' (', keyword('NAME', opts), ' = ', pool[1]!, ')'];
     const eqIdx = opt.indexOf(' = ');
     if (eqIdx >= 0) {
         const value = opt.slice(eqIdx + 3);

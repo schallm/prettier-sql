@@ -3844,6 +3844,9 @@ public class AstBuilder : TSqlFragmentVisitor {
             return $"{name}{sep}{(autoStats.OptionState == OptionState.On ? "ON" : "OFF")} (INCREMENTAL = {(autoStats.IncrementalState == OptionState.On ? "ON" : "OFF")})";
         if (o is OnOffDatabaseOption onOff)
             return $"{name}{sep}{(onOff.OptionState == OptionState.On ? "ON" : "OFF")}";
+        // SERVICE_OBJECTIVE = ELASTIC_POOL (NAME = p): the raw text stops before the last `)`
+        if (o is ElasticPoolSpecification pool)
+            return $"SERVICE_OBJECTIVE = ELASTIC_POOL (NAME = {QuotedName(pool.ElasticPoolName)})";
         // PARTNER SAFETY FULL and PARTNER TIMEOUT 10: the raw text starts after SAFETY / TIMEOUT
         if (o is PartnerDatabaseOption partner)
             return partner.PartnerOption switch {
