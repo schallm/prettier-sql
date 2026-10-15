@@ -24,3 +24,8 @@ alter database current set default_fulltext_language = English, default_language
 -- Option names whose spelling differs from ScriptDom's enum names
 alter database Library set db_chaining on, vardecimal_storage_format on;
 alter database Library set arithabort on, numeric_roundabort off;
+
+-- Database mirroring keeps SAFETY and TIMEOUT
+alter database Library set partner safety full;
+alter database Library set partner timeout 10;
+alter database Library set partner failover;

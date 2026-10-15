@@ -3826,6 +3826,20 @@ public class AstBuilder : TSqlFragmentVisitor {
             return $"{name}{sep}{(autoStats.OptionState == OptionState.On ? "ON" : "OFF")} (INCREMENTAL = {(autoStats.IncrementalState == OptionState.On ? "ON" : "OFF")})";
         if (o is OnOffDatabaseOption onOff)
             return $"{name}{sep}{(onOff.OptionState == OptionState.On ? "ON" : "OFF")}";
+        // PARTNER SAFETY FULL and PARTNER TIMEOUT 10: the raw text starts after SAFETY / TIMEOUT
+        if (o is PartnerDatabaseOption partner)
+            return partner.PartnerOption switch {
+                PartnerDatabaseOptionKind.PartnerServer => $"PARTNER = {RawText(partner.PartnerServer).Trim()}",
+                PartnerDatabaseOptionKind.Failover => "PARTNER FAILOVER",
+                PartnerDatabaseOptionKind.ForceServiceAllowDataLoss => "PARTNER FORCE_SERVICE_ALLOW_DATA_LOSS",
+                PartnerDatabaseOptionKind.Off => "PARTNER OFF",
+                PartnerDatabaseOptionKind.Resume => "PARTNER RESUME",
+                PartnerDatabaseOptionKind.SafetyFull => "PARTNER SAFETY FULL",
+                PartnerDatabaseOptionKind.SafetyOff => "PARTNER SAFETY OFF",
+                PartnerDatabaseOptionKind.Suspend => "PARTNER SUSPEND",
+                PartnerDatabaseOptionKind.Timeout => $"PARTNER TIMEOUT {RawText(partner.Timeout).Trim()}",
+                _ => throw new NotSupportedException($"PARTNER option {partner.PartnerOption}"),
+            };
         var val = RawText(o).Trim();
         // The raw text carries its own keyword (FILESTREAM, where the enum name splits it as FILE_STREAM)
         if (val.Replace("_", "").StartsWith(name.Replace("_", ""), StringComparison.OrdinalIgnoreCase)) return val;
