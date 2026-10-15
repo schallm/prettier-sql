@@ -1532,6 +1532,9 @@ public class AstBuilder : TSqlFragmentVisitor {
             // so a hint kind added in a new ScriptDom must get its own arm rather than print wrong
             _ => throw new NotSupportedException($"Optimizer hint {hint.HintKind} has no spelling in BuildOptimizerHint"),
         };
+        // The older USEPLAN n is the same kind as USE PLAN N'xml', and doesn't parse as USE PLAN n
+        if (hint is LiteralOptimizerHint { HintKind: OptimizerHintKind.UsePlan, Value: IntegerLiteral })
+            kind = "USEPLAN";
         if (hint is LiteralOptimizerHint lit && lit.Value != null)
             // LABEL = 'x', MIN_GRANT_PERCENT = 10 take an equals sign; MAXDOP 1, FAST 10, USE PLAN N'..' do not
             return hint.HintKind is OptimizerHintKind.Label or OptimizerHintKind.MinGrantPercent or OptimizerHintKind.MaxGrantPercent

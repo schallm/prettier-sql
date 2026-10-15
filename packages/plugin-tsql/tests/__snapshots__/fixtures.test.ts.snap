@@ -5813,6 +5813,11 @@ option (bypass optimizer_queue, expand views);
 select BookId
 from Books
 option (checkconstraints plan, optimize correlated union all);
+
+-- The older USEPLAN n is one word
+select Title
+from Books
+option (useplan 2, shrinkdb plan);
 "
 `;
 
