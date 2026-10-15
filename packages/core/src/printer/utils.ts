@@ -66,12 +66,13 @@ export function keyword(kw: string, opts: Options): Doc {
     const recase = sqlKeywordCase === 'lower'
         ? (s: string) => s.toLowerCase()
         : (s: string) => s.toUpperCase();
-    // Strings passed through here may embed case-sensitive parts: double-quoted
-    // identifiers in function and type names, single-quoted literals in option strings
-    // such as `PASSWORD 'Secret'`, and T-SQL @variables in hints such as
-    // `OPTIMIZE FOR (@p = 1)`. Recase only the text outside those.
-    if (!/["'@]/.test(kw)) return recase(kw);
-    return kw.replace(/("(?:[^"]|"")*"|'(?:[^']|'')*'|@[\w@#$]*)|[^"'@]+/g, (m, kept) => (kept ? m : recase(m)));
+    // Strings passed through here may embed case-sensitive parts: double-quoted and
+    // T-SQL bracketed identifiers in names and option strings (`CREDENTIAL = [Bob's Key]`),
+    // single-quoted literals such as `PASSWORD 'Secret'`, and T-SQL @variables in hints
+    // such as `OPTIMIZE FOR (@p = 1)`. Recase only the text outside those. A bracketed
+    // name comes first, so an apostrophe inside one doesn't start a string.
+    if (!/["'@[]/.test(kw)) return recase(kw);
+    return kw.replace(/(\[(?:[^\]]|\]\])*\]|"(?:[^"]|"")*"|'(?:[^']|'')*'|@[\w@#$]*)|[^"'@[]+|[\s\S]/g, (m, kept) => (kept ? m : recase(m)));
 }
 
 export function getDensity(opts: Options): 'compact' | 'standard' | 'spacious' {

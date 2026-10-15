@@ -29,3 +29,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - `OPENROWSET(BULK …)` keeps every data file in `BULK ('f1', 'f2')`, an `AS a (c1, c2)` column list, `ORDER (…) UNIQUE`, and the values of `HEADER_ROW = TRUE` and `ROWSET_OPTIONS = '…'` (which printed without a value and didn't parse).
 - `GRANT` / `DENY` / `REVOKE … ON SERVER::name` keeps the server's name.
 - A column written as just `timestamp` (`CREATE TABLE t (timestamp NOT NULL)`) no longer gains a type: it printed as `timestamp int`.
+- Bracketed names inside option text keep their case (`CREDENTIAL = [Bob's Key]`); keyword casing changed them, and an apostrophe inside one could recase a string literal after it.
