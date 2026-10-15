@@ -8,3 +8,4 @@ Fixes found by formatting PostgreSQL's regression tests:
 - `ONLY` is kept in `VACUUM ONLY`, `ANALYZE ONLY` and publication tables (`CREATE PUBLICATION … FOR TABLE ONLY t`); it was dropped, taking in inheritance children and partitions.
 - `LATERAL` is kept before `XMLTABLE(…)` and `JSON_TABLE(…)`.
 - `CREATE SCHEMA … AUTHORIZATION CURRENT_ROLE` (or `CURRENT_USER`, `SESSION_USER`) keeps its `AUTHORIZATION`; it was dropped.
+- `OFFSET (n - 1) ROWS` and `FETCH FIRST (n * 2) ROWS WITH TIES` keep the parentheses around a computed count; without them the output didn't parse.

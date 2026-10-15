@@ -11,3 +11,6 @@ with a as (select 1) select * from a union all select 2 order by 1 limit 5;
 values (1), (2) order by 1 limit 1;
 
 select a from t order by a fetch first 5 rows with ties;
+
+-- WITH TIES: a computed count keeps its parentheses before ROWS
+select title from books order by price offset (5 - 1) rows fetch first (2 * 3) rows with ties;

@@ -6186,6 +6186,13 @@ select a
 from t
 order by a
 fetch first 5 rows with ties;
+
+-- WITH TIES: a computed count keeps its parentheses before ROWS
+select title
+from books
+order by price
+offset (5 - 1) rows
+fetch first (2 * 3) rows with ties;
 "
 `;
 
