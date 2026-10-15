@@ -5296,6 +5296,17 @@ from
       qty integer path '$.qty'
     )
   ) as j;
+
+-- An EXISTS column without a path checks the path named after the column
+select *
+from json_table(
+  doc,
+  '$'
+  columns (
+    author text,
+    has_isbn boolean exists
+  )
+) as jt;
 "
 `;
 

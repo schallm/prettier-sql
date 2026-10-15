@@ -1661,7 +1661,8 @@ function buildJsonTableColumnDocs(columns: SqlNode[], opts: Options, printNode: 
 
         const parts: Doc[] = [name, ' ', makeKeyword(typeName)];
         if (coltype === 'EXISTS') {
-            parts.push(' ', makeKeyword('EXISTS PATH'), ' ', path ? printNode(path) : '');
+            // EXISTS alone checks the path named after the column
+            parts.push(' ', makeKeyword('EXISTS'), path ? [' ', makeKeyword('PATH'), ' ', printNode(path)] : '');
         } else if (coltype === 'FORMATTED') {
             parts.push(' ', makeKeyword(propStr(col, 'format') ?? 'FORMAT JSON'));
             if (path) parts.push(' ', makeKeyword('PATH'), ' ', printNode(path));
