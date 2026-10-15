@@ -126,8 +126,8 @@ public static class TsqlParser {
     /// part of the tree). Identifiers are compared by value, so [name] and name match,
     /// parentheses are unwrapped, so (a) and a match, and an unspecified sort order is
     /// ascending, as it sorts; a multi-variable DECLARE is one DECLARE per variable. Built-in
-    /// type and function names compare case-insensitively, and a multi-part name's leading
-    /// empty parts are dropped (..dbo.t is dbo.t),
+    /// type and function names compare case-insensitively, a multi-part name's leading
+    /// empty parts are dropped (..dbo.t is dbo.t), and sequence options are unordered,
     /// as SQL Server resolves them (<see cref="IsCaseInsensitiveName"/>).
     /// Returns null when the SQL doesn't parse.
     /// </summary>
@@ -244,6 +244,10 @@ public static class TsqlParser {
                     // DBCC CHECKDB: the command name is a keyword, kept as a string
                     if (fragment is DbccStatement && prop.Name == nameof(DbccStatement.DllName)) propValue = (propValue as string)?.ToLowerInvariant();
                     var child = CanonicalNode(propValue, caseInsensitive || IsCaseInsensitiveName(fragment, prop.Name));
+                    // CREATE / ALTER SEQUENCE options are a set: MAXVALUE 2 MINVALUE 1 is MINVALUE 1 MAXVALUE 2
+                    if (fragment is SequenceStatement && prop.Name == nameof(SequenceStatement.SequenceOptions) && child is System.Text.Json.Nodes.JsonArray options)
+                        child = new System.Text.Json.Nodes.JsonArray(options
+                            .OrderBy(o => o!.ToJsonString(), StringComparer.Ordinal).Select(o => o!.DeepClone()).ToArray());
                     if (child != null) obj[prop.Name] = child;
                 }
                 return obj;

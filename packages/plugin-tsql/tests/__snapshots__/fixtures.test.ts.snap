@@ -6207,6 +6207,18 @@ alter sequence dbo.s
 
 -- A user-defined type keeps its case
 create sequence MySeq as dbo.MyInt;
+
+-- Options in any order: printed in one fixed order
+create sequence dbo.InvoiceNo as int
+  minvalue 1
+  maxvalue 9999
+  cache 20;
+
+alter sequence dbo.InvoiceNo
+  restart with 100
+  minvalue 1
+  maxvalue 9999
+  no cache;
 "
 `;
 
