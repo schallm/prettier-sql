@@ -2579,6 +2579,9 @@ execute dbo.p with result sets (
 );
 
 execute dbo.p with recompile, result sets undefined;
+
+-- AS LOGIN / AS USER without a name
+execute ('select Title from Books') as login;
 "
 `;
 

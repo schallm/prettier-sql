@@ -449,9 +449,10 @@ export function printExecute(node: SqlNode, opts: Options): Doc {
 
     const linkedServer = propStr(node, 'linkedServer');
     const contextKind = propStr(node, 'contextKind');
+    const contextPrincipal = propStr(node, 'contextPrincipal');
     const tail: Doc = [
-        // AS USER | LOGIN = 'name' (dynamic SQL only)
-        contextKind ? [' ', keyword(`AS ${contextKind}`, opts), ' = ', propStr(node, 'contextPrincipal') ?? ''] : '',
+        // AS USER | LOGIN [= 'name'] (dynamic SQL only)
+        contextKind ? [' ', keyword(`AS ${contextKind}`, opts), contextPrincipal ? [' = ', contextPrincipal] : ''] : '',
         linkedServer ? [' ', keyword('AT', opts), ' ', linkedServer] : '',
         printExecuteOptions(node, opts),
         node.type === 'ExecuteSource' ? '' : ';',

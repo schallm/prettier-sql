@@ -25,3 +25,6 @@ EXEC dbo.p 'WITH RESULT SETS';
 EXEC dbo.p WITH RESULT SETS ((a int NOT NULL, b varchar(10)), AS OBJECT dbo.t, AS TYPE dbo.tt, AS FOR XML);
 
 EXEC dbo.p WITH RECOMPILE, RESULT SETS UNDEFINED;
+
+-- AS LOGIN / AS USER without a name
+exec ('select Title from Books') as login;
