@@ -4920,6 +4920,10 @@ select *
 from
   cast(current_date as text) as today,
   rows from (cast('7' as integer), generate_series(1, 3)) as r (a, b);
+
+-- A cast to interval in FROM, too
+select *
+from cast('1' as interval day) as d (span);
 "
 `;
 

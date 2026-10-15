@@ -556,10 +556,16 @@ function printCast(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
     return [arg ? printOperand(arg, PREC.CAST, printNode) : '', '::', keyword(typeName, opts)];
 }
 
-/** A cast as CAST(x AS type), where `::` can't be written. */
+/**
+ * A cast as CAST(x AS type), where `::` can't be written. A cast to interval is built as an
+ * interval literal, INTERVAL '1' DAY: as a cast that's CAST('1' AS INTERVAL DAY).
+ */
 function castCallDoc(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
-    const arg = prop(node, 'arg');
-    return [keyword('CAST', opts), '(', arg ? printNode(arg) : '', ' ', keyword('AS', opts), ' ', keyword(propStr(node, 'typeName') ?? '', opts), ')'];
+    const interval = node.type === 'IntervalLiteral';
+    const arg = prop(node, interval ? 'value' : 'arg');
+    const field = propStr(node, 'field');
+    const type = interval ? ['INTERVAL', field ? ` ${field}` : ''].join('') : propStr(node, 'typeName') ?? '';
+    return [keyword('CAST', opts), '(', arg ? printNode(arg) : '', ' ', keyword('AS', opts), ' ', keyword(type, opts), ')'];
 }
 
 /** A subquery in an expression; `not` prints `x IN (subquery)` as `x NOT IN (subquery)`. */
@@ -718,7 +724,7 @@ function printRangeFunction(node: SqlNode, opts: Options, printNode: PrintFn): D
         const call = prop(f, 'call');
         const defs = propArr(f, 'columnDefs');
         // A function in FROM is written as a call: CAST('1' AS int), not '1'::int
-        const callDoc: Doc = !call ? '' : call.type === 'Cast' ? castCallDoc(call, opts, printNode) : printNode(call);
+        const callDoc: Doc = !call ? '' : ['Cast', 'IntervalLiteral'].includes(call.type) ? castCallDoc(call, opts, printNode) : printNode(call);
         return [callDoc, defs.length > 0 ? [' ', makeKeyword('AS'), ' ', columnDefsDoc(defs)] : ''];
     });
     const body: Doc = propBool(node, 'rowsFrom') ? [makeKeyword('ROWS FROM'), ' ', parenItems(items, opts)] : join(', ', items);

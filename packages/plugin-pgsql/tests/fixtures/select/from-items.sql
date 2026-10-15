@@ -20,3 +20,6 @@ with recursive r(n) as (select 1 union all select n + 1 from r where n < 3) sele
 
 -- A cast in FROM is a function call: CAST(... AS ...), not ::
 select * from cast(current_date as text) as today, rows from (cast('7' as int), generate_series(1, 3)) as r (a, b);
+
+-- A cast to interval in FROM, too
+select * from cast('1' as interval day) as d (span);
