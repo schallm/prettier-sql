@@ -50,3 +50,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - `ALTER DATABASE SCOPED CONFIGURATION SET option = -10` keeps its number; it printed as `= -`, which didn't parse.
 - `OPTION (USEPLAN 2)` keeps its one-word spelling; it printed as `USE PLAN 2`, which doesn't parse.
 - `CREATE TABLE` and `ALTER TABLE … ADD` keep columns, constraints and indexes in the order written; columns were moved first, which reordered their comments too.
+- With `sqlKeywordCase: 'preserve'`, a short statement with none of the common keywords (`END;`, `CLUSTER t`, `COPY … TO STDOUT`) keeps the case its first word is written in; it fell back to lower case, and formatting upper-case output again could change its case.

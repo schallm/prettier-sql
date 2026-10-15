@@ -41,6 +41,22 @@ describe('options', () => {
         expect(out).toContain('$$ BEGIN RETURN 1;');
     });
 
+    // END prints as COMMIT and CLUSTER t ON i as CLUSTER i USING t: none of them is a common
+    // keyword, so the statement's first word decides, and formatting again keeps the case
+    it('sqlKeywordCase: preserve keeps the case of a short statement', async () => {
+        const cases: [string, string][] = [
+            ['END;', 'COMMIT;\n'],
+            ['end;', 'commit;\n'],
+            ['CLUSTER books_pkey ON books;', 'CLUSTER books USING books_pkey;\n'],
+            ['SET enable_seqscan = ON;', 'SET enable_seqscan = on;\n'],
+        ];
+        for (const [sql, expected] of cases) {
+            const out = await fmt(sql, { sqlKeywordCase: 'preserve' });
+            expect(out).toBe(expected);
+            expect(await fmt(out, { sqlKeywordCase: 'preserve' })).toBe(out);
+        }
+    });
+
     it('sqlKeywordCase: upper', async () => {
         expect(await fmt(OPTION_SQL, { sqlKeywordCase: 'upper' })).toMatchSnapshot();
     });

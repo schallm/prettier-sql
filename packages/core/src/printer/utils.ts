@@ -45,12 +45,19 @@ function keywordStyleOf(text: string): 'upper' | 'lower' {
     const code = text.replace(/--[^\n]*|\/\*[\s\S]*?\*\/|'(?:[^']|'')*'|"(?:[^"]|"")*"|\[[^\]]*\]|\$([A-Za-z_]\w*)?\$[\s\S]*?\$\1\$/g, ' ');
     let upper = 0;
     let lower = 0;
-    for (const word of code.match(/\b[A-Za-z_]+\b/g) ?? []) {
+    const words = code.match(/\b[A-Za-z_]+\b/g) ?? [];
+    for (const word of words) {
         if (!STYLE_KEYWORDS.has(word.toLowerCase())) continue;
         if (word === word.toUpperCase()) upper++;
         else if (word === word.toLowerCase()) lower++;
     }
-    const style = upper > lower ? 'upper' : 'lower';
+    // A tie (a short statement such as END, CLUSTER t or SET x = ON may have none of the common
+    // keywords) goes by the first word, the statement's own keyword, which keeps its case when
+    // printed: so formatting the output again finds the same case
+    const first = words[0];
+    const style = upper !== lower
+        ? (upper > lower ? 'upper' : 'lower')
+        : first && first !== first.toLowerCase() && first === first.toUpperCase() ? 'upper' : 'lower';
     styleCache = { text, style };
     return style;
 }
