@@ -264,6 +264,15 @@ public class AstBuilder : TSqlFragmentVisitor {
         };
     }
 
+    /// <summary>
+    /// A column of a column list (index keys, INCLUDE, UPDATE OF, ...) by its own name. A graph
+    /// or other pseudo-column ($node_id, $edge_id, $identity) has no identifiers: it's the token.
+    /// </summary>
+    private static string? ColumnName(ColumnReferenceExpression? col) =>
+        col == null ? null
+        : col.ColumnType is ColumnType.Regular or ColumnType.Wildcard ? QuotedName(col.MultiPartIdentifier?.Identifiers.LastOrDefault())
+        : col.ScriptTokenStream[col.LastTokenIndex].Text;
+
     private static SqlNode BuildColumnRef(ColumnReferenceExpression col) {
         var parts = col.MultiPartIdentifier?.Identifiers.Select(i => QuotedName(i)).ToList() ?? [];
         // COUNT(*) uses ColumnType.Wildcard with no identifiers; FREETEXT(t.*, ...) keeps its table
@@ -460,7 +469,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         if (fc is BrowseForClause) return Node("ForBrowseClause", fc, new Dictionary<string, object?>());
         if (fc is ReadOnlyForClause) return Node("ForReadOnlyClause", fc, new Dictionary<string, object?>());
         if (fc is UpdateForClause upd) {
-            var cols = upd.Columns?.Select(c => (object?)(QuotedName(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()) ?? "")).ToList();
+            var cols = upd.Columns?.Select(c => (object?)(ColumnName(c) ?? "")).ToList();
             return Node("ForUpdateClause", fc, new Dictionary<string, object?> { ["columns"] = cols });
         }
         return Leaf("ForClause", fc, RawText(fc));
@@ -796,7 +805,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                 : fsHint.IndexValue.Value ?? "";
             if (fsHint.ColumnValues?.Count > 0) {
                 var cols = fsHint.ColumnValues.Select(cv =>
-                    QuotedName(cv.MultiPartIdentifier?.Identifiers.LastOrDefault()) ?? "");
+                    ColumnName(cv) ?? "");
                 return $"FORCESEEK({idxName}({string.Join(", ", cols)}))";
             }
             return $"FORCESEEK({idxName})";
@@ -2010,7 +2019,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         // fragment doesn't reach its tokens, so build the text from the parsed value.
         if (opt is TableIndexOption { Value: TableNonClusteredIndexType }) return "heap";
         if (opt is TableIndexOption { Value: TableClusteredIndexType clustered }) {
-            string Col(ColumnReferenceExpression c) => string.Join(".", c.MultiPartIdentifier.Identifiers.Select(i => QuotedName(i)));
+            string Col(ColumnReferenceExpression c) => c.MultiPartIdentifier == null ? ColumnName(c) ?? "" : string.Join(".", c.MultiPartIdentifier.Identifiers.Select(i => QuotedName(i)));
             if (clustered.ColumnStore) {
                 return clustered.OrderedColumns?.Count > 0
                     ? $"clustered columnstore index order ({string.Join(", ", clustered.OrderedColumns.Select(Col))})"
@@ -2090,9 +2099,9 @@ public class AstBuilder : TSqlFragmentVisitor {
             "IndexColumn",
             c.StartOffset,
             c.StartOffset + c.FragmentLength,
-            QuotedName(c.Column?.MultiPartIdentifier?.Identifiers.LastOrDefault()),
+            ColumnName(c.Column),
             new Dictionary<string, object?> {
-                ["name"] = QuotedName(c.Column?.MultiPartIdentifier?.Identifiers.LastOrDefault()),
+                ["name"] = ColumnName(c.Column),
                 ["sortOrder"] = c.SortOrder.ToString(),
             })).ToList();
         return Node("InlineIndexDefinition", idx, new Dictionary<string, object?> {
@@ -2101,7 +2110,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["kind"] = kindStr,
             ["columns"] = cols,
             ["includeColumns"] = idx.IncludeColumns?.Select(c =>
-                (object?)(QuotedName(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()) ?? "")).ToList(),
+                (object?)(ColumnName(c) ?? "")).ToList(),
             ["filterPredicate"] = idx.FilterPredicate != null ? BuildBooleanExpression(idx.FilterPredicate) : null,
             ["indexOptions"] = MapList(idx.IndexOptions, o => (object?)SerializeIndexOption(o)),
             ["onFileGroup"] = StorageTarget(idx.OnFileGroupOrPartitionScheme),
@@ -2261,7 +2270,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                         ["hash"] = uq.IndexType?.IndexTypeKind == IndexTypeKind.NonClusteredHash ? (object?)true : null,
                         // A column-level key can still name its columns: c int PRIMARY KEY (id ASC)
                         ["columns"] = uq.Columns?.Count > 0 ? uq.Columns.Select(col => (object?)new Dictionary<string, object?> {
-                            ["name"] = QuotedName(col.Column?.MultiPartIdentifier?.Identifiers.LastOrDefault()),
+                            ["name"] = ColumnName(col.Column),
                             ["order"] = col.SortOrder.ToString(),
                         }).ToList() : null,
                         ["indexOptions"] = MapList(uq.IndexOptions, o => (object?)SerializeIndexOption(o)),
@@ -2306,7 +2315,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                     // PRIMARY KEY NONCLUSTERED HASH (memory-optimized tables)
                     ["hash"] = unique.IndexType?.IndexTypeKind == IndexTypeKind.NonClusteredHash ? (object?)true : null,
                     ["columns"] = unique.Columns?.Select(col => (object?)new Dictionary<string, object?> {
-                        ["name"] = QuotedName(col.Column?.MultiPartIdentifier?.Identifiers.LastOrDefault()),
+                        ["name"] = ColumnName(col.Column),
                         ["order"] = col.SortOrder.ToString(),
                     }).ToList(),
                     ["indexOptions"] = MapList(unique.IndexOptions, o => (object?)SerializeIndexOption(o)),
@@ -2465,9 +2474,9 @@ public class AstBuilder : TSqlFragmentVisitor {
             "IndexColumn",
             c.StartOffset,
             c.StartOffset + c.FragmentLength,
-            QuotedName(c.Column?.MultiPartIdentifier?.Identifiers.LastOrDefault()),
+            ColumnName(c.Column),
             new Dictionary<string, object?> {
-                ["name"] = QuotedName(c.Column?.MultiPartIdentifier?.Identifiers.LastOrDefault()),
+                ["name"] = ColumnName(c.Column),
                 ["sortOrder"] = c.SortOrder.ToString(),
             })).ToList();
 
@@ -2481,7 +2490,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["clustered"] = ci.Clustered == true ? (object?)true : ci.Clustered == false ? (object?)false : null,
                 ["table"] = BuildSchemaObjectName(ci.OnName),
                 ["columns"] = cols,
-                ["includeColumns"] = ci.IncludeColumns?.Select(c => (object?)QuotedName(c.MultiPartIdentifier?.Identifiers.LastOrDefault())).ToList(),
+                ["includeColumns"] = ci.IncludeColumns?.Select(c => (object?)ColumnName(c)).ToList(),
                 ["filterPredicate"] = ci.FilterPredicate != null ? BuildBooleanExpression(ci.FilterPredicate) : null,
                 ["indexOptions"] = MapList(ci.IndexOptions, o => (object?)SerializeIndexOption(o)),
                 ["onFileGroup"] = StorageTarget(ci.OnFileGroupOrPartitionScheme),
@@ -3119,7 +3128,7 @@ public class AstBuilder : TSqlFragmentVisitor {
                     ?.Select(c => (object?)BuildColumnDefinition(c)).ToList(),
                 // ORDER (c3 DESC, c1): the order a CLR table-valued function returns its rows in
                 ["orderHint"] = f.OrderHint?.Columns?.Count > 0 ? f.OrderHint.Columns.Select(c => (object?)new Dictionary<string, object?> {
-                    ["name"] = QuotedName(c.Column?.MultiPartIdentifier?.Identifiers.LastOrDefault()),
+                    ["name"] = ColumnName(c.Column),
                     ["order"] = c.SortOrder.ToString(),
                 }).ToList() : null,
                 ["orderUnique"] = f.OrderHint?.IsUnique == true ? (object?)true : null,
@@ -4371,7 +4380,7 @@ public class AstBuilder : TSqlFragmentVisitor {
 
     private static SqlNode BuildCreateStatistics(CreateStatisticsStatement cs) {
         var cols = cs.Columns?.Select(c => (object?)(
-            QuotedName(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()) ?? RawText(c).Trim()
+            ColumnName(c) ?? RawText(c).Trim()
         )).ToList();
         var opts = cs.StatisticsOptions?.Select(o => (object?)StatisticsOptionText(o)).ToList();
         return Node("CreateStatisticsStatement", cs, new Dictionary<string, object?> {
@@ -4407,7 +4416,7 @@ public class AstBuilder : TSqlFragmentVisitor {
 
     private static SqlNode BuildCreateColumnStoreIndex(CreateColumnStoreIndexStatement csi) {
         var cols = csi.Columns?.Select(c => (object?)(
-            QuotedName(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()) ?? RawText(c).Trim()
+            ColumnName(c) ?? RawText(c).Trim()
         )).ToList();
         var opts = csi.IndexOptions?.Select(o => (object?)SerializeIndexOption(o)).ToList();
         return Node("CreateColumnStoreIndexStatement", csi, new Dictionary<string, object?> {
@@ -4417,7 +4426,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["columns"] = cols,
             // CREATE CLUSTERED COLUMNSTORE INDEX ... ORDER (a, b)
             ["orderedColumns"] = MapList(csi.OrderedColumns, c =>
-                (object?)(QuotedName(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()) ?? RawText(c).Trim())),
+                (object?)(ColumnName(c) ?? RawText(c).Trim())),
             ["filterPredicate"] = csi.FilterPredicate != null ? BuildBooleanExpression(csi.FilterPredicate) : null,
             ["options"] = opts,
             ["onFileGroup"] = StorageTarget(csi.OnFileGroupOrPartitionScheme),

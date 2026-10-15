@@ -181,7 +181,10 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
         withTrailingComment(prop(node, 'name')!, schemaObjectName(prop(node, 'name'))),
         asFileTable
             ? [' ', keyword('AS FILETABLE', opts)]
-            : [' (', indent([hardline, join([',', hardline], allDefs)]), hardline, ')'],
+            : // CREATE TABLE t AS EDGE has no columns, and no parentheses
+              allDefs.length === 0
+              ? ''
+              : [' (', indent([hardline, join([',', hardline], allDefs)]), hardline, ')'],
         federatedOn ? [hardline, keyword('FEDERATED ON', opts), ' (', federatedOn, ')'] : '',
         graphPart,
         onPart,

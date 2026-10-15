@@ -1404,6 +1404,18 @@ create table dbo.WorksAt (
 create table dbo.Knows (
   Weight float null
 ) as edge;
+
+-- An edge table without columns, and indexes on graph pseudo-columns
+create table dbo.Likes as edge;
+
+create table dbo.Book (
+  Id int not null,
+  Title nvarchar(200) not null,
+  index IX_Book_Node unique nonclustered ($node_id),
+  index IX_Book_Title (Title) include ($node_id)
+) as node;
+
+create index IX_Likes_Ends on dbo.Likes ($from_id, $to_id);
 "
 `;
 

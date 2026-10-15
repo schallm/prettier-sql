@@ -42,3 +42,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - `EXEC (…) AS LOGIN` with no name no longer prints a dangling `= `, which didn't parse.
 - `ALTER PARTITION FUNCTION f() SPLIT` / `MERGE` with no range prints as written; it printed `SPLIT RANGE ()`, which doesn't parse.
 - `{fn EXTRACT(HOUR FROM x)}` no longer prints as `{fn extract(extract(hour from x))}`, which didn't parse.
+- Graph pseudo-columns (`$node_id`, `$edge_id`, `$from_id`, `$to_id`) are kept in index keys and `INCLUDE (…)`; they printed as nothing (`ON t ()`), or failed to format. `CREATE TABLE t AS EDGE` with no columns no longer prints an empty `()`.
