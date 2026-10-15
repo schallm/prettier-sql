@@ -887,9 +887,11 @@ function printVariableSet(node: SqlNode, opts: Options): Doc {
                  propStr(node, 'intervalValue') ?? '', fields ? [' ', makeKeyword(fields)] : ''], ';'];
     }
 
-    // Values arrive as SQL text (numbers, bare words, or quoted literals)
-    // ...and the values fill an indented line of their own when they don't fit after the =
-    return [group([makeKeyword('SET'), ' ', localKw, name, ' =', indent([line, commaFill(values)])]), ';'];
+    // Values arrive as SQL text (numbers, bare words, or quoted literals); ON / OFF / TRUE / FALSE
+    // are keywords, as in a utility option. The values fill an indented line of their own when
+    // they don't fit after the =
+    const valueDocs = values.map((v): Doc => (/^(on|off|true|false)$/i.test(v) ? makeKeyword(v) : v));
+    return [group([makeKeyword('SET'), ' ', localKw, name, ' =', indent([line, commaFill(valueDocs)])]), ';'];
 }
 
 function printVariableShow(node: SqlNode, opts: Options): Doc {

@@ -48,7 +48,7 @@ describe('options', () => {
             ['END;', 'COMMIT;\n'],
             ['end;', 'commit;\n'],
             ['CLUSTER books_pkey ON books;', 'CLUSTER books USING books_pkey;\n'],
-            ['SET enable_seqscan = ON;', 'SET enable_seqscan = on;\n'],
+            ['SET enable_seqscan = ON;', 'SET enable_seqscan = ON;\n'],
             ['VACUUM (PARALLEL 4, INDEX_CLEANUP ON) books;', 'VACUUM (PARALLEL 4, INDEX_CLEANUP ON) books;\n'],
         ];
         for (const [sql, expected] of cases) {
