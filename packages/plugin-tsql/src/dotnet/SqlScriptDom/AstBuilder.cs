@@ -3853,6 +3853,9 @@ public class AstBuilder : TSqlFragmentVisitor {
             return $"{name}{sep}{(autoStats.OptionState == OptionState.On ? "ON" : "OFF")} (INCREMENTAL = {(autoStats.IncrementalState == OptionState.On ? "ON" : "OFF")})";
         if (o is OnOffDatabaseOption onOff)
             return $"{name}{sep}{(onOff.OptionState == OptionState.On ? "ON" : "OFF")}";
+        // QUERY_STORE CLEAR ALL: the raw text stops before ALL
+        if (o is QueryStoreDatabaseOption { ClearAll: true })
+            return "QUERY_STORE CLEAR ALL";
         // SERVICE_OBJECTIVE = ELASTIC_POOL (NAME = p): the raw text stops before the last `)`
         if (o is ElasticPoolSpecification pool)
             return $"SERVICE_OBJECTIVE = ELASTIC_POOL (NAME = {QuotedName(pool.ElasticPoolName)})";

@@ -36,6 +36,9 @@ export const unused: Record<string, string> = {
     // Kept through source text rather than a property read
     'TriggerAction.EventTypeGroup': 'a DDL event group is printed from its source text (TriggerActionToSql)',
     'FileStreamDatabaseOption.NonTransactedAccess': 'database options are printed from their source text (DatabaseOptionText)',
+    'QueryStoreDatabaseOption.Clear': 'database options are printed from their source text (DatabaseOptionText); only CLEAR ALL is missing from it',
+    'QueryStoreDatabaseOption.OptionState': 'database options are printed from their source text (DatabaseOptionText)',
+    'QueryStoreDatabaseOption.Options': 'database options are printed from their source text (DatabaseOptionText)',
     'CryptoMechanism.PasswordOrSignature': 'kept in the source text of the crypto mechanism',
     'AlterEventSessionStatement.DropEventDeclarations': 'ALTER EVENT SESSION ADD/DROP is kept as source text',
     'AlterEventSessionStatement.DropTargetDeclarations': 'ALTER EVENT SESSION ADD/DROP is kept as source text',

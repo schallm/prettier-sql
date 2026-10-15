@@ -46,3 +46,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - `ADD CONSTRAINT c FOREIGN KEY REFERENCES t (x)` (no column list) no longer prints `FOREIGN KEY ()`, which didn't parse.
 - A function call written `.f()` (the default schema's function) keeps its leading dot; without it the call was to a built-in function.
 - `DBCC … WITH STAT_HEADER JOIN DENSITY_VECTOR` follows `sqlKeywordCase` for `JOIN`; it was always upper case, so with `preserve` a second format changed the output.
+- `ALTER DATABASE … SET QUERY_STORE CLEAR ALL` keeps `ALL`; it printed as `QUERY_STORE CLEAR`.

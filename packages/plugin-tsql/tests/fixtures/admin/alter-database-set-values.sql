@@ -29,3 +29,7 @@ alter database Library set arithabort on, numeric_roundabort off;
 alter database Library set partner safety full;
 alter database Library set partner timeout 10;
 alter database Library set partner failover;
+
+-- QUERY_STORE CLEAR ALL keeps ALL
+alter database Library set query_store clear all;
+alter database Library set query_store clear;
