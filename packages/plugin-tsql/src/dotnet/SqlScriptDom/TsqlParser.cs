@@ -126,7 +126,8 @@ public static class TsqlParser {
     /// part of the tree). Identifiers are compared by value, so [name] and name match,
     /// parentheses are unwrapped, so (a) and a match, and an unspecified sort order is
     /// ascending, as it sorts; a multi-variable DECLARE is one DECLARE per variable. Built-in
-    /// type and function names compare case-insensitively,
+    /// type and function names compare case-insensitively, and a multi-part name's leading
+    /// empty parts are dropped (..dbo.t is dbo.t),
     /// as SQL Server resolves them (<see cref="IsCaseInsensitiveName"/>).
     /// Returns null when the SQL doesn't parse.
     /// </summary>
@@ -196,6 +197,15 @@ public static class TsqlParser {
                 return CanonicalNode(bp.Expression);
             case QueryParenthesisExpression qp when qp.OrderByClause == null && qp.OffsetClause == null && qp.ForClause == null:
                 return CanonicalNode(qp.QueryExpression);
+            // A multi-part name is its parts (Count and the server / database / schema / base
+            // properties follow from them). A leading empty part is the current server or
+            // database, or the default schema, as leaving the part off is: ..dbo.t is dbo.t,
+            // .db..t is db..t. An empty part in the middle (db..t) stays.
+            case MultiPartIdentifier mpi: {
+                var parts = new System.Text.Json.Nodes.JsonArray();
+                foreach (var id in mpi.Identifiers.SkipWhile(i => i.Value == "")) parts.Add(CanonicalNode(id, caseInsensitive));
+                return new System.Text.Json.Nodes.JsonObject { ["$type"] = mpi.GetType().Name, ["Parts"] = parts };
+            }
             // varchar(MAX) and varchar(max)
             case NullLiteral:
                 return new System.Text.Json.Nodes.JsonObject { ["$type"] = nameof(NullLiteral) };
