@@ -18,3 +18,7 @@ select xmlparse(document '<a/>' preserve whitespace), xmlparse(content '<a/>' st
 select xmlroot(x, version '1.0', standalone yes), xmlroot(x, version no value, standalone no value);
 
 select xmlserialize(document x as text), xmlserialize(content x as text indent);
+
+-- XMLTABLE's row expression and PASSING argument keep the parentheses they need
+select x.* from documents d, xmltable(('/root/' || d.kind) passing (d.body::xml) columns id int path '@id') as x;
+select xmlexists(('//' || 'item') passing (body::xml)) from documents;

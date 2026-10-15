@@ -19,7 +19,7 @@ import {
     selectListDoc, fromClauseDoc, listClauseDoc, windowClauseDoc, withClauseDoc, joinOnDoc, mergeActionDoc, mergeInsertDoc, createIndexDoc, alterTableDoc, grantDoc, optionLinesDoc, asQueryDoc, dropDoc,
 } from '@prettier-sql/core/printer/layout';
 import { prop, propArr, propStr, propBool, propStrArr, rangeVarName, qualifiedName, onlyPrefix, printFdwOptions, sqlString } from './helpers.js';
-import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, boolTerms, isBoolChain, tableAliasDoc } from './expressions.js';
+import { printExpression, printPartitionBound, printAssignTarget, printAssignment, printWindowDef, boolTerms, isBoolChain, tableAliasDoc, printCExpr } from './expressions.js';
 
 // ---------------------------------------------------------------------------
 // Script root
@@ -464,12 +464,8 @@ function printQueryTail(node: SqlNode, opts: Options, printNode: PrintFn): Doc[]
     if (orderBy.length > 0) parts.push(printListClause('ORDER BY', orderBy, opts, printNode));
 
     if (propBool(node, 'withTies')) {
-        // WITH TIES has no LIMIT spelling. Before ROWS the count is a constant, a parameter,
-        // a column, or a subquery; anything else needs parentheses: FETCH FIRST (n + 1) ROWS
-        const rowCount = (n: SqlNode): Doc =>
-            (n.type === 'Literal' && !/^[-+]/.test(n.text ?? '')) || ['ParamRef', 'ColumnRef', 'SubLink'].includes(n.type)
-                ? printNode(n)
-                : ['(', printNode(n), ')'];
+        // WITH TIES has no LIMIT spelling. Before ROWS the count is a c_expr: FETCH FIRST (n + 1) ROWS
+        const rowCount = (n: SqlNode): Doc => printCExpr(n, printNode);
         if (offset) parts.push([makeKeyword('OFFSET'), ' ', rowCount(offset), ' ', makeKeyword('ROWS')]);
         if (limit) parts.push([makeKeyword('FETCH FIRST'), ' ', rowCount(limit), ' ', makeKeyword('ROWS WITH TIES')]);
     } else {

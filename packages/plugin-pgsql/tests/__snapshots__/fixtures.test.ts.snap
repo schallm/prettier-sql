@@ -6525,6 +6525,20 @@ select
 select
   xmlserialize(document x as text),
   xmlserialize(content x as text indent);
+
+-- XMLTABLE's row expression and PASSING argument keep the parentheses they need
+select x.*
+from
+  documents as d,
+  xmltable(
+    ('/root/' || d.kind)
+    passing (d.body::xml)
+    columns
+      id integer path '@id'
+  ) as x;
+
+select xmlexists(('//' || 'item') passing (body::xml))
+from documents;
 "
 `;
 

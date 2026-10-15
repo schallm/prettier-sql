@@ -343,7 +343,7 @@ function printFunctionCall(node: SqlNode, opts: Options, printNode: PrintFn): Do
             case 'normalize': return printNormalizeForm(args, opts, printNode);
             case 'system_user': if (args.length === 0) return makeKeyword('SYSTEM_USER'); break;
             case 'pg_collation_for': if (args.length === 1) return [makeKeyword('COLLATION FOR'), ' (', printNode(args[0]!), ')']; break;
-            case 'xmlexists': if (args.length === 2) return [makeKeyword('XMLEXISTS'), '(', printNode(args[0]!), ' ', makeKeyword('PASSING'), ' ', printNode(args[1]!), ')']; break;
+            case 'xmlexists': if (args.length === 2) return [makeKeyword('XMLEXISTS'), '(', printCExpr(args[0]!, printNode), ' ', makeKeyword('PASSING'), ' ', printCExpr(args[1]!, printNode), ')']; break;
             case 'substring': return printSubstringForm(args, opts, printNode);
             case 'extract':   return printExtractForm(args, opts, printNode);
             case 'ltrim':     return printTrimForm(args, 'LEADING',  opts, printNode);
@@ -1164,6 +1164,19 @@ function hasAExprOnlyOperator(node: SqlNode | null): boolean {
     return false;
 }
 
+/**
+ * An expression where the grammar takes a c_expr (XMLTABLE's row expression and PASSING
+ * argument, a FETCH FIRST ... ROWS count): a constant, column, parameter, function call,
+ * subquery, CASE, ARRAY or ROW as it is; anything else — an operator, a `::` cast, a signed
+ * number — in parentheses.
+ */
+export function printCExpr(node: SqlNode, printNode: PrintFn): Doc {
+    const bare = node.type === 'Literal'
+        ? !/^[-+]/.test(node.text ?? '')
+        : ['ColumnRef', 'ParamRef', 'FunctionCall', 'SubLink', 'CaseExpr', 'ArrayExpr', 'RowExpr'].includes(node.type);
+    return bare ? printNode(node) : ['(', printNode(node), ')'];
+}
+
 /** An expression where the grammar takes a b_expr: in parentheses when it holds more. */
 function printBExpr(node: SqlNode, printNode: PrintFn): Doc {
     return hasAExprOnlyOperator(node) ? ['(', printNode(node), ')'] : printNode(node);
@@ -1585,8 +1598,8 @@ function printXmlTable(node: SqlNode, opts: Options, printNode: PrintFn): Doc {
                 return name ? [value ? printNode(value) : '', ' ', makeKeyword('AS'), ' ', name] : [makeKeyword('DEFAULT'), ' ', value ? printNode(value) : ''];
             })), '),']
             : '',
-        hardline, rowExpr ? printNode(rowExpr) : '',
-        hardline, makeKeyword('PASSING'), ' ', docExpr ? printNode(docExpr) : '',
+        hardline, rowExpr ? printCExpr(rowExpr, printNode) : '',
+        hardline, makeKeyword('PASSING'), ' ', docExpr ? printCExpr(docExpr, printNode) : '',
         hardline, makeKeyword('COLUMNS'),
         indent(colDocs.map((c) => [hardline, c])),
     ]);

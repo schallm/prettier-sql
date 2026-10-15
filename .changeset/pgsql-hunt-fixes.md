@@ -18,3 +18,4 @@ Fixes found by formatting PostgreSQL's regression tests:
 - `FOR VALUES WITH (MODULUS 0, REMAINDER 1)` is kept (PostgreSQL rejects it when run, but it parses); it was dropped, leaving output that didn't parse.
 - A quoted mixed-case option name in `CREATE AGGREGATE` / `CREATE OPERATOR` (`"Sfunc" = f`) keeps its quotes; without them it named a different option, or didn't parse.
 - A typed constant in a recursive query's `CYCLE … SET m TO point '(1,1)' DEFAULT …` keeps its `type 'value'` spelling; printed as `'(1,1)'::point` it didn't parse.
+- `XMLTABLE((…) PASSING (…))` and `XMLEXISTS((…) PASSING (…))` keep the parentheses around an operator expression or a `::` cast; without them the output didn't parse.
