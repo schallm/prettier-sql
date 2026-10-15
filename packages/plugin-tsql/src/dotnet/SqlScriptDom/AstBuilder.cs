@@ -187,18 +187,35 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static string SchemaObjectText(MultiPartIdentifier name) =>
         string.Join(".", name.Identifiers.Select(i => QuotedName(i)));
 
-    private static SqlNode? BuildSchemaObjectName(SchemaObjectName? name) =>
-        name == null ? null : new SqlNode(
+    /// <param name="quoteBase">How to quote the last part, when it isn't an ordinary name.</param>
+    private static SqlNode? BuildSchemaObjectName(SchemaObjectName? name, Func<Identifier?, string?>? quoteBase = null) {
+        if (name == null) return null;
+        var baseName = (quoteBase ?? QuotedName)(name.BaseIdentifier);
+        return new SqlNode(
             "SchemaObjectName",
             name.StartOffset,
             name.StartOffset + name.FragmentLength,
-            QuotedName(name.BaseIdentifier),
+            baseName,
             new Dictionary<string, object?> {
                 ["schema"] = QuotedName(name.SchemaIdentifier),
                 ["database"] = QuotedName(name.DatabaseIdentifier),
                 ["server"] = QuotedName(name.ServerIdentifier),
-                ["name"] = QuotedName(name.BaseIdentifier),
+                ["name"] = baseName,
             });
+    }
+
+    /// <summary>
+    /// Built-in table-valued functions whose name ScriptDom reads as the built-in even
+    /// schema-qualified: a user function of that name keeps its brackets.
+    /// dbo.AI_GENERATE_CHUNKS(SOURCE) is the built-in, whose first argument is SOURCE = ...,
+    /// and doesn't parse; dbo.[AI_GENERATE_CHUNKS](SOURCE) is the user's function.
+    /// </summary>
+    private static readonly HashSet<string> _builtinTableFunctionNames = new(StringComparer.OrdinalIgnoreCase) {
+        "AI_GENERATE_CHUNKS",
+    };
+
+    private static string? QuotedTableFunctionName(Identifier? id) =>
+        id != null && _builtinTableFunctionNames.Contains(id.Value) ? $"[{id.Value.Replace("]", "]]")}]" : QuotedName(id);
 
     private static SqlNode? BuildScalarExpression(ScalarExpression? expr) {
         var node = BuildScalarExpressionCore(expr);
@@ -870,17 +887,8 @@ public class AstBuilder : TSqlFragmentVisitor {
         var args = tvf.Parameters?.Select(p => (object?)BuildScalarExpression(p)).ToList();
         // e.g. `t.x.nodes('/r') AS n(x)` — the alias's column list (for xml .nodes()).
         var columns = tvf.Columns?.Select(c => (object?)QuotedName(c)).ToList();
-        var name = BuildSchemaObjectName(tvf.SchemaObject);
-        // A user function named AI_GENERATE_CHUNKS keeps its brackets: bare, dbo.AI_GENERATE_CHUNKS(SOURCE)
-        // reads as the built-in function, whose first argument is SOURCE = ..., and doesn't parse
-        if (name?.Props != null && tvf.SchemaObject.BaseIdentifier is { } baseId
-            && string.Equals(baseId.Value, "AI_GENERATE_CHUNKS", StringComparison.OrdinalIgnoreCase)) {
-            var bracketed = $"[{baseId.Value}]";
-            name = name with { Text = bracketed };
-            name.Props["name"] = bracketed;
-        }
         return Node("SchemaObjectFunctionTableReference", tvf, new Dictionary<string, object?> {
-            ["name"] = name,
+            ["name"] = BuildSchemaObjectName(tvf.SchemaObject, QuotedTableFunctionName),
             ["args"] = args,
             ["alias"] = QuotedName(tvf.Alias),
             ["aliasColumns"] = columns?.Count > 0 ? columns : null,
