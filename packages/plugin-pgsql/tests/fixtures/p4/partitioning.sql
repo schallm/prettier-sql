@@ -43,3 +43,6 @@ create table orders_apac
   partition of orders
   for values in ('AU', 'JP')
   partition by range (region);
+
+-- MODULUS 0 parses (PostgreSQL rejects it when run): its bound is kept
+create table orders_bad partition of orders_by_hash for values with (modulus 0, remainder 1);

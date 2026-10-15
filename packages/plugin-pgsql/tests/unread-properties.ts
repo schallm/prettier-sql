@@ -11,7 +11,6 @@ export const unused: Record<string, string> = {
     'TypeName.Typemod': 'always -1 from the parser; the modifiers written are Typmods, which the builder reads',
     'Constraint.InitiallyValid': 'the opposite of SkipValidation (NOT VALID), which the builder reads',
     'MultiAssignRef.Colno': 'the position of the column in SET (a, b) = ..., which follows from the order',
-    'PartitionBoundSpec.Strategy': 'follows from FOR VALUES IN / FROM ... TO / WITH (MODULUS ...), which the builder reads',
     'DeallocateStmt.Isall': 'DEALLOCATE ALL has no name, and a missing name prints as ALL',
     'DefineStmt.Oldstyle':
         'the old CREATE AGGREGATE syntax has no argument list and puts BASETYPE in the definition, which the builder prints',

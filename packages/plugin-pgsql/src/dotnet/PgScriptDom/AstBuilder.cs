@@ -465,8 +465,9 @@ public class AstBuilder {
             ("lower",      MaybeList(partitionBound.Lowerdatums.Select(BuildPartitionDatum).ToList())),
             ("upper",      MaybeList(partitionBound.Upperdatums.Select(BuildPartitionDatum).ToList())),
             ("listDatums", MaybeList(partitionBound.Listdatums.Select(BuildPartitionDatum).ToList())),
-            ("modulus",    partitionBound.Modulus > 0 ? (object?)partitionBound.Modulus   : null),
-            ("remainder",  partitionBound.Modulus > 0 ? (object?)partitionBound.Remainder : null)
+            // A hash bound by its strategy: MODULUS 0 parses (and fails when run) as well
+            ("modulus",    partitionBound.Strategy == "h" ? (object?)partitionBound.Modulus   : null),
+            ("remainder",  partitionBound.Strategy == "h" ? (object?)partitionBound.Remainder : null)
         ));
     }
 
