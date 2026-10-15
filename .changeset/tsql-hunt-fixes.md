@@ -20,3 +20,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - `ALTER COLUMN c ADD | DROP ROWGUIDCOL` (and the other `ADD` / `DROP` forms) keeps its `WITH (ONLINE = …)`.
 - `ALTER DATABASE … SET AUTO_CREATE_STATISTICS ON (INCREMENTAL = ON)` keeps `INCREMENTAL`.
 - `UPDATE STATISTICS … WITH RESAMPLE ON PARTITIONS (…)` keeps its partitions; it resampled every partition.
+- `DECLARE @v int NOT NULL = 4` (and `NULL`) keeps its nullability.

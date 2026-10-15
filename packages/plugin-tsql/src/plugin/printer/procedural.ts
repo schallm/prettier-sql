@@ -92,10 +92,11 @@ export function printDeclareVariable(node: SqlNode, opts: Options): Doc {
         const isUdt = propBool(d, 'isUdt');
         const params = d.props?.['dataTypeParams'];
         const dtDoc: Doc = isUdt ? dt : builtinTypeDoc(dt, opts);
-        const typeStr: Doc =
-            Array.isArray(params) && params.length > 0
-                ? [dtDoc, `(${(params as string[]).join(', ')})`]
-                : dtDoc;
+        const nullable = d.props?.['nullable'];
+        const typeStr: Doc = [
+            Array.isArray(params) && params.length > 0 ? [dtDoc, `(${(params as string[]).join(', ')})`] : dtDoc,
+            nullable === true ? [' ', keyword('NULL', opts)] : nullable === false ? [' ', keyword('NOT NULL', opts)] : '',
+        ];
         const val = prop(d, 'value');
         const inline: Doc = val ? assignment([name, ' ', typeStr], '=', val, opts) : [name, ' ', typeStr];
         return { inline, doc: [keyword('DECLARE', opts), ' ', inline, ';'] as Doc };

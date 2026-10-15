@@ -3263,6 +3263,15 @@ deallocate @scrollCur;
 "
 `;
 
+exports[`fixtures > procedural/declare-nullability.sql 1`] = `
+"-- NULL / NOT NULL on a variable
+declare @Count int not null = 4;
+declare @Note nvarchar(100) null;
+declare @a int not null = 1;
+declare @b varchar(10) null;
+"
+`;
+
 exports[`fixtures > procedural/else-branch-comment.sql 1`] = `
 "-- A comment inside the ELSE branch's statement stays in that branch
 if @a = 1 select 1;

@@ -1717,6 +1717,8 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["dataType"] = dataType,
                 ["isUdt"] = isUdt ? (object?)true : null,
                 ["dataTypeParams"] = DataTypeParams(d.DataType),
+                // DECLARE @v int NOT NULL = 4: the variable can't be set to NULL
+                ["nullable"] = d.Nullable?.Nullable,
                 ["value"] = BuildScalarExpression(d.Value),
             });
     }
