@@ -122,7 +122,6 @@ export function printStatement(node: SqlNode, opts: Options): Doc {
         case 'MergeStatement':         return printMerge(node, opts);
         case 'AlterFunctionStatement': return printAlterFunction(node, opts);
         case 'RefreshMatViewStatement': return printRefreshMatView(node, opts);
-        case 'SelectIntoStatement':    return printSelectInto(node, opts);
         case 'RuleStatement':          return printRule(node, opts);
         case 'CreatePolicyStatement':  return printCreatePolicy(node, opts);
         case 'AlterPolicyStatement':   return printAlterPolicy(node, opts);
@@ -284,6 +283,13 @@ function printSelectBody(node: SqlNode, opts: Options): Doc {
     // A CASE spans lines, so it starts on a line of its own even as the only column
     const caseOnly = targets.length === 1 && prop(targets[0]!, 'val')?.type === 'CaseExpr';
     parts.push(selectListDoc(selectKw, targets.map(printNode), opts, caseOnly));
+
+    // SELECT ... INTO [TEMPORARY | UNLOGGED] t
+    const into = prop(node, 'into');
+    if (into) {
+        const persistence = propStr(node, 'intoPersistence');
+        parts.push([makeKeyword('INTO'), persistence ? [' ', makeKeyword(persistence)] : '', ' ', rangeVarName(into)]);
+    }
 
     if (from.length > 0) {
         parts.push(printFromClause(from, opts, printNode));
@@ -1417,45 +1423,6 @@ function printRefreshMatView(node: SqlNode, opts: Options): Doc {
         withNoData ? [' ', makeKeyword('WITH NO DATA')] : '',
         ';',
     ];
-}
-
-// ---------------------------------------------------------------------------
-// SELECT INTO
-// ---------------------------------------------------------------------------
-
-function printSelectInto(node: SqlNode, opts: Options): Doc {
-    const makeKeyword       = (k: string) => keyword(k, opts);
-    const printNode = printWith(opts);
-    const persistence = propStr(node, 'persistence');
-    const into     = prop(node, 'into');
-    const targets  = propArr(node, 'targetList');
-    const from     = propArr(node, 'from');
-    const where    = prop(node, 'where');
-    const groupBy  = propArr(node, 'groupBy');
-    const having   = prop(node, 'having');
-    const orderBy  = propArr(node, 'orderBy');
-    const limit    = prop(node, 'limit');
-    const offset   = prop(node, 'offset');
-
-    const parts: Doc[] = [];
-    const caseOnly = targets.length === 1 && prop(targets[0]!, 'val')?.type === 'CaseExpr';
-    parts.push(selectListDoc(makeKeyword('SELECT'), targets.map(printNode), opts, caseOnly));
-
-    const intoKw: Doc = persistence ? [makeKeyword('INTO'), ' ', makeKeyword(persistence)] : makeKeyword('INTO');
-    parts.push([intoKw, ' ', rangeVarName(into)]);
-
-    if (from.length > 0) {
-        parts.push(printFromClause(from, opts, printNode));
-    }
-    if (where) parts.push(printBoolClause('WHERE', where, opts, printNode));
-    if (groupBy.length > 0) parts.push(printListClause('GROUP BY', groupBy, opts, printNode));
-    if (having) parts.push(printBoolClause('HAVING', having, opts, printNode));
-    if (orderBy.length > 0) parts.push(printListClause('ORDER BY', orderBy, opts, printNode));
-    if (limit)  parts.push([makeKeyword('LIMIT'), ' ', printNode(limit)]);
-    if (offset) parts.push([makeKeyword('OFFSET'), ' ', printNode(offset)]);
-
-    // compact: the clauses collapse to one line when they fit, as in a SELECT
-    return [group(join(getDensity(opts) === 'compact' ? line : hardline, parts)), ';'];
 }
 
 // ---------------------------------------------------------------------------

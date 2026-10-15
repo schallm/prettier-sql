@@ -218,24 +218,6 @@ public class AstBuilder {
             return new SqlNode("ValuesStatement", start, end, null, valuesProps);
         }
 
-        // SELECT INTO
-        if (s.IntoClause != null) {
-            var rel = BuildRangeVar(s.IntoClause.Rel);
-            var intoProps = BuildProps(
-                ("persistence", Persistence(s.IntoClause.Rel)),
-                ("into",       rel),
-                ("targetList", MapList(s.TargetList, BuildExpr)),
-                ("from",       MapList(s.FromClause, BuildFromItem)),
-                ("where",      BuildExpr(s.WhereClause)),
-                ("groupBy",    MapList(s.GroupClause, BuildExpr)),
-                ("having",     BuildExpr(s.HavingClause)),
-                ("orderBy",    MapList(s.SortClause, BuildExpr)),
-                ("limit",      BuildExpr(s.LimitCount)),
-                ("offset",     BuildExpr(s.LimitOffset))
-            );
-            return new SqlNode("SelectIntoStatement", start, end, null, intoProps);
-        }
-
         // DISTINCT vs DISTINCT ON
         // Plain DISTINCT: DistinctClause contains a single sentinel node (NodeCase == None)
         // DISTINCT ON (expr): DistinctClause contains real expression nodes
@@ -252,6 +234,10 @@ public class AstBuilder {
 
         var props = BuildProps(
             ("targetList",    MapList(s.TargetList, BuildExpr)),
+            // SELECT ... INTO [TEMP | UNLOGGED] t creates a table; it can sit in a set operation's
+            // first query, or in a subquery
+            ("into",            s.IntoClause != null ? BuildRangeVar(s.IntoClause.Rel) : null),
+            ("intoPersistence", s.IntoClause != null ? Persistence(s.IntoClause.Rel) : null),
             ("from",          MapList(s.FromClause, BuildFromItem)),
             ("where",         BuildExpr(s.WhereClause)),
             ("groupBy",       MapList(s.GroupClause, BuildExpr)),
