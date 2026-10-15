@@ -598,7 +598,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         var words = Enumerable.Range(dt.FirstTokenIndex, dt.LastTokenIndex - dt.FirstTokenIndex + 1)
             .Select(i => dt.ScriptTokenStream[i])
             .TakeWhile(t => t.TokenType != TSqlTokenType.LeftParenthesis)
-            .Count(t => t.TokenType is not (TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment));
+            .Count(IsSignificant);
         return words > 1 ? sql.SqlDataTypeOption.ToString().ToLowerInvariant() : name;
     }
 
@@ -1125,7 +1125,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         }
         private static int PreviousSignificant(IList<TSqlParserToken> stream, int before) {
             for (var i = before - 1; i >= 0; i--) {
-                if (stream[i].TokenType is TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment) continue;
+                if (!IsSignificant(stream[i])) continue;
                 return i;
             }
             return -1;
@@ -3581,7 +3581,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             if (t == TSqlTokenType.LeftParenthesis) depth++;
             else if (t == TSqlTokenType.RightParenthesis && depth-- == 0) break;
             else if (t == TSqlTokenType.Comma && depth == 0) break;
-            if (t is not (TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment)) end = i;
+            if (IsSignificant(stream[i])) end = i;
         }
         return string.Concat(Enumerable.Range(o.FirstTokenIndex, end - o.FirstTokenIndex + 1)
             .Select(i => stream[i])
@@ -3623,7 +3623,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         int count = 0;
         foreach (var t in stream) {
             if (t.Offset < start || t.Offset >= end) continue;
-            if (t.TokenType is TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment) continue;
+            if (!IsSignificant(t)) continue;
             count++;
             if (count == 2) return t.Text.ToUpperInvariant(); // skip DBCC (1st), return command name (2nd)
         }
@@ -3820,6 +3820,10 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static string AlterDbName(AlterDatabaseStatement stmt) =>
         stmt.UseCurrent ? "CURRENT" : (QuotedName(stmt.DatabaseName) ?? "");
 
+    /// <summary>A token other than whitespace or a comment.</summary>
+    private static bool IsSignificant(TSqlParserToken t) =>
+        t.TokenType is not (TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment);
+
     /// <summary>
     /// The tokens before a fragment, nearest first, skipping whitespace and comments.
     /// </summary>
@@ -3827,7 +3831,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         var stream = f.ScriptTokenStream;
         if (stream == null) yield break;
         for (var i = Math.Min(f.FirstTokenIndex, stream.Count) - 1; i >= 0; i--)
-            if (stream[i].TokenType is not (TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment))
+            if (IsSignificant(stream[i]))
                 yield return stream[i];
     }
 
@@ -3843,11 +3847,10 @@ public class AstBuilder : TSqlFragmentVisitor {
         var sep = " ";
         var stream = stmt.ScriptTokenStream;
         if (stream != null) {
-            bool Significant(TSqlParserToken t) => t.TokenType is not (TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment);
             // In ALTER DATABASE the fragment starts after the option's name, so an `=` is the token before it;
             // in CREATE DATABASE it starts at the name, so an `=` is the second token in it (and the name's
             // own spelling, DB_CHAINING where the enum gives DBCHAINING, is the first)
-            var inside = stream.Where(t => t.Offset >= o.StartOffset && t.Offset < o.StartOffset + o.FragmentLength && Significant(t)).ToList();
+            var inside = stream.Where(t => t.Offset >= o.StartOffset && t.Offset < o.StartOffset + o.FragmentLength && IsSignificant(t)).ToList();
             if (inside.Count >= 2 && inside[1].TokenType == TSqlTokenType.EqualsSign) sep = " = ";
             if (inside.Count >= 1 && inside[0].Text.Replace("_", "").Equals(name.Replace("_", ""), StringComparison.OrdinalIgnoreCase))
                 name = inside[0].Text.ToUpperInvariant();
@@ -3917,7 +3920,7 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static bool IsAlterDatabaseModify(AlterDatabaseSetStatement stmt) =>
         stmt.ScriptTokenStream?
             .Skip(stmt.FirstTokenIndex)
-            .Where(t => t.TokenType is not (TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment))
+            .Where(IsSignificant)
             .ElementAtOrDefault(3)?.Text.Equals("MODIFY", StringComparison.OrdinalIgnoreCase) == true;
 
     private static SqlNode BuildAlterDatabaseCollate(AlterDatabaseCollateStatement stmt) =>
