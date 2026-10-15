@@ -294,6 +294,26 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         parts.push(line, encryptedWithDoc(encryption, opts));
     }
 
+    // The clauses go in the order T-SQL's grammar takes them: GENERATED ALWAYS, SPARSE /
+    // FILESTREAM / COLUMN_SET, MASKED, HIDDEN, IDENTITY, ROWGUIDCOL
+
+    // Temporal table: GENERATED ALWAYS AS ROW START / ROW END
+    const generatedAlways = propStr(node, 'generatedAlways');
+    if (generatedAlways) {
+        const gaKw = generatedAlwaysKeyword(generatedAlways);
+        parts.push(line, keyword('GENERATED ALWAYS AS', opts), ' ', keyword(gaKw, opts));
+    }
+    if (node.props?.['isSparse']) parts.push(line, keyword('SPARSE', opts));
+    if (node.props?.['isFileStream']) parts.push(line, keyword('FILESTREAM', opts));
+    if (node.props?.['isColumnSet']) parts.push(line, keyword('COLUMN_SET FOR ALL_SPARSE_COLUMNS', opts));
+
+    // Dynamic data masking
+    if (node.props?.['isMasked']) {
+        const maskFn = propStr(node, 'maskingFunction') ?? 'default()';
+        parts.push(line, keyword('MASKED WITH', opts), ' (', keyword('FUNCTION', opts), ` = '${maskFn.replace(/'/g, "''")}')`);
+    }
+    if (node.props?.['isHidden']) parts.push(line, keyword('HIDDEN', opts));
+
     if (isIdentity) {
         // A bare IDENTITY stays bare; IDENTITY(seed, increment) needs both
         if (identitySeed == null && identityIncrement == null) parts.push(line, keyword('IDENTITY', opts));
@@ -301,24 +321,6 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
         if (node.props?.['identityNotForReplication']) parts.push(line, keyword('NOT FOR REPLICATION', opts));
     }
     if (node.props?.['isRowGuidCol']) parts.push(line, keyword('ROWGUIDCOL', opts));
-    // SPARSE / FILESTREAM / COLUMN_SET
-    if (node.props?.['isSparse']) parts.push(line, keyword('SPARSE', opts));
-    if (node.props?.['isFileStream']) parts.push(line, keyword('FILESTREAM', opts));
-    if (node.props?.['isColumnSet']) parts.push(line, keyword('COLUMN_SET FOR ALL_SPARSE_COLUMNS', opts));
-
-    // Temporal table: GENERATED ALWAYS AS ROW START / ROW END [HIDDEN]
-    const generatedAlways = propStr(node, 'generatedAlways');
-    if (generatedAlways) {
-        const gaKw = generatedAlwaysKeyword(generatedAlways);
-        parts.push(line, keyword('GENERATED ALWAYS AS', opts), ' ', keyword(gaKw, opts));
-    }
-    if (node.props?.['isHidden']) parts.push(line, keyword('HIDDEN', opts));
-
-    // Dynamic data masking
-    if (node.props?.['isMasked']) {
-        const maskFn = propStr(node, 'maskingFunction') ?? 'default()';
-        parts.push(line, keyword('MASKED WITH', opts), ' (', keyword('FUNCTION', opts), ` = '${maskFn.replace(/'/g, "''")}')`);
-    }
 
     // NULL / NOT NULL and DEFAULT, in the order they were written
     const nullDoc: Doc[] = isNullable === true ? [line, keyword('NULL', opts)] : isNullable === false ? [line, keyword('NOT NULL', opts)] : [];
@@ -654,13 +656,12 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
             propBool(node, 'isUdt') ? dataType : builtinTypeDoc(dataType, opts),
             collatePart,
             encryptionPart,
-            node.props?.['isSparse'] ? [' ', keyword('SPARSE', opts)] : '',
-            node.props?.['isFileStream'] ? [' ', keyword('FILESTREAM', opts)] : '',
-            node.props?.['isColumnSet'] ? [' ', keyword('COLUMN_SET FOR ALL_SPARSE_COLUMNS', opts)] : '',
             generatedAlways
                 ? [' ', keyword('GENERATED ALWAYS AS', opts), ' ', keyword(generatedAlwaysKeyword(generatedAlways), opts)]
                 : '',
-            node.props?.['isHidden'] ? [' ', keyword('HIDDEN', opts)] : '',
+            node.props?.['isSparse'] ? [' ', keyword('SPARSE', opts)] : '',
+            node.props?.['isFileStream'] ? [' ', keyword('FILESTREAM', opts)] : '',
+            node.props?.['isColumnSet'] ? [' ', keyword('COLUMN_SET FOR ALL_SPARSE_COLUMNS', opts)] : '',
             node.props?.['isMasked']
                 ? [
                       ' ',
@@ -670,6 +671,7 @@ export function printAlterTable(node: SqlNode, opts: Options): Doc {
                       ` = '${(maskingFunction ?? 'default()').replace(/'/g, "''")}')`,
                   ]
                 : '',
+            node.props?.['isHidden'] ? [' ', keyword('HIDDEN', opts)] : '',
             nullPart,
             withPart,
         ]);
