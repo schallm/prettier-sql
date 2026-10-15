@@ -33,13 +33,14 @@ const STYLE_KEYWORDS = new Set([
 // Words that start a statement without any of the keywords above (END, CLUSTER t, DBCC ...):
 // a tie between upper- and lower-case keywords goes by one of these when it comes first
 const STATEMENT_KEYWORDS = new Set([
-    'analyze', 'backup', 'bulk', 'call', 'checkpoint', 'close', 'cluster', 'comment', 'commit',
-    'copy', 'dbcc', 'deallocate', 'deny', 'disable', 'discard', 'do', 'enable', 'explain', 'fetch',
-    'get', 'go', 'grant', 'import', 'kill', 'listen', 'load', 'lock', 'merge', 'move', 'notify',
-    'open', 'prepare', 'print', 'raiserror', 'readtext', 'receive', 'reconfigure', 'refresh',
-    'reindex', 'release', 'reset', 'restore', 'revert', 'revoke', 'rollback', 'savepoint',
-    'security', 'send', 'setuser', 'show', 'shutdown', 'start', 'throw', 'truncate', 'unlisten',
-    'updatetext', 'use', 'vacuum', 'waitfor', 'writetext',
+    'abort', 'add', 'analyze', 'backup', 'break', 'bulk', 'call', 'checkpoint', 'close', 'cluster',
+    'comment', 'commit', 'continue', 'copy', 'dbcc', 'deallocate', 'deny', 'disable', 'discard', 'do',
+    'enable', 'explain', 'fetch', 'get', 'go', 'goto', 'grant', 'import', 'kill', 'listen', 'load',
+    'lock', 'merge', 'move', 'notify', 'open', 'prepare', 'print', 'raiserror', 'readtext',
+    'reassign', 'receive', 'reconfigure', 'refresh', 'reindex', 'release', 'reset', 'restore',
+    'revert', 'revoke', 'rollback', 'save', 'savepoint', 'security', 'send', 'setuser', 'show',
+    'shutdown', 'start', 'throw', 'truncate', 'unlisten', 'updatetext', 'use', 'vacuum', 'waitfor',
+    'writetext',
 ]);
 
 let styleCache: { text: string; style: 'upper' | 'lower' } | undefined;

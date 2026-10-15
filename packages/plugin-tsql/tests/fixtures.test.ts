@@ -65,6 +65,7 @@ describe('options', () => {
     it('sqlKeywordCase: preserve goes by a first word only when it is a keyword', async () => {
         expect(await fmt('DBCC CHECKDB;', { sqlKeywordCase: 'preserve' })).toBe('DBCC CHECKDB;\n');
         expect(await fmt('MYPROC 1;', { sqlKeywordCase: 'preserve' })).toBe('execute MYPROC\n  1;\n');
+        expect(await fmt('SAVE TRANSACTION sp;', { sqlKeywordCase: 'preserve' })).toBe('SAVE TRANSACTION sp;\n');
     });
 
     it('sqlKeywordCase: preserve follows a lower-case input', async () => {

@@ -47,6 +47,7 @@ describe('options', () => {
         const cases: [string, string][] = [
             ['END;', 'COMMIT;\n'],
             ['end;', 'commit;\n'],
+            ['ABORT;', 'ROLLBACK;\n'],
             ['CLUSTER books_pkey ON books;', 'CLUSTER books USING books_pkey;\n'],
             ['SET enable_seqscan = ON;', 'SET enable_seqscan = ON;\n'],
             ['VACUUM (PARALLEL 4, INDEX_CLEANUP ON) books;', 'VACUUM (PARALLEL 4, INDEX_CLEANUP ON) books;\n'],
