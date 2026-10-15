@@ -1428,6 +1428,27 @@ alter table dbo.t
 "
 `;
 
+exports[`fixtures > create-table/multi-word-types.sql 1`] = `
+"-- Multi-word type spellings print as the type they are
+create table Spellings (
+  a varchar(10),
+  b varchar(20),
+  c nvarchar(10),
+  d nvarchar(5),
+  e nchar(3),
+  f nchar,
+  g varbinary(4),
+  h ntext,
+  i float, -- One-word spellings stay as written
+  j integer,
+  k dec(5, 2)
+);
+
+declare @v nvarchar(20);
+declare @w varchar(8);
+"
+`;
+
 exports[`fixtures > create-table/name-comment.sql 1`] = `
 "-- A comment after the table's name stays at the top
 create table t ( -- the table

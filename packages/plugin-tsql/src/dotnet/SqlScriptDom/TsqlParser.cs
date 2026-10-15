@@ -221,6 +221,9 @@ public static class TsqlParser {
                     if (PositionProperties.Contains(prop.Name) || prop.GetIndexParameters().Length > 0) continue;
                     // [name] and name are the same identifier
                     if (fragment is Identifier && prop.Name == "QuoteType") continue;
+                    // A built-in type is its SqlDataTypeOption (and parameters); the name is only how
+                    // it was spelled: char varying, character varying and varchar are one type
+                    if (fragment is SqlDataTypeReference && prop.Name == nameof(SqlDataTypeReference.Name)) continue;
                     // A bare GO at the end only ends the last batch, as the end of the script does;
                     // GO n repeat counts are compared separately (goCounts)
                     if (fragment is TSqlScript && prop.Name == nameof(TSqlScript.TrailingGoCount)) continue;

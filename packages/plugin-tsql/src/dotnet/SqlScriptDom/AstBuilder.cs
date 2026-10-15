@@ -558,6 +558,22 @@ public class AstBuilder : TSqlFragmentVisitor {
     private static string? DataTypeText(DataTypeReference? dt) =>
         dt is UserDataTypeReference { Name: not null } udt ? SchemaObjectText(udt.Name) : RawTextOrNull(dt);
 
+    /// <summary>
+    /// A type's name without its parameters. ScriptDom keeps only the first word of a
+    /// multi-word spelling — `char varying` has the name `char` — so those print as the
+    /// type they are (varchar, nvarchar, nchar, varbinary, ntext); a one-word spelling
+    /// (integer, dec) stays as written.
+    /// </summary>
+    private static string? TypeName(DataTypeReference? dt) {
+        var name = dt?.Name?.BaseIdentifier?.Value;
+        if (dt is not SqlDataTypeReference sql || name == null) return name;
+        var words = Enumerable.Range(dt.FirstTokenIndex, dt.LastTokenIndex - dt.FirstTokenIndex + 1)
+            .Select(i => dt.ScriptTokenStream[i])
+            .TakeWhile(t => t.TokenType != TSqlTokenType.LeftParenthesis)
+            .Count(t => t.TokenType is not (TSqlTokenType.WhiteSpace or TSqlTokenType.SingleLineComment or TSqlTokenType.MultilineComment));
+        return words > 1 ? sql.SqlDataTypeOption.ToString().ToLowerInvariant() : name;
+    }
+
     private static object? UdtFlag(DataTypeReference? dt) => dt is UserDataTypeReference ? (object?)true : null;
 
     private static SqlNode BuildCastCall(CastCall cast) =>
@@ -1691,7 +1707,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             // xml(CONTENT dbo.sc): the schema collection is part of the type
             dataType = RawText(d.DataType);
         } else {
-            dataType = d.DataType?.Name?.BaseIdentifier?.Value;
+            dataType = TypeName(d.DataType);
         }
         return new SqlNode("DeclareVariableElement", d.StartOffset, d.StartOffset + d.FragmentLength, d.VariableName?.Value,
             new Dictionary<string, object?> {
@@ -2160,7 +2176,7 @@ public class AstBuilder : TSqlFragmentVisitor {
         }
 
         var dt = col.DataType;
-        var dataTypeName = dt?.Name?.BaseIdentifier?.Value;
+        var dataTypeName = TypeName(dt);
         // A user-defined or alias type keeps its schema and is an identifier, not a keyword
         var isUdtType = dt is UserDataTypeReference;
         if (dt is UserDataTypeReference userType && userType.Name != null) dataTypeName = SchemaObjectText(userType.Name);
