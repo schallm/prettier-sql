@@ -190,14 +190,16 @@ export function printCreateTable(node: SqlNode, opts: Options): Doc {
 
 /**
  * A table's columns, constraints and indexes (CREATE TABLE, ALTER TABLE ... ADD, a table
- * variable or table type), which ScriptDom keeps in separate lists, in the order they were
- * written: their comments stay with them, and the table reads as it was written.
+ * variable or table type, a function's RETURNS @t TABLE), which ScriptDom keeps in separate
+ * lists, in the order they were written: their comments stay with them, and the table reads as
+ * it was written. `prefix` names the lists returnColumns, returnConstraints, ... instead.
  */
-export function tableElementDocs(node: SqlNode, opts: Options): Doc[] {
+export function tableElementDocs(node: SqlNode, opts: Options, prefix = ''): Doc[] {
+    const key = (name: string) => (prefix ? prefix + name[0]!.toUpperCase() + name.slice(1) : name);
     const defs: Array<readonly [SqlNode, Doc]> = [
-        ...propArr(node, 'columns').map((c) => [c, withTrailingComment(c, printColumnDef(c, opts))] as const),
-        ...propArr(node, 'constraints').map((c) => [c, withTrailingComment(c, printConstraintDef(c, opts))] as const),
-        ...propArr(node, 'indexes').map((i) => [i, withTrailingComment(i, printInlineIndex(i, opts))] as const),
+        ...propArr(node, key('columns')).map((c) => [c, withTrailingComment(c, printColumnDef(c, opts))] as const),
+        ...propArr(node, key('constraints')).map((c) => [c, withTrailingComment(c, printConstraintDef(c, opts))] as const),
+        ...propArr(node, key('indexes')).map((i) => [i, withTrailingComment(i, printInlineIndex(i, opts))] as const),
     ];
     return defs.sort((a, b) => a[0].startOffset - b[0].startOffset).map(([, doc]) => doc);
 }
@@ -1170,12 +1172,7 @@ export function printCreateFunction(node: SqlNode, opts: Options): Doc {
     let retTypePart: Doc;
     if (bodyType === 'inline-table') {
         const returnVar = propStr(node, 'returnVar') ?? '@t';
-        const returnColumns = propArr(node, 'returnColumns');
-        const colDocs = [
-            ...returnColumns.map((c) => printColumnDef(c as SqlNode, opts)),
-            ...propArr(node, 'returnConstraints').map((c) => printConstraintDef(c, opts)),
-            ...propArr(node, 'returnIndexes').map((i) => printInlineIndex(i, opts)),
-        ];
+        const colDocs = tableElementDocs(node, opts, 'return');
         retTypePart = [
             returnVar,
             ' ',

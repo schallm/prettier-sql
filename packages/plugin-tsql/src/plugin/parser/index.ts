@@ -169,6 +169,17 @@ function attachLeadingAndPreBody(allStatements: SqlNode[], comments: CommentToke
                 used.add(c);
                 continue;
             }
+            // After an element of a function's RETURNS @t TABLE (...), before the closing parenthesis:
+            // it trails that element, as in CREATE TABLE
+            const returnElements = ['returnColumns', 'returnConstraints', 'returnIndexes']
+                .flatMap((k) => propArr(container, k))
+                .filter((e) => e.endOffset <= c.startOffset);
+            const element = returnElements.reduce<SqlNode | null>((a, e) => (!a || e.endOffset > a.endOffset ? e : a), null);
+            if (element && !text.substring(element.endOffset, c.startOffset).includes(')')) {
+                element.trailingComment = element.trailingComment ? element.trailingComment + '\n' + c.text : c.text;
+                used.add(c);
+                continue;
+            }
             // The comment is inside a statement. Route it to preBodyComments or
             // postParamComments if it falls before the body start boundary.
             //

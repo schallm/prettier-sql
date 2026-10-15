@@ -49,5 +49,6 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - `ALTER DATABASE … SET QUERY_STORE CLEAR ALL` keeps `ALL`; it printed as `QUERY_STORE CLEAR`.
 - `ALTER DATABASE SCOPED CONFIGURATION SET option = -10` keeps its number; it printed as `= -`, which didn't parse.
 - `OPTION (USEPLAN 2)` keeps its one-word spelling; it printed as `USE PLAN 2`, which doesn't parse.
-- `CREATE TABLE`, `ALTER TABLE … ADD`, `DECLARE @t TABLE (…)` and `CREATE TYPE … AS TABLE (…)` keep columns, constraints and indexes in the order written; columns were moved first, which reordered their comments too.
+- `CREATE TABLE`, `ALTER TABLE … ADD`, `DECLARE @t TABLE (…)`, `CREATE TYPE … AS TABLE (…)` and a function's `RETURNS @t TABLE (…)` keep columns, constraints and indexes in the order written; columns were moved first, which reordered their comments too.
 - With `sqlKeywordCase: 'preserve'`, a short statement with none of the common keywords (`END;`, `CLUSTER t`, `COPY … TO STDOUT`) keeps the case its first word is written in; it fell back to lower case, and formatting upper-case output again could change its case.
+- A comment after a column or constraint of a function's `RETURNS @t TABLE (…)` stays with it; it was moved up after the function's name.

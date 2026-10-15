@@ -2809,6 +2809,26 @@ begin
   return;
 end;
 go
+
+-- The returned table keeps its elements in the order written, with their comments
+create function dbo.OpenLoans()
+returns @loans table (
+  primary key (LoanId), -- one row per loan
+  LoanId int,
+  BookId int -- the book lent
+)
+as
+begin
+  insert into @loans
+  select
+    LoanId,
+    BookId
+  from Loans
+  where ReturnedOn is null;
+
+  return;
+end;
+go
 "
 `;
 
