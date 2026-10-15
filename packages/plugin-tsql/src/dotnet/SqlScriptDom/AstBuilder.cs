@@ -1387,16 +1387,20 @@ public class AstBuilder : TSqlFragmentVisitor {
     // DML: SELECT
     // -------------------------------------------------------------------------
 
+    /// <summary>
+    /// WITH XMLNAMESPACES of any statement — each namespace element serialized from its
+    /// properties, so we don't rely on StartOffset (which may not point to DEFAULT/alias tokens).
+    /// </summary>
+    private static List<object?>? XmlNamespacesOf(WithCtesAndXmlNamespaces? with) =>
+        with?.XmlNamespaces?.XmlNamespacesElements is { Count: > 0 } elems
+            ? elems.Select(e => (object?)BuildXmlNamespaceElement(e)).ToList()
+            : null;
+
     private static SqlNode BuildSelectStatement(SelectStatement sel) {
         var ctes = sel.WithCtesAndXmlNamespaces?.CommonTableExpressions
             ?.Select(c => (object?)BuildCte(c)).ToList();
 
-        // WITH XMLNAMESPACES — serialize each namespace element from its properties
-        // so we don't rely on StartOffset (which may not point to DEFAULT/alias tokens).
-        var xmlNsElems = sel.WithCtesAndXmlNamespaces?.XmlNamespaces?.XmlNamespacesElements;
-        var xmlNamespaces = xmlNsElems?.Count > 0
-            ? xmlNsElems.Select(e => (object?)BuildXmlNamespaceElement(e)).ToList()
-            : null;
+        var xmlNamespaces = XmlNamespacesOf(sel.WithCtesAndXmlNamespaces);
 
         var optimizerHints = MapList(sel.OptimizerHints, h => (object?)BuildOptimizerHint(h));
         var queryExpr = BuildQueryExpression(sel.QueryExpression);
@@ -1534,6 +1538,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["optimizerHints"] = MapList(ins.OptimizerHints, h => (object?)BuildOptimizerHint(h)),
             ["ctes"] = ctes,
             ["changeTrackingContext"] = RawTextOrNull(ins.WithCtesAndXmlNamespaces?.ChangeTrackingContext),
+            ["xmlNamespaces"] = XmlNamespacesOf(ins.WithCtesAndXmlNamespaces),
             // INSERT t and INSERT INTO t are the same, and print as INSERT INTO; INSERT OVER t is not
             ["over"] = spec.InsertOption == InsertOption.Over ? true : null,
             ["target"] = target,
@@ -1574,6 +1579,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["optimizerHints"] = MapList(upd.OptimizerHints, h => (object?)BuildOptimizerHint(h)),
             ["ctes"] = ctes,
             ["changeTrackingContext"] = RawTextOrNull(upd.WithCtesAndXmlNamespaces?.ChangeTrackingContext),
+            ["xmlNamespaces"] = XmlNamespacesOf(upd.WithCtesAndXmlNamespaces),
             ["top"] = spec.TopRowFilter != null ? BuildTopRowFilter(spec.TopRowFilter) : null,
             ["target"] = target,
             ["set"] = setClauses,
@@ -1630,6 +1636,7 @@ public class AstBuilder : TSqlFragmentVisitor {
             ["optimizerHints"] = MapList(del.OptimizerHints, h => (object?)BuildOptimizerHint(h)),
             ["ctes"] = ctes,
             ["changeTrackingContext"] = RawTextOrNull(del.WithCtesAndXmlNamespaces?.ChangeTrackingContext),
+            ["xmlNamespaces"] = XmlNamespacesOf(del.WithCtesAndXmlNamespaces),
             ["top"] = spec.TopRowFilter != null ? BuildTopRowFilter(spec.TopRowFilter) : null,
             ["target"] = target,
             ["from"] = fromClause,
@@ -2865,6 +2872,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             // OPTION (RECOMPILE, MAXDOP 1, ...)
             ["optimizerHints"] = MapList(merge.OptimizerHints, h => (object?)BuildOptimizerHint(h)),
             ["ctes"] = ctes,
+            ["changeTrackingContext"] = RawTextOrNull(merge.WithCtesAndXmlNamespaces?.ChangeTrackingContext),
+            ["xmlNamespaces"] = XmlNamespacesOf(merge.WithCtesAndXmlNamespaces),
             ["top"] = spec?.TopRowFilter != null ? BuildTopRowFilter(spec.TopRowFilter) : null,
             ["target"] = BuildTableReference(spec?.Target),
             ["targetAlias"] = QuotedName(spec?.TableAlias),

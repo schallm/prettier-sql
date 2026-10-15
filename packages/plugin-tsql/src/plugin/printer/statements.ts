@@ -761,15 +761,15 @@ export function printCtes(node: SqlNode, opts: Options): Doc[] {
     const xmlNamespaces = xmlNamespaceDocs(node, opts);
     const changeTrackingCtx = propStr(node, 'changeTrackingContext');
 
-    // WITH CHANGE_TRACKING_CONTEXT emits as a separate statement prefix
-    const ctxPrefix: Doc[] = changeTrackingCtx
-        ? [[keyword('WITH CHANGE_TRACKING_CONTEXT', opts), ' (', changeTrackingCtx, ')'], hardline]
-        : [];
+    // On its own, WITH CHANGE_TRACKING_CONTEXT (ctx) is a line before the statement
+    if (ctes.length === 0 && !xmlNamespaces.length) {
+        return changeTrackingCtx ? [[keyword('WITH CHANGE_TRACKING_CONTEXT', opts), ' (', changeTrackingCtx, ')'], hardline] : [];
+    }
 
-    if (ctes.length === 0 && !xmlNamespaces.length) return ctxPrefix;
-
-    // Collect all items for the WITH clause: XMLNAMESPACES first, then CTEs.
+    // Everything shares one WITH: CHANGE_TRACKING_CONTEXT first, then XMLNAMESPACES, then
+    // the CTEs — a second WITH wouldn't parse
     const allItems: Doc[] = [];
+    if (changeTrackingCtx) allItems.push([keyword('CHANGE_TRACKING_CONTEXT', opts), ' (', changeTrackingCtx, ')']);
 
     if (xmlNamespaces.length) {
         allItems.push([
@@ -801,7 +801,7 @@ export function printCtes(node: SqlNode, opts: Options): Doc[] {
         );
     }
 
-    return [...ctxPrefix, withClauseDoc(keyword('WITH', opts), allItems, opts), hardline];
+    return [withClauseDoc(keyword('WITH', opts), allItems, opts), hardline];
 }
 
 function printSelect(node: SqlNode, opts: Options): Doc {

@@ -8,3 +8,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - `OUTPUT … INTO @t` followed by a plain `OUTPUT …` keeps both clauses on `INSERT`, `UPDATE`, `DELETE` and `MERGE`; the plain `OUTPUT` was dropped.
 - A `NULL` principal in `GRANT`, `DENY` and `REVOKE` (`TO public, null, u`) is kept; it printed as nothing, leaving `public, , u`.
 - Qualified names keep every part: `ENABLE / DISABLE TRIGGER db.schema.trg`, a type's schema in `dbo.MyType::Method()`, and a `PIVOT`'s aggregate (`dbo.MyAggregate`) and column qualifiers (`t.Amount`); all but the last part were dropped.
+- `WITH CHANGE_TRACKING_CONTEXT (…)` followed by CTEs prints as one `WITH` (it printed as two, which doesn't parse), and `MERGE` keeps its change-tracking context. `INSERT`, `UPDATE`, `DELETE` and `MERGE` keep a `WITH XMLNAMESPACES (…)`; both were dropped.
