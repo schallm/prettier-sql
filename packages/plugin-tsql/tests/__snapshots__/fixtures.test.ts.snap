@@ -6394,6 +6394,15 @@ from t;
 "
 `;
 
+exports[`fixtures > select/udf-named-like-builtin.sql 1`] = `
+"-- A user function named AI_GENERATE_CHUNKS keeps its brackets: bare, it is the built-in function
+select c.Chunk
+from
+  Documents as d
+  cross apply dbo.[AI_GENERATE_CHUNKS](Source) as c;
+"
+`;
+
 exports[`fixtures > select/unary-operators.sql 1`] = `
 "-- Unary operators: a double negation must not become a -- comment
 select

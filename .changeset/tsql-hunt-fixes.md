@@ -37,3 +37,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - `CREATE INDEX … WITH PAD_INDEX, FILLFACTOR = 80` (SQL Server 2000 options, without parentheses) prints as `WITH (PAD_INDEX = ON, FILLFACTOR = 80)`; it printed `WITH (PAD_INDEX, …)`, which doesn't parse.
 - A column's clauses print in the order T-SQL accepts: `HIDDEN` after `MASKED WITH (…)` and before `IDENTITY` / `ROWGUIDCOL`, `SPARSE` / `FILESTREAM` before `IDENTITY` and `ROWGUIDCOL`, and `GENERATED ALWAYS` before `SPARSE`; the output didn't parse.
 - `BACKUP` / `RESTORE … FILE = ('f1', @f2)` and `FILEGROUP = (@a, @b)` keep their parentheses; without them the output didn't parse.
+- A user table-valued function named `AI_GENERATE_CHUNKS` keeps its brackets (`dbo.[AI_GENERATE_CHUNKS](SOURCE)`); without them it read as the built-in function and didn't parse.

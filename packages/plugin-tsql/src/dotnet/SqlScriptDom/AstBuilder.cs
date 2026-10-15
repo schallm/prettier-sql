@@ -861,8 +861,17 @@ public class AstBuilder : TSqlFragmentVisitor {
         var args = tvf.Parameters?.Select(p => (object?)BuildScalarExpression(p)).ToList();
         // e.g. `t.x.nodes('/r') AS n(x)` — the alias's column list (for xml .nodes()).
         var columns = tvf.Columns?.Select(c => (object?)QuotedName(c)).ToList();
+        var name = BuildSchemaObjectName(tvf.SchemaObject);
+        // A user function named AI_GENERATE_CHUNKS keeps its brackets: bare, dbo.AI_GENERATE_CHUNKS(SOURCE)
+        // reads as the built-in function, whose first argument is SOURCE = ..., and doesn't parse
+        if (name?.Props != null && tvf.SchemaObject.BaseIdentifier is { } baseId
+            && string.Equals(baseId.Value, "AI_GENERATE_CHUNKS", StringComparison.OrdinalIgnoreCase)) {
+            var bracketed = $"[{baseId.Value}]";
+            name = name with { Text = bracketed };
+            name.Props["name"] = bracketed;
+        }
         return Node("SchemaObjectFunctionTableReference", tvf, new Dictionary<string, object?> {
-            ["name"] = BuildSchemaObjectName(tvf.SchemaObject),
+            ["name"] = name,
             ["args"] = args,
             ["alias"] = QuotedName(tvf.Alias),
             ["aliasColumns"] = columns?.Count > 0 ? columns : null,
