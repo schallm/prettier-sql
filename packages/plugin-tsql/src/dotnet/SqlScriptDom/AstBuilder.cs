@@ -2241,6 +2241,11 @@ public class AstBuilder : TSqlFragmentVisitor {
                         ["isPrimaryKey"] = uq.IsPrimaryKey,
                         ["clustered"] = uq.Clustered == true ? (object?)true : uq.Clustered == false ? (object?)false : null,
                         ["hash"] = uq.IndexType?.IndexTypeKind == IndexTypeKind.NonClusteredHash ? (object?)true : null,
+                        // A column-level key can still name its columns: c int PRIMARY KEY (id ASC)
+                        ["columns"] = uq.Columns?.Count > 0 ? uq.Columns.Select(col => (object?)new Dictionary<string, object?> {
+                            ["name"] = QuotedName(col.Column?.MultiPartIdentifier?.Identifiers.LastOrDefault()),
+                            ["order"] = col.SortOrder.ToString(),
+                        }).ToList() : null,
                         ["indexOptions"] = MapList(uq.IndexOptions, o => (object?)SerializeIndexOption(o)),
                         ["onFileGroup"] = StorageTarget(uq.OnFileGroupOrPartitionScheme),
                         ["fileStreamOn"] = QuotedName(uq.FileStreamOn),
@@ -2254,6 +2259,8 @@ public class AstBuilder : TSqlFragmentVisitor {
                 ["foreignKey"] = col.Constraints?.OfType<ForeignKeyConstraintDefinition>().FirstOrDefault() is { } fk
                     ? (object?)new Dictionary<string, object?> {
                         ["constraintName"] = QuotedName(fk.ConstraintIdentifier),
+                        // c int FOREIGN KEY (other) REFERENCES t (x): the referencing column can be another one
+                        ["columns"] = fk.Columns?.Count > 0 ? fk.Columns.Select(c => (object?)QuotedName(c)).ToList() : null,
                         ["refTable"] = BuildSchemaObjectName(fk.ReferenceTableName),
                         ["refColumns"] = fk.ReferencedTableColumns?.Select(c => (object?)QuotedName(c)).ToList(),
                         ["deleteAction"] = fk.DeleteAction != DeleteUpdateAction.NotSpecified ? (object?)fk.DeleteAction.ToString() : null,

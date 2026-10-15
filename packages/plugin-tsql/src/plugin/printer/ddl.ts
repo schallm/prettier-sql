@@ -355,8 +355,10 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
                   : '';
         const hashKw: Doc = uniqueConstraint.hash ? [' ', keyword('NONCLUSTERED HASH', opts)] : '';
         const uqOptions = (uniqueConstraint as { indexOptions?: string[] }).indexOptions ?? [];
+        const uqColumns = keyColumnDocs((uniqueConstraint as { columns?: unknown }).columns, opts);
         parts.push(
             line, constraintNamePrefix, uqKw, clusteredKw, hashKw,
+            uqColumns.length > 0 ? [' ', parenItems(uqColumns, opts)] : '',
             uqOptions.length > 0 ? [' ', keyword('WITH', opts), ' ', optionItems(uqOptions.map((o) => keyword(o, opts)), opts)] : '',
             storageClause(uniqueConstraint as Record<string, unknown>, opts),
             notEnforcedDoc(uniqueConstraint.notEnforced, opts),
@@ -367,6 +369,7 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
     const foreignKey = node.props?.['foreignKey'] as
         | {
               constraintName?: string;
+              columns?: string[];
               refTable: SqlNode | null;
               refColumns?: string[];
               deleteAction?: string;
@@ -379,7 +382,9 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
     if (foreignKey) {
         const refCols = foreignKey.refColumns ?? [];
         const references: Doc = [keyword('REFERENCES', opts), ' ', schemaObjectName(foreignKey.refTable), refCols.length ? [' ', parenItems(refCols, opts)] : ''];
+        const fkColumns = foreignKey.columns ?? [];
         const clauses = [
+            ...(fkColumns.length > 0 ? [[keyword('FOREIGN KEY', opts), ' ', parenItems(fkColumns, opts)] as Doc] : []),
             references,
             ...referentialActions(foreignKey.updateAction, foreignKey.deleteAction, foreignKey.notForReplication, opts),
             ...(foreignKey.notEnforced ? [keyword('NOT ENFORCED', opts)] : []),
@@ -394,6 +399,12 @@ export function printColumnDef(node: SqlNode, opts: Options): Doc {
     // A clause with a forced break (a comment inside a CHECK) keeps the clauses inline
     if (willBreak(tail)) return [parts.slice(0, headLength), ...tail.map((d) => (d === line ? ' ' : d))];
     return group([parts.slice(0, headLength), indent(tail)]);
+}
+
+/** A key's columns, each with its ASC / DESC: `{name, order}` objects, or plain names. */
+function keyColumnDocs(columns: unknown, opts: Options): Doc[] {
+    const cols = Array.isArray(columns) ? (columns as Array<{ name: string; order: string } | string>) : [];
+    return cols.map((c) => (typeof c === 'string' ? c : ([c.name, sortOrderDoc(c.order, opts)] as Doc)));
 }
 
 /** ON filegroup | scheme(column) [FILESTREAM_ON ...]: where an index or constraint is stored. */
@@ -440,13 +451,7 @@ export function printConstraintDef(node: SqlNode, opts: Options): Doc {
             const kw = isPK ? keyword('PRIMARY KEY', opts) : keyword('UNIQUE', opts);
             // NONCLUSTERED HASH: a hash index on a memory-optimized table
             const hashKw: Doc = propBool(node, 'hash') ? [keyword('NONCLUSTERED HASH', opts), ' '] : '';
-            // Columns are now {name, order} objects; fall back to plain strings for compat
-            const rawCols = Array.isArray(node.props?.['columns']) ? node.props!['columns'] : [];
-            const colDocs: Doc[] = (rawCols as Array<{ name: string; order: string } | string>).map((c) => {
-                if (typeof c === 'string') return c;
-                const dir = sortOrderDoc(c.order, opts);
-                return [c.name, dir] as Doc;
-            });
+            const colDocs = keyColumnDocs(node.props?.['columns'], opts);
             const indexOptions = propStrArr(node, 'indexOptions');
             const withPart: Doc = indexOptions.length
                 ? [' ', keyword('WITH', opts), ' ', optionItems(indexOptions.map((o) => keyword(o, opts)), opts)]

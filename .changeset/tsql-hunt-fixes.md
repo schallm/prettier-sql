@@ -15,3 +15,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - `UNPIVOT (… IN (t.c0, c1))` keeps each column's qualifier.
 - `IDENTITY(+100000, -2)` keeps a signed seed and increment; they were dropped, leaving `IDENTITY` (1, 1).
 - A computed column keeps its constraints (`c AS a + b UNIQUE`, `PERSISTED PRIMARY KEY`, `CHECK`, `REFERENCES`); only `NULL` / `NOT NULL` was kept.
+- A column-level `PRIMARY KEY` / `UNIQUE` or `FOREIGN KEY` keeps its column list (`c varchar(9) PRIMARY KEY (id ASC)`, `c int FOREIGN KEY (other) REFERENCES t (x)`); without it the constraint applied to the column it was written on, which can be a different column.

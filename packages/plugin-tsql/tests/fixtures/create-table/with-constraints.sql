@@ -5,3 +5,10 @@ create table Products (Id int not null, Status tinyint not null check (Status in
 
 -- CLUSTERED/NONCLUSTERED and DESC column sort order must be preserved
 create table Events (Id bigint not null, OccurredAt datetime2 not null, EventType tinyint not null, constraint PK_Events primary key clustered (Id asc, OccurredAt desc), constraint UQ_Events unique nonclustered (EventType asc, Id asc))
+-- A column-level key or foreign key can name its columns, even another column
+create table Loans (
+    LoanId int not null,
+    Code varchar(20) constraint PK_Loans primary key nonclustered (LoanId asc),
+    Ref int unique (Ref desc),
+    BorrowedAt datetime null constraint FK_Loans_Book foreign key (LoanId) references dbo.Books (BookId)
+);
