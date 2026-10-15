@@ -20,3 +20,6 @@ create index idx_events_gin on events using gin (data) with (fastupdate = off);
 
 -- Operator class parameters
 create index docs_body_trgm on docs using gist (body gist_trgm_ops (siglen = 32));
+
+-- No name: PostgreSQL picks one
+create index on books (author_id);

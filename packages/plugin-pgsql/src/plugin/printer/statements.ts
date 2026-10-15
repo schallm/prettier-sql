@@ -797,13 +797,14 @@ function printCreateIndex(node: SqlNode, opts: Options): Doc {
     if (ifNotExists) head.push(' ', makeKeyword('IF NOT EXISTS'));
     const options    = propStrArr(node, 'options');
     const tablespace = propStr(node, 'tablespace');
-    head.push(' ', indexName);
+    // CREATE INDEX ON t (...) leaves the name to PostgreSQL
+    if (indexName) head.push(' ', indexName);
     const onTable: Doc[] = [makeKeyword('ON'), ' ', onlyPrefix(relation, opts), rangeVarName(relation)];
     if (accessMethod) onTable.push(' ', makeKeyword('USING'), ' ', accessMethod);
     onTable.push(' ', optionItems(columns.map(printNode), opts));
     const headText = [
         unique ? 'create unique index' : 'create index', concurrent ? ' concurrently' : '', ifNotExists ? ' if not exists' : '',
-        ' ', indexName, ' on ', relation && propBool(relation, 'only') ? 'only ' : '', rangeVarName(relation), accessMethod ? ` using ${accessMethod}` : '', ' (',
+        indexName ? ` ${indexName}` : '', ' on ', relation && propBool(relation, 'only') ? 'only ' : '', rangeVarName(relation), accessMethod ? ` using ${accessMethod}` : '', ' (',
     ].join('');
     const tail: Doc[] = [];
     if (including.length > 0) tail.push([makeKeyword('INCLUDE'), ' ', parenItems(including.map(printNode), opts)]);

@@ -12,3 +12,4 @@ Fixes found by formatting PostgreSQL's regression tests:
 - A cast written as a `FROM` item (`FROM CAST(x AS int)`, also inside `ROWS FROM (…)`) keeps its `CAST(… AS …)` form; printed as `x::integer` it didn't parse.
 - `CREATE COLLATION c (FROM = s)` keeps its source collation; it printed as `CREATE COLLATION c ()`, which didn't parse.
 - `SELECT … INTO t` keeps all of the query's clauses (`DISTINCT`, `WITH …`, `FOR UPDATE`, `WINDOW`), and an `INTO` in a `UNION`'s first query or in a subquery is kept; they were dropped.
+- `CREATE INDEX ON t (…)` without a name no longer prints a double space.
