@@ -3953,6 +3953,8 @@ public class AstBuilder : TSqlFragmentVisitor {
             tokens.Add(t);
             words++;
             if (t.TokenType == TSqlTokenType.EqualsSign) sawEquals = true;
+            // A signed value (= -10): the sign and the number are one value
+            else if (sawEquals && !gotValue && t.TokenType is TSqlTokenType.Minus or TSqlTokenType.Plus) continue;
             else if (sawEquals) gotValue = true;
         }
         while (tokens.Count > 0 && tokens[^1].TokenType is TSqlTokenType.WhiteSpace
