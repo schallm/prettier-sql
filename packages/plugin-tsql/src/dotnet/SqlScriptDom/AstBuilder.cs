@@ -483,8 +483,9 @@ public class AstBuilder : TSqlFragmentVisitor {
     }
 
     private static SqlNode BuildUnpivotedTableRef(UnpivotedTableReference unpiv) {
+        // IN (t1.c0, c1): each column keeps its qualifier
         var inColumns = unpiv.InColumns?.Select(c =>
-            (object?)(QuotedName(c.MultiPartIdentifier?.Identifiers?.LastOrDefault()) ?? "")).ToList();
+            (object?)(c.MultiPartIdentifier != null ? SchemaObjectText(c.MultiPartIdentifier) : "")).ToList();
         return Node("UnpivotedTableReference", unpiv, new Dictionary<string, object?> {
             ["tableRef"] = BuildTableReference(unpiv.TableReference),
             ["valueColumn"] = QuotedName(unpiv.ValueColumn),

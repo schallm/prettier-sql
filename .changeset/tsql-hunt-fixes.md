@@ -12,3 +12,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - `CREATE MATERIALIZED VIEW … WITH (DISTRIBUTION = HASH(…) | ROUND_ROBIN, FOR_APPEND)` and `ALTER MATERIALIZED VIEW … REBUILD | DISABLE` are formatted; they printed as a plain `CREATE VIEW` with broken options, or an empty `ALTER VIEW … AS`.
 - Multi-word type spellings keep their type: `char varying(10)` became `char(10)`, `national char varying` and `nchar varying` lost `varying` or `national`. They now print as `varchar`, `nvarchar`, `nchar`, `varbinary` and `ntext`.
 - Qualified pseudo-columns keep the pseudo-column: `t.identitycol`, `a.b.rowguidcol`, `t.$identity` and `t.$rowguid` printed as just `t` (or `a.b`). A full-text predicate's `t.*` keeps its table; it printed as `*`.
+- `UNPIVOT (… IN (t.c0, c1))` keeps each column's qualifier.

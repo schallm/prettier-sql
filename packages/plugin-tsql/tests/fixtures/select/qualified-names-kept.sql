@@ -5,3 +5,4 @@ select * from Sales pivot (dbo.Stats.WeightedAvg(Price, Sales.Quantity) for Regi
 select * from Sales pivot (sum(Sales.Amount) for Region in ([East], [West])) as p;
 enable trigger Library.dbo.trgAudit, dbo.trgLog on dbo.Books;
 disable trigger Library.dbo.trgAudit on database;
+select * from Sales cross apply Quarters unpivot (Amount for Quarter in (Sales.Q1, Q2, [Q3])) as u;

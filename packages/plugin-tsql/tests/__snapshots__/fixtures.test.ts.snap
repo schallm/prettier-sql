@@ -5580,6 +5580,13 @@ on dbo.Books;
 
 disable trigger Library.dbo.trgAudit
 on database;
+
+select *
+from Sales
+cross apply Quarters
+unpivot (
+  Amount for Quarter in (Sales.Q1, Q2, Q3)
+) as u;
 "
 `;
 
