@@ -25,3 +25,4 @@ Fixes found by formatting Microsoft's ScriptDom test scripts:
 - A cursor's query (`DECLARE c CURSOR FOR …`, `SET @c = CURSOR FOR …`) keeps a leading `WITH cte AS (…)` and a trailing `OPTION (…)`; both were dropped.
 - An inline table-valued function's `RETURN (WITH … SELECT …)` keeps its CTEs and `XMLNAMESPACES`.
 - A CLR table-valued function keeps its `ORDER (…)` hint.
+- `JSON_OBJECTAGG(…) OVER (…)` and `JSON_ARRAYAGG(… ORDER BY …) OVER (…)` keep their `OVER`; without it they aggregated the whole result.

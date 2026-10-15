@@ -5110,6 +5110,18 @@ group by Name;
 select json_objectagg(Name: [Value] null on null)
 from Config
 group by Name;
+
+-- JSON aggregates as window functions keep OVER
+select json_objectagg(Title: Price null on null) over (partition by AuthorId)
+from dbo.Books;
+
+select json_arrayagg(Title order by Title null on null returning json) over (
+  partition by AuthorId
+)
+from dbo.Books;
+
+select json_arrayagg(Title) over (partition by AuthorId)
+from dbo.Books;
 "
 `;
 

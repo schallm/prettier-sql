@@ -285,30 +285,27 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
         }
     }
 
+    // JSON_OBJECTAGG / JSON_ARRAYAGG ... OVER (PARTITION BY ...): the aggregates are window functions too
+    const jsonOver: Doc = over ? [' ', keyword('OVER', opts), ' ', printOverClause(over, opts, printFn)] : '';
+
     // JSON_OBJECT('key': value [, ...] [ABSENT ON NULL | NULL ON NULL]) — SQL Server 2022+
     const jsonParams = propArr(node, 'jsonParams');
     if (jsonParams.length > 0) {
         const pairs = jsonParams.map((kv) => printJsonKeyValue(kv, opts, printFn));
-        return group([
-            keyword(name, opts),
-            '(',
-            indent([softline, join([',', line], pairs), tailDoc]),
-            softline,
-            ')',
-        ]);
+        return [
+            group([keyword(name, opts), '(', indent([softline, join([',', line], pairs), tailDoc]), softline, ')']),
+            jsonOver,
+        ];
     }
 
     // JSON_ARRAYAGG(expr [ORDER BY ...] [ABSENT ON NULL | NULL ON NULL]) — SQL Server 2022+
     const jsonOrderBy = prop(node, 'jsonOrderBy');
     if (jsonOrderBy && name.toUpperCase() === 'JSON_ARRAYAGG') {
         const orderByDoc = [keyword('ORDER BY', opts), ' ', join(', ', orderByItems(jsonOrderBy, opts, printFn))];
-        return group([
-            keyword(name, opts),
-            '(',
-            indent([softline, join([',', line], args), ' ', orderByDoc, tailDoc]),
-            softline,
-            ')',
-        ]);
+        return [
+            group([keyword(name, opts), '(', indent([softline, join([',', line], args), ' ', orderByDoc, tailDoc]), softline, ')']),
+            jsonOver,
+        ];
     }
 
     // Standard function call (JSON_ARRAY and others with optional ABSENT/NULL ON NULL)
