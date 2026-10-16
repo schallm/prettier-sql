@@ -291,7 +291,9 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
     }
 
     // JSON_OBJECTAGG / JSON_ARRAYAGG ... OVER (PARTITION BY ...): the aggregates are window functions too
-    const jsonOver: Doc = over ? [' ', keyword('OVER', opts), ' ', printOverClause(over, opts, printFn)] : '';
+    // (printed only by the JSON forms: printing a clause takes its comments, so printing it for
+    // a call that prints it again below would lose them)
+    const jsonOver = (): Doc => (over ? [' ', keyword('OVER', opts), ' ', printOverClause(over, opts, printFn)] : '');
 
     // JSON_OBJECT('key': value [, ...] [ABSENT ON NULL | NULL ON NULL]) — SQL Server 2022+
     const jsonParams = propArr(node, 'jsonParams');
@@ -299,7 +301,7 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
         const pairs = jsonParams.map((kv) => printJsonKeyValue(kv, opts, printFn));
         return [
             group([keyword(name, opts), '(', indent([softline, join([',', line], pairs), tailDoc]), softline, ')']),
-            jsonOver,
+            jsonOver(),
         ];
     }
 
@@ -309,7 +311,7 @@ function printFunctionCall(node: SqlNode, opts: Options, printFn: PrintFn): Doc 
         const orderByDoc = [keyword('ORDER BY', opts), ' ', join(', ', orderByItems(jsonOrderBy, opts, printFn))];
         return [
             group([keyword(name, opts), '(', indent([softline, join([',', line], args), ' ', orderByDoc, tailDoc]), softline, ')']),
-            jsonOver,
+            jsonOver(),
         ];
     }
 

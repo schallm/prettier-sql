@@ -3304,6 +3304,26 @@ alter partition function pfOrderDate()
 "
 `;
 
+exports[`fixtures > procedural/comment-inside-statement-before-next.sql 1`] = `
+"alter table dbo.t
+  add
+    c int null,
+    constraint df default 0 for c;
+
+/* inside */
+select *
+into #tmp
+from t;
+
+/* here */
+execute dbo.p
+  @a = 1;
+
+/* arg */
+drop table if exists #tmp;
+"
+`;
+
 exports[`fixtures > procedural/comments-before-statement-body.sql 1`] = `
 "-- A line comment after the condition must end its line before the statement follows
 if object_id('tempdb..#t') is not null
@@ -4497,6 +4517,17 @@ exports[`fixtures > select/collate-raw-expressions.sql 1`] = `
 select
   {d '2020-01-01'} collate Latin1_General_BIN,
   {ts '2020-01-01 00:00:00'} collate Latin1_General_BIN;
+"
+`;
+
+exports[`fixtures > select/comment-in-over-clause.sql 1`] = `
+"select
+  row_number() over (partition by b /* part */ order by c /* ord */ desc) as rn,
+  sum(a) over (
+    partition by b -- by b
+    order by c
+  ) as total
+from t;
 "
 `;
 

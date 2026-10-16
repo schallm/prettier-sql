@@ -221,16 +221,20 @@ function appendTrailingComment(doc: Doc, comment: string | undefined): Doc {
  * Used for top-level statements and for bodies in procs/functions/triggers/IF/WHILE/etc.
  * Exported so that ddl.ts and procedural.ts can call it (circular import — safe in ESM).
  */
-export function printStatementWithComments(s: SqlNode, opts: Options): Doc {
+export function printStatementWithComments(s: SqlNode, opts: Options, deferred?: string[], carried: string[] = []): Doc {
     const printed = printStatement(s, opts);
-    // Comments inside the statement that no part of it printed: keep them, after it
+    // Comments inside the statement that no part of it printed: keep them, after it. When
+    // another statement follows (`deferred` given) they go before that one instead, where
+    // formatting again would put them: after the `;` they'd lead the next statement anyway
     const leftover = unprintedComments(s);
-    const stmtDoc = leftover.length > 0 ? appendTrailingLines(printed, leftover.join('\n')) : printed;
+    if (deferred && leftover.length > 0) deferred.push(...leftover.flatMap((c) => c.split(/\r?\n/)));
+    const kept = deferred ? [] : leftover;
+    const stmtDoc = kept.length > 0 ? appendTrailingLines(printed, kept.join('\n')) : printed;
     // Taken (marked printed), so an enclosing statement's leftover check doesn't print it again
     // after leftover comments (printed on their own lines) it goes on a line of its own as well
     const trailing = takeTrailingComment(s);
-    const withTrailing = leftover.length > 0 && trailing ? appendTrailingLines(stmtDoc, trailing.replace(/^\n/, '')) : appendTrailingComment(stmtDoc, trailing);
-    const leading = takeLeadingComments(s);
+    const withTrailing = kept.length > 0 && trailing ? appendTrailingLines(stmtDoc, trailing.replace(/^\n/, '')) : appendTrailingComment(stmtDoc, trailing);
+    const leading = [...carried, ...takeLeadingComments(s)];
     if (leading.length) {
         return [...leading.flatMap((c): Doc[] => [c, hardline]), withTrailing] as Doc;
     }
@@ -367,7 +371,14 @@ export function isMinor(node: SqlNode): boolean {
  * top-level batches.
  */
 export function joinBodyStatements(stmts: SqlNode[], opts: Options): Doc {
-    return joinStatements(stmts, isMinor, (s) => printStatementWithComments(s, opts));
+    // Comments a statement printed nowhere inside go before the next one (see printStatementWithComments)
+    let carried: string[] = [];
+    return joinStatements(stmts, isMinor, (s) => {
+        const deferred: string[] = [];
+        const doc = printStatementWithComments(s, opts, s === stmts.at(-1) ? undefined : deferred, carried);
+        carried = deferred;
+        return doc;
+    });
 }
 
 function printBatch(node: SqlNode, opts: Options): Doc {
