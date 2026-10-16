@@ -283,9 +283,13 @@ export function printScript(node: SqlNode, opts: Options): Doc {
     for (const count of (node.props?.['goBefore'] as (number | null)[] | undefined) ?? []) {
         if (count !== null) parts.push(goLine(count), hardline, hardline);
     }
+    let carried: string[] = [];
     for (let i = 0; i < batches.length; i++) {
         if (i > 0) parts.push(hardline, hardline);
-        parts.push(printBatch(batches[i]!, opts));
+        // Comments the last statement printed nowhere inside lead the next batch, after the GO
+        const deferred: string[] = [];
+        parts.push(printBatch(batches[i]!, opts, carried, i < batches.length - 1 ? deferred : undefined));
+        carried = deferred;
         const stmts = propArr(batches[i]!, 'statements');
         // The GO lines after this batch, when one has a repeat count; a bare GO after the first is a no-op
         const goLines = batches[i]!.props?.['goLines'] as (number | null)[] | undefined;
@@ -370,20 +374,21 @@ export function isMinor(node: SqlNode): boolean {
  * without a blank line. Used for procedure/function/trigger bodies and
  * top-level batches.
  */
-export function joinBodyStatements(stmts: SqlNode[], opts: Options): Doc {
-    // Comments a statement printed nowhere inside go before the next one (see printStatementWithComments)
-    let carried: string[] = [];
+export function joinBodyStatements(stmts: SqlNode[], opts: Options, carriedIn: string[] = [], deferLast?: string[]): Doc {
+    // Comments a statement printed nowhere inside go before the next one (see printStatementWithComments);
+    // the last one's go to deferLast, for whatever follows the list
+    let carried = carriedIn;
     return joinStatements(stmts, isMinor, (s) => {
-        const deferred: string[] = [];
-        const doc = printStatementWithComments(s, opts, s === stmts.at(-1) ? undefined : deferred, carried);
+        const deferred: string[] = s === stmts.at(-1) ? (deferLast ?? []) : [];
+        const doc = printStatementWithComments(s, opts, s === stmts.at(-1) && !deferLast ? undefined : deferred, carried);
         carried = deferred;
         return doc;
     });
 }
 
-function printBatch(node: SqlNode, opts: Options): Doc {
+function printBatch(node: SqlNode, opts: Options, carriedIn: string[] = [], deferLast?: string[]): Doc {
     const stmts = propArr(node, 'statements');
-    return joinBodyStatements(stmts, opts);
+    return joinBodyStatements(stmts, opts, carriedIn, deferLast);
 }
 
 // ---------------------------------------------------------------------------

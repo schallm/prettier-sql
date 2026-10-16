@@ -2029,6 +2029,16 @@ from [go];
 "
 `;
 
+exports[`fixtures > ddl/comment-inside-last-statement-of-batch.sql 1`] = `
+"create synonym MyAlias for dbo.Books;
+go
+
+-- inside
+create synonym dbo.MyAlias for dbo.Books;
+go
+"
+`;
+
 exports[`fixtures > ddl/create-schema-elements.sql 1`] = `
 "-- CREATE SCHEMA with schema elements: one statement, no semicolons between elements
 create schema s authorization dbo
@@ -3301,6 +3311,19 @@ truncate table dbo.Orders with (partitions (1, 5 to 10, 20));
 -- SPLIT / MERGE without a RANGE
 alter partition function pfOrderDate()
   split;
+"
+`;
+
+exports[`fixtures > procedural/comment-after-waitfor-receive.sql 1`] = `
+"waitfor (
+  receive top (1)
+    conversation_handle,
+    message_body
+  from dbo.q
+  where conversation_group_id = @g /* after the receive */
+), timeout 1000;
+
+select 1;
 "
 `;
 

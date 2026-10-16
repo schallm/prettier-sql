@@ -4,7 +4,7 @@ import type { Options } from '@prettier-sql/core/printer/utils';
 import { keyword, hardline, softline, join, indent, group, onOffKw, line, getDensity, parenList, parenListFill, optionItems, commaFill, willBreak, hardSep } from '@prettier-sql/core/printer/utils';
 import { asQueryDoc } from '@prettier-sql/core/printer/layout';
 import { boolEndsWithPendingComment } from './expressions.js';
-import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, assignmentOp, markSingleBody, isSingleBody, optionText } from './helpers.js';
+import { prop, propArr, propStr, propBool, propStrArr, schemaObjectName, builtinTypeDoc, assignmentOp, markSingleBody, isSingleBody, optionText, appendComments, takeTrailingComment } from './helpers.js';
 // printNode / printBool / qexpr / printStatementWithComments are imported from statements.ts
 // — circular but safe in ESM (all imports are function references, never accessed during init)
 import { printStatementWithComments, joinBodyStatements, printNode, printBool, printSelectBody } from './statements.js';
@@ -248,7 +248,7 @@ export function printWaitFor(node: SqlNode, opts: Options): Doc {
     if (receive) {
         const timeout = propStr(node, 'timeout');
         return [
-            keyword('WAITFOR', opts), ' (', indent([hardline, receiveDoc(receive, opts)]), hardline, ')',
+            keyword('WAITFOR', opts), ' (', indent([hardline, appendComments(receiveDoc(receive, opts), takeTrailingComment(receive))]), hardline, ')',
             timeout ? [', ', keyword('TIMEOUT', opts), ' ', timeout] : '', ';',
         ];
     }
