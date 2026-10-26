@@ -1,5 +1,11 @@
 # prettier-plugin-postgresql
 
+## 0.4.3
+
+### Patch Changes
+
+- c8d787d: Update `node-api-dotnet` to 0.9.31.
+
 ## 0.4.2
 
 ### Patch Changes

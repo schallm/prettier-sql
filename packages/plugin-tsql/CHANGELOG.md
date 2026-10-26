@@ -1,5 +1,11 @@
 # prettier-plugin-tsql
 
+## 0.10.3
+
+### Patch Changes
+
+- c8d787d: Update `node-api-dotnet` to 0.9.31.
+
 ## 0.10.2
 
 ### Patch Changes
